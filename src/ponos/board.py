@@ -36,15 +36,13 @@ from . import (
     store,
     subtypes,
     ticket_page,
-    tickets,
 )
-from . import ledger as ledger_module
 from . import voice as voice_module
 from .base import Base
 from .projects import Project
 from .question import Question
 
-# The one reading of a Notion date in the project. It lives beside the calendar
+# The one reading of a board's date in the project. It lives beside the calendar
 # because a date on a ticket and a date on a schedule mean the same thing, and
 # two readings of them that drift apart is a bug nobody would ever find.
 from .schedules import scheduled_for
@@ -56,13 +54,6 @@ from .ticket import Ticket
 # back "ready" from the status it had before — and be run a second time.
 SETTLE = 15.0
 
-# The open tickets whose page is put in its two parts (ticket_page.py), and how
-# many a pass does at most: each costs a few requests, and a board of two
-# hundred open tickets is better done over a few passes than in one. A ticket
-# done or cancelled keeps the page it ended with.
-RESHAPED = ("ready", "blocked", "review", "draft")
-RESHAPED_PER_PASS = 10
-
 
 class InHand:
     """The tickets a pass is working on, held out of its readings of the board.
@@ -73,8 +64,8 @@ class InHand:
     still being skipped at 23:50, with nothing anywhere to say why, while every
     new ticket went straight through. Being moved back to ready is asking for
     the ticket to be run again: it is held out only while a session of this pass
-    is really on it, and `SETTLE` seconds after, for Notion to stop serving the
-    status it had before.
+    is really on it, and `SETTLE` seconds after, for a reading begun before the
+    move to stop serving the status it had before.
     """
 
     def __init__(self, settle: float | None = None) -> None:
@@ -130,7 +121,7 @@ class Board(Base):
         merge or the publication — and they must not drift apart on what a date
         means.
         """
-        return scheduled_for(store.read(ticket.page, self.config.notion.prop("due")))
+        return scheduled_for(store.read(ticket.page, self.config.board.prop("due")))
 
     def queue(self) -> tuple[list[Ticket], list[tuple[Ticket, datetime]]]:
         """The tickets to run now, and those waiting for their date.
@@ -174,7 +165,7 @@ class Board(Base):
             eligible.append(ticket)
 
         def rank(ticket: Ticket) -> tuple[int, int, float, str]:
-            value = store.read(ticket.page, self.config.notion.prop("priority"))
+            value = store.read(ticket.page, self.config.board.prop("priority"))
             return (
                 0 if ticket.id in interrupted else 1,
                 -priority.score(value),
@@ -199,7 +190,7 @@ class Board(Base):
         a ticket started a pass late costs nothing, one started too early
         costs a session.
         """
-        settings = self.config.notion
+        settings = self.config.board
         column = settings.prop("after")
         if not column:
             self._waiting_on = {}
@@ -237,9 +228,9 @@ class Board(Base):
         return self.queue()[0]
 
     def _ready_filter(self) -> dict[str, Any]:
-        status_property = self.config.notion.prop("status")
+        status_property = self.config.board.prop("status")
         kind = self.client.schema(self.database).get(status_property, "status")
-        return {"property": status_property, kind: {"equals": self.config.notion.state("ready")}}
+        return {"property": status_property, kind: {"equals": self.config.board.state("ready")}}
 
     def _woken_filter(self) -> dict[str, Any]:
         """Every status but the ones that already speak for a ticket.
@@ -249,22 +240,22 @@ class Board(Base):
         on a ticket that came back with its pull request is a conversation about
         the work, not a request to do it again. Cancelled is given up on, and a
         word under it is not the runner's to take as an order — only on a board
-        that offers it, since a filter on an option Notion does not know is
+        that offers it, since a filter on an option the board does not know is
         refused. The same for paused, which you stopped on purpose: a word under
         it is not the order to carry on. What is left is where a run leaves a
         ticket it could not finish — which is precisely where an answer is
         expected.
         """
-        status_property = self.config.notion.prop("status")
+        status_property = self.config.board.prop("status")
         kind = self.client.schema(self.database).get(status_property, "status")
         settled = {
-            self.config.notion.state(key)
+            self.config.board.state(key)
             for key in ("done", "review", "validated", "ready", "running")
         }
         if self.cancelled_column():
-            settled.add(self.config.notion.state("cancelled"))
+            settled.add(self.config.board.state("cancelled"))
         if self.paused_column():
-            settled.add(self.config.notion.state("paused"))
+            settled.add(self.config.board.state("paused"))
         return {
             "and": [
                 {"property": status_property, kind: {"does_not_equal": value}}
@@ -279,16 +270,15 @@ class Board(Base):
         rather than assumed: a board built before it has no such property, and
         the credit then stops the runner exactly as it did before — silently,
         with the tickets left where they were and nothing on the board to say
-        why. Which is the whole argument for a property over a status option: an
-        attribute *can* be added to an existing database through the API, so
-        running `init` again is enough, where an eighth column would have had to
-        be typed into Notion by hand.
+        why. Which is the whole argument for a property over a status option:
+        what happened to the ticket is that nothing happened to it, and an
+        eighth column would have said it left the board.
 
         The type is checked too. A "Waiting for credit" that somebody made a
         text column is not this: writing `True` into it would read as the word
         "True" on the board, and querying it would fail the whole pass.
         """
-        name = self.config.notion.prop("waiting")
+        name = self.config.board.prop("waiting")
         try:
             return name if self.client.schema(self.database).get(name) == "checkbox" else ""
         except store.StoreError:
@@ -302,7 +292,7 @@ class Board(Base):
         project's rule plans them first: nothing is ticked then, the plan
         proposed in the comments is what carries it on — see planning.py.
         """
-        name = self.config.notion.prop("plan")
+        name = self.config.board.prop("plan")
         try:
             return name if self.client.schema(self.database).get(name) == "checkbox" else ""
         except store.StoreError:
@@ -316,7 +306,7 @@ class Board(Base):
         — by what their project holds — rather than being classified into a
         column nobody can see. `init` adds it.
         """
-        name = self.config.notion.prop("type")
+        name = self.config.board.prop("type")
         try:
             return name if name in self.client.schema(self.database) else ""
         except store.StoreError:
@@ -329,7 +319,7 @@ class Board(Base):
         reads them off the title's prefix alone, and never asks a session for a
         value it has nowhere to keep.
         """
-        name = self.config.notion.prop("subtype")
+        name = self.config.board.prop("subtype")
         try:
             return name if name in self.client.schema(self.database) else ""
         except store.StoreError:
@@ -354,7 +344,7 @@ class Board(Base):
         column = self.subtype_column()
         if not column:
             return []
-        settings = self.config.notion
+        settings = self.config.board
         ended = {settings.state("done"), settings.state("cancelled")}
         filled: list[tuple[store.Page, str]] = []
         for page in self.client.query(self.database):
@@ -379,8 +369,8 @@ class Board(Base):
         the first is classified before the ticket runs, and the second is run
         the way it always was — see `Preparation._kind`.
         """
-        return self.config.notion.kind_of(
-            str(store.read(ticket.page, self.config.notion.prop("type")) or "")
+        return self.config.board.kind_of(
+            str(store.read(ticket.page, self.config.board.prop("type")) or "")
         )
 
     def kind_name(self, key: str) -> str:
@@ -390,7 +380,7 @@ class Board(Base):
         a board built in French is written “Rédaction” rather than given a second
         option that means the same thing.
         """
-        settings = self.config.notion
+        settings = self.config.board
         names = settings.kind_names(key)
         if len(names) > 1:
             try:
@@ -410,7 +400,7 @@ class Board(Base):
         select with options named "75".
         """
         try:
-            kind = self.client.schema(self.database).get(self.config.notion.prop("priority"))
+            kind = self.client.schema(self.database).get(self.config.board.prop("priority"))
         except store.StoreError:
             kind = None
         return priority.cell(score, kind)
@@ -475,14 +465,11 @@ class Board(Base):
         Which machine reported is read off the board's Agent column rather than
         off the comment: reports open on a verdict now, not on a host, and the
         column is where the host was always written down anyway. An empty one
-        is a ticket no run has claimed, which is most of a backlog: unless the
-        ledger remembers speaking on it, there is no report to find, and asking
-        Notion would cost a request per ticket and per pass for nothing.
+        is a ticket no run has claimed, which is most of a backlog: its comments
+        are read all the same, as a report is what decides.
         """
-        agent = str(store.read(ticket.page, self.config.notion.prop("agent")) or "")
+        agent = str(store.read(ticket.page, self.config.board.prop("agent")) or "")
         if agent and agent != self.agent_label:
-            return False
-        if not agent and not self.ledger.knows(ticket.page.id):
             return False
         try:
             comments = self.comments(ticket.page.id)
@@ -507,7 +494,7 @@ class Board(Base):
         return not conversation.addressed(since[-1].text, self.spellings())
 
     def myself(self) -> str:
-        """The integration's own user ID, or "" if Notion would not say.
+        """The runner's own identity on the board, or "" if the board would not say.
 
         Asked once per run, and never a reason to fail one: without it the
         runner falls back on recognising its own signature, which is enough to
@@ -525,22 +512,22 @@ class Board(Base):
     def spellings(self) -> tuple[str, ...]:
         """Every way of naming the runner in a comment, resolved once per run.
 
-        The integration's own name comes from Notion and a run must not fail for
-        want of it: without it, the configured word and the built-in aliases are
-        still every name anybody types.
+        The runner's own name comes from the board and a run must not fail for
+        want of it: without it, the word and the built-in aliases are still
+        every name anybody types.
         """
         if self._spellings is None:
             try:
                 integration = self.client.my_name()
             except store.StoreError:
                 integration = ""
-            self._spellings = conversation.names(self.config.notion.mention, integration)
+            self._spellings = conversation.names("", integration)
         return self._spellings
 
     def _project_of(self, ticket: Ticket) -> Project:
         """The ticket's project, or none at all. Never a failure: a conversation
         about a ticket whose repository has moved is still a conversation."""
-        relation = store.read(ticket.page, self.config.notion.prop("project")) or []
+        relation = store.read(ticket.page, self.config.board.prop("project")) or []
         if not relation:
             return Project(name="", path=None)
         try:
@@ -574,7 +561,7 @@ class Board(Base):
         tickets through has none either — a cancelled ticket that is `done`
         is a done one, and one that is `ready` would be run.
         """
-        settings = self.config.notion
+        settings = self.config.board
         cancelled = settings.state("cancelled")
         others = ("ready", "running", "review", "validated", "done", "blocked", "paused")
         if not cancelled or cancelled in (settings.state(key) for key in others):
@@ -587,10 +574,10 @@ class Board(Base):
         Optional like cancelled, and for the same reasons: a board without it
         cannot be told to leave a ticket alone, and a `paused` that is a status
         the runner moves tickets through would be a ticket stopped and run
-        anyway. Asked before every filter on it — Notion refuses an option it
+        anyway. Asked before every filter on it — a board refuses an option it
         does not know.
         """
-        settings = self.config.notion
+        settings = self.config.board
         paused = settings.state("paused")
         others = ("ready", "running", "review", "validated", "done", "blocked")
         if not paused or paused in (settings.state(key) for key in others):
@@ -608,7 +595,7 @@ class Board(Base):
         if "://" in page_id:
             page_id = page_id.split("?")[0].rstrip("/").rsplit("/", 1)[-1].rsplit("-", 1)[-1]
         ticket = Ticket(self.client.page(page_id.replace("-", "")))
-        settings = self.config.notion
+        settings = self.config.board
         if self.cancelled_column() and store.read(
             ticket.page, settings.prop("status")
         ) == settings.state("cancelled"):
@@ -616,114 +603,6 @@ class Board(Base):
             return []
         self.say(f"Requested ticket: {ticket.title}")
         return [ticket]
-
-    def mirror(self) -> None:
-        """Keep `ponos.db` and Notion level: what rose first, then the queue emptied.
-
-        In this order because a ticket whose changes are still queued is not
-        read upward (notion_import.rise): the queue goes out before the next
-        pass reads the board. Never a reason to fail a pass — a Notion that does
-        not answer leaves the queue where it is, and nothing waits for it.
-        """
-        # Nothing to keep level before `ponos import notion` has been run, and
-        # only an installation with a Notion has a mirror to be level with.
-        if self.dry_run or self.config.standalone or not tickets.adopted():
-            return
-        from . import mirror as mirror_module
-        from . import notion_import
-
-        # Notion itself, not the ledger in front of it: the mirror is the one
-        # reader and writer of the board left (see ledger.py).
-        board = self.client.notion if isinstance(self.client, ledger_module.Ledger) else self.client
-        try:
-            risen = notion_import.rise(board, self.config, self.workspace, self._risen)
-            sent = mirror_module.flush(board, self.config, self.workspace)
-        except store.StoreError as error:
-            self.say(f"  ! mirror: {voice_module.line(error)}")
-            return
-        for problem in [*risen.problems, *sent.problems]:
-            self.say(f"  ! mirror: {problem}")
-        if risen:
-            self.say(
-                f"  ⇅ {risen.created} ticket(s) and {risen.changed} change(s) "
-                f"and {risen.comments} comment(s) came up from Notion"
-            )
-        if sent.failed:
-            self.say(f"  ! {sent.failed} change(s) still wait for Notion")
-
-    def reshape(self) -> int:
-        """Put the open tickets' pages in their two parts, once each — see ticket_page.py.
-
-        The page as it stands, without the toggles the old live report left on
-        it, is the mission, and is not touched; « What was done » is appended
-        under it: the last report the runner wrote under the ticket, then the
-        sessions the journal has of it. Once every open ticket has been seen,
-        the board is not read for it again: a ticket written since comes with
-        both parts already.
-        """
-        if state.shaped([state.EVERY_PAGE]):
-            return 0
-        settings = self.config.notion
-        status = settings.prop("status")
-        wanted = dict.fromkeys(filter(None, (settings.state(key) for key in RESHAPED)))
-        try:
-            kind = self.client.schema(self.database).get(status, "status")
-            pages = [
-                page
-                for name in wanted
-                for page in self.client.query(
-                    self.database, {"property": status, kind: {"equals": name}}
-                )
-            ]
-        except store.Unreachable:
-            raise
-        except store.StoreError as error:
-            self.say(f"  ! the open tickets could not be read: {voice_module.line(error)}")
-            return 0
-        tickets = [Ticket(page) for page in pages]
-        seen = state.shaped([ticket.id for ticket in tickets])
-        left = [ticket for ticket in tickets if ticket.id not in seen]
-        reshaped = 0
-        for ticket in left[:RESHAPED_PER_PASS]:
-            try:
-                if self._reshape(ticket):
-                    reshaped += 1
-            except store.Unreachable:
-                raise
-            except store.StoreError as error:
-                self.say(f"  ! {ticket.title} — not put in two parts: {voice_module.line(error)}")
-                continue
-            state.shape(ticket.id)
-        if reshaped:
-            self.say(f"  ⇵ {reshaped} ticket page(s) put in two parts")
-        if len(left) <= RESHAPED_PER_PASS:
-            state.shape(state.EVERY_PAGE)
-        return reshaped
-
-    def _reshape(self, ticket: Ticket) -> bool:
-        """One page in two parts, unless it already is. Whether it was written."""
-        text = self.client.blocks_text(ticket.page.id, live=False)
-        if ticket_page.split(text).done:
-            return False
-        try:
-            said = self.comments(ticket.page.id)
-        except store.Unreachable:
-            raise
-        except store.StoreError:
-            # Comments an integration may not read: the part is the history alone.
-            said = []
-        last = next(
-            (comment.text for comment in reversed(said) if voice_module.is_report(comment.text)),
-            "",
-        )
-        history = [
-            ticket_page.history_line(self.voice, run, self.config.web.url)
-            for run in journal.history(ticket.id)
-        ]
-        self.client.replace_section(
-            ticket.page.id, ticket_page.DONE, ticket_page.section(self.voice, last, history)
-        )
-        return True
 
     def sweep(self) -> int:
         """Put back tickets a dead runner left claimed.
@@ -768,8 +647,8 @@ class Board(Base):
         closed = journal.interrupted(stopping.live() | adopted)
         if closed:
             self.say(f"  ↺ {closed} run(s) left open by a dead runner, closed")
-        status_property = self.config.notion.prop("status")
-        agent = self.config.notion.prop("agent")
+        status_property = self.config.board.prop("status")
+        agent = self.config.board.prop("agent")
         try:
             schema = self.client.schema(self.database)
             kind = schema.get(status_property, "status")
@@ -778,7 +657,7 @@ class Board(Base):
                 self.database,
                 {
                     "property": status_property,
-                    kind: {"equals": self.config.notion.state("running")},
+                    kind: {"equals": self.config.board.state("running")},
                 },
             )
         except store.Unreachable:
@@ -806,7 +685,7 @@ class Board(Base):
                 origin = state.claims().get(ticket.id, "")
                 said = self.voice
                 stopped = said.say("abandoned", minutes=said.minutes(age.total_seconds()))
-                if origin and origin != self.config.notion.state("ready"):
+                if origin and origin != self.config.board.state("ready"):
                     self.say(
                         f"  ↺ {ticket.title} — publication interrupted, asking rather than redoing"
                     )
@@ -814,7 +693,7 @@ class Board(Base):
                     self._set(
                         ticket,
                         **{
-                            status_property: self.config.notion.state("blocked"),
+                            status_property: self.config.board.state("blocked"),
                             **self._blocked_by("worktree.interrupted"),
                         },
                         **self._refusal_cleared(ticket),
@@ -836,7 +715,7 @@ class Board(Base):
                 self.say(f"  ↺ {ticket.title} — claimed but no run alive, put back")
                 self._set(
                     ticket,
-                    **{status_property: self.config.notion.state("ready")},
+                    **{status_property: self.config.board.state("ready")},
                     **self._refusal_cleared(ticket),
                 )
                 self._comment(
@@ -874,10 +753,10 @@ class Board(Base):
         A board whose `review` and `done` are the same status has nowhere for a
         ticket to wait, so there is nothing to look at.
         """
-        review = self.config.notion.state("review")
-        if review == self.config.notion.state("done"):
+        review = self.config.board.state("review")
+        if review == self.config.board.state("done"):
             return 0
-        status_property = self.config.notion.prop("status")
+        status_property = self.config.board.prop("status")
         try:
             kind = self.client.schema(self.database).get(status_property, "status")
             pages = self.client.query(
@@ -891,7 +770,7 @@ class Board(Base):
         closed = 0
         waiting: list[store.Page] = []
         for page in pages:
-            url = str(store.read(page, self.config.notion.prop("pull_request")) or "")
+            url = str(store.read(page, self.config.board.prop("pull_request")) or "")
             if not url.startswith("http"):
                 continue
             if git.pull_request_state(url, self.config.github) != "MERGED":
@@ -904,7 +783,7 @@ class Board(Base):
                 self.say(f"  ✓ {ticket.title} — pull request merged, moved to done")
                 self._set(
                     ticket,
-                    **{status_property: self.config.notion.state("done")},
+                    **{status_property: self.config.board.state("done")},
                     **self._refusal_cleared(ticket),
                 )
                 self._comment(
@@ -939,7 +818,7 @@ class Board(Base):
         of work away, not the whole board's, now that a place is filled as soon
         as it frees.
 
-        And a Notion that will not answer leaves the place empty rather than
+        And a board that will not answer leaves the place empty rather than
         failing the pass: the sessions in flight are hours of work, and a
         refusal here is the next completion's problem.
         """

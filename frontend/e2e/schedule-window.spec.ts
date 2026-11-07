@@ -202,7 +202,7 @@ test("the type its tickets are born with is a button, and code says its sub-type
 
 /* The project its tickets are for: chosen as a new ticket's is, from the
  * board's projects. Without one, every ticket the schedule makes comes back as
- * a document — a schedule of code work could only be written in Notion. */
+ * a document — a schedule of code work could not be written here. */
 const WEBSITE = "0000000000000000000000000000cafe"
 // Neither renamed by `projects.spec.ts`, which shares this board.
 const JOURNAL = "0000000000000000000000000000f00d"

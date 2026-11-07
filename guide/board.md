@@ -2,27 +2,20 @@
 
 [The guide](README.md) · [Ponos](../README.md)
 
-Where the tickets live, with Notion or without it, and the Notion side: its databases, and what a ticket carries.
+Where the tickets live, and what a ticket carries.
 
-## Without Notion
+## Where the tickets live
 
-Notion is not required. The tickets live in `ponos.db` (`~/.local/state/ponos/ponos.db`),
-whatever the installation: the runner, the console, the MCP and the CLI read and write them
-there. What Notion adds is a second place to see them and to write them from — see
-[The mirror](#the-mirror-ponosdb-first-notion-a-copy).
+The board is the [console](console.md#the-web-console) and `ponos.db`
+(`~/.local/state/ponos/ponos.db`): the runner, the console, the MCP and the CLI read and write
+the tickets there, and it is the source of truth — there is no other place a ticket lives. The
+other objects of the board — the projects, the agents, the goals, the schedules and the
+standing context — live in the `board_pages` table of the same `ponos.db`. Nothing to
+configure: no token to create, no page to share. `install.sh` and the Docker image ask for
+nothing about the board, and the console's first connection goes straight to who answers the
+sessions.
 
-The other objects of the board — the projects, the agents, the goals, the schedules and the
-standing context — live in Notion when `notion.token` is set, and in the `board_pages` table of
-the same `ponos.db` when it is not. So an installation with no token is a valid one, with
-nothing to configure: no token to create, no page to share, no integration to grant
-capabilities to. `ponos doctor` stops asking Notion who you are, and `require_usable` stops
-asking you for a token. `install.sh` and the Docker image do not ask for one either, and the
-console's first connection offers both roads on its Notion step: connect a Notion workspace, or
-go on without. Giving a token later changes nothing about the tickets; the projects and the rest
-are then read from Notion, which is where `ponos import notion` brings the tickets across.
-
-The console works the same way in both cases — the board, a ticket's page, its discussion, the
-live steps. And it has the screens that make an installation without Notion self-sufficient:
+The console has the screens that make the board self-sufficient:
 **Projects** (every project this installation knows of, the board's and the ones only
 `[projects]` names — each of them a form a click opens in a drawer over the list, and a page of
 its own), headed by the **global context** (the standing text every ticket is told first, for
@@ -32,127 +25,57 @@ turned off from the list itself, its name opens the six columns it is written in
 context its tickets are born with, in a window that says when the next ticket is born, and a new
 schedule is created unticked unless its « Turn on right away » box is ticked. Every field of the
 console that holds Markdown — that context, the standing one, a project's brief, a new ticket —
-is a Notion-like editor rather than a text area.
+is a rich editor rather than a text area.
 
-**A project has a picture.** The cover of its page and its icon — Notion's own, the
-banner and the emoji or image in front of the title — are the thumbnail in the list of
-projects and the banner of the project's page; a project with neither gets its initial on
-a colour of its own. *Change the image* uploads a file (shrunk to 1500 px, WebP, before it
-leaves the browser), takes a pasted address, or an emoji for the icon. With Notion, it is set
-on the Notion page — through Notion's File Upload API for a file, as it is for an address;
-without, it is kept in `ponos.db`. What is changed in Notion comes back at the next reading of
-the projects. A file Notion keeps is
-behind a URL that expires within the hour, so the console never shows that URL: it keeps
-a copy under `~/.local/state/ponos/images/`, fetched again when the page was
-edited since or the picture is another one. A change Notion refuses — no network, no right
-to update the page — is kept and shown as chosen, says why, and is sent again at the next
-reading; changed on both sides in between, the newest wins and the page says which.
+**A ticket's page is in two parts.** The Mission, which you write, and « What was done »,
+which Ponos rewrites when a session ends. A document or an external ticket delivers into
+that second part: its result is shown on the ticket's page in the console, where *Edit* lets
+you correct it, and the next session of the ticket writes it again from its own report.
+
+**A project has a picture.** A cover — the banner across its page — and an icon — an emoji
+or a small image in front of its title — are the thumbnail in the list of projects and the
+banner of the project's page; a project with neither gets its initial on a colour of its own.
+*Change the image* uploads a file (shrunk to 1500 px, WebP, before it leaves the browser),
+takes a pasted address, or an emoji for the icon. A file is kept beside `ponos.db`; an
+address is somebody else's image, shown through a copy the console keeps under
+`~/.local/state/ponos/images/`.
 
 The journal is the `sync_journal` table of `ponos.db`, kept for `log_retention_days`. The
-console and the runner write in it: `seen` when the console notices a status change (with
-Notion's edit time — to the minute, all Notion keeps — and the moment it saw it),
-`console→notion` when a move from the console is confirmed, `write-failed` when one is given
-up on, `drift` when the five-minute full read of the board finds something the incremental
-reads had wrong, and `conflict` when a status was not written over somebody else's — by the
-console, or by a run that finds its ticket moved by hand during the session. The console
-shows it where it refuses a write.
+console and the runner write in it: `seen` when the console notices a status change (and the
+moment it saw it), a confirmation when a move from the console is written, `write-failed` when
+one is given up on, `drift` when the five-minute full read of the board finds something the
+incremental reads had wrong, and `conflict` when a status was not written over somebody
+else's — by the console, or by a run that finds its ticket moved by hand during the session.
+The console shows it where it refuses a write.
+
+## Coming from Notion
+
+Ponos used to keep its board in Notion, then mirrored it there; it no longer talks to Notion
+at all. The tickets, the projects, the agents, the goals, the schedules, the context and the
+comments were brought into `ponos.db` by the release before this one, and the importer —
+the `import notion` command — is gone with the rest; it is still in the git history. Your Notion
+workspace is left exactly as it was: Ponos never changed it and never will.
+
+What an installation that had Notion still has to do, once:
+
+- take every `[notion]` table — `[notion]`, `[notion.pages]`, `[notion.properties]`,
+  `[notion.status]` — out of `config.toml`: a file that still holds one is refused, and the
+  runner and the console do not start until it is gone (`ponos doctor` names the line);
+- remove `PONOS_NOTION_TOKEN` from `secrets.env` (and from a compose file or a Dokploy
+  template): nothing reads it any more;
+- nothing in `ponos.db`: the first start migrates it, after a copy of the file beside it
+  (`ponos.db.v<N>.bak`), and drops the tables only the mirror used.
+
+The `init` command, which built the Notion databases, is gone too.
 
 ---
 
-## The Notion side
-
-What it looks like from Notion, filmed on a demonstration board — the projects and
-tickets are made up:
-
-![A ticket in review, opened in Notion: the folded log of the run, then the comment with the pull request and the cost](../docs/media/notion/notion-read-result.gif)
-
-*A ticket in review: the log Ponos folds into the page, then his comment — pull request, time, cost.*
-
-![A writing ticket in Notion, the text Ponos wrote appearing in the page of the ticket](../docs/media/notion/notion-text.gif)
-
-*A writing ticket: the text comes back in the page itself, ready to copy.*
-
-![On the Notion board, a card dragged from In review to Validated](../docs/media/notion/notion-validate.gif)
-
-*The go-ahead: drag the card to Validated, and he merges or publishes.*
-
-### The mirror: `ponos.db` first, Notion a copy
-
-Tickets are moving into `ponos.db`, and Notion is becoming a mirror of them. This
-is the third of four steps: once `ponos import notion` has filled the database, the
-runner, the console, the MCP and the CLI read and write the tickets there and never
-ask Notion for one. Notion is touched only by the mirror below — projects, agents,
-goals and the standing context are still read from it until you have let go of Notion (below).
-
-**`ponos import notion`** brings home everything Notion still holds, in one run
-you can replay: the projects, agents, goals and recurrences (under their own
-identifiers, so every relation still lands), the standing context, and every
-ticket — done and cancelled ones included — with its properties, its Mission and
-its « What was done », the tickets it comes after, and its comments. The images
-and files a page names are downloaded beside `ponos.db` (`page-files/`) and shown
-by the console as before. Run it again and it adds nothing: what is already there
-is left as it is, and only what is missing is completed. Until you have run it,
-the tickets are Notion's as before; from the first ticket in the database on, they
-are the database's. Notion itself is only ever read — never changed, never emptied.
-
-**`ponos import notion --check`** is the parity report: it writes nothing, counts
-both sides type by type (tickets, ticket texts, comments, « after » links, files,
-and each kind of page), and lists whatever Notion has that `ponos.db` lacks. No
-line in the list means nothing would be lost by letting go of the Notion token.
-A ticket whose two parts are both written in `ponos.db` cannot lose a text, so its
-page is not read again — only its comments are; the report says how many were spared.
-
-**Letting go of Notion.** Once the report is clean, remove `PONOS_NOTION_TOKEN`
-from `secrets.env` (keep a copy beside it), take `workspace` and `tickets_database`
-out of the `[notion]` table of `config.toml` — an installation that still names a part of
-Notion is one whose token is missing, and refuses to start — and restart the runner and
-the console.
-With no token, Ponos has no mirror: projects, agents, goals, recurrences and the
-context are `ponos.db`'s, every address Ponos writes for a ticket — notifications,
-the pull request's body, `ponos list`, the reports — is the console's
-(`/tickets/<id>`; the old page identifiers still name the ticket), and the Notion
-workspace stays as it was, a read-only archive.
-
-**A document or an external ticket delivers into `ponos.db`.** Its result is the
-ticket's document (the « What was done » part), shown on the ticket's page in the
-console, where *Edit* lets you correct it. The next session of the ticket writes
-that part again from its own report.
-
-**What still comes up from Notion** while a token is set is a closed list, read at every look of the daemon's upkeep (`interval_seconds`):
-
-- a page you create;
-- a change of status;
-- a change to the Mission.
-
-A comment written in Notion is no longer read: answer from the console, the MCP,
-Telegram or Slack.
-
-Everything else on the page — the pull request, the cost, the progress, the
-priority, the model… — belongs to Ponos. If you edit one of those cells in Notion,
-the mirror writes the database's value over it.
-
-**The mirror** is the other direction: every change made to a ticket in
-`ponos.db` waits in a queue, and each round of the daemon's upkeep sends it to Notion, in order. A change
-that Notion does not take (a token that is no longer valid, no network) stays in
-the queue with its count of tries and its last error, and goes again on the next
-round; no ticket waits for it. A ticket whose changes are still queued is not read
-from Notion until they have been sent, so the older word never wins over the newer.
-
-**Notion can be down and the tickets still run.** A token that is refused, no network:
-ready tickets are claimed, worked, delivered and answered from `ponos.db`, and the
-mirror catches Notion up when it answers again. A daemon that cannot reach Notion starts
-from the databases and the project pages it last read there (kept beside `ponos.db`);
-a project page it never read cannot be found without Notion. A ticket created in the
-console appears in Notion at the next round, and one created in Notion appears in the
-console at the next, from either side.
+## What a ticket carries
 
 ### The tickets database
 
-The names below are **fixed**: they are not settings, `ponos init` creates them exactly so,
-and `ponos doctor` names each column a board lacks or holds under another type, each status
-it does not offer and each option of `Sous-type` that is none of the runner's. A
-configuration that still holds `[notion.properties]`, `[notion.status]` or `[notion.types]`
-— they were how a board built by hand used to keep its own words — is read without them.
+The names below are **fixed**: they are not settings, and `ponos.db` holds every one of
+them from the first ticket.
 
 The options of the selects are **French** wherever they are words — `Rédaction`, `Action
 externe`, `Amélioration`, `Sécurité`, `en cours`, `réussi`, `erreur`: it is the language the
@@ -188,15 +111,12 @@ keywords (`ready`, `progress`, `review`…) its formulas and views filter on.
 happened to a ticket nothing was started for, so nothing on the board should say it moved.
 Once the credit is back, the daemon takes the ticked ones first — they are the ones already
 half done — picks their session back up, and unticks them as it claims them. It is also
-the reason this reaches a board you built last month: a property can be added to an
-existing database through Notion's API, where an option on a real `status` cannot. Run
-`ponos init` again and it appears; skip it and the runner waits out the credit
-exactly as it did before, only silently. See [Stopping before the wall](credits.md#stopping-before-the-wall).
+the reason it is a tick and not a status: what is waiting is still ready. See
+[Stopping before the wall](credits.md#stopping-before-the-wall).
 
 `Plan d'abord` is an attribute for the same reason: a ticket planned first runs, asks and
-is answered like any other, and only what its first session may do changes. `ponos init`
-adds it to a board built before it, and the console's *New ticket* draws the box wherever
-the board has it. The tickets of `ponos.db` carry it too.
+is answered like any other, and only what its first session may do changes. The console's
+*New ticket* draws the box.
 
 `Scheduled` is what turns the board into a calendar. A ticket without one starts within
 seconds of reaching the ready column, so a date on it can only mean *not yet*: the runner
@@ -215,13 +135,12 @@ is taken as written, offset included. A range starts at its end — the moment t
 due. And a value the runner cannot read never holds a ticket back: a ticket is not frozen
 by a date that failed to parse.
 
-Precision is to the minute, and that limit is Notion's rather than the runner's: it stores
-`14:48:27` as `14:48`. With a ten-second cadence a ticket therefore starts within a few
-seconds of the minute you named, which is as close as the board can express.
+Precision is to the minute: the console writes `14:48`, not `14:48:27`. A ticket therefore
+starts within a few seconds of the minute you named, which is as close as the board
+expresses it.
 
-The last six are optional in the strict sense: a database without them behaves exactly as
-before, because the runner only ever writes properties the schema declares. Add them and
-you get a queue you can steer — a cheap model for a documentation ticket, an expensive one
+The optional ones are optional in the strict sense: left empty, a ticket behaves exactly
+as one without them. Fill them in and you get a queue you can steer — a cheap model for a documentation ticket, an expensive one
 for a refactor — and a board that shows what each ticket cost.
 
 The **body** of the ticket page is sent to the agent as the description. Write there what
@@ -230,13 +149,13 @@ how you will know it is done.
 
 And you may stop there. A ticket is often written the way the thought arrives — the
 content first, the title never — so a ticket that reaches *Ready* without one is named by
-the runner: a very short session reads the page and writes a title back **into Notion**,
+the runner: a very short session reads the page and writes a title back **onto the ticket**,
 in the language the page is written in, so the board shows it too. It happens before the
 branch is drawn, which is what the title is first used for: `ticket/reparer-le-bandeau-…`
 rather than one more `untitled-ticket`. A ticket that already carries a title keeps
 exactly the one you gave it and costs nothing extra; a ticket with neither a title nor a
 body is not invented for — it comes back with the question. And if the naming fails, for
-want of a session or of a Notion that accepts the write, the ticket runs all the same,
+want of a session or of a board that accepts the write, the ticket runs all the same,
 under the label it had.
 
 ### The type of a ticket
@@ -293,7 +212,7 @@ been Code: I took External action, which asks for no commit*. One click in the c
 it back.
 
 **A Code ticket that commits nothing is not always blocked for it.** Its worktree clean, the
-session's report decides: work done outside the repository (Dokploy, DNS, Notion, the
+session's report decides: work done outside the repository (Dokploy, DNS, the
 Search Console…) and no word of a code change, it is *Done* with its report in the page; a
 verdict that names what made the change needless — *nothing to change*, *already fixed on
 main by #63*, a commit or a merged pull request — or the other pull requests it rebased,
@@ -312,10 +231,8 @@ again. An answer that names two types, or none, goes back to the classification.
 
 **A type somebody chose is never touched.** Not overwritten, not re-classified, not asked
 about. An option that is none of the four — a column you use for something else — is left
-alone as well, and the ticket runs by its project as it always did. A board without the
-column at all, or `runner.classify = false`, is the runner exactly as it was; `ponos
-init` adds the column to an existing board, and `ponos doctor` says which of the
-four options it offers. A ticket typed in English before the names were fixed — *Writing*,
+alone as well, and the ticket runs by its project as it always did. An empty
+column with `runner.classify = false` is the runner exactly as it was. A ticket typed in English before the names were fixed — *Writing*,
 *External action* — is still read as its type.
 
 **A ticket run as the wrong type corrects itself, once.** A *Writing*, *External action* or
@@ -405,7 +322,7 @@ writes no code.
 ### The sub-type of a code ticket
 
 A **Code** ticket also says what kind of change it is, in its `Sous-type` column — a select
-with eight options, which `ponos init` adds and `ponos doctor` asks for:
+with eight options:
 
 | Sub-type | For | Commit / PR | CHANGELOG |
 | --- | --- | --- | --- |
@@ -459,10 +376,8 @@ prefix, so the old ones wear their badge and are counted all the same.
 
 **An option the runner does not write** — `Improvement` beside `Amélioration`, `Security`
 beside `Sécurité`, left by an older Ponos or typed by hand — is read as the same sub-type,
-but a Notion view filtered on one misses the tickets on the other. `ponos doctor` and the
-console's health band name each such option with its number of tickets, and the console
-offers to fix it: the tickets move to the runner's option, then the emptied options are
-removed from the select. An option that spells no sub-type at all is left to you.
+but a filter on one misses the tickets on the other. An option that spells no sub-type
+at all is left to you.
 
 On the console, a code ticket wears a small badge of its sub-type — its icon, in its colour
 —, the search bar filters by it, *New ticket* offers it, and the statistics count the code
@@ -512,8 +427,7 @@ as a model somebody chose:
 when it comes back, and its comment says so (`runner.auto_model_escalate`). Once: the next
 attempt keeps that model rather than climbing to the top of the price list. A ticket
 stopped by the quota carries its session on with the model it began on. What a run was
-chosen and how it ended is kept in the local journal, so this works the same with Notion
-or without. Through OpenRouter, name its slugs in the four levels.
+chosen and how it ended is kept in the local journal. Through OpenRouter, name its slugs in the four levels.
 
 **Fable is off.** It costs far more than Opus, so `runner.use_fable` is a constant,
 `false` — it is no key of the file any more — and nothing the runner starts runs on it: the *heaviest* level, and
@@ -551,7 +465,7 @@ rather than notes the agent leaves itself (“Now delivery around the claim.”)
 the agent keeps its own habits, which are often English.
 
 A **cadence, not a stream**: a session emits several events a second, and writing each one
-would spend the integration's rate limit for a line nobody can read that fast. Ten seconds
+would rewrite the board for a line nobody can read that fast. Ten seconds
 is the default, five the floor:
 
 ```toml
@@ -560,9 +474,7 @@ progress = true
 progress_interval_seconds = 10
 ```
 
-A board with no `Progress` column, or an integration that refuses the write, costs the
-line and nothing else — the ticket runs to its end either way. `ponos init` adds the
-column to an existing board.
+A write of the `Progress` column that is refused costs the line and nothing else — the ticket runs to its end either way.
 
 Runs before this used to append a toggle per session to the page — `✓ 27 steps · 6
 minutes · removed the header`. Those still on a page are recognised by their title, left
@@ -587,12 +499,10 @@ ponos logs --service [-f]     # the runner's and the console's own journal, pono
 was started over — and wrote a second log — is found too; tickets that ran before the
 journal are found by their log's name, as they always were.
 
-**Make `Session` a URL property and its cell becomes a button.** Clicking it opens a
+**The `Session` link is a button.** Clicking it opens a
 terminal already inside that conversation — no identifier to copy, no directory to find.
 `install.sh` registers a `ponos://` scheme with your desktop for exactly this, and
-`ponos open <link>` is what runs behind the click. Which of the two you get is
-decided by the column's type in Notion, nothing to configure: a URL column gets the link,
-a text column gets the identifier.
+`ponos open <link>` is what runs behind the click.
 
 The terminal is picked from the usual suspects — GNOME Terminal, Konsole, xfce4-terminal,
 kitty, Alacritty, foot — or set `PONOS_TERMINAL` to yours.
@@ -618,13 +528,10 @@ While a session runs, its worktree is also a normal repository —
 `git -C ~/.local/state/ponos/worktrees/<name> diff` shows you what it has changed
 so far.
 
-The runner also posts a comment on the ticket when it finishes. Notion pushes that
+The runner also posts a comment on the ticket when it finishes. A channel pushes that
 comment to your phone as it stands, so it *is* the notification, and it is written as one:
 a verdict saying what is expected of you, the figures that place it, one sentence and the
-link — three lines, and never the machinery. That one needs a capability the
-integration does not get by default: **notion.so/my-integrations → your integration →
-Capabilities → Insert comments**. Without it the run still succeeds, and the log says the
-comment was refused with a 403.
+link — three lines, and never the machinery.
 
 #### The language it answers in
 
@@ -662,7 +569,7 @@ ticket, the two headings of its page (« Mission », « Ce qui a été fait ») 
 the session, the body of the pull requests it opens, the note about a branch a ticket
 already had, the line a ticket born of a schedule opens with, the answer it relays from
 Telegram or Slack, and the desktop and phone notifications. Only an error is quoted as it
-came — git's, GitHub's, Notion's — because it is evidence, not a sentence. The journal on
+came — git's, GitHub's — because it is evidence, not a sentence. The journal on
 the terminal and the CLI stay in English: they are read by whoever is standing at the
 machine, and half of what they print is argparse's, git's or GitHub's. Translating only the
 other half would put two languages on the same screen, so `ponos`, typed alone, says it
@@ -729,9 +636,9 @@ GitHub (`owner/repo` or any github.com address, kept as `https://github.com/owne
 as a folder of this machine, whose `origin` fills the GitHub field in; its public address;
 and the brief, which becomes the body of the page. While it is typed, the console says
 whether that repository is already cloned here or will be at the first ticket. Ctrl+Enter
-creates it, through the same store as everything else — a Notion page, or a row of `board_pages` without
-Notion — in the columns the projects database already has (`github` rather than a
-second `Repository` beside it; `Description` and `URL` where the database has them). A
+creates it, through the same store as everything else — a row of `board_pages` — in the
+columns the projects already have (`github` rather than a second `Repository` beside it;
+`Description` and `URL`). A
 name the workspace already has, in any case, an address that is not GitHub's, and a folder
 that is not a git repository here are refused under their field, in `runner.language`. The
 new card comes first in the list, marked, its *+ Ticket* ready — or, with *Create a first
@@ -739,7 +646,7 @@ ticket* ticked, the ticket's form opens straight away with the project in it.
 
 A project that names none — and **a ticket with no project at all** — is **document work**.
 It gets a disposable scratch directory instead of a worktree, and the agent's answer is
-written back into the Notion ticket as real blocks: headings, lists, checkboxes, links.
+written back into the ticket's page, in Markdown: headings, lists, checkboxes, links.
 No branch, no pull request. That is what you want for *"draft me the steps to become a
 certified trainer"* or *"summarise this for me"*: there is nothing to commit, and the
 deliverable is the page itself.
@@ -767,7 +674,7 @@ running once after installation; it is what saves you from surprises.
 
 ### The context page — who the work is for
 
-One row of the workspace, named `Context` by default, is a plain page with no database in it.
+One page of the board — the **global context**, on top of the Projects page — belongs to no collection.
 Whatever you write there goes into **every prompt, on every project**, ahead of the
 project's brief:
 
@@ -804,7 +711,7 @@ A project says *where* the work happens. It says nothing about **who** does it, 
 “fix this regression” and “write this announcement” are not the same craft on the same
 repository.
 
-Add a `Rôle` relation column on your tickets, pointing at a database of agents. One row
+A ticket's `Rôle` points at one of the board's agents. One row
 per role, and **the body of its page is the role**, exactly as a project page is its brief:
 
 > **Dev front**
@@ -824,7 +731,7 @@ The role is read after your context page and after the project's brief, and **it
 loosen the frame**: committing without pushing, and answering `RESULT: blocked` rather than
 guessing, live in the template, above anything a page can say.
 
-All of it is optional twice over: a tickets database with no `Rôle` column behaves exactly
+All of it is optional twice over: a ticket with no `Rôle` behaves exactly
 as it always has, and a ticket that names no agent runs on the runner's own prompt.
 
 ### The goals database — what the ticket is for
@@ -832,8 +739,8 @@ as it always has, and a ticket that names no agent runs on the runner's own prom
 A project says *where*, an agent says *who*. Neither says **what for**, and “add a column”
 is not the same task a month before a launch as on a cleanup nobody is waiting on.
 
-One more row of the workspace, named `Objectifs` by default, holds a database of goals.
-Add an `Objectif` relation column on your tickets, pointing at it. One row per goal, and
+The board holds goals too — the console's [Goals](console.md#goals) page — and a ticket's
+`Objectif` points at one. One row per goal, and
 **the body of its page is the goal's brief**, exactly as a project page is its brief; two
 columns of the row say what a session cannot guess:
 
@@ -864,11 +771,10 @@ the agent          what craft it takes, and its rules — read last
 The goal is the intent of the task, not a rule: the role's rules stay the last thing read.
 A prompt file of your own written before `{goal}` existed still gets the goal, at its end.
 The queue does not read it — a goal's `Priorité` does not order the tickets. What else reads
-the goals is the console's [Goals](console.md#goals) page (how it counts a goal's tickets, and
-the Notion rollups that agree with it: [How a goal's tickets are counted](console.md#how-a-goals-tickets-are-counted)), the [ideas](console.md#ideas) (the active goals of the
+the goals is the console's [Goals](console.md#goals) page (and [how it counts a goal's tickets](console.md#how-a-goals-tickets-are-counted)), the [ideas](console.md#ideas) (the active goals of the
 scope, under « Les caps du moment ») and the MCP connector's `list_goals` and `create_task`.
-Without Notion the database is the `goals` collection of `board_pages`, with the same columns.
+The goals are the `goals` collection of `board_pages`.
 
-All of it is optional twice over: a tickets database with no `Objectif` column, an empty
-relation or a goal page the integration cannot read all give the prompt you had before, to
-the character. A workspace without the `Objectifs` row says so once per run, and runs.
+All of it is optional twice over: a ticket with no `Objectif`, an empty
+relation or a goal page that cannot be read all give the prompt you had before, to
+the character.

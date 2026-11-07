@@ -64,8 +64,8 @@ class Projects(Base):
         """A project's cover and icon, read with the rest of the page.
 
         Reading the projects database is the synchronisation: what somebody
-        changed in Notion is agreed on here, and a change of the console's that
-        Notion refused last time is sent again. A cache that cannot be written
+        changed on the board is agreed on here, and a change of the console's that
+        The board refused last time is sent again. A cache that cannot be written
         costs the pictures, never the list.
         """
         client = self.runner.client
@@ -132,7 +132,6 @@ class Projects(Base):
         return {
             "projects": rows,
             "workspace_root": str(self.config.runner.workspace_root),
-            "notion": not self.config.standalone,
         }
 
     def project(self, page_id: str) -> dict[str, Any]:
@@ -254,7 +253,7 @@ class Projects(Base):
 
         Two refusals, both only asked for by a caller that says what it saw. A
         `base` — the `version` it opened the brief at — that the page no longer
-        has is a conflict (409: somebody wrote to it in Notion meanwhile). And
+        has is a conflict (409: somebody wrote to it on the board meanwhile). And
         a page that holds what Markdown cannot is rewritten only once the caller
         says it knows (`accept_losses`), so that nothing a page holds goes
         without having been shown. A caller that sends neither, like the edit
@@ -297,7 +296,7 @@ class Projects(Base):
     def picture(self, page_id: str, slot: str) -> tuple[bytes, str]:
         """The bytes of a project's picture, from this machine's copy.
 
-        Never a redirect to where the board keeps it: a Notion file's URL is
+        Never a redirect to where the board keeps it: a hosted file's URL is
         good for an hour, and a console left open is open longer than that.
         """
         if slot not in store.SLOTS:

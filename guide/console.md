@@ -6,8 +6,8 @@ The web console, and Ponos as a connector in Claude.
 
 ## The web console
 
-A folder of files, or Notion, is where tickets are kept; neither is a place to *steer*
-from. So there is a window on the same workspace, served from your own machine — and it is running
+A database is where tickets are kept; it is no place to *steer* from. So there is a
+window on it, served from your own machine — and it is running
 already: the installer starts it and prints the address, token included. On an installation
 nobody has set up yet there is no token to paste either — the address alone opens
 [the first connection](#the-first-connection), which is where the rest of this page's
@@ -47,7 +47,7 @@ console opens from **More**, so nothing a page draws is ever under a button. The
 about the console itself: whether the event stream is up — a stream the server refuses
 because the session expired sends the page back to the sign-in rather than saying
 *reconnecting…* forever — the version this one runs — in amber, with what to type, on the
-day a newer one is waiting — when the board last agreed with Notion, a green dot that
+day a newer one is waiting — when the board was last read whole, a green dot that
 turns amber when something is out of step (the tooltip says what), and the two buttons
 that **resynchronise** — the whole board read again, the refused moves sent again; the icon
 turns while it runs, and *Board read again* says when it is done — and change the light. On a phone, where the bar has room for none of those words, the stream,
@@ -104,15 +104,15 @@ tap on the answer. The first four are drawn, *Show the N others* the rest, and *
 and *Decide (N)* in its heading go through a whole column. Under it the statistics are
 folded until you open them (the choice is kept, as on a computer), and the board shows one
 column at a time under a row of tabs with their counts — *Blocked 3 · In review 2…* —
-opening on *Blocked*, then *In review*, or on the tab you left. **The board** is the Notion board, read from Notion and written back to it, drawn as
+opening on *Blocked*, then *In review*, or on the tab you left. **The board** is the board of `ponos.db`, read from it and written back to it, drawn as
 the columns the board has — *Ready*, *In progress*, *In review*, *Validated* where the
 board offers it, *Blocked*, *Done* — under the board's own names. Nothing here
 is a second database: **drag a card into a column and the ticket moves**, and the ticket
-you write behind *New ticket* is a page in the same database, with its brief as real
-Notion blocks — and, where the board has those columns, its *Priority*, *Type* and *Model*
-(an empty type is deduced by the runner, as for a ticket written in Notion). *Ready to
+you write behind *New ticket* is a ticket like the others, with its brief in Markdown
+— and its *Priority*, *Type* and *Model* (an empty type is deduced by the runner, as for a
+ticket written from the MCP). *Ready to
 run* is ticked by default, and the form says what that means: a session, as soon as a
-place is free. **Ctrl+Enter** (⌘+Enter) creates the ticket from any of its fields. What the console adds is the part Notion cannot do — the running session's
+place is free. **Ctrl+Enter** (⌘+Enter) creates the ticket from any of its fields. What the console adds is the part a database cannot do — the running session's
 steps, live, read straight from the session log on disk rather than from the `Progress`
 column. A card in progress has a pulsing dot, how many steps its session has taken, and
 what it is on in one line — what the agent last said, or else the last tool it ran. Over
@@ -126,11 +126,10 @@ none is free and offers to run it past the limit, once. A card in review carries
 pull request at once, or publishes what it holds at the next free place; *run again* asks
 the same way, since it starts a session that is paid for. A move is queued by
 the console rather than made while the browser waits: the card lands in its new column
-saying *waiting to be sent to Notion*, the console reads the page first — and **does not
-overwrite a status somebody changed in Notion since the card showed it**, saying so on the
-card instead — writes it, reads it back to confirm, and tries again with a growing wait
-when Notion is slow or answers 429. A move Notion refuses for good says *not sent to
-Notion* on the card, and stays said until *resynchronise* or another move. The queue is
+saying it is on its way, the console reads the ticket first — and **does not overwrite a
+status somebody changed since the card showed it** (a run, the MCP, a channel), saying so
+on the card instead — writes it, reads it back to confirm, and tries again with a growing
+wait when the board is busy. A move refused for good says so on the card, and stays said until *resynchronise* or another move. The queue is
 kept on disk (`~/.local/state/ponos/web/outbox.json`), so a console restarted
 mid-way still sends it. A gesture that sends a card off the screen —
 *hold*, into your *Blocked* column — says where it went. A ticket with no status, or one
@@ -162,7 +161,7 @@ selection go. The priority is written by `POST /api/tickets/<id>/priority` (`{"p
 looks for every word typed, in any order, case and accents set aside, in the title, the
 runner's line on the card (the RESULT a run ended with), the pull request's address — so
 `#201` finds it — the project and the runner; a short id finds its ticket from four
-characters, and a pasted branch, worktree or Notion address finds the one ticket it names.
+characters, and a pasted branch, worktree or ticket address finds the one ticket it names.
 Beside it, filters that combine with the words and with each other: *Type*, *Sub-type*, *Status*,
 *Priority*, *Model*, *Project* (not on a project's page), *Period* (created or changed
 today, in the last 7 or 30 days) and *Other* — with a pull request, waiting for credits,
@@ -181,7 +180,7 @@ title, a button to its full page and a cross (Escape closes it too), and the boa
 where you left it underneath. The full page has an address of its own, the one a shared
 link, the palette and a notification open. Either way it is the brief you wrote, the
 report a run appended, the notes in between — the page under the card, as the runner
-reads it — with its links out (Notion, the pull request, the session) and the gestures it
+reads it — with its links out (the pull request, the session) and the gestures it
 offers where it stands. Under the column it stands in, three tabs: **Brief** — the facts
 (project, type, priority, model, cost, pull request) and the page you wrote —,
 **Discussion** and **Live**. A ticket in progress opens on *Live*, one waiting on you on
@@ -212,8 +211,8 @@ yet — opens on that tab, and its card on the board says *waiting for you*, or 
 stopped on when the runner knows it (*Question for you*, *Credentials missing*…). What you type is a
 *comment on the ticket*, written into the thread the runner last spoke in, which is the
 gesture the runner already knows: an answer under the question a run asked puts the ticket
-back in the queue, and one that names it — `@claude`, or whatever `notion.mention` says —
-asks it for words instead. Nothing is kept on the side; the same sentence typed into Notion
+back in the queue, and one that names it — `@claude`, `@ponos` or `@runner` —
+asks it for words instead. Nothing is kept on the side; the same sentence sent from the MCP
 does the same thing.
 
 **The bell.** The icon in the header counts the tickets waiting for you — not the notifications —
@@ -290,7 +289,7 @@ it, which puts the last one back in its column. *Previous*, *Skip* and *Open the
 new tab) are under it, and the keys: → or J skips, ← or K goes back, 1 to 9 picks the session's
 option, Escape closes. The questions come first, then the missing accesses, then the rest, and
 last the stops Ponos tries again by itself or that wait for the base; inside each, the highest
-priority, then the oldest. A ticket that moves elsewhere meanwhile — its session, Notion,
+priority, then the oldest. A ticket that moves elsewhere meanwhile — its session, a channel,
 another tab — leaves the series as it happens. At the end, what was done — *4 tickets
 unblocked, 1 ticket skipped* — and *Review the skipped tickets*.
 
@@ -304,9 +303,9 @@ request. A report from before those lines, or one the runner wrote itself — a 
 CI, a spending limit — is read off its words, and offers the defaults of the kind it reads as.
 The same panel is in the MCP connector, as `list_solutions` and `apply_solution`.
 
-The comment is written with the runner's own Notion token, because that is the only token
-the console has — and it opens the same way an answer relayed from Telegram does, so the
-next run reads it as yours rather than as its own voice.
+The comment is written by the console in the runner's name — and it opens the same way an
+answer relayed from Telegram does, so the next run reads it as yours rather than as its own
+voice.
 
 **The console** is behind the bubble in the bottom corner, on every page, a ticket's
 included — on a phone, behind **More** instead — one press opens it as a drawer over the page, another closes it, and no page is given up for it. It is one message bar and
@@ -337,7 +336,7 @@ window open; the palette prints N beside its entry. They are listed in one place
   What it offers is a list written down — `doctor`, `history`, `list`, `logs`, `notify`,
   `projects`, `schedules`, `status`, `sync` — and not the whole parser: `run` starts
   sessions that outlive a typed command, `update` replaces the code the console runs on,
-  and `clean` deletes worktrees a session may be standing in, so those three (with `init`,
+  and `clean` deletes worktrees a session may be standing in, so those three (with
   `service`, `config` and `open`) are for a terminal. A command gets
   three minutes, and at the end of them its whole process group is stopped, not only the
   process the console started.
@@ -499,9 +498,8 @@ a goal point at a page.
 *Edit*. A dialog names it, counts the tickets that point at it and asks for its name before
 the button turns on; the server asks for the name as well. A project that is only hidden would
 still be synchronised, and the runner would still take its ready tickets, so deleting is done
-where the runner looks: the project's page goes to the **Notion trash** (30 days to restore it
-— the toast links to it; on a board of files the page is moved under `trash/projects/`), and the
-project leaves the console at once, without waiting for a synchronisation. Its tickets stay on
+where the runner looks: the project's page is put in the board's trash (flagged in `ponos.db`,
+never erased), and the project leaves the console at once, without waiting for a synchronisation. Its tickets stay on
 the board by default, but the ready and in-progress ones are put in *Blocked* with a comment
 saying why; a checkbox in the dialog trashes them too. The GitHub repository, the folder on
 this machine and the branches are never touched, only the throwaway worktrees under the state
@@ -522,8 +520,9 @@ it**, without deleting anything and without opening a form. *Calendar* is for th
 question a schedule really answers — when the next one lands: the occurrences are laid out
 by day, week or month, and clicking one opens what it will make.
 The list is answered from the rows the console already holds — read once when `ponos service run`
-starts — so it opens at once: a schedule written in Notion itself shows a moment later, once
-the read the console makes behind the answer finds it, and the page reads its list again then.
+starts — so it opens at once: a schedule written elsewhere — from the CLI, from another tab — shows a
+moment later, once the read the console makes behind the answer finds it, and the page reads its
+list again then.
 
 *Split*, the layout the page opens on, is the projects' two columns: the schedules on the
 left — rule, switch, next run, project, a badge when something is wrong — and on the right
@@ -568,14 +567,14 @@ as the board writes them in English, a ticket with none as *Unclassified*; a typ
 by default) and, on the dashboard, a project. Next to it, the **regression rate** — the bugs
 over the bugs, features and improvements created —, with an arrow against the period of the
 same length just before; with every project, a small table says which one breaks the most, and
-a click on its row shows it alone. Last, the tickets created in the period, by project. Notion dates when a page was created, never when its status changed, so a closing
+a click on its row shows it alone. Last, the tickets created in the period, by project. A ticket is dated when it was created, never when its status changed, so a closing
 is dated by the runner's history (in `ponos.db`) when the runner made it — a pull request
 merged from *Validated*, a document written or published — and by the page's last edit
 otherwise: a ticket you dragged to *Done*, or one closed because you merged its pull request
 yourself. The *Closed* card says, under the pointer, how many closings each one dated. The spend is the
 history's too: the `Cost` column says what a ticket cost, not on which day. The board they are
 counted on is the one the console last read for its live view — at most twice `web.poll_seconds`
-old —, so changing the period or the project redraws the figures without asking Notion again. Under them, the
+old —, so changing the period or the project redraws the figures without reading the board again. Under them, the
 **blocks, by cause and week**: one bar a week, stacked by family, and beside it every
 cause of the period with its count — see [Why a ticket stopped](tickets.md#why-a-ticket-stopped) —, and the
 **code tickets done, by sub-type and week**, with the average cost and duration of each sub-type —
@@ -594,9 +593,8 @@ From a terminal, `ponos history --csv --project <name> --month 2026-10` prints t
 session carried when it ran, and leaves `type` and `sous-type` empty.
 
 **Settings** is `config.toml` drawn as a page — the same file, the same keys, and every one
-of them, from the Notion token down to what your board calls its *Blocked* column. Without
-a Notion token the Notion section comes last, since nothing reads it, and the
-example token the sample file ships with is shown as *not set* rather than as a token. It is
+of them, from the languages down to the channels. An example token — `xxxx` — is shown as
+*not set* rather than as a token. It is
 still a file you can open in an editor: the console rereads it when it changes on disk, and
 what you save here keeps the comments that were around the line.
 
@@ -634,7 +632,7 @@ Three things it does that a form usually does not.
   would have quietly repaired, like an interval of zero, is refused here with the reason
   rather than saved and silently changed.
 
-Each section carries the command that checks it — `> doctor` for Notion, `> notify` for
+Each section carries the command that checks it — `> doctor` for the board, `> notify` for
 Telegram and Slack — because the CLI already knows how to say whether a token works, and a
 settings page does not need a second opinion. The commands that change the machine rather
 than read it — `run`, `update`, `service`… — are the terminal's. A setting that needs more than saving says so, once, and only when it moved.
@@ -650,8 +648,8 @@ field, and what the server refuses with — « Rien à modifier. » rather than 
 « Le serveur a répondu 502 » when it said no sentence at all; a refusal the console does not know
 yet is shown in the server's own words. The pages before the console — the first connection, the sign-in, the token — are
 drawn by the server and read `Accept-Language` the same way. What is *not* translated is what belongs to somebody else — a ticket's title and the
-columns of your board are Notion's, the output of `> status` is the CLI's, and a report a run
-wrote is in the language [`runner.language`](configuration.md#4-the-rest-of-the-file) asked for.
+columns of your board are the board's own words, the output of `> status` is the CLI's, and a report a run
+wrote is in the language [`runner.language`](configuration.md#the-rest-of-the-file) asked for.
 
 ### The Context page
 
@@ -743,9 +741,8 @@ Over MCP, `list_library` (read) lists the files, for a project or a tag or a wor
 one card per goal — its status, its due date, its name, what it means, the projects it is for, and **« n of m tickets
 done »**, written in words over a bar. A goal no ticket points at yet says **« No ticket tied
 yet »** (« Aucun ticket rattaché ») instead, with **Tie tickets** — its form, opened on the
-*Tickets* field — and **New ticket for this goal**, the form with the goal already chosen. The count is the console's, not a Notion rollup: the
-tickets of the board that point at the goal, the cancelled ones left out, so it is the same with
-Notion as without. The list rests on the active goals (no `Statut`, or
+*Tickets* field — and **New ticket for this goal**, the form with the goal already chosen. The count is the console's: the
+tickets of the board that point at the goal, the cancelled ones left out. The list rests on the active goals (no `Statut`, or
 `actif`); its filters are the status — *All statuses*, or any one the database holds — and a
 project. The cards come soonest due first, the goals without a date last, and among the same day
 the highest priority first. Beside its due date, an active goal whose day is past says **« Late »**
@@ -753,7 +750,7 @@ the highest priority first. Beside its due date, an active goal whose day is pas
 day itself; a goal reached or given up says neither. It follows the event stream: a goal written in another tab, a ticket tied to one, or a
 ticket of a goal moving to *Done* reads the list again, and the count moves without a reload.
 The list is answered from what the console already holds, so it opens at once: a goal written
-in Notion itself shows a moment later, once the read the console makes behind the answer finds
+elsewhere — the MCP, another tab — shows a moment later, once the read the console makes behind the answer finds
 it, and a console that has not read its board yet shows the goals first and their counts
 when the board is in.
 
@@ -770,34 +767,9 @@ connector's `list_goals`:
   up, not work left to do;
 - **only the first goal of a ticket's `Objectif` relation counts**, as only the first is read
   into its prompt: a ticket tied to two goals adds to the first one alone. The console only
-  ever writes one goal on a ticket; a second one is something written by hand in Notion.
+  ever writes one goal on a ticket.
 
 So a goal with two tickets done, one cancelled and one ready says « 2 of 3 tickets done ».
-
-The console does not read Notion's own columns, and Notion does not read the console's count:
-if your goals database carries an `Avancement` rollup of its own, it says the same only if it
-is built on the same rule. Notion's « Percent checked » of a ticket formula counts the
-cancelled tickets in the total, which would make the goal above 50 % instead of 67 %. The
-columns that agree with the console, on the **tickets** database:
-
-| Column | Type | Formula |
-|---|---|---|
-| `Fini` | Formula | `prop("Status") == "Done"` |
-| `Compté` | Formula | `prop("Status") != "Cancelled"` |
-
-and on the **goals** database, through the relation back to the tickets that the `Objectif`
-column makes there (`Tickets` below, whatever Notion named it):
-
-| Column | Type | Definition |
-|---|---|---|
-| `Faits` | Rollup | relation `Tickets`, property `Fini`, *Count* → *Checked* |
-| `Total` | Rollup | relation `Tickets`, property `Compté`, *Count* → *Checked* |
-| `Avancement` | Formula | `if(prop("Total") > 0, prop("Faits") / prop("Total"), 0)`, shown as a percent |
-
-`statut`, `done` and `cancelled` are the names of the board, fixed — see
-[The tickets database](board.md#the-tickets-database). One gap stays,
-and it is Notion's: a rollup counts a ticket on **every** goal of its relation, the console on
-its first — tie each ticket to a single goal and the two agree.
 
 A card opens the goal's page in a drawer over the list: its description, *Done when*, priority
 and projects, the count, and its **tickets grouped by column** in the board's order, each with
@@ -815,14 +787,12 @@ then the others —, plus the one it already serves; it is not there at all on a
 `Objectif` column. The count is read again after every write, and a write the board refuses is
 shown as it was said.
 
-*New goal* is only offered where there is a database to write it in: a workspace without a goals
-database has no button, and its empty list says so — add one in Notion, and goals can be written
-here. An empty database shows *No goal.* with the *New goal* button.
+An empty list shows *No goal.* with the *New goal* button.
 
 **A goal that is over is closed, not deleted.** *Reached* and *Given up* write its status
 (`atteint`, `abandonné`): the goal keeps its page, its tickets and its count (« 12 of 12 done »),
 and the list no longer shows it unless asked. *Delete*, set apart, asks first and sends the page
-to the trash — Notion's, or `trash/goals/` on a board of files —; its tickets stay where they
+to the board's trash (flagged in `ponos.db`, never erased); its tickets stay where they
 are and serve no goal.
 
 ### Ideas
@@ -1066,7 +1036,7 @@ answers 404 to any path but those three on a request that came through Funnel.
 | `PONOS_WEB_TOKEN` | | not a key of this file: the secret is in `secrets.env` or the environment (see [Configuration](configuration.md#configuration)). Unset: drawn once into `~/.local/state/ponos/web/token` |
 | `web.email` | `""` | with a password: what the console asks for instead of the token |
 | `PONOS_WEB_PASSWORD` | | not a key of this file: the secret is in `secrets.env` or the environment, which wins (see [Configuration](configuration.md#configuration), and below) |
-| `web.poll_seconds` | `15` | how often the console asks Notion what changed (a two-minute overlapping window; the whole board every five minutes) — only while a browser is connected; a page asking for the board meanwhile (dashboard, goals, statistics) is served that last read, unless a write from the console came after it. `GET /api/board` answers that last read whatever its age, reads the board again behind the answer once it is older than this, and keeps it on disk so that a console just restarted answers at once; it carries only the 50 latest tickets of *Done* and of *Cancelled* — `hidden` counts the others, `?closed=all` gives them all. The console's own columns come from the event stream, whole |
+| `web.poll_seconds` | `15` | how often the console asks the board what changed (a two-minute overlapping window; the whole board every five minutes) — only while a browser is connected; a page asking for the board meanwhile (dashboard, goals, statistics) is served that last read, unless a write from the console came after it. `GET /api/board` answers that last read whatever its age, reads the board again behind the answer once it is older than this, and keeps it on disk so that a console just restarted answers at once; it carries only the 50 latest tickets of *Done* and of *Cancelled* — `hidden` counts the others, `?closed=all` gives them all. The console's own columns come from the event stream, whole |
 | `web.chat_timeout_minutes` | `20` | past this, a chat turn is killed |
 | `web.chat_model` | `""` | the model a new conversation starts on (`opus`…, or an OpenRouter slug); empty: `runner.model` |
 
@@ -1095,27 +1065,18 @@ steps, drawn by the console itself, one write each:
    not signed in, the second one; signed in, a green tick and the account. *Check again* asks
    once more after you have typed them, and a link moves to an Anthropic key for whoever would
    rather not install the CLI.
-4. **Notion** — three gestures, drawn as such. Create the integration (a button opens
-   Notion's page for it) and paste its secret: it is asked of Notion before it is written, and
-   a refused one says where to copy it again. Then *Add Ponos to your Notion page* — `···` →
-   *Connections* → the integration, with a picture of that menu. The step asks Notion every
-   few seconds what has been shared, so the page **appears on its own**, and one click builds
-   the board under it — [`ponos init`](configuration.md#3-let-the-runner-build-the-rest), the same code and
-   the same databases. There is no template to duplicate: the databases are built with every
-   column spelled the way the runner reads them. A board already built and shared is offered
-   as such, and pointed at rather than rebuilt; without Notion, there is nothing to connect and the step can be skipped.
-5. **GitHub** — the GitHub App in one click, or whether `gh` is signed in, or has a
+4. **GitHub** — the GitHub App in one click, or whether `gh` is signed in, or has a
    `GH_TOKEN`, and as whom.
-6. **First project** — the repositories found under `runner.workspace_root` (the folder is
+5. **First project** — the repositories found under `runner.workspace_root` (the folder is
    created when a fresh machine has none), each one click from being a project; or a GitHub
    repository, cloned at the first ticket; or a project with no code at all.
-7. **Channels**, optional — Telegram and Slack. Leave Telegram's chat id empty, say anything
+6. **Channels**, optional — Telegram and Slack. Leave Telegram's chat id empty, say anything
    to your new bot, and the id is read back from it, the same gesture as `notify --pair`.
-8. **First ticket** — a short writing ticket, put on the board in *Ready* under the first
+7. **First ticket** — a short writing ticket, put on the board in *Ready* under the first
    project and **played at once** with `ponos run --ticket`, in a free place of the daemon —
    or by a run of its own when no daemon is up yet: the step follows it to *Review*, links it, and says *it works*. One that fails shows
    what its run printed.
-9. **Summary** — what the console runs on, one line per thing that has to work, each `ok`,
+8. **Summary** — what the console runs on, one line per thing that has to work, each `ok`,
    `missing` or `error`, and each leading to the step that changes it: this machine (git,
    Claude Code and its sign-in, the free disk, with the command that installs what is
    missing), the provider and its account or masked key, the default model and the automatic
@@ -1126,14 +1087,12 @@ steps, drawn by the console itself, one write each:
    the same summary and the same button at its top, under *What this console runs on*.
 
 <p align="center">
-  <img src="../docs/media/first-connection/3-notion-page-found.webp" width="420" alt="The Notion step: the token checked, the Connections menu drawn, and the page shared with the integration found on its own">
   <img src="../docs/media/first-connection/5-first-ticket-played.webp" width="420" alt="The first ticket step: the demonstration ticket played, and the console saying it works">
 </p>
 
 Every step but the account may be left for later, and a step that fails says so and leaves
-the ones before it standing, exactly as `init` does, since pages created in somebody's
-Notion are not a thing to roll back. `/setup` is where the steps are afterwards, and the
-bare address of a console that has no board yet leads there on its own.
+the ones before it standing. `/setup` is where the steps are afterwards, and the bare address
+of a fresh container whose steps nobody has gone through leads there on its own.
 
 Once the console is claimed, *Back to the console* sits at the top of `/setup`, and each
 step's pill is marked by the lines of the summary it answers for — a green check when they
@@ -1141,10 +1100,8 @@ are OK, an amber or red mark when one is missing or failing; the summary is read
 visit, and again only after a step writes something. An installation whose summary is
 OK on every line opens `/setup` on the summary rather than on the language.
 
-`serve` starts on the file `install.sh` leaves, Notion token or not — these steps are where
-the token gets filled in, so the console only refuses a configuration that is missing or
-does not parse. Until a token is there, the daemon waits for one, and `ponos run` keeps
-refusing with the list of what is missing.
+`serve` starts on the file `install.sh` leaves: the board needs nothing, so the console only
+refuses a configuration that is missing or does not parse.
 
 > **Who may claim it.** On a laptop the console listens on loopback, and the first browser
 > to arrive is somebody sitting at this machine. Anywhere else — another address, or this
@@ -1158,7 +1115,7 @@ refusing with the list of what is missing.
 > the account.
 
 An installation that already works and has never been given a password is unclaimed too,
-and the same address serves the same steps — with the Notion half already done. A browser
+and the same address serves the same steps. A browser
 still carrying the token in a cookie goes straight to the console instead, and
 `http://127.0.0.1:8787/setup` is where the steps are then.
 
@@ -1282,14 +1239,14 @@ sign in itself, as a header: `claude mcp add … --header "Authorization: Bearer
 command or the JSON block for Claude Code, Claude Desktop or another client with this console's
 address already in it, and has a *Test the connection* button that says what is wrong — and
 what to do about it — when a client could not connect. It also lists the MCP servers Claude Code
-holds for the sessions (Notion, GitHub…), each *connected*, *to sign in* or *failing*. It shows
+holds for the sessions (GitHub, Sentry…), each *connected*, *to sign in* or *failing*. It shows
 no key; `ponos mcp token` stays a terminal command.
 
 ### What Claude can do with it
 
 From claude.ai — on the web or on a phone — or from Claude Code, a conversation can see what
 Ponos is doing, open a task, create one in the right project and answer the question a blocked
-one asks, without the Notion connector and whatever the board is kept in: what the tools hand
+one asks: what the tools hand
 back is a task, a project, an idea, an amount — never a page or a property.
 
 | Tool | Title | Scope | What it does |

@@ -10,7 +10,7 @@ from pathlib import Path
 from support import case
 
 from ponos import git as git_module
-from ponos import notion, projects
+from ponos import projects, store
 from ponos.projects import _normalise
 
 # -- projects ----------------------------------------------------------------
@@ -33,12 +33,12 @@ def remotes_normalise_to_owner_and_name() -> None:
 
 
 class _ProjectClient:
-    """Notion reduced to one project page, with the columns it was given."""
+    """The board reduced to one project page, with the columns it was given."""
 
     def __init__(self, title: str, **columns: str) -> None:
-        self._page = notion.Page(
+        self._page = store.Page(
             id="p-1",
-            url="https://notion.so/p-1",
+            url="https://board.invalid/p-1",
             title=title,
             properties={
                 key: {"type": "rich_text", "rich_text": [{"plain_text": value}]}
@@ -46,7 +46,7 @@ class _ProjectClient:
             },
         )
 
-    def page(self, page_id: str) -> notion.Page:
+    def page(self, page_id: str) -> store.Page:
         return self._page
 
     def blocks_text(self, page_id: str, depth: int = 0, *, live: bool = True) -> str:

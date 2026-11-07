@@ -12,7 +12,7 @@ So each run is a row of the local database (db.py) and each step a row under
 it, written as the session goes: what the console's « live » section reads,
 page by page, for the run going on and for every run before it, and what
 `ponos logs` looks a ticket's runs up in. It sits beside the board, not on it:
-a Notion board, a Markdown one or both are written by a run the same way, and
+a board, a Markdown one or both are written by a run the same way, and
 the journal is the same for the three.
 
 **A step is what `progress.describe` makes of an event**, the same reading the

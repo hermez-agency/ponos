@@ -6,41 +6,41 @@ from typing import Any
 
 from support import case
 
-from ponos import goals, notion, store
+from ponos import goals, store
 
 # -- the goal a ticket serves ------------------------------------------------
 
 
 class _GoalClient:
-    def __init__(self, page: notion.Page | None, brief: str = "", broken: bool = False):
+    def __init__(self, page: store.Page | None, brief: str = "", broken: bool = False):
         self._page, self._brief, self._broken = page, brief, broken
 
-    def page(self, page_id: str) -> notion.Page:
+    def page(self, page_id: str) -> store.Page:
         if self._page is None:
-            raise notion.NotionError("object not found")
+            raise store.StoreError("object not found")
         return self._page
 
     def blocks_text(self, page_id: str, depth: int = 0, *, live: bool = True) -> str:
         if self._broken:
-            raise notion.NotionError("object not found")
+            raise store.StoreError("object not found")
         return self._brief
 
 
-def _goal_client(page: notion.Page | None, brief: str = "", broken: bool = False) -> store.Store:
+def _goal_client(page: store.Page | None, brief: str = "", broken: bool = False) -> store.Store:
     return _GoalClient(page, brief, broken)  # type: ignore[return-value]  # a fake: one page and its body
 
 
-def _goal_page(title: str, criterion: str = "", due: str = "") -> notion.Page:
+def _goal_page(title: str, criterion: str = "", due: str = "") -> store.Page:
     properties: dict[str, Any] = {"Nom": {"type": "title", "title": [{"plain_text": title}]}}
     if criterion:
         properties["Critère"] = {"type": "rich_text", "rich_text": [{"plain_text": criterion}]}
     if due:
         properties["Échéance"] = {"type": "date", "date": {"start": due, "end": None}}
-    return notion.Page(id="p-goal", url="", title=title, properties=properties)
+    return store.Page(id="p-goal", url="", title=title, properties=properties)
 
 
-def _ticket(properties: dict[str, Any]) -> notion.Page:
-    return notion.Page(id="p-ticket", url="", title="t", properties=properties)
+def _ticket(properties: dict[str, Any]) -> store.Page:
+    return store.Page(id="p-ticket", url="", title="t", properties=properties)
 
 
 @case
@@ -107,20 +107,20 @@ def an_empty_relation_points_at_nothing_and_a_full_one_at_its_first_page() -> No
 
 
 class _GoalsDatabase:
-    def __init__(self, pages: list[notion.Page], broken: bool = False):
+    def __init__(self, pages: list[store.Page], broken: bool = False):
         self._pages, self._broken = pages, broken
 
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         if self._broken:
-            raise notion.NotionError("object not found")
+            raise store.StoreError("object not found")
         return self._pages
 
 
-def _goals_database(pages: list[notion.Page], broken: bool = False) -> store.Store:
+def _goals_database(pages: list[store.Page], broken: bool = False) -> store.Store:
     return _GoalsDatabase(pages, broken)  # type: ignore[return-value]  # a fake: one query
 
 
-def _cap(title: str, status: str = "", projects: tuple[str, ...] | None = None) -> notion.Page:
+def _cap(title: str, status: str = "", projects: tuple[str, ...] | None = None) -> store.Page:
     page = _goal_page(title, "Dix clients payants", "2026-12-31")
     if status:
         page.properties["Statut"] = {"type": "select", "select": {"name": status}}
@@ -163,9 +163,9 @@ def a_project_only_sees_the_goals_that_name_it() -> None:
     assert len(goals.active(database, "db")) == 4, "the workspace sees them all"
 
 
-def _english_goal(title: str) -> notion.Page:
+def _english_goal(title: str) -> store.Page:
     """A goals database whose columns were written in English, as the console accepts them."""
-    return notion.Page(
+    return store.Page(
         id="p-goal",
         url="",
         title=title,

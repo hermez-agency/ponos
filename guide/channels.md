@@ -6,7 +6,7 @@ Being told, and answering from your phone.
 
 ## Being told, and answering with one word
 
-A desktop notification names its ticket, and clicking it opens that ticket's Notion page
+A desktop notification names its ticket, and clicking it opens that ticket's page in the console
 — the notification is where you act from, not a title you then go and look for on the
 board. It is not the comment: the title says what happened and on which project (*Ponos has a question — Leadz*,
 *Ticket done — Adam*), the body gives the ticket's name and one sentence, and a **See the PR** button comes with
@@ -24,7 +24,7 @@ lands on the ticket.**
                       The ticket names two headers.
                       Which one goes?
                       1. The dashboard's · 2. The public site's
-                      notion.so/…
+                      127.0.0.1:8787/tickets/…
                                    │
                                    │  “2”
                                    ▼
@@ -33,10 +33,10 @@ lands on the ticket.**
    next run  ◀──────────────────────────────────────────┘  the ticket runs again
 ```
 
-Nothing new on the board, and no second mechanism: the reply becomes a **Notion comment**,
+Nothing new on the board, and no second mechanism: the reply becomes a **comment on the ticket**,
 and a comment is already what wakes a blocked ticket (see
 [The discussion on a ticket](tickets.md#the-discussion-on-a-ticket)). A *oui* typed on a phone
-travels the exact path a *oui* typed into Notion does — same waking rules, same prompt.
+travels the exact path a *oui* typed into the console does — same waking rules, same prompt.
 
 That comment is posted with the runner's own token, and it is still **yours**: it opens
 with *Answered from Telegram by …*, which is what tells the next run that this is the
@@ -177,7 +177,7 @@ listening.
 
 Everything here fails quietly, like desktop notifications: a token that expired, a channel
 the bot was removed from, a network that is down. None of it is a reason for a ticket to
-fail, and the Notion comment stays the record either way. `ponos doctor` says which
+fail, and the comment on the ticket stays the record either way. `ponos doctor` says which
 channel is live, as whom, and where; the console's health band says a channel in error in
 amber — *1 thing to fix: Slack notifications do not arrive* — and keeps *before tickets can
 run*, in red, for what stops the runner from taking a ticket. A channel the runner cannot read is said once in

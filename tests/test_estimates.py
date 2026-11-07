@@ -8,7 +8,7 @@ from pathlib import Path
 
 from support import _bare_api, _TalkClient, case
 
-from ponos import db, estimates, notion
+from ponos import db, estimates, store
 from ponos.web import api as web_api
 
 # Ten Code/Bug tickets of one project: the costs and the minutes each took.
@@ -123,10 +123,10 @@ class _BugClient(_TalkClient):
         super().__init__([])
         self._status = status
 
-    def page(self, page_id: str) -> notion.Page:
-        return notion.Page(
+    def page(self, page_id: str) -> store.Page:
+        return store.Page(
             id="1a2b3c4d-0000-0000-0000-000000000000",
-            url="https://notion.so/p",
+            url="https://board.invalid/p",
             title="Le bandeau ne se ferme pas",
             properties={
                 "statut": {"type": "status", "status": {"name": self._status}},

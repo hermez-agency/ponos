@@ -129,7 +129,7 @@ def two_saves_at_once_both_land() -> None:
 
 @case
 def a_value_written_by_the_cli_goes_through_the_same_save() -> None:
-    """`ponos init` and `ponos notify pair` wrote the real file in place.
+    """`ponos notify pair` wrote the real file in place.
 
     Killed between the truncation and the write, that left a configuration that
     no longer parsed. Through `edit`, the file is replaced whole, and the one it
@@ -146,11 +146,11 @@ def a_value_written_by_the_cli_goes_through_the_same_save() -> None:
 
     os.replace = watched  # type: ignore[assignment]  # a double: the name it replaces is kept
     try:
-        assert C.write_notion_value(path, "workspace", "abc123")
+        assert C.write_value(path, "runner", "model", "opus")
     finally:
         os.replace = replaced
     assert "config.toml" in names, "the file is replaced, not written in place"
-    assert C.load(path).notion.workspace == "abc123"
+    assert C.load(path).runner.model == "opus"
     assert path.with_name("config.toml.bak").read_text() == before
 
 
@@ -178,12 +178,23 @@ def a_save_that_would_leave_it_unusable_is_refused() -> None:
     path, config = _saved()
     before = path.read_text()
     try:
-        web_settings.save(config, {"settings": {"notion.token": None}})
+        original = C.load
+
+        def refusing(path: Path, **named: object) -> C.Config:
+            if ".saving" in path.name:
+                raise C.ConfigError(f"{path}: the copy does not read")
+            return original(path, **named)  # type: ignore[arg-type]
+
+        C.load = refusing  # type: ignore[assignment]  # a double: the copy does not read
+        try:
+            web_settings.save(config, {"settings": {"runner.max_concurrent": 3}})
+        finally:
+            C.load = original
     except C.ConfigError as error:
         assert "unusable" in str(error)
         assert ".saving" not in str(error), "and names the file, not the copy"
     else:
-        raise AssertionError("a configuration with no token must not be saved")
+        raise AssertionError("a configuration that does not read must not be saved")
     assert path.read_text() == before
 
 
@@ -225,12 +236,8 @@ def what_the_file_says_is_told_apart_from_what_it_falls_back_on() -> None:
     silent = fields["runner.max_concurrent"]
     assert silent["value"] is None and silent["stated"] is False
     assert silent["fallback"] == C.Runner().max_concurrent, "the default, shown greyed"
-    # The titles of the databases are drawn from the defaults, not listed twice;
-    # the names of the board's columns are no setting at all.
-    assert fields["notion.pages.tickets"]["fallback"] == "Tickets"
-    assert not [
-        name for name in fields if name.startswith(("notion.status.", "notion.properties."))
-    ]
+    # The names of the board's columns are no setting at all.
+    assert not [name for name in fields if name.startswith(("board.", "names."))]
 
 
 @case
@@ -247,9 +254,6 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
     expected |= {f"runner.force_validated_{kind}" for kind in C.VALIDATED}
     expected |= {f"web.{name}" for name in schema.WebTable.model_fields}
     expected |= {"web.token", "web.password"}
-    expected |= {f"notion.{name}" for name in schema.NotionTable.model_fields} - {"notion.pages"}
-    expected |= {"notion.token"}
-    expected |= {f"notion.pages.{key}" for key in C.page_titles()}
     expected |= {f"notify.{name}" for name in schema.NotifyTable.model_fields}
     expected -= {"notify.telegram", "notify.slack"}
     expected |= {"notify.telegram.token", "notify.telegram.chat"}
@@ -301,7 +305,7 @@ def a_choice_is_shown_in_words_and_saved_as_the_file_spells_it() -> None:
         for field in section["fields"]
     }
     assert drawn["runner.merge_method"]["options"]["squash"] == "One commit (squash)"
-    assert drawn["notion.tickets_database"]["advanced"] is True
+    assert drawn["github_access.token_item"]["advanced"] is True
     assert drawn["runner.max_concurrent"]["advanced"] is False
     web_settings.save(config, {"settings": {"runner.merge_method": "rebase"}})
     assert 'merge_method = "rebase"' in path.read_text()

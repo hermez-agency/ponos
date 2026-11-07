@@ -19,7 +19,7 @@ import { adminOnly } from "@/lib/role"
 /* The `name = value` tables of `config.toml`, each as a resource of its own.
  *
  * Every other section of the file is a list of keys somebody described; these
- * two are mappings you add rows to — `[projects]`, a Notion name and a path,
+ * two are mappings you add rows to — `[projects]`, a project's name and a path,
  * and `[github]`, an owner and the account it is worked under — and rows are
  * what a resource is for. So they are declared here and hung under the settings
  * page as sub-resources: react-resource-view draws the table, the "add" dialog
@@ -160,7 +160,7 @@ function form(words: Words): FormInterface {
     },
   })
   return {
-    // The console's own "Written to Notion" is what a ticket is saved with;
+    // The console's own "Written to the board" is what a ticket is saved with;
     // this one writes a line to a file on this machine and says so. Handed to
     // a toast as it stands, so it is read from the dictionary here.
     label: {

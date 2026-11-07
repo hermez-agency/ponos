@@ -9,7 +9,7 @@ import type { Board, BoardChanges, ColumnKey, Ticket } from "./types"
  *
  * react-resource-view asks a resource for its rows through `getCollection`,
  * and the natural thing to give it would be a request to `/api/board`. That
- * would ask Notion again every time the list redraws — while the stream is
+ * would read the board again every time the list redraws — while the stream is
  * already carrying the very same board every few seconds, to every open tab.
  * So the rows come from here: the stream writes, the resource reads, and a
  * redraw costs nothing.
@@ -51,7 +51,7 @@ export function applyChanges(changes: BoardChanges): Board | null {
   return board
 }
 
-/** A ticket as the console already knows it will be, before Notion confirms.
+/** A ticket as the console already knows it will be, before the board confirms.
  *
  * A card dropped in a column has to land there now; the board event that
  * follows the write says the same thing a few seconds later. */
@@ -73,7 +73,7 @@ export function addTicket(ticket: Ticket) {
 
 export const currentBoard = (): Board | null => board
 
-/* A ticket's title, or what to call one Notion left without: the server sends
+/* A ticket's title, or what to call one left without: the server sends
  * it empty, and the words for "no title" are the console's, in its language. */
 export const titleOf = (ticket: Pick<Ticket, "title">): string =>
   ticket.title || t("(untitled ticket)")
@@ -82,7 +82,7 @@ export const titleOf = (ticket: Pick<Ticket, "title">): string =>
  * sent, and put back where it was if the console refuses the move. The one way
  * a ticket changes column from the console — the buttons on a card and a card
  * dropped on the board both come through here, so neither can leave a card
- * standing in a column Notion never heard about.
+ * standing in a column the board never heard about.
  *
  * Nothing waits for the write (see `optimistic.ts`): it goes out behind the
  * card, which says "waiting" until the board the stream sends next says

@@ -79,7 +79,7 @@ const SEED = `
 import datetime
 from ponos import config, db, ledger, pages
 
-settings = config.Notion()
+settings = config.BoardNames()
 board = ledger.Ledger(pages.Pages(settings), settings)
 board.workspace(settings)
 prop = settings.prop
@@ -118,7 +118,7 @@ import json, sys, time, urllib.request
 from ponos import config, ledger, pages, state
 from ponos.ticket import short_id
 
-settings = config.Notion()
+settings = config.BoardNames()
 board = ledger.Ledger(pages.Pages(settings), settings)
 board.workspace(settings)
 prop = settings.prop

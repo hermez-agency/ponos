@@ -168,8 +168,6 @@ export type SetupGithub = Schemas["SetupGithub"]
 export type SetupBoard = Schemas["SetupBoard"]
 export type Need = Schemas["Need"]
 export type Summary = Schemas["SetupSummary"]
-export type NotionProvisioned = Schemas["NotionProvisioned"]
-export type Shared = Schemas["Shared"]
 export type ProjectChoices = Schemas["ProjectChoices"]
 export type Demo = Schemas["Demo"]
 export type Doctor = Schemas["Doctor"]
@@ -197,7 +195,7 @@ export type HealthState = HealthCheck["state"]
 export type SetupHealth = SetupProvider["state"]
 export type Provider = SetupProvider["provider"]
 /** What a step that builds something did, line by line, and what it could not. */
-export type Provisioned = Pick<NotionProvisioned, "steps" | "problem">
+export type Provisioned = Pick<ChannelsProvisioned, "steps" | "problem">
 
 /* -- what the stream carries, by the event's name --------------------------- */
 

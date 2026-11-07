@@ -308,7 +308,7 @@ function Clients({ overview }: { overview: McpOverview }) {
   )
 }
 
-/* The MCP servers a session starts with — Notion, GitHub, a browser… — as
+/* The MCP servers a session starts with — GitHub, a browser… — as
  * Claude Code holds them, each with what it answered. Read on demand: it
  * starts the servers to ask them, which takes a few seconds. */
 function Servers() {
@@ -450,7 +450,7 @@ function McpTab() {
             {t("An MCP (Model Context Protocol) is a plug that lets Claude use a tool or a service: read a page, open an issue, drive a browser. Each service offers its own, and Claude uses the ones it is given.")}
           </p>
           <p>
-            {t("For Ponos it works both ways. The sessions it starts use MCPs: it is thanks to the Notion one that a session reads a ticket and writes its report back.")}
+            {t("For Ponos it works both ways. The sessions it starts use MCPs: a browser, GitHub, the services a project names.")}
           </p>
           <p>
             {t("And Ponos has one of its own: plugged into Claude, it lets you list your tasks, create one or answer a blocked ticket from a conversation, without opening the console.")}

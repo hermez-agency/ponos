@@ -334,8 +334,8 @@ export const api = {
         body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, ...ticket },
       })
     ),
-  /** `from` is the status the card showed: Notion saying anything else by the
-   * time the write goes out is somebody else's move, not overwritten. */
+  /** `from` is the status the card showed: the board saying anything else by
+   * the time the write goes out is somebody else's move, not overwritten. */
   setStatus: (id: string, column: string, from?: string) =>
     answer(
       client.POST("/api/tickets/{ticket_id}/status", {
@@ -617,13 +617,6 @@ export const api = {
   /* `save: false` only tries the key — the settings' Test button — and writes nothing. */
   saveProvider: (chosen: { provider: string; key?: string; save?: boolean }) =>
     answer(client.POST("/api/setup/provider", { body: chosen })),
-  saveNotion: (typed: { token: string; page: string; workspace?: string }) =>
-    answer(client.POST("/api/setup/notion", { body: typed })),
-  /* Asked again every few seconds while somebody is in Notion sharing a page. */
-  sharedWithNotion: (token: string) =>
-    token
-      ? answer(client.POST("/api/setup/notion/shared", { body: { token } }))
-      : answer(client.GET("/api/setup/notion")),
   setupProjects: () => answer(client.GET("/api/setup/projects")),
   startDemo: (chosen: { project: string; language: string }) =>
     answer(client.POST("/api/setup/demo", { body: chosen })),

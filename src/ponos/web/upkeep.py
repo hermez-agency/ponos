@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 DISK_TTL = 600
 
 # The checks start `claude --version` and `gh auth status` (which asks GitHub),
-# read the Notion board and look through every project: ten seconds on a busy
+# read the board and look through every project: ten seconds on a busy
 # day, and the band asks each time the tickets page is drawn. What they find
 # changes when somebody mends it — a fix, a saved setting, "Recheck" — and those
 # ask afresh; the rest of the time a few minutes old is the same answer.

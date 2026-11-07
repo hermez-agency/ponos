@@ -38,7 +38,6 @@ from ponos import (
     conversation,
     journal,
     log,
-    notion,
     redaction,
     schedules,
     state,
@@ -362,12 +361,12 @@ def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice() -> None:
     own question — and a conversation with oneself is the one failure mode here
     that never ends on its own.
     """
-    report = notion.Comment(
+    report = store.Comment(
         "🙋 Blocked.\nWhich header?",
         discussion_id="d-report",
         created_by="runner-id",
     )
-    client = _TalkClient([notion.Comment("une note à moi", discussion_id="d-mine"), report])
+    client = _TalkClient([store.Comment("une note à moi", discussion_id="d-mine"), report])
     api = _bare_api(client)
     api.tell("p-ticket", "  Celui du dashboard.  ")
 
@@ -391,14 +390,14 @@ def a_message_typed_at_a_ticket_is_a_comment_in_your_own_voice() -> None:
 def a_ticket_the_runner_has_never_spoken_on_gets_a_thread_of_its_own() -> None:
     """No question to answer, and none invented: the message opens a discussion."""
     client = _TalkClient(
-        [notion.Comment("une remarque", discussion_id="d-mine", created_by="salva")]
+        [store.Comment("une remarque", discussion_id="d-mine", created_by="salva")]
     )
     _bare_api(client).tell("p-ticket", "on reprend ça demain")
     assert client.written[0][2] == ""
-    # Same when Notion will not say who we are: without an identity there is no
+    # Same when the board will not say who we are: without an identity there is no
     # telling our own thread from yours, and guessing is how it goes wrong.
     other = _TalkClient(
-        [notion.Comment("un rapport", discussion_id="d-report", created_by="runner-id")]
+        [store.Comment("un rapport", discussion_id="d-report", created_by="runner-id")]
     )
     _bare_api(other, me="").tell("p-ticket", "et celui-ci ?")
     assert other.written[0][2] == ""
@@ -409,18 +408,18 @@ def the_discussion_of_a_ticket_reads_as_a_conversation() -> None:
     """The ticket's terminal is the page's comments, said by who said them."""
     client = _TalkClient(
         [
-            notion.Comment(
+            store.Comment(
                 "🙋 Blocked.\nWhich header?",
                 created_time="2026-08-30T10:00:00.000Z",
                 discussion_id="d-report",
                 created_by="runner-id",
             ),
-            notion.Comment(
+            store.Comment(
                 f"{conversation.RELAYED[0]}Telegram by Salva.\nCelui du dashboard.",
                 discussion_id="d-report",
                 created_by="runner-id",
             ),
-            notion.Comment("Merci.", discussion_id="d-report", created_by="salva"),
+            store.Comment("Merci.", discussion_id="d-report", created_by="salva"),
         ]
     )
     payload = _bare_api(client).talk("p-ticket")
@@ -440,7 +439,7 @@ def the_discussion_of_a_ticket_reads_as_a_conversation() -> None:
 @case
 def a_question_left_unanswered_is_a_ticket_waiting_on_you() -> None:
     """The page opens on the discussion when the last word is a run's question."""
-    question = notion.Comment(
+    question = store.Comment(
         f"{voice.MARKS['blocked']} Question\nWhich header?",
         discussion_id="d-report",
         created_by="runner-id",
@@ -449,13 +448,13 @@ def a_question_left_unanswered_is_a_ticket_waiting_on_you() -> None:
     answered = _TalkClient(
         [
             question,
-            notion.Comment("Celui du dashboard.", discussion_id="d-report", created_by="salva"),
+            store.Comment("Celui du dashboard.", discussion_id="d-report", created_by="salva"),
         ]
     )
     assert _bare_api(answered).talk("p-ticket")["waiting"] is False, (
         "an answered question waits on nobody"
     )
-    report = notion.Comment(f"{voice.MARKS['review']} To review — PR #38", created_by="runner-id")
+    report = store.Comment(f"{voice.MARKS['review']} To review — PR #38", created_by="runner-id")
     assert _bare_api(_TalkClient([report])).talk("p-ticket")["waiting"] is False, (
         "a report is not a question"
     )
@@ -550,7 +549,7 @@ def a_password_typed_at_a_ticket_never_reaches_the_page() -> None:
 @case
 def a_password_given_with_a_decision_never_reaches_the_page(state_home: Path) -> None:
     """The instruction typed under a blocked ticket is an answer like any other."""
-    settings = C.Notion()
+    settings = C.BoardNames()
     with _board() as board:
         project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
         api = _ideas_api(board)
@@ -592,7 +591,6 @@ def the_console_draws_what_comes_back_on_its_own() -> None:
 
     payload = api.schedules()
     assert payload["database"], "the workspace has one; the pane must not offer to build it"
-    assert payload["page"] == "Schedules"
     assert payload["enabled"] is False, "the one switch that turns the whole calendar off"
 
     first, second = payload["schedules"]
@@ -675,7 +673,7 @@ def a_schedule_deleted_from_the_console_goes_to_the_trash_and_is_no_longer_read(
 def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind() -> None:
     """Nineteen seconds at the first opening, 350 ms at every other, for two rows.
 
-    The rows held are answered without asking Notion; older than the watcher's
+    The rows held are answered without asking the board; older than the watcher's
     period, they are read again behind the answer, and the page told on the
     stream when that changed something. A write lets go of them.
     """
@@ -687,7 +685,7 @@ def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind
     asked: list[str] = []
     query = client.query
 
-    def counted(database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def counted(database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         asked.append(database_id)
         return query(database_id, filter_)
 
@@ -697,7 +695,7 @@ def the_schedules_are_answered_from_what_the_console_holds_and_read_again_behind
     assert asked == ["db-schedules"], "the second answer is the rows held"
     assert api.schedule("s-1")["id"] == "s1" and asked == ["db-schedules"]
 
-    # Written in Notion meanwhile, and the watcher's period gone by.
+    # Written on the board meanwhile, and the watcher's period gone by.
     channel = api.hub.subscribe()
     client._pages = [*client._pages, _schedule_page("s-2", name="Le rapport")]
     assert api._schedules_held is not None
@@ -755,10 +753,10 @@ class _PageClient(_TalkClient):
         self._content = content
         self._status = status
 
-    def page(self, page_id: str) -> notion.Page:
-        return notion.Page(
+    def page(self, page_id: str) -> store.Page:
+        return store.Page(
             id="1a2b3c4d-0000-0000-0000-000000000000",
-            url="https://notion.so/p",
+            url="https://board.invalid/p",
             title="Retirer le bandeau",
             properties={"statut": {"type": "status", "status": {"name": self._status}}},
             raw={"created_time": "2026-09-01T09:00:00.000Z"},
@@ -798,7 +796,7 @@ class _NotedPageClient(_PageClient):
 
     NOTE = "Pas fusionnée, laissée en relecture : CI : rouge sur frontend"
 
-    def page(self, page_id: str) -> notion.Page:
+    def page(self, page_id: str) -> store.Page:
         found = super().page(page_id)
         found.properties["Progress"] = {
             "type": "rich_text",
@@ -813,7 +811,7 @@ def a_card_put_back_in_ready_drops_the_last_pass_line_and_its_page_keeps_it_date
 ) -> None:
     """Validated, then ready again: the refusal is history, not what the card says.
 
-    Nothing empties the cell when the ticket is moved back — by hand, in Notion
+    Nothing empties the cell when the ticket is moved back — by hand, on the board
     or here — so the console stops drawing it on a card waiting for a run, and
     the ticket's page shows it as what the last pass said, on the day it ended.
     """
@@ -850,75 +848,6 @@ def a_card_put_back_in_ready_drops_the_last_pass_line_and_its_page_keeps_it_date
     assert earlier["said"] == _NotedPageClient.NOTE, "the page keeps it"
     assert earlier["at"] == journal.runs(ticket, limit=1)[0]["ended_at"], "dated by its pass"
     web_answers.TicketDetail.model_validate(payload)
-
-
-class _EditedPageClient(_PageClient):
-    """A ticket page that says when it was last edited, and counts its block reads."""
-
-    def __init__(self, content: str, edited: str) -> None:
-        super().__init__(content)
-        self.edited = edited
-        self.reads = 0
-
-    def page(self, page_id: str) -> notion.Page:
-        page = super().page(page_id)
-        page.raw["last_edited_time"] = self.edited
-        return page
-
-    def blocks_text(self, page_id: str, depth: int = 0, *, live: bool = True) -> str:
-        self.reads += 1
-        return self._content
-
-
-@case
-def a_ticket_page_is_read_again_only_when_notion_says_it_changed() -> None:
-    """Opening a ticket read every block of its page, one to three seconds a time.
-
-    The row is still read each time — it is what says the page moved — and the
-    blocks only when its `last_edited_time` did. A read made in the very minute
-    of the edit is not kept: Notion counts in minutes, and a second edit in that
-    minute would not move the time. A board without Notion is never kept.
-    """
-    client = _EditedPageClient("first brief", "2026-09-01T09:00:00.000Z")
-    api = _bare_api(client)
-    assert api._runner is not None
-    api._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
-    ticket = "1a2b3c4d000000000000000000000000"
-    assert api.ticket(ticket)["content"] == "first brief"
-    assert api.ticket(ticket)["content"] == "first brief"
-    assert client.reads == 1, "an unchanged page is not read twice"
-
-    client._content, client.edited = "second brief", "2026-09-01T09:30:00.000Z"
-    assert api.ticket(ticket)["content"] == "second brief", "an edit is read at the next opening"
-    assert client.reads == 2
-
-    # Edited just now: the minute is not over, so nothing is kept.
-    now = datetime.now(UTC).replace(second=0, microsecond=0)
-    client.edited = now.isoformat().replace("+00:00", ".000Z")
-    api.ticket(ticket)
-    client._content = "third brief"
-    assert api.ticket(ticket)["content"] == "third brief", (
-        "an edit in the same minute is still read"
-    )
-
-    alone = _EditedPageClient("in the database", "2026-09-01T09:00:00.000Z")
-    board = _bare_api(alone)
-    assert board._runner is not None
-    board._runner._workspace = type("W", (), {"goals": "", "projects": ""})()
-    board._config.notion.token = board._config.notion.workspace = ""
-    board._config.notion.tickets_database = ""
-    board.ticket(ticket)
-    board.ticket(ticket)
-    assert alone.reads == 2, "a board without Notion is never kept"
-
-
-@case
-def a_relation_is_written_as_notion_spells_it() -> None:
-    """A ticket created from the console names its project, or it is not one."""
-    page = "3ca451680af480ae9443de0b65d9abf8"
-    assert notion._encode("relation", page) == {"relation": [{"id": page}]}
-    assert notion._encode("relation", [page]) == {"relation": [{"id": page}]}
-    assert notion._encode("relation", []) == {"relation": []}
 
 
 @case
@@ -958,7 +887,7 @@ class _CancelClient(_ColumnsClient):
 def a_cancelled_ticket_has_its_column_where_the_board_offers_one() -> None:
     """Cancelled closes the row, beside Done — on a board that can say it.
 
-    A Notion board without the option is told rather than written into: no
+    A board without the option is told rather than written into: no
     gesture is offered, and a move asked anyway is refused in words rather than
     sent to an API that would reject it.
     """
@@ -1016,14 +945,13 @@ def the_runner_never_runs_a_cancelled_ticket_even_when_named() -> None:
         runner = Runner.__new__(Runner)
         runner._journals = {}
         runner.config = C.Config(
-            notion=C.Notion(),
             runner=C.Runner(),
             projects={},
             path=Path("/nowhere/config.toml"),
             web=C.Web(),
         )
         runner.client = board
-        runner._workspace = board.workspace(runner.config.notion)
+        runner._workspace = board.workspace(runner.config.board)
         said: list[str] = []
         runner.say = said.append  # type: ignore[method-assign, assignment]  # a double: what it says is kept
         assert runner.cancelled_column()
@@ -1103,7 +1031,9 @@ def a_ticket_with_no_status_is_a_draft_and_a_draft_is_written_draft() -> None:
     board = api.board()
     keys = [column["key"] for column in board["columns"]]
     assert keys[0] == "draft" and "other" not in keys, keys
-    assert board["columns"][0]["name"] == "draft", "the status a move writes, as Notion spells it"
+    assert board["columns"][0]["name"] == "draft", (
+        "the status a move writes, as the board spells it"
+    )
     assert [item["column"] for item in board["tickets"]] == ["draft", "draft", "ready"]
     api.create_ticket("Écrire l'audit", ready=False)
     api.create_ticket("Lancer l'audit", ready=True)
@@ -1120,11 +1050,9 @@ def a_ticket_with_no_status_is_a_draft_and_a_draft_is_written_draft() -> None:
 class _UntitledClient(_ColumnsClient):
     """The same database, where nobody wrote a title on any row."""
 
-    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[store.Page]:
         return [
-            notion.Page(
-                id=page.id, url=page.url, title="", properties=page.properties, raw=page.raw
-            )
+            store.Page(id=page.id, url=page.url, title="", properties=page.properties, raw=page.raw)
             for page in super().query(database, *args, **kwargs)
         ]
 
@@ -1133,7 +1061,7 @@ class _UntitledClient(_ColumnsClient):
 def a_ticket_without_a_title_is_named_by_the_console_in_its_language() -> None:
     """ "(untitled ticket)" used to come from the server, in English on a French console.
 
-    The server sends the title Notion has — none — and the console says what
+    The server sends the title the board has — none — and the console says what
     to call it, through the dictionary like every other word it says.
     """
     api = _bare_api(_UntitledClient(["ready"]))
@@ -1593,23 +1521,20 @@ def a_path_field_picks_from_the_folder_it_points_at() -> None:
 
 @case
 def an_example_token_is_not_a_token_the_settings_call_set() -> None:
-    """The `ntn_xxxx…` the example file ships with is where a token goes, not one."""
-    assert web_settings._preview(C.PLACEHOLDER) == ""
-    assert web_settings._preview("ntn_xxxxxxxx") == ""
-    assert web_settings._preview("ntn_real_secret_abcd") == "…abcd"
+    """An example token, `xoxb-xxxx…`, is where a token goes, not one."""
+    assert web_settings._preview("xoxb-xxxxxxxx") == ""
+    assert web_settings._preview("xoxb-real_secret_abcd") == "…abcd"
 
 
 @case
-def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once() -> None:
+def the_settings_are_five_pages_and_every_key_is_on_one_of_them_once() -> None:
     """Grouped by the question somebody asks, not by the table the loader reads.
 
-    Twenty-two sections at one rank put the Notion token beside the names of
-    its databases. Six pages now, the names folded at the end of the one about
-    where tickets come from — and every model the runner can be told to use on
-    the page about models, rather than wherever its table was.
+    Five pages, and every model the runner can be told to use on the page about
+    models, rather than wherever its table was.
     """
     groups = [group.key for group in web_settings.GROUPS]
-    assert len(groups) == 6 and len(set(groups)) == 6, groups
+    assert len(groups) == 5 and len(set(groups)) == 5, groups
     for section in web_settings.SECTIONS:
         assert section.group in groups, f"{section.key} is on no page"
         assert not section.fold or section.fold in web_settings.FOLDS, section.key
@@ -1623,23 +1548,13 @@ def the_settings_are_six_pages_and_every_key_is_on_one_of_them_once() -> None:
 
     where = {field.name: section for section in web_settings.SECTIONS for field in section.fields}
     for name in where:
-        if not name.startswith("notion.") and "model" in name.rpartition(".")[2]:
+        if "model" in name.rpartition(".")[2]:
             assert where[name].group == "models", f"{name} is not with the models"
-    for key in C.page_titles():
-        assert where[f"notion.pages.{key}"].fold == "mapping", f"notion.pages.{key}"
-    notion = [name for name in where if name.startswith("notion.") and not where[name].fold]
-    assert sorted(notion) == [
-        "notion.mention",
-        "notion.tickets_database",
-        "notion.token",
-        "notion.workspace",
-    ], notion
-    assert where["notion.mention"].key == "replies", "the word that asks is about answers"
 
     path, config = _saved()
     drawn = web_settings.describe(config)
     assert [group["key"] for group in drawn["groups"]] == groups
-    assert drawn["folds"][0]["key"] == "mapping"
+    assert drawn["folds"] == []
     assert {section["group"] for section in drawn["sections"]} == set(groups)
 
 
@@ -1679,7 +1594,7 @@ def a_value_the_environment_gives_is_said_to_come_from_it() -> None:
         }
     assert drawn["notify.slack.token"]["environment"] == "PONOS_SLACK_TOKEN"
     assert drawn["web.email"]["environment"] == "PONOS_WEB_EMAIL"
-    assert drawn["notion.token"]["environment"] == "", "secrets.env holds this one"
+    assert drawn["claude.api_key"]["environment"] == "", "nothing in the environment for this one"
 
 
 @case

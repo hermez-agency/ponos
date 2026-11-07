@@ -12,7 +12,7 @@ from ponos.ticket import short_id, slugify
 
 @case
 def short_ids_tell_same_day_tickets_apart() -> None:
-    """Notion IDs are time-ordered, so same-day tickets share a long prefix.
+    """Page IDs are time-ordered, so same-day tickets share a long prefix.
 
     Two real tickets, created minutes apart, collided on their first eight
     characters — and would have shared one scratch directory.
@@ -31,7 +31,7 @@ def a_log_is_found_however_its_id_was_pasted() -> None:
     name = f"20260828-112441-{short_id(b)}.jsonl"
     assert _names(b, name)
     assert _names("3ca45168-0af4-80be-b02a-c9d2cb79078c", name)
-    assert _names("https://www.notion.so/Ticket-" + b, name)
+    assert _names("https://board.invalid/Ticket-" + b, name)
     assert _names(short_id(b), name)
     assert not _names("3ca451680af480ae9443de0b65d9abf8", name), "a neighbour must not match"
 

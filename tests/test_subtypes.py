@@ -9,7 +9,7 @@ from typing import Any
 from support import FRONTEND, _nameless, _naming_session, _saved, _state_home, _TypedClient, case
 
 from ponos import config as C
-from ponos import models, notion, prompt, provision, state, store, subtypes
+from ponos import models, prompt, state, store, subtypes
 from ponos.runner import Runner
 from ponos.ticket import Ticket
 from ponos.web import statistics as web_statistics
@@ -239,10 +239,9 @@ def the_sub_type_moves_the_level_a_code_ticket_starts_at() -> None:
 
 
 @case
-def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing() -> None:
-    settings = C.Notion()
-    column = provision.tickets_schema(settings)["Sous-type"]
-    options = [option["name"] for option in column["select"]["options"]]
+def the_board_offers_the_sub_type_column() -> None:
+    settings = C.BoardNames()
+    options = store.options(settings, "Sous-type")
     assert options == [
         "Bug",
         "Feature",
@@ -254,19 +253,15 @@ def init_offers_the_sub_type_column_and_doctor_names_it_when_it_is_missing() -> 
         "Sécurité",
     ]
     assert store.shape(settings)["tickets"]["Sous-type"] == "select"
-    from test_health import _columns
-
-    columns = _columns(settings, {"statut": "status"})
-    assert "“Sous-type”" in columns.params["missing"], columns.params
 
 
 @case
 def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home: Path) -> None:
-    def page(identifier: str, title: str, kind: str, subtype: str = "") -> notion.Page:
+    def page(identifier: str, title: str, kind: str, subtype: str = "") -> store.Page:
         properties: dict[str, Any] = {"Type": {"type": "select", "select": {"name": kind}}}
         if subtype:
             properties["Sous-type"] = {"type": "select", "select": {"name": subtype}}
-        return notion.Page(id=identifier, url="", title=title, properties=properties)
+        return store.Page(id=identifier, url="", title=title, properties=properties)
 
     done = page("f", "[Bug] Fermé depuis un an", "Code")
     done.properties["statut"] = {"type": "status", "status": {"name": "done"}}
@@ -282,7 +277,7 @@ def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home: Path
     class Board(_SubtypedClient):
         def query(
             self, database_id: str, filter_: dict[str, Any] | None = None
-        ) -> list[notion.Page]:
+        ) -> list[store.Page]:
             return pages
 
         def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
@@ -306,7 +301,7 @@ def the_backfill_fills_the_code_tickets_from_their_prefix_alone(state_home: Path
         "a",
         "e",
     ], "a done ticket only when asked: an edit moves its closing date"
-    settings = C.Notion()
+    settings = C.BoardNames()
     assert web_tickets._subtype(done, settings) == "bug", (
         "the console reads the prefix it was not given"
     )

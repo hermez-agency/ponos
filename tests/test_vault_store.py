@@ -20,7 +20,7 @@ import httpx
 from support import _bare_runner, _board, _config, _http_answering, _ideas_api, _tools, case
 
 from ponos import config as C
-from ponos import health, ledger, notion, pages, prompt, push, session, tickets, vault, vault_store
+from ponos import health, ledger, pages, prompt, push, session, tickets, vault, vault_store
 from ponos.channels import request as channel_request
 
 if TYPE_CHECKING:
@@ -108,9 +108,9 @@ def any_entry_may_say_its_site_and_only_an_http_address_is_kept(vault_home: Path
     assert token["url"] == "https://openrouter.ai/keys"
     assert token["url_variable"] == "OPENROUTER_URL" and token["variables"] == ["OPENROUTER"]
     note = vault_store.create(
-        "CERT", "note", {"value": "a" * 12}, [], url="notion.so/my-integrations"
+        "CERT", "note", {"value": "a" * 12}, [], url="board.invalid/my-integrations"
     )
-    assert note["url"] == "https://notion.so/my-integrations", "a bare host is https"
+    assert note["url"] == "https://board.invalid/my-integrations", "a bare host is https"
     assert vault_store.create("BARE", "token", {"value": "b" * 12}, [])["url_variable"] == ""
     assert vault_store.change("BARE", url="localhost:8080/x")["url"] == "https://localhost:8080/x"
     assert (
@@ -323,7 +323,7 @@ def an_entry_is_named_like_a_variable_and_never_like_the_runners_own(vault_home:
     for name, why in (
         ("not a name", "is not an environment variable name"),
         ("ANTHROPIC_API_KEY", "is the runner's own"),
-        ("PONOS_NOTION_TOKEN", "is the runner's own"),
+        ("PONOS_WEB_TOKEN", "is the runner's own"),
         ("PONOS_ANYTHING", "is the runner's own"),
         (C.VAULT_KEY_ENV, "is the runner's own"),
     ):
@@ -417,7 +417,7 @@ def a_key_granted_to_leadz_reaches_a_leadz_session_and_no_other(vault_home: Path
 
 @case
 def what_a_session_prints_of_a_vault_key_is_masked_everywhere(vault_home: Path) -> None:
-    """`echo $MA_CLE` leaves `***` in the transcript, Notion, the board, the console and the phone."""
+    """`echo $MA_CLE` leaves `***` in the transcript, the board, the console and the phone."""
     vault_store.create("MA_CLE", "token", {"value": SECRET}, ["Leadz"])
     runner = _bare_runner(None)
     runner.dry_run = False
@@ -452,7 +452,6 @@ def what_a_session_prints_of_a_vault_key_is_masked_everywhere(vault_home: Path) 
     assert SECRET not in outcome.answer and "echo: ***" in outcome.answer
     assert SECRET not in (home / "s.jsonl").read_text() and SECRET not in json.dumps(seen)
     assert (home / "s.err").read_text() == "echo: ***\n"
-    # The comment on the ticket, in Notion and in ponos.db.
     sent: list[bytes] = []
 
     def answered(request: httpx.Request) -> httpx.Response:
@@ -460,7 +459,6 @@ def what_a_session_prints_of_a_vault_key_is_masked_everywhere(vault_home: Path) 
         return httpx.Response(200, json={"ok": True, "result": {}})
 
     with _http_answering(answered):
-        notion.Client("ntn_test").comment("p", outcome.answer + " " + SECRET)
         # Telegram and Slack: one door, `channels.request`.
         channel_request("https://api.telegram.org/botX/sendMessage", {"text": SECRET})
         channel_request("https://slack.com/api/chat.postMessage", {"text": f"done: {SECRET}"})
@@ -477,11 +475,12 @@ def what_a_session_prints_of_a_vault_key_is_masked_everywhere(vault_home: Path) 
             push.send(push.Subscription("https://push.example.test/x", "p", "a"), {"body": SECRET})
         finally:
             push.encrypt = encrypt
-    assert len(sent) == 4 and all(SECRET.encode() not in body for body in sent), sent
+    assert len(sent) == 3 and all(SECRET.encode() not in body for body in sent), sent
     assert sealed and SECRET.encode() not in sealed[0] and b"***" in sealed[0], sealed
-    notion_settings = _config("").notion
-    board = ledger.Ledger(pages.Pages(notion_settings), notion_settings)
-    board.workspace(notion_settings)
+    # The comment on the ticket, in ponos.db.
+    settings = _config("").board
+    board = ledger.Ledger(pages.Pages(settings), settings)
+    board.workspace(settings)
     page = board.create_row(board.resolve_database("Tickets"), f"Deploy {SECRET}")
     board.comment(page, outcome.answer + SECRET)
     written = "".join(
@@ -603,7 +602,7 @@ def _serving(api: web_api.Api) -> Iterator[web_app.Console]:
     from ponos.web import server as web_server
 
     api._config = C.Config(
-        notion=api.config.notion,
+        board=api.config.board,
         runner=api.config.runner,
         projects={},
         path=Path("/nowhere/config.toml"),

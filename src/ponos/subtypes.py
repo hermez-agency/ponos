@@ -12,7 +12,7 @@ sub-type, everything the rest of the runner needs of it:
 
 - the **option** the board writes it as, and the other spellings it is known
   by — the English word, the prefix of the old titles (`[Ops]` was a chore);
-- its **colour**, on the card and in Notion — and its **icon**, which only the
+- its **colour**, on the card and on the board — and its **icon**, which only the
   command line still prints: the console tells them apart by colour alone,
   an emoji beside a coloured dot said the same thing twice;
 - the **prefix** of its commit and its pull request, the conventional commits
@@ -58,7 +58,7 @@ class Subtype:
     option: str
     label: str
     icon: str
-    # A Notion colour: the select's, and the card's.
+    # A colour: the select's, and the card's.
     colour: str
     # `fix`, `feat`… — the conventional commits prefix.
     commit: str

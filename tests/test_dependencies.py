@@ -16,7 +16,7 @@ def _ticket(key: str, title: str, status: str, after: list[str] | None = None) -
     }
     if after is not None:
         properties["Après"] = {"type": "relation", "relation": [{"id": one} for one in after]}
-    return store.Page(key, f"https://notion.so/{key}", title, properties)
+    return store.Page(key, f"https://board.invalid/{key}", title, properties)
 
 
 def _unmet(page: store.Page, board: dict[str, store.Page]) -> list[str]:

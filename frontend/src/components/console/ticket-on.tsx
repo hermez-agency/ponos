@@ -38,7 +38,7 @@ export function TicketOn({ ticket }: { ticket: TicketDetail }) {
   const [runs, setRuns] = React.useState<Transition[]>([])
   const edited = ticket.edited
 
-  // Another copy of the page (Notion, a second tab) wins over what was typed
+  // Another copy of the page (a second tab, the runner) wins over what was typed
   // only when nothing was typed since the last save.
   const written = React.useRef(saved)
   React.useEffect(() => {

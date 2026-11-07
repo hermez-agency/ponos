@@ -171,7 +171,6 @@ def the_dokploy_template_keeps_to_the_catalogues_rules() -> None:
         "ANTHROPIC_API_KEY",
         "OPENROUTER_API_KEY",
         "GH_TOKEN",
-        "PONOS_NOTION_TOKEN",
         "PONOS_TELEGRAM_TOKEN",
         "PONOS_SLACK_TOKEN",
     ):
@@ -332,7 +331,7 @@ def a_bare_command_line_presents_the_product_and_its_version(state_home: Path) -
     printed = _plain(buffer.getvalue())
 
     assert f"Ponos {__version__}" in printed
-    assert "Runs your tickets with Claude Code — on its own board, or Notion's." in printed
+    assert "Runs your tickets with Claude Code, on its own board." in printed
     for name in subcommands():
         assert f"\n    {name} " in printed or f"\n    {name}  " in printed, (
             f"{name} is a command the welcome screen does not name"
@@ -403,19 +402,12 @@ def every_option_says_what_it_does() -> None:
 
 
 @case
-def the_help_presents_the_board_before_notion() -> None:
-    """`ponos --help` is the first thing a stranger types: Notion is an option.
-
-    So its description is the positioning of the README, not "Notion tickets",
-    and `init` says it only serves the Notion board.
-    """
+def the_help_presents_the_product() -> None:
+    """`ponos --help` is the first thing a stranger types: the positioning of the README."""
     parser = build_parser()
-    assert (
-        parser.description == "Runs your tickets with Claude Code — on its own board, or Notion's."
-    )
+    assert parser.description == "Runs your tickets with Claude Code, on its own board."
     verbs = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
-    init_help = next(c.help for c in verbs._choices_actions if c.dest == "init")
-    assert init_help and "Notion board only" in init_help
+    assert not {"init", "import"} & {c.dest for c in verbs._choices_actions}
 
 
 @case
@@ -942,8 +934,8 @@ def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections() -> No
 
     Seventeen sections at the same level is a manual, and the manual is the
     README: the site says the promise, the four kinds of task, the loop and
-    three proofs, the console, the integrations — Notion among them, not
-    before them —, the install and who made it, and links the rest.
+    three proofs, the console, the integrations — not before them —, the
+    install and who made it, and links the rest.
     """
     page = LANDING.read_text(encoding="utf-8")
     sections = re.findall(r"<section\b[^>]*>", page)
@@ -956,7 +948,7 @@ def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections() -> No
     )
     title = _searched(r"<title>(.*?)</title>", page).group(1)
     assert "Write the ticket. It comes back done." in title
-    assert "Notion" not in title and "Claude" not in title, (
+    assert "Claude" not in title and "GitHub" not in title, (
         "the promise leans on somebody else's brand"
     )
     description = _searched(r'<meta name="description" content="([^"]*)"', page).group(1)
@@ -1120,56 +1112,6 @@ def ponos_is_named_on_the_site_in_the_readme_and_in_the_console() -> None:
         "the tag changed name — pages that embed it would lose their robot"
     )
     assert "<title>Ponos" in (ROOT / "docs/mascot/robot.svg").read_text(encoding="utf-8")
-
-
-@case
-def the_landing_page_tells_notion_in_one_band_with_its_badge_served_locally() -> None:
-    """Notion is optional: one band, not four rows longer than the console.
-
-    One window chains the three captures and steps that follow it; a video
-    plays muted and inline or a phone opens it full screen, and nothing loads
-    before the band is near. The mark is Notion's own "Made for Notion" badge,
-    in both of its variants, from docs/ — their guidelines forbid the bare logo,
-    and a third-party CDN would see every visit.
-    """
-    page = LANDING.read_text(encoding="utf-8")
-    assert page.count('id="notion"') == 1, "the links to #notion land nowhere"
-    band = page.split('id="notion"', 1)[1].split('class="notion-foot"', 1)[0]
-    assert 'class="rows"' not in page and ".rows " not in page, "the four rows are back"
-    videos = re.findall(r"<video\b[^>]*>", band)
-    for name in ("notion-read-result", "notion-text", "notion-validate"):
-        assert f'src="media/notion/{name}.mp4"' in band, f"{name}.mp4 is not in the band"
-    assert (
-        band.index("notion-read-result.mp4")
-        < band.index("notion-text.mp4")
-        < band.index("notion-validate.mp4")
-    )
-    assert len(videos) == 3 and band.count('class="window loop"') == 1, (
-        "the band holds more than one window"
-    )
-    for video in videos:
-        assert "muted" in video and "playsinline" in video, (
-            "a video would play aloud, or full screen"
-        )
-        assert 'preload="none"' in video, "a video loads before the band is near"
-        assert 'aria-label="' in video, "a video says nothing to a screen reader"
-        assert " loop " not in video, "a video loops on itself instead of calling the next"
-    steps = re.findall(r"<button\b[^>]*\bdata-step=[^>]*>", band)
-    assert len(steps) == 3 and all("aria-pressed" in b for b in steps), (
-        "the steps are not buttons that say their state"
-    )
-    assert "data-toggle" in band and "data-play" in band, (
-        "the window lost its pause or its play button"
-    )
-    badges = re.findall(r'<img\b[^>]*alt="Made for Notion"[^>]*>', band)
-    assert len(badges) == 2, "the badge needs its light and its dark variant"
-    for badge in badges:
-        src = _searched(r'src="([^"]+)"', badge).group(1)
-        assert src.startswith("media/notion/") and (ROOT / "docs" / src).exists(), (
-            f"the badge is not served from docs/: {src}"
-        )
-        assert 'height="48"' in badge, "Notion asks for a badge 48 px high on screen"
-    assert 'class="notion-foot"' in page, "the line on Notion and the files kept in step is gone"
 
 
 # The documentation: a short README, the guide one page per subject, and what
@@ -1360,7 +1302,7 @@ def the_documentation_only_cites_commands_the_cli_has() -> None:
             assert verb in verbs, f"{page} cites `ponos {verb}`, which the CLI does not have"
         found.update(cited)
     # The guide's own list of commands: finding none of it is the reading that broke.
-    assert {"init", "run", "doctor", "service"} <= found, f"only {sorted(found)} found in the pages"
+    assert {"run", "doctor", "service"} <= found, f"only {sorted(found)} found in the pages"
 
 
 @case
@@ -1605,7 +1547,7 @@ def a_project_that_cannot_be_read_says_what_the_server_answered() -> None:
 def no_two_routes_of_the_console_answer_one_path() -> None:
     """A path finds one route of its method, so the order they are filed in decides nothing.
 
-    Each route is given a path its parameters accept — a Notion ID, a chat
+    Each route is given a path its parameters accept — a page ID, a chat
     identifier, a number, a word — and that path must find that route alone.
     """
     from starlette.routing import Route
@@ -1804,7 +1746,7 @@ def the_console_says_the_configuration_in_french_too() -> None:
 def the_first_connection_says_what_the_machine_answers_in_french_too() -> None:
     """The sentences the steps repeat from the server are ones `said.ts` knows.
 
-    `health.py`, `web/setup.py`, `provider.py`, `notion.py` and `config.py`
+    `health.py`, `web/setup.py`, `provider.py` and `config.py`
     word them in English for the journal; the assistant translates them on
     arrival (`frontend/src/lib/said.ts`). Each plain one must still be in the
     Python as written, or the page would show the reworded English again, and
@@ -1817,7 +1759,7 @@ def the_first_connection_says_what_the_machine_answers_in_french_too() -> None:
     assert "gh is not installed" in sentences
     sources = "".join(
         (ROOT / "src/ponos" / name).read_text(encoding="utf-8")
-        for name in ("web/setup.py", "prerequisites.py", "provider.py", "notion.py", "config.py")
+        for name in ("web/setup.py", "prerequisites.py", "provider.py", "config.py")
     )
     for sentence in sentences:
         assert f'"{sentence}"' in sources or f'"{sentence[0].upper()}{sentence[1:]}"' in sources, (
@@ -1891,7 +1833,7 @@ def the_console_says_what_the_server_refuses_in_french_too() -> None:
 
 
 @case
-def the_console_says_a_ticket_changed_in_notion_meanwhile_in_its_own_words() -> None:
+def the_console_says_a_ticket_changed_meanwhile_in_its_own_words() -> None:
     """The two refusals to overwrite are sentences `conflicts.ts` recognises.
 
     The runner's (`reports.py`) and the console's (`web/board.py`) reach the

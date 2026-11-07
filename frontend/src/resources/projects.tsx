@@ -60,7 +60,7 @@ import { tickets } from "@/resources/tickets"
 /* The projects, declared once for react-resource-view.
  *
  * They were a pane that only read: a list of what this installation knows of,
- * and a link out to Notion for anything you wanted to change. But a project is
+ * and nothing you could change from it. But a project is
  * where every ticket of that project starts from — its repository, and the
  * brief that gives an answer your voice rather than nobody's — so it is worth
  * opening, and worth changing without leaving the console.
@@ -491,7 +491,7 @@ const createForm: FormInterface = {
 }
 
 /* Over the form opened anywhere but on its page — at its own address, say — the
- * way to that page: the pictures, the brief as it reads and the way to Notion
+ * way to that page: the pictures and the brief as it reads
  * are there and nowhere else. Not over the form opened from that page, which
  * would be a link to where you are.
  *
@@ -513,7 +513,7 @@ function ToThePage() {
           >
             {t("Open the project's page")}
           </Link>{" "}
-          — {t("its pictures, the brief as it reads, and the way to Notion.")}
+          — {t("its pictures and the brief as it reads.")}
         </p>
       ) : null}
     </div>
@@ -1235,7 +1235,7 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
   name: "Projects",
   path: "/api/projects",
   icon: FolderGit2,
-  // A project page is made here, in Notion, or by a line in `config.toml`.
+  // A project page is made here, or by a line in `config.toml`.
   // Deleting one has a dialog of its own (see `project-delete.tsx`).
   permissions: { delete: false, export: false, ...readOnly() },
 

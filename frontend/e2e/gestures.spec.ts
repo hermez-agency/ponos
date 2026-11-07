@@ -66,8 +66,8 @@ test("a Ready ticket is set aside in one click, and made ready again once confir
   await aside.click()
   await expect(page.getByText("“A ticket to set aside” moved to Blocked")).toBeVisible()
   // The card sends the status it showed with the move back: until the board
-  // has Notion's word for the first one it still says Ready, and the second
-  // move reads as a ticket changed in Notion meanwhile. Let the first land and
+  // has taken the first one it still says Ready, and the second move reads
+  // as a ticket changed on the board meanwhile. Let the first land and
   // read the board again.
   await expect
     .poll(async () => {

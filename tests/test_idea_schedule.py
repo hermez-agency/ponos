@@ -409,7 +409,7 @@ def the_dialog_saves_into_the_file_and_the_projects_ticked_replace_what_each_sai
     state_home: Path,
 ) -> None:
     with _board() as board:
-        path, config = _saved(notion=False)
+        path, config = _saved()
         run = _Pass(board)
         api = run.api
         api._config = config

@@ -28,7 +28,7 @@ import { count, setNumberLocale } from "./numbers"
  * by the person reading.
  *
  * What is *not* translated here is everything that comes from somewhere else:
- * a ticket's title is Notion's, a column's name is the board's, the output of
+ * a ticket's title is its author's, a column's name is the board's, the output of
  * a command is the CLI's. The console says its own words in your language and
  * repeats everybody else's in theirs.
  */
@@ -160,9 +160,8 @@ function apply(next: Language, words: Record<string, string>) {
   // the way, so they are written again whenever the dictionary changes.
   //
   // The confirmation does not say where it landed: the same toast answers a
-  // project written to Notion, a project written to a Markdown file, and a
-  // setting written to `config.toml` — and it used to claim Notion for all
-  // three.
+  // project written to the board and a setting written to `config.toml` —
+  // and it used to claim one of them for both.
   setFormConfig({
     defaultForm: {
       label: {

@@ -1,8 +1,8 @@
 /* What the first connection's steps repeat from the server, said in the page's language.
  *
- * A step shows what the machine answered — `gh` is not there, Notion has no
- * token yet, Claude Code is not signed in — and those sentences are the
- * Python's, in English (`health.py`, `web/setup.py`, `notion.py`, `config.py`),
+ * A step shows what the machine answered — `gh` is not there, Claude Code is
+ * not signed in — and those sentences are the Python's, in English
+ * (`health.py`, `web/setup.py`, `provider.py`, `config.py`),
  * written for the journal and `ponos doctor` first. The page translates them
  * on arrival, like `refusals.ts` does for a refusal: the English sentence
  * recognised here is the key in `french.ts`, and what is technical in it — a
@@ -26,7 +26,6 @@ export interface Explained {
 export const PLAIN: readonly string[] = [
   "gh is not installed",
   "claude is not installed",
-  "no token yet",
   "not signed in",
   "the sessions run on OpenRouter: name its slugs",
   "Claude Code is not installed",
@@ -39,20 +38,6 @@ const TEMPLATES: readonly {
   params?: (found: RegExpExecArray) => Record<string, string>
   detail?: (found: RegExpExecArray, said: string) => string
 }[] = [
-  // notion.py: the board is asked for before anybody typed a token.
-  { pattern: /^no Notion token yet\b/, key: "There is no Notion token yet.", detail: (_, said) => said },
-  // config.py: what a Notion board needs to be named.
-  {
-    pattern: /^notion\.token\b.*notion\.workspace\b.* must be set/s,
-    key: "The Notion token and the board are not set yet.",
-    detail: (_, said) => said,
-  },
-  { pattern: /^notion\.token\b.* must be set/s, key: "The Notion token is not set yet.", detail: (_, said) => said },
-  {
-    pattern: /^notion\.workspace\b.* must be set/s,
-    key: "The Notion board is not chosen yet.",
-    detail: (_, said) => said,
-  },
   // provider.py: a provider chosen with no key.
   {
     pattern: /^claude\.provider = "api_key" with no key/,

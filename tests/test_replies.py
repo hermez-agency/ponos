@@ -2,27 +2,25 @@
 
 from __future__ import annotations
 
-import tempfile
-import threading
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, cast
 
 from support import ME, _bare_runner, _config, _no_session, _said, case
 
-from ponos import channels, conversation, notion, prompt, workspace
+from ponos import channels, conversation, prompt, store, workspace
 from ponos.runner import Runner
 
 # -- the « On » prompt -------------------------------------------------------
 
 
 class _KnownCommentClient:
-    """Comments that say who wrote them, as Notion's do."""
+    """Comments that say who wrote them, as the board's do."""
 
-    def __init__(self, comments: list[notion.Comment]):
+    def __init__(self, comments: list[store.Comment]):
         self._comments = comments
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         return self._comments
 
     def me(self) -> str:
@@ -32,10 +30,10 @@ class _KnownCommentClient:
         return "Ponos"
 
 
-def _knowing(comments: list[notion.Comment]) -> Runner:
+def _knowing(comments: list[store.Comment]) -> Runner:
     runner = _bare_runner(_KnownCommentClient(comments))
     runner.config = _config("")
-    runner._me = None  # asked of Notion, as in a real run
+    runner._me = None  # asked of the board, as in a real run
     runner._spellings = None
     return runner
 
@@ -43,7 +41,7 @@ def _knowing(comments: list[notion.Comment]) -> Runner:
 def _ticket() -> Any:
     """A ticket this machine claimed, so one whose comments are worth reading."""
     runner = {"type": "rich_text", "rich_text": [{"plain_text": "ponos@laptop"}]}
-    page = notion.Page(id="p", url="", title="t", properties={"Agent": runner})
+    page = store.Page(id="p", url="", title="t", properties={"Agent": runner})
     return type("T", (), {"page": page})()
 
 
@@ -68,7 +66,7 @@ def talking_on_a_ticket_does_not_put_it_back_in_the_queue() -> None:
 def an_answer_given_on_your_phone_is_still_your_answer() -> None:
     """It carries the runner's token — the runner is what posts it — and it is
     the ticket's author speaking. So it wakes the ticket exactly as the same
-    word typed into Notion would, rather than reading as the runner's own last
+    word typed onto the board would, rather than reading as the runner's own last
     word and closing the very question it answers."""
     relayed = channels.answer(
         channels.Reply(channel="telegram", text="oui", ticket="p", title="t", who="Salvador")
@@ -122,80 +120,60 @@ def a_thread_transcript_tells_its_two_voices_apart() -> None:
     )
 
 
-@case
-def the_scan_moves_across_the_board_a_window_at_a_time() -> None:
-    """One request per page, and a run that can come round every ten seconds."""
-    ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    pages = [f"p{index}" for index in range(5)]
-    assert ledger.rotate(pages, 2) == ["p0", "p1"]
-    assert ledger.rotate(pages, 2) == ["p2", "p3"]
-    assert ledger.rotate(pages, 2) == ["p4", "p0"], "it wraps rather than starting over"
-    assert ledger.rotate(pages, 10) == pages, "a window wider than the board is the board"
-    assert ledger.rotate([], 2) == []
-
-
-@case
-def the_pass_holds_off_until_its_own_interval_has_passed() -> None:
-    ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    assert ledger.due(60), "a runner that has never looked is due at once"
-    ledger.stamp()
-    assert not ledger.due(60)
-    assert ledger.due(0)
-
-
-@case
-def what_the_runner_remembers_survives_a_restart() -> None:
-    path = Path(tempfile.mkdtemp()) / "ponos.db"
-    ledger = conversation.Ledger(database=path)
-    ledger.remember_page("3ca45168-0af4-80ae-9443-de0b65d9abf8")
-    ledger.remember_thread("d1", session="s-1", comment="c-1")
-    ledger.cursor = 3
-    ledger.save()
-
-    again = conversation.Ledger.load(path)
-    assert again.known_pages() == ["3ca451680af480ae9443de0b65d9abf8"], "dashes and all"
-    assert again.session_of("d1") == "s-1"
-    assert again.cursor == 3
-    assert conversation.Ledger.load(Path(tempfile.mkdtemp()) / "ponos.db").known_pages() == []
-
-
 class _ThreadClient:
     """Pages with comments on them, and nothing else."""
 
-    def __init__(self, pages: dict[str, list[notion.Comment]]):
+    def __init__(self, pages: dict[str, list[store.Comment]]):
         self.pages = pages
         self.asked: list[str] = []
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         self.asked.append(page_id)
         if page_id not in self.pages:
-            raise notion.NotionError("404 could not find block")
+            raise store.StoreError("404 could not find block")
         return self.pages[page_id]
 
     def my_name(self) -> str:
         return "Ponos"
 
 
+class _Threads(conversation.Threads):
+    """The tickets most recently commented on, and the sessions, kept in memory."""
+
+    def __init__(self, pages: Iterable[str]) -> None:
+        super().__init__()
+        self.pages = list(pages)
+        self.sessions: dict[tuple[str, str], str] = {}
+
+    def recent(self) -> list[str]:
+        return list(self.pages)
+
+    def session_of(self, ticket: str, discussion: str) -> str:
+        return self.sessions.get((ticket, discussion), "")
+
+    def remember(self, ticket: str, discussion: str, session: str) -> None:
+        self.sessions[(ticket, discussion)] = session
+
+    def forget(self, ticket: str, discussion: str) -> None:
+        self.sessions.pop((ticket, discussion), None)
+
+
 def _talking(
-    pages: dict[str, list[notion.Comment]], *, claimed: Iterable[str] = frozenset(), scan: int = 20
+    pages: dict[str, list[store.Comment]], *, claimed: Iterable[str] = frozenset()
 ) -> Runner:
     runner = _bare_runner(_ThreadClient(pages))
     runner.config = _config("")
-    runner.config.runner.reply_scan = scan
     runner._spellings = None  # resolved from the client, as in a real run
     runner._me = ME
     runner._claimed = set(claimed)
-    runner._ledger_lock = threading.Lock()
-    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    for page in pages:
-        runner._ledger.remember_page(page)
+    runner.threads = _Threads(pages)
     return runner
 
 
-def _ledger(runner: Runner) -> conversation.Ledger:
-    """The ledger `_talking` gave the runner, which a run may not have."""
-    assert runner._ledger is not None
-    return runner._ledger
+def _threads(runner: Runner) -> _Threads:
+    """The threads `_talking` gave the runner."""
+    assert isinstance(runner.threads, _Threads)
+    return runner.threads
 
 
 REPLIED_TO = [
@@ -230,7 +208,7 @@ def a_pass_answers_one_thread_per_page_and_stops_at_five() -> None:
 @case
 def a_page_that_cannot_be_read_costs_that_page_and_nothing_else() -> None:
     runner = _talking({"ptwo": REPLIED_TO})
-    _ledger(runner).remember_page("pgone")
+    _threads(runner).pages.append("pgone")
     assert [page for page, _ in runner._pending(ME)] == ["ptwo"]
 
 
@@ -239,13 +217,13 @@ def the_pages_this_run_has_already_read_cost_no_second_request() -> None:
     runner = _talking({"pone": REPLIED_TO})
     runner._comments["pone"] = REPLIED_TO  # as `woken` leaves it
     assert len(runner._pending(ME)) == 1
-    assert cast(_ThreadClient, runner.client).asked == [], "nothing was asked of Notion twice"
+    assert cast(_ThreadClient, runner.client).asked == [], "nothing was asked of the board twice"
 
 
 class _TalkingClient(_ThreadClient):
     """A page, its discussion, and what got written back into it."""
 
-    def __init__(self, pages: dict[str, list[notion.Comment]], body: str = "Supprimer l'entête."):
+    def __init__(self, pages: dict[str, list[store.Comment]], body: str = "Supprimer l'entête."):
         super().__init__(pages)
         self._body = body
         self.posted: list[tuple[str, str, str]] = []
@@ -253,8 +231,8 @@ class _TalkingClient(_ThreadClient):
     def me(self) -> str:
         return ME
 
-    def page(self, page_id: str) -> notion.Page:
-        return notion.Page(id=page_id, url=f"https://notion.so/{page_id}", title="Un ticket")
+    def page(self, page_id: str) -> store.Page:
+        return store.Page(id=page_id, url=f"https://board.invalid/{page_id}", title="Un ticket")
 
     def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
         return self._body
@@ -302,7 +280,6 @@ def a_second_question_lands_in_the_same_conversation(state_home: Path) -> None:
         again = [*REPLIED_TO, _said("et le footer ?", ident="c-later")]
         client.pages["pone"] = again
         runner._comments.clear()
-        _ledger(runner).at = 0.0  # the interval, not the point of this test
         runner.converse()
 
     assert len(calls) == 2
@@ -329,7 +306,7 @@ def a_session_that_says_nothing_is_still_answered_for(state_home: Path) -> None:
 
 @case
 def a_conversation_whose_session_is_gone_starts_a_new_one(state_home: Path) -> None:
-    """The transcript was pruned, or the machine changed. Notion still has the
+    """The transcript was pruned, or the machine changed. The board still has the
     thread, which is enough to carry on from."""
     with _no_session(ok=[True, False, True]) as calls:
         runner = _talking({"pone": REPLIED_TO})
@@ -341,7 +318,6 @@ def a_conversation_whose_session_is_gone_starts_a_new_one(state_home: Path) -> N
 
         client.pages["pone"] = [*REPLIED_TO, _said("et le footer ?", ident="c-later")]
         runner._comments.clear()
-        _ledger(runner).at = 0.0
         runner.converse()
 
     assert [call["resume"] for call in calls] == [False, True, False]
@@ -351,7 +327,7 @@ def a_conversation_whose_session_is_gone_starts_a_new_one(state_home: Path) -> N
 
 
 @case
-def a_pass_that_is_turned_off_or_too_soon_asks_notion_nothing(state_home: Path) -> None:
+def a_pass_that_is_turned_off_asks_the_board_nothing(state_home: Path) -> None:
     with _no_session() as calls:
         runner = _talking({"pone": REPLIED_TO})
         client = _TalkingClient({"pone": REPLIED_TO})
@@ -359,10 +335,6 @@ def a_pass_that_is_turned_off_or_too_soon_asks_notion_nothing(state_home: Path) 
         runner.dry_run = False
         runner.config.runner.reply = False
         assert runner.converse() == []
-
-        runner.config.runner.reply = True
-        _ledger(runner).stamp()
-        assert runner.converse() == [], "the interval has not passed"
         assert client.asked == [] and calls == []
 
 

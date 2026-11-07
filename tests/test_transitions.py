@@ -9,18 +9,18 @@ from typing import Any
 
 from support import _config, _Unblocking, case
 
-from ponos import notion, session, voice
+from ponos import session, store, voice
 
 # -- the « On » prompt -------------------------------------------------------
 
 
-def _page(identifier: str, status: str, prompt: str = "", title: str = "") -> notion.Page:
+def _page(identifier: str, status: str, prompt: str = "", title: str = "") -> store.Page:
     def text(kind: str, value: str) -> dict[str, Any]:
         return {"type": kind, kind: [{"plain_text": value}]}
 
-    return notion.Page(
+    return store.Page(
         id=identifier,
-        url=f"https://notion.test/{identifier}",
+        url=f"https://board.test/{identifier}",
         title=title or identifier,
         properties={
             "statut": {"type": "status", "status": {"name": status}},
@@ -32,13 +32,13 @@ def _page(identifier: str, status: str, prompt: str = "", title: str = "") -> no
 class _OnBoard:
     """Pages by id, the way a board answers: the whole database, or one page."""
 
-    def __init__(self, *pages: notion.Page) -> None:
+    def __init__(self, *pages: store.Page) -> None:
         self.pages = {page.id: page for page in pages}
 
-    def query(self, database: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(self, database: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         return list(self.pages.values())
 
-    def page(self, page_id: str) -> notion.Page:
+    def page(self, page_id: str) -> store.Page:
         return self.pages[page_id]
 
     def schema(self, database: str) -> dict[str, str]:
@@ -48,7 +48,7 @@ class _OnBoard:
         self.pages[identifier] = _page(
             identifier,
             status,
-            notion.read(self.pages[identifier], "On") if identifier in self.pages else "",
+            store.read(self.pages[identifier], "On") if identifier in self.pages else "",
         )
 
 
@@ -223,7 +223,7 @@ def a_chain_of_tickets_made_by_prompts_stops_at_the_depth_the_file_allows(state_
             runner.transitions()
             # What the chain does by itself: each new ticket is done by somebody.
             for name in [n for n in board.pages if n.startswith("c")]:
-                if notion.read(board.pages[name], "statut") != "done":
+                if store.read(board.pages[name], "statut") != "done":
                     board.set(name, "done")
     # t1 (depth 0) and c1 (depth 1) ran; c2 would be depth 2 > the limit of 1.
     assert generation["n"] == 2, generation
@@ -278,7 +278,7 @@ def the_board_is_read_for_moved_statuses_no_more_often_than_the_file_says(state_
     reads: list[int] = []
     original = board.query
 
-    def query(*a: Any, **k: Any) -> list[notion.Page]:
+    def query(*a: Any, **k: Any) -> list[store.Page]:
         reads.append(1)
         return original(*a, **k)
 

@@ -24,7 +24,7 @@
 # `tests/run.py` vérifie que rien hors de `web/app.py`, `web/routes.py` et de
 # httpx dans `http.py` n'importe autre chose que la bibliothèque standard.
 # `tests/functional.py` a besoin de `git`, que le runner GitHub a déjà : son
-# Notion, son dépôt et son `claude` sont à lui. Une installation prend le
+# board, son dépôt et son `claude` sont à lui. Une installation prend le
 # `python3` de la machine, quel qu'il soit : les deux suites tournent sur la
 # plus ancienne version que le runner promet (3.11) ici, et sur la plus récente
 # (3.13) dans quality — les relancer ici sous 3.13 ne prouverait rien de plus.

@@ -10,7 +10,7 @@ from typing import Any
 
 from support import _bare_api, case
 
-from ponos import notion, workspace
+from ponos import store, workspace
 from ponos.web import answers
 from ponos.web import api as web_api
 
@@ -75,9 +75,9 @@ def every_route_that_answers_json_names_its_shape() -> None:
 # -- the goals -----------------------------------------------------------------
 
 
-def _row(page_id: str, title: str, **columns: dict[str, Any]) -> notion.Page:
-    return notion.Page(
-        id=page_id, url=f"https://notion.so/{page_id}", title=title, properties=columns
+def _row(page_id: str, title: str, **columns: dict[str, Any]) -> store.Page:
+    return store.Page(
+        id=page_id, url=f"https://board.invalid/{page_id}", title=title, properties=columns
     )
 
 
@@ -94,7 +94,7 @@ class _GoalsClient:
     def options(self, database: str, name: str) -> list[str]:
         return ["À faire", "En cours", "Fait"] if (database, name) == ("goals-db", "Statut") else []
 
-    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[store.Page]:
         if database == "goals-db":
             return [
                 _row(
@@ -128,7 +128,7 @@ def _goals_api() -> web_api.Api:
 
 @case
 def a_goal_counts_the_tickets_the_board_lists_column_by_column() -> None:
-    """The progress is the board's, counted: no rollup read, a board without Notion has none."""
+    """The progress is the board's, counted: no rollup read, a board has none."""
     api = _goals_api()
     tickets = [
         {"id": "t1", "goal_id": "aaaagoal", "column": "done"},
@@ -140,8 +140,6 @@ def a_goal_counts_the_tickets_the_board_lists_column_by_column() -> None:
     api._goal_tickets = lambda: tickets  # type: ignore[method-assign]  # a double: no board read
     said = api.goals()
     assert said["configured"] is True
-    # Whether a Notion is behind it, for the page that would say "Notion" on a board without.
-    assert said["notion"] is True, said
     assert said["statuses"] == ["À faire", "En cours", "Fait"], said
     assert [goal["name"] for goal in said["goals"]] == ["Lancer la v1", "Ranger"], said
     launch, tidy = said["goals"]
@@ -171,7 +169,7 @@ def a_card_names_the_goal_it_serves_and_a_card_without_one_says_nothing() -> Non
 class _ClosedGoalsClient(_GoalsClient):
     """The same goals, a met one beside them, on a board that can point at a goal."""
 
-    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[store.Page]:
         found = super().query(database, *args, **kwargs)
         if database == "goals-db":
             met = {"type": "status", "status": {"name": "Atteint"}}

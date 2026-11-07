@@ -1,8 +1,8 @@
 """The runner's local memory, in one SQLite file: ~/.local/state/ponos/ponos.db.
 
-It does not replace the board. Tickets stay in Notion or in Markdown, because
-that is where you read and edit them; this is what the runner keeps *about*
-its own work, and wants to ask questions of rather than read back whole — the
+It began beside the board, as what the runner keeps *about* its own work and
+wants to ask questions of rather than read back whole, and has since become
+the board itself (migration 44 onwards) — the
 dozen JSON files beside it, each with its own atomic write and no version
 number, could only ever be reread from the first line. `sqlite3` ships with
 Python, so the core still needs nothing but `python3` and `git`.
@@ -111,7 +111,7 @@ Migration 16 holds what a project decides for itself, against the settings of
 id without dashes, and its settings as one JSON object: the first of them is
 its own automatic validation, and the next ones are keys of the same object
 rather than a migration each. Here rather than on the board because nobody
-should have to add a column to their Notion database for a switch of Ponos's;
+should have to add a column to their board for a switch of Ponos's;
 the project's name is copied beside it, as `runs` copies a ticket's title, so
 that the global settings can say which projects decide for themselves without
 reading the board.
@@ -167,7 +167,7 @@ file says, and needs nothing migrated to stay one.
 Migration 44 is the ticket itself, which `ponos.db` is about to become the
 source of — see tickets.py. A row a ticket with the properties of the board
 and the two parts of its page, the tickets it comes after, its comments, and
-the queue of changes the Notion mirror has still to push. Only the tables are
+the queue of changes the mirror of the time had still to push. Only the tables are
 here: nothing reads or writes them yet.
 """
 
@@ -1152,6 +1152,56 @@ def _library(connection: sqlite3.Connection) -> None:
     )
 
 
+def _notion_is_gone(connection: sqlite3.Connection) -> None:
+    # Ponos ne parle plus à Notion : la file du miroir, les pages déjà mises en
+    # deux parties et l'adresse de la page Notion de chaque ticket n'ont plus de
+    # lecteur. Un ticket « après » un autre nommé par cette adresse le nomme
+    # désormais par son id. Les deux fichiers que le client gardait à côté de la
+    # base, et la marque de l'importation, partent avec.
+    connection.execute("DROP TABLE IF EXISTS mirror_queue")
+    connection.execute("DROP TABLE IF EXISTS page_formats")
+    # Le relevé des commentaires page par page, à son rythme, n'existait que
+    # pour ménager l'API : les commentaires sont dans ce fichier. Reste de lui la
+    # session qui parle dans un fil, posée sur la dernière réponse de ce fil.
+    connection.execute("ALTER TABLE ticket_comments ADD COLUMN session TEXT NOT NULL DEFAULT ''")
+    connection.execute(
+        "UPDATE ticket_comments SET session = (SELECT session FROM conversation_threads "
+        "WHERE conversation_threads.discussion = ticket_comments.discussion) "
+        "WHERE discussion != '' AND id IN "
+        "(SELECT MAX(id) FROM ticket_comments GROUP BY ticket, discussion) "
+        "AND EXISTS (SELECT 1 FROM conversation_threads "
+        "WHERE conversation_threads.discussion = ticket_comments.discussion)"
+    )
+    for table in ("conversation_pages", "conversation_threads", "conversation_scan"):
+        connection.execute(f"DROP TABLE IF EXISTS {table}")
+    # Ce qui avait été convenu de chaque image avec Notion : relu au prochain tour.
+    connection.execute("DELETE FROM images")
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(tickets)")}
+    if "notion" in columns:
+        connection.execute(
+            "UPDATE OR IGNORE ticket_after SET after = "
+            "(SELECT id FROM tickets WHERE notion = ticket_after.after) "
+            "WHERE after IN (SELECT notion FROM tickets WHERE notion != '' AND notion != id)"
+        )
+        connection.execute(
+            "DELETE FROM ticket_after "
+            "WHERE after IN (SELECT notion FROM tickets WHERE notion != '' AND notion != id)"
+        )
+        connection.execute("ALTER TABLE tickets DROP COLUMN notion")
+    # Les deux causes de blocage qui nommaient Notion nomment le board.
+    for table, column in (("tickets", "block"), ("runs", "code"), ("history", "code")):
+        for old, new in (
+            ("notion.write-failed", "board.write-failed"),
+            ("notion.read-failed", "board.read-failed"),
+        ):
+            connection.execute(f"UPDATE {table} SET {column} = ? WHERE {column} = ?", (new, old))
+    for row in connection.execute("PRAGMA database_list"):
+        if row[1] == "main" and row[2]:
+            folder = Path(row[2]).parent
+            for leftover in ("notion-identity.json", "notion-pages.json", "tickets-adopted"):
+                (folder / leftover).unlink(missing_ok=True)
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1210,6 +1260,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _detached_sessions,
     _memories,
     _library,
+    _notion_is_gone,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

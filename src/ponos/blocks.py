@@ -15,7 +15,7 @@ act on it later, in one place rather than in every caller:
 - its **family** — merge, session, infrastructure, question, access — which is
   the icon on the card and the colour of the chart;
 - **who** has to move: Ponos itself, you, or something outside both (GitHub,
-  Notion);
+  board);
 - a short **label** and one line of **help**, in the two languages the runner
   speaks — not in `voice.py`, because they are not said on a ticket but drawn
   on a card, beside the board's own words;
@@ -426,12 +426,12 @@ _CAUSES = (
         "crashed",
     ),
     _cause(
-        "notion.write-failed",
+        "board.write-failed",
         "infrastructure",
         "external",
         "retry",
         "retry:2",
-        ("Notion refused the write", "Écriture Notion refusée"),
+        ("The board refused the write", "Écriture refusée par le board"),
         (
             "The answer could not be written to the ticket; it is still on disk.",
             "La réponse n'a pas pu être écrite dans le ticket ; elle est toujours sur le disque.",
@@ -439,7 +439,7 @@ _CAUSES = (
         "answer-not-written",
     ),
     _cause(
-        "notion.read-failed",
+        "board.read-failed",
         "infrastructure",
         "external",
         "retry",
@@ -610,15 +610,15 @@ _HEARD: tuple[tuple[str, str], ...] = (
     ("would not start", "session.not-started"),
     ("could not be started", "session.not-started"),
     ("n'a pas voulu demarrer", "session.not-started"),
-    ("answer could not be written", "notion.write-failed"),
-    ("write the answer", "notion.write-failed"),
-    ("ecrire la reponse", "notion.write-failed"),
+    ("answer could not be written", "board.write-failed"),
+    ("write the answer", "board.write-failed"),
+    ("ecrire la reponse", "board.write-failed"),
     ("runner itself broke", "runner.crashed"),
     ("runner lui-meme a casse", "runner.crashed"),
     ("find its project", "project.no-repo"),
     ("trouve son projet", "project.no-repo"),
-    ("read what the ticket says", "notion.read-failed"),
-    ("lire ce que dit le ticket", "notion.read-failed"),
+    ("read what the ticket says", "board.read-failed"),
+    ("lire ce que dit le ticket", "board.read-failed"),
     ("nothing here to work from", "ticket.empty"),
     ("rien pour commencer", "ticket.empty"),
     ("kind of ticket", "ticket.kind-unsure"),

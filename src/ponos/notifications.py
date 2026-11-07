@@ -22,7 +22,7 @@ And **a bell lets go of a ticket that moved on**: a question answered, a pull
 request merged, a ticket the board now shows in another column asks for nothing
 any more, and a count that kept it would be one nobody looks at. The console
 settles them against every board it reads (`settle`), since it is the one that
-holds the board — the runner rings, and a ticket moved by hand in Notion moves
+holds the board — the runner rings, and a ticket moved by hand on the board moves
 without it. A bell just rung is left alone for a moment: the board read beside
 it may still be the one from before the move that rang it.
 
@@ -54,7 +54,7 @@ STILL = {
 }
 
 # How long a bell is trusted over a board edited before it: longer than a read
-# of Notion may lag behind the move, shorter than anyone waits for the count.
+# of the board may lag behind the move, shorter than anyone waits for the count.
 SETTLING = timedelta(minutes=2)
 
 # How long a notification you have read is kept.

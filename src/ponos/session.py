@@ -557,7 +557,7 @@ def inheritable(environ: Mapping[str, str]) -> dict[str, str]:
     """The runner's environment, less the secrets that are the runner's own.
 
     In a container every one of them is a variable — the console's password and
-    token, Notion's, the channels', the providers' keys — and a session handed
+    token, the channels', the providers' keys — and a session handed
     the whole environment had them all, for an `env` to print into its
     transcript and the ticket. A session is given what `[vault]` grants its
     project and what its provider needs, by the caller: the rest stays here.
@@ -878,8 +878,8 @@ TERMINALS: tuple[tuple[str, Callable[[str, list[str]], list[str]]], ...] = (
 def deep_link(session_id: str, cwd: Path | str | None = None, host: str = "") -> str:
     """A clickable link that reopens this session, wherever it ran.
 
-    Notion accepts any scheme in a URL property, and `install.sh` registers
-    `ponos://` with the desktop. Clicking the Session cell of a ticket
+    The console draws any scheme as a link, and `install.sh` registers
+    `ponos://` with the desktop. Clicking the session of a ticket
     therefore opens a terminal already inside the conversation — which beats
     copying a UUID into a command by some distance.
 
@@ -903,7 +903,7 @@ def deep_link(session_id: str, cwd: Path | str | None = None, host: str = "") ->
 
 
 # What a session identifier and an ssh destination may be made of, and nothing
-# more. A link is something anybody can put in a Notion cell or a web page, and
+# more. A link is something anybody can put in a ticket or a web page, and
 # clicking it hands both words to a command line: `host=-oProxyCommand=…` is an
 # ssh *option*, not a machine, and runs whatever it says before any connection
 # is attempted. So the two are checked against their shape rather than escaped
@@ -1039,7 +1039,7 @@ def _summary(answer: str) -> str:
     """The RESULT line without its verdict, else the tail of the answer.
 
     "RESULT: ok — removed the header" becomes "removed the header": the verdict
-    is already carried by the Notion status, repeating it teaches nothing.
+    is already carried by the ticket's status, repeating it teaches nothing.
     """
     for line in reversed(answer.splitlines()):
         stripped = line.strip().lstrip("*# ").rstrip("*")

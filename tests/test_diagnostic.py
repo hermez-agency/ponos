@@ -80,13 +80,13 @@ def a_fix_ticket_mission_holds_its_four_parts_and_where_it_comes_from() -> None:
         "out": "Hors périmètre",
         "from": "Écrit par le diagnostic",
     }
-    body = diagnostic.body(fix, headings, "https://notion.invalid/abc")
+    body = diagnostic.body(fix, headings, "https://board.invalid/abc")
     for line in (
         "### Contexte\n\n`calc.py:2` soustrait.",
         "### Attendu",
         "### Fini quand",
         "### Hors périmètre\n\nLe reste.",
-        "*Écrit par le diagnostic https://notion.invalid/abc*",
+        "*Écrit par le diagnostic https://board.invalid/abc*",
     ):
         assert line in body, body
 

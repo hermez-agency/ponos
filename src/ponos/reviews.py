@@ -269,7 +269,7 @@ class Reviews(Base):
         runner = self.config.runner
         if self.dry_run or not runner.pr_review_comments:
             return 0
-        column = self.config.notion.prop("pull_request")
+        column = self.config.board.prop("pull_request")
         handed = 0
         for page in pages:
             ticket = Ticket(page)
@@ -337,7 +337,7 @@ class Reviews(Base):
         try:
             self._comment(ticket, said.say("pr-review-handback", n=len(threads), who=who, url=url))
             self._set(
-                ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")}
+                ticket, **{self.config.board.prop("status"): self.config.board.state("ready")}
             )
         except store.Unreachable:
             state.keep_review(ticket.id, before)

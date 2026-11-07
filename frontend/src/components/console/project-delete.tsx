@@ -23,8 +23,8 @@ import { cn } from "@/lib/utils"
  * ticked (a long name is a chore to retype) — the server still asks for the
  * name, which the dialog sends itself.
  * It says what is about to happen in the order it happens: the project leaves
- * the console and the runner for good, its page goes to the Notion trash, its
- * tickets are stopped (or trashed, if asked), and what is on the machine is not
+ * the console and the runner for good, its page goes to the board's trash, its
+ * tickets are stopped (or deleted, if asked), and what is on the machine is not
  * touched. */
 
 /** What the dialog needs to know of a project. */
@@ -68,13 +68,8 @@ export function DeleteProjectDialog({
       const done = await api.deleteProject(project.id, { confirm: project.name, trash_tickets: trash })
       onOpenChange(false)
       toast.success(t("Project “{{name}}” deleted", { name: done.name }), {
-        description: done.url
-          ? t("Its page is in the Notion trash for 30 days.")
-          : t("Its page was put aside in the board's trash folder."),
+        description: t("Its page was put aside in the board's trash folder."),
         duration: 15_000,
-        action: done.url
-          ? { label: t("Undo in Notion"), onClick: () => window.open(done.url, "_blank", "noreferrer") }
-          : undefined,
       })
       onDeleted()
     } catch (error) {
@@ -114,10 +109,10 @@ export function DeleteProjectDialog({
     >
       <ul className="text-muted-foreground list-disc space-y-1.5 pl-5 text-sm">
         <li>{t("It disappears from the console and is no longer synchronised: the runner takes none of its tickets, and no more tokens are spent on it.")}</li>
-        <li>{t("Its page goes to the Notion trash, where it can be restored for 30 days.")}</li>
+        <li>{t("Its page goes to the board's trash, where it is kept and can be restored.")}</li>
         <li>
           {trash
-            ? t("Its tickets go to the Notion trash too.")
+            ? t("Its tickets are deleted too.")
             : t("Its tickets stay on the board; those that are ready or in progress are blocked, with a comment saying why.")}
         </li>
         <li>{t("The GitHub repository and the folder on this machine are never deleted. Its throwaway worktrees are cleaned up.")}</li>
@@ -130,8 +125,8 @@ export function DeleteProjectDialog({
           <span>
             {counted(
               tickets,
-              "Also move its {{count}} ticket to the Notion trash",
-              "Also move its {{count}} tickets to the Notion trash"
+              "Also delete its {{count}} ticket",
+              "Also delete its {{count}} tickets"
             )}
           </span>
         </Label>

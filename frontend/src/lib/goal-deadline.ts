@@ -4,13 +4,13 @@
  * filters: the order and the badge are only wanted by the cards, loaded when
  * the Goals page is opened, and the first load has no bytes to spare (see
  * `test_release.py`). The cards are drawn in the order of what is due, since
- * the query's is Notion's, which says nothing about which goal comes first.
+ * the query's is the board's, which says nothing about which goal comes first.
  */
 
 /** How many days a goal due this soon is said to be close: a week, the time to do something about it. */
 export const SOON = 7
 
-/** The day a due date names, "" for what is not one: Notion may give it a time, which says nothing more. */
+/** The day a due date names, "" for what is not one: it may come with a time, which says nothing more. */
 function dayOf(due: string | undefined): string {
   return /^\d{4}-\d{2}-\d{2}/.exec(due ?? "")?.[0] ?? ""
 }

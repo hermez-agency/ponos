@@ -8,7 +8,7 @@ import { ProjectThumb } from "./project-picture"
  *
  * Said the same way on the Ideas page and on the cards of the swipe, so it is
  * drawn once. The icon is the one every other place shows — `ProjectThumb`, the
- * page's icon in Notion — found in the list the console already holds. An idea
+ * page's icon — found in the list the console already holds. An idea
  * files its project under the bare page id and the list may carry dashes, hence
  * the comparison without them. A project the list no longer knows is named by
  * what the caller still has, and drawn with its initial.

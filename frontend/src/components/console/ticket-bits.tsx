@@ -47,8 +47,8 @@ import { canAct } from "@/lib/role"
  * offers where it stands. */
 
 /* What a column is called where the board has not named it itself. English
- * here, and translated where it is drawn: the board's own words come from
- * Notion and are repeated as they are. */
+ * here, and translated where it is drawn: the board's own words are repeated
+ * as they are. */
 export const LABEL: Record<string, string> = {
   draft: "Draft",
   ready: "Ready",
@@ -61,7 +61,7 @@ export const LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 }
 
-/** A column's name as the board heads it: the board's word, with a capital — Notion's may have none. */
+/** A column's name as the board heads it: the board's word, with a capital — the board's may have none. */
 export const capital = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1)
 
 /* The heading over a column: the console's word for it, in its language,
@@ -147,8 +147,8 @@ export function ago(at: string): string {
  *
  * `/api/board` writes it as the board holds it — `2026-09-19T00:00+02:00` — and
  * an ISO string beside "il y a 7 h" reads like something leaked out of a
- * database. A start gate written as a day is a day: Notion's date column has no
- * time in it, and the midnight the API adds is not something anybody chose. */
+ * database. A start gate written as a day is a day: a date column has no
+ * time in it, and the midnight added to it is not something anybody chose. */
 export function when(at: string): string {
   if (!at) return ""
   const date = new Date(at)
@@ -498,31 +498,30 @@ export function Away({ label, href }: { label: string; href: string }) {
   )
 }
 
-/** Notion, the pull request, the session — whichever the ticket has. */
+/** The pull request, the session — whichever the ticket has. */
 export function TicketLinks({ ticket }: { ticket: Ticket }) {
   const t = useT()
   return (
     <>
-      {reachable(ticket.url) ? <Away label="Notion" href={ticket.url} /> : null}
       {ticket.pull_request ? <Away label={t("pull request")} href={ticket.pull_request} /> : null}
       {ticket.session_link ? <Away label={t("session")} href={ticket.session_link} /> : null}
     </>
   )
 }
 
-/* A move made from the console that is not in Notion yet — or will not be, and
- * why. On the card itself, because that is where the column it claims to be
- * in is drawn: a card standing in Review that Notion has in Done has to say so
- * right there. */
+/* A move made from the console that is not on the board yet — or will not be,
+ * and why. On the card itself, because that is where the column it claims to be
+ * in is drawn: a card standing in Review that the board has in Done has to say
+ * so right there. */
 export function TicketSync({ ticket }: { ticket: Ticket }) {
   const t = useT()
   if (!ticket.sync) return null
   const said =
     ticket.sync === "pending"
-      ? t("waiting to be sent to Notion")
+      ? t("waiting to be written to the board")
       : ticket.sync === "failed"
-        ? t("not sent to Notion")
-        : t("changed in Notion meanwhile — not overwritten")
+        ? t("not written to the board")
+        : t("changed on the board meanwhile — not overwritten")
   return (
     <div className="flex flex-wrap gap-1.5">
       <Chip
@@ -648,18 +647,6 @@ export function TicketFoot({ ticket }: { ticket: Ticket }) {
       {/* On a ready card: what it is likely to cost before it starts. */}
       <TicketEstimate estimate={ticket.estimate} />
       {hasCost ? <span className="whitespace-nowrap tabular-nums">{money(ticket.cost as number)}</span> : null}
-      {reachable(ticket.url) ? (
-        <a
-          href={ticket.url}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="text-muted-foreground hover:text-foreground ms-auto shrink-0"
-          aria-label={t("Open in Notion")}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <ExternalLink className="size-3.5" />
-        </a>
-      ) : null}
     </div>
   )
 }

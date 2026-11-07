@@ -43,7 +43,7 @@ PERMISSION_MODE = "plan"
 # two tags, so that the plan is not confused with the fields of a question.
 _PLAN = re.compile(r"<plan>\s*(.*?)\s*</plan>", re.IGNORECASE | re.DOTALL)
 
-# How much of a plan a comment carries. Notion takes a hundred pieces of rich
+# How much of a plan a comment carries. The board takes a hundred pieces of rich
 # text of two thousand characters each: a plan past this is a plan of a ticket
 # to split, and the rest is in the session.
 LONGEST = 12000

@@ -28,9 +28,8 @@
 #   1. install.sh, with no answer to give and no browser to open, installs
 #      the newest release, and `ponos --version` says its number;
 #   2. the console answers GET /api/setup, and nobody has claimed it yet;
-#   3. `ponos doctor` says no problem but those a fresh installation has by
-#      construction: Claude Code is not installed here, and the board's
-#      Notion token is the console's first connection;
+#   3. `ponos doctor` says no problem but the one a fresh installation has by
+#      construction: Claude Code is not installed here;
 #   4. `ponos update --check` answers, and never offers an older version than
 #      the one installed.
 # Each check says what it found and the next one still runs: one run of the
@@ -41,7 +40,7 @@ SOURCE=/srv/ponos.git
 REPOSITORY=https://github.com/hermez-agency/ponos.git
 # What doctor may still count as a problem here: the codes of `health/`,
 # matched on their first part — the group of the check.
-ACCEPTED="claude notion"
+ACCEPTED="claude"
 
 say()  { printf '\n==> %s\n' "$1"; }
 fail() { printf '\nfresh install: %s\n' "$1" >&2; exit 1; }
@@ -106,8 +105,7 @@ fi
 # — finds shallow.lock and cannot tell. That collision is a defect of its own;
 # what is checked here is what each of them answers, so they come after it.
 # Two things look: the console, whose stamp carries no time (`clock=False`),
-# and the runner's first pass — which a board without Notion lets run, where a
-# notion board with no token stopped before it. Only the runner's stamp is
+# and the runner's first pass. Only the runner's stamp is
 # dated, so it is the one waited for: the console's alone leaves a fetch
 # under way, and it is that one that holds shallow.lock.
 for _ in $(seq 120); do

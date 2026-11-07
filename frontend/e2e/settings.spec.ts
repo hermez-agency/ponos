@@ -100,22 +100,21 @@ test("the settings say what the console runs on, line by line", async ({ page })
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/communication")
 })
 
-test("ten pages (six from the file, then GitHub, triggers, MCP and the accounts), and an old link to a section opens the page it is on", async ({ page }) => {
+test("nine pages (five from the file, then GitHub, triggers, MCP and the accounts), and an old link to a section opens the page it is on", async ({ page }) => {
   await open(page, "/?view=console/settings/read/config/notify")
   await settingsPage(page)
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/communication")
-  await expect(page.getByRole("tab")).toHaveCount(10)
+  await expect(page.getByRole("tab")).toHaveCount(9)
   await expect(page.locator('[data-card="notify"]')).toBeVisible()
 })
 
 test("a search opens the right page and unfolds what hid the field", async ({ page }) => {
   await open(page, "/?view=console/settings/read/config/general")
   await settingsPage(page)
-  await expect(page.locator('[data-fold="mapping"]')).toHaveCount(0)
-  await page.getByRole("searchbox", { name: "Search the settings" }).fill("notion.pages.tickets")
+  await page.getByRole("searchbox", { name: "Search the settings" }).fill("github_access.token_item")
   await page.getByRole("option").first().click()
-  await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/source")
-  await expect(page.locator('[data-field="notion-pages-tickets"]')).toBeVisible()
+  await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/code")
+  await expect(page.locator('[data-field="github_access-token_item"]')).toBeVisible()
 })
 
 test("the keys are hidden until asked for", async ({ page }) => {

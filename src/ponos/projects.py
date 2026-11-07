@@ -1,9 +1,9 @@
-"""Matching a Notion project to a repository on disk.
+"""Matching a project of the board to a repository on disk.
 
 Three ways, in this order, from the most explicit to the least:
 
-1. a `[projects]` entry in the configuration — the Notion name, the path;
-2. a **`path` property on the project page** in Notion, which keeps the mapping
+1. a `[projects]` entry in the configuration — the project's name, the path;
+2. a **`path` property on the project page**, which keeps the mapping
    on the board rather than in a file on one machine;
 3. the project's `github` property, matched against the `origin` remotes of the
    repositories found under `workspace_root` — under the name it declares, or
@@ -51,7 +51,7 @@ SKIP = {"node_modules", "vendor", ".git", "dist", "build", ".venv", "__pycache__
 class Project:
     name: str
     path: Path | None
-    notion_id: str = ""
+    page_id: str = ""
     github: str = ""
     brief: str = ""
     note: str = ""
@@ -214,7 +214,7 @@ class Resolver:
             # A deleted project is still reachable by its ID — that is what the
             # trash is for — so a ticket that still points at it would otherwise
             # be worked on, and a deleted project would go on spending tokens.
-            raise LookupError(f"the project “{name}” was deleted (it is in the Notion trash)")
+            raise LookupError(f"the project “{name}” was deleted (it is in the trash)")
         github = str(_property(page, "Repository", "github", "repo") or "")
 
         # Every way that was tried and did not lead anywhere, in order. Read
@@ -254,7 +254,7 @@ class Resolver:
                 # change of kind, not a fallback.
                 raise LookupError(self._nowhere(name, failed))
             # Nothing declares a repository, so the project does not have one:
-            # its tickets produce a document written back into Notion. Guessing
+            # its tickets produce a document written back onto the board. Guessing
             # from the project's name would be worse than useless here — it
             # would silently turn a writing task into a commit on some repo that
             # merely happens to be named alike.
@@ -325,7 +325,7 @@ class Resolver:
 
         Named after the repository and nothing else: the folder a clone makes
         by default is the one everybody's muscle memory looks for, and the
-        project's Notion title — which may be “Jeu d'usine mobile” — is not a
+        project's title — which may be “Jeu d'usine mobile” — is not a
         directory name anybody would type twice.
         """
         path = self._root / repository.rsplit("/", 1)[-1]

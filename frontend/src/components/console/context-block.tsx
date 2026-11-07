@@ -31,10 +31,8 @@ import { Robot } from "./robot"
  * history — saving it twice has to leave one text, not two copies of it under
  * each other.
  *
- * And it edits what the *agent* reads, not what Notion draws: the page
- * flattened into the Markdown the prompt carries, drawn as it is typed. A
- * heading that looks different here from the way it looks in Notion is the
- * heading as an agent gets it.
+ * And it edits what the *agent* reads: the Markdown the prompt carries,
+ * drawn as it is typed. A heading here is the heading as an agent gets it.
  *
  * It is drawn folded — a few lines, so that a long text does not push the
  * projects off a phone — and opened by "See all" or by "Edit".
@@ -168,11 +166,7 @@ export function ContextBlock() {
         </p>
       ) : !drawn.editable ? (
         <EmptyState icon={BookOpen}>
-          {t("This workspace has no “{{page}}” page, so there is nowhere to write.", {
-            page: drawn.where,
-          })}
-          <br />
-          <code className="font-mono text-xs">ponos init &lt;page-url&gt;</code> {t("builds it.")}
+          {t("This board has no context page, so there is nowhere to write.")}
         </EmptyState>
       ) : editing ? (
         <>
@@ -205,9 +199,7 @@ export function ContextBlock() {
             </span>
           </div>
           <p className="text-muted-foreground text-xs">
-            {t("saved to the “{{page}}” page, and read again on the next run.", {
-              page: drawn.where,
-            })}
+            {t("saved to the board, and read again on the next run.")}
           </p>
         </>
       ) : shown ? (

@@ -9,7 +9,7 @@ from typing import Any
 
 from support import _bare_api, _TalkClient, case
 
-from ponos import notion, session, state
+from ponos import session, state, store
 from ponos.web import live as web_live
 
 # -- what a message to the workspace carries ----------------------------------
@@ -46,7 +46,7 @@ def an_event_carries_its_id_so_the_browser_can_ask_again() -> None:
 
 @case
 def a_log_line_becomes_the_step_the_board_would_have_shown() -> None:
-    """The live panel and the Notion toggle read the same events, one way."""
+    """The live panel and the board toggle read the same events, one way."""
     line = json.dumps(
         {
             "type": "assistant",
@@ -269,7 +269,7 @@ def a_browser_is_given_the_whole_board_again_only_when_it_missed_a_version() -> 
 
 
 @case
-def the_board_just_read_is_handed_out_again_without_asking_notion() -> None:
+def the_board_just_read_is_handed_out_again_without_asking_the_board() -> None:
     """The statistics take the watching thread's board, and read one only when it is old."""
     reads = []
 
@@ -327,14 +327,14 @@ def a_board_read_lets_the_bell_go_of_a_ticket_that_moved_on(state_home: Path) ->
 
 
 @case
-def a_notion_that_will_not_answer_reaches_the_console_as_a_notice() -> None:
+def a_board_that_will_not_answer_reaches_the_console_as_a_notice() -> None:
     """Named `notice`: EventSource already fires an `error` of its own."""
     hub = web_live.Hub()
     said = []
     hub.publish = lambda kind, **payload: said.append((kind, payload))  # type: ignore[method-assign]
 
     def broken() -> dict[str, Any]:
-        raise notion.NotionError("object not found\nsecond line nobody needs")
+        raise store.StoreError("object not found\nsecond line nobody needs")
 
     web_live.Watch(hub, broken).refresh()
     assert said == [("notice", {"where": "board", "message": "object not found"})]

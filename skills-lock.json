@@ -5,7 +5,8 @@
       "source": "tt-a1i/archify",
       "sourceType": "github",
       "skillPath": "archify/SKILL.md",
-      "computedHash": "97190f1668a81e3228b4f69263ddba479b3bd537e58b1065da4034781129f76f"
+      "computedHash": "e9ef0923cda908886e667eb48e36b29e81d0a7a7b9fe2bc05f3779be271e5119",
+      "installMode": "copy"
     },
     "shadcn": {
       "source": "shadcn/ui",

@@ -23,7 +23,7 @@
 import type { HealthCheck, HealthGroup } from "./types.ts"
 
 /** The groups, in the order the band lists them. */
-export const HEALTH_GROUPS: readonly HealthGroup[] = ["notion", "github", "claude", "projects", "machine", "settings"]
+export const HEALTH_GROUPS: readonly HealthGroup[] = ["board", "github", "claude", "projects", "machine", "settings"]
 
 /** The checks that are not green, errors before warnings, each group in its place. */
 export function failing(checks: HealthCheck[]): HealthCheck[] {

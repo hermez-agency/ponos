@@ -7,12 +7,12 @@ still have to put the events back in order at the far end.
 
 Two rules keep it honest:
 
-- **nobody watching, nothing polled.** The board is read from Notion only while
+- **nobody watching, nothing polled.** The board is read only while
   a browser is connected. A console left open in a tab is one reader; a console
   nobody opened must cost the integration nothing at all;
-- **the logs are the live feed, not Notion.** A running ticket already writes its
+- **the logs are the live feed, not the board.** A running ticket already writes its
   session to disk, ten events a second. Tailing that file is free and instant,
-  where asking Notion what it is doing would be neither.
+  where asking the board what it is doing would be neither.
 """
 
 from __future__ import annotations
@@ -376,7 +376,7 @@ def _ticket(filename: str) -> str:
 class Watch:
     """One thread, running only while somebody is looking.
 
-    The board is asked of Notion every `interval` seconds; the logs are tailed
+    The board is read every `interval` seconds; the logs are tailed
     every second, because that is where "live" actually happens and it costs a
     stat call. Both stop the moment the last browser disconnects.
     """
@@ -393,7 +393,7 @@ class Watch:
     ) -> None:
         self.hub = hub
         self.board = board
-        # When the board last agreed with Notion. Published after every read,
+        # When the console last agreed with the board. Published after every read,
         # on its own: it changes every time, and the board must not be
         # redrawn for a clock that moved.
         self.status = status
@@ -430,7 +430,7 @@ class Watch:
         """Ask for a board read on the next tick, without waiting for it here.
 
         A ticket created or moved from the console should show up at once — but
-        the browser must not sit through a Notion round trip to be told the
+        the browser must not sit through a board round trip to be told the
         write it just made succeeded. The watching thread does it, a second
         later, and the board arrives on the stream like any other.
         """
@@ -442,7 +442,7 @@ class Watch:
 
         For what asks for the whole board and can live with it a few seconds
         old — the statistics, at every change of period or project. While a
-        page is open this thread has just read it, and a second Notion query
+        page is open this thread has just read it, and a second query of the board
         would only say the same thing again.
         """
         held = self._read

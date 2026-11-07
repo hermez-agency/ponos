@@ -74,7 +74,7 @@ test.describe("at 1440px", () => {
 
     await menu(page, "Old blog").click()
     await page.getByRole("menuitem", { name: "Delete" }).click()
-    await dialog(page).getByRole("checkbox", { name: /Also move its/ }).check()
+    await dialog(page).getByRole("checkbox", { name: /Also delete its/ }).check()
     await dialog(page).getByRole("checkbox", { name: "Yes, I am sure I want to delete this project" }).check()
     await confirm(page).click()
 

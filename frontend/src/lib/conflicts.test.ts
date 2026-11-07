@@ -1,4 +1,4 @@
-/* A card changed in Notion meanwhile: said in the page's words, and said once.
+/* A card changed on the board meanwhile: said in the page's words, and said once.
  *
  *     npm test          (node --test, nothing to install)
  */
@@ -38,7 +38,7 @@ test("a page with no status is said to have none, not “no status”", () => {
 })
 
 test("the console's own refusal takes the move from the card", () => {
-  assert.deepEqual(conflictOf({ sync_error: "Notion already says Done", sync_status: "review" }), {
+  assert.deepEqual(conflictOf({ sync_error: "The board already says Done", sync_status: "review" }), {
     key: BY_CONSOLE,
     wanted: "review",
     found: "Done",
@@ -53,7 +53,7 @@ test("a sentence it does not know is nobody's", () => {
 test("in French, the toast says it with the columns' words and no English", () => {
   const said = conflictOf({ sync_error: RUNNER })!
   const sentence = fill(french[said.key], { wanted: named(said.wanted), found: named(said.found) })
-  assert.equal(sentence, "Ponos voulait le passer en Bloqué, mais il est Abandonné dans Notion : laissé tel quel.")
+  assert.equal(sentence, "Ponos voulait le passer en Bloqué, mais il est Abandonné sur le board : laissé tel quel.")
   assert.doesNotMatch(sentence, /\b(runner|page|says|written|blocked|cancelled|progress|overwritten)\b/)
   assert.ok(french[BY_CONSOLE], "the console's refusal has its French too")
 })

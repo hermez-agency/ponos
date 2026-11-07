@@ -187,7 +187,6 @@ def a_value_no_rule_reads_names_its_key_and_its_line() -> None:
     """A port that is not a number used to be a traceback naming nothing."""
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
-        '[notion]\ntickets_database = "abc"\n\n'
         '[runner]\n# how often\ninterval_seconds = 60\nunblock = "perhaps"\n\n'
         '[web]\nport = "eighty"\n\n'
         '[notify]\nreplies = true\nevents = "blocked"\n'
@@ -200,9 +199,9 @@ def a_value_no_rule_reads_names_its_key_and_its_line() -> None:
         said = str(error).splitlines()
     else:
         raise AssertionError("loaded")
-    assert said[0].startswith(f"{path}, line 7: runner.unblock = 'perhaps' — "), said
-    assert said[1].startswith(f"  {path}, line 10: web.port = 'eighty' — "), said
-    assert said[2].startswith(f"  {path}, line 14: notify.events = 'blocked' — "), said
+    assert said[0].startswith(f"{path}, line 4: runner.unblock = 'perhaps' — "), said
+    assert said[1].startswith(f"  {path}, line 7: web.port = 'eighty' — "), said
+    assert said[2].startswith(f"  {path}, line 11: notify.events = 'blocked' — "), said
     assert len(said) == 3, "a key nobody reads is left alone, as it always was"
 
 
@@ -223,19 +222,16 @@ def a_key_nobody_reads_is_named_with_its_line_and_the_key_it_was_meant_to_be() -
         "[projects]\n"
         'Anything = "~/anything"\n'
         "\n"
-        "[notion.status]\n"
-        'ready = "Prêt"\n'
-        "\n"
         "[web]\n"
         "nothing_like_it = 1\n"
     )
     assert config.runner.max_concurrent == C.Runner.max_concurrent, "never refused, still ignored"
     assert config.runner.interval_seconds == 30
     assert config.unknown == (
-        (4, "runner.max_concurent", "max_concurrent"),
-        (7, "runer", "runner"),
-        (11, "notify.telegram.chatt", "chat"),
-        (20, "web.nothing_like_it", ""),
+        (2, "runner.max_concurent", "max_concurrent"),
+        (5, "runer", "runner"),
+        (9, "notify.telegram.chatt", "chat"),
+        (15, "web.nothing_like_it", ""),
     ), config.unknown
     # A secret an older version wrote is the launch's to move, not a typo.
     text = '[web]\npassword = "pw"\n[notify.telegram]\ntoken = "123:abc"\n'
@@ -253,11 +249,11 @@ def doctor_warns_of_a_key_nobody_reads() -> None:
     [check] = [check for check in health._settings(config) if check.code == "settings.keys"]
     assert check.state == health.WARN
     assert check.text(check.said) == (
-        "config.toml, line 4: runner.max_concurent is not a known key — did you mean max_concurrent?"
+        "config.toml, line 2: runner.max_concurent is not a known key — did you mean max_concurrent?"
     )
     with _environment(PONOS_CONFIG=str(config.path)):
         _, said = _doctor_said(cli.command_doctor, None)
-    assert "line 4: runner.max_concurent is not a known key" in said, said
+    assert "line 2: runner.max_concurent is not a known key" in said, said
 
 
 @case
@@ -276,7 +272,7 @@ def doctor_prints_what_does_not_read() -> None:
     from ponos import __main__ as cli
 
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[notion]\ntickets_database = "abc"\n[web]\nport = "eighty"\n')
+    path.write_text('[runner]\n\n[web]\nport = "eighty"\n')
     with _environment(PONOS_CONFIG=str(path)):
         code, said = _doctor_said(cli.command_doctor, None)
     assert code == 2
@@ -293,7 +289,7 @@ def a_python_without_pydantic_still_starts_and_says_so() -> None:
     the environment instead (`__main__._environment_first`).
     """
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[notion]\ntickets_database = "abc"\n')
+    path.write_text("[runner]\n")
     probe = (
         "import sys\n"
         "sys.modules['pydantic'] = None\n"

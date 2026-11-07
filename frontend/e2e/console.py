@@ -3,8 +3,8 @@
 Real rather than a page with its API stubbed, because what these tests guard is
 what the page does once the server has answered — how tall it is, whether it
 scrolls — and a stub would be a second copy of every route to keep true. The
-board is a `ponos.db` in a temporary directory, with no Notion token, so
-nothing reaches Notion, and `XDG_STATE_HOME` points there too, so nothing reads the state of the
+board is a `ponos.db` in a temporary directory, and `XDG_STATE_HOME` points
+there too, so nothing reads the state of the
 console you run for yourself.
 
     python3 e2e/console.py 8790
@@ -471,7 +471,7 @@ def main() -> None:
     # `unclaimed`: no token and no sign-in, for the first connection's steps.
     mode = sys.argv[2] if len(sys.argv) > 2 else ""
     # `fresh`: unclaimed too, and on no board at all — what an installation
-    # serves before anything is written: no Notion, and nothing in `ponos.db`.
+    # serves before anything is written: nothing in `ponos.db`.
     fresh = mode == "fresh"
     unclaimed = mode == "unclaimed" or fresh
     here = Path(tempfile.mkdtemp(prefix="ponos-e2e-"))

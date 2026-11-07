@@ -1,14 +1,14 @@
-"""The board as the console holds it, between two answers from Notion.
+"""The board as the console holds it, between two answers from the board.
 
 The console used to reread the whole tickets database every fifteen seconds.
 That was always *right* — a full read cannot miss anything — and it was slow in
 the way that shows: 366 tickets are four pages of a hundred, four seconds of
-Notion, so a status changed in Notion reached the screen fifteen to twenty
+The board, so a status changed on the board reached the screen fifteen to twenty
 seconds later, and a move made from the console was a `PATCH` the browser sat
-through, lost for good if Notion answered 429 at that moment. Three things
+through, lost for good if the board answered 429 at that moment. Three things
 replace it, and each is here because of something measured on the real board:
 
-- **a read is what changed, with a window that overlaps.** Notion's
+- **a read is what changed, with a window that overlaps.** The board's
   `last_edited_time` is rounded down to the minute: four statuses written at
   :06, :22, :39 and :52 all came back as `09:32:00.000Z`. A read of "edited
   after my last read" would skip every change made in the minute of that read.
@@ -22,10 +22,9 @@ replace it, and each is here because of something measured on the real board:
   *écart*, counted, shown in the console and written in the journal, which is
   how anybody will know whether the window is wide enough;
 - **a move from the console is a write that waits its turn.** `Outbox` keeps it
-  on disk until Notion has it: it reads the page first and refuses to overwrite
-  a status somebody changed in Notion since the console showed it, retries with
-  a growing wait (Notion's own `Retry-After` is honoured one layer down, in
-  `notion.Client`), reads the page back to confirm, and until then the card says
+  on disk until the board has it: it reads the page first and refuses to overwrite
+  a status somebody changed on the board since the console showed it, retries with
+  a growing wait, reads the page back to confirm, and until then the card says
   "waiting to be sent" — or, when it gave up, why.
 
 One more thing was measured, and it is why a confirmed write is *held* for a few
@@ -52,7 +51,7 @@ from typing import Any
 from .. import board_journal, disk, ids, store, timestamps
 
 # How far behind the last read an incremental read starts. A minute would do
-# for the rounding alone; the second one is for a clock that is not Notion's.
+# for the rounding alone; the second one is for a clock that is not the board's.
 OVERLAP = 120
 
 # How often the whole board is read again, and compared.
@@ -63,8 +62,8 @@ RECONCILE = 300
 HOLD = 15
 
 # The waits between two tries of the same write, and how many there are before
-# the card says it failed. Each try is itself up to three requests, spaced by
-# `notion.Client`, which honours a 429's `Retry-After`.
+# the card says it failed. Each try is itself up to three reads and writes of
+# the board.
 BACKOFF = (2, 5, 15, 30, 60, 120, 300)
 
 # A refusal no retry will change: the request itself is wrong.
@@ -113,7 +112,7 @@ class Reader:
             return self._pages.get(ids.bare(page_id))
 
     def pages(self) -> list[store.Page]:
-        """Every ticket as last read, without asking Notion — empty before the first read."""
+        """Every ticket as last read, without asking the board — empty before the first read."""
         with self._lock:
             return list(self._pages.values())
 
@@ -134,7 +133,7 @@ class Reader:
             self._held.pop(ids.bare(page_id), None)
 
     def read(self, client: store.Store, database: str, status: str) -> list[store.Page]:
-        """Every ticket, as current as Notion will say. Raises `StoreError`."""
+        """Every ticket, as current as the board will say. Raises `StoreError`."""
         started = self._clock()
         with self._lock:
             full = not self._pages or started - self._full_at >= RECONCILE
@@ -209,7 +208,7 @@ class Reader:
                 "tickets",
                 key,
                 page.title,
-                f"the console held {said or 'nothing'}, Notion says {real or 'nothing'}",
+                f"the console held {said or 'nothing'}, the board says {real or 'nothing'}",
             )
         return found
 
@@ -224,7 +223,7 @@ class Reader:
         """Write down every status the console has just seen change.
 
         The measure the ticket asked for: when the source says it changed (to
-        the minute, which is all Notion keeps) and when this side saw it.
+        the minute, which is all the board keeps) and when this side saw it.
         """
         for key, page in after.items():
             old = before.get(key)
@@ -239,14 +238,14 @@ class Reader:
                 "tickets",
                 key,
                 page.title,
-                f"{was or '—'} → {is_ or '—'} · edited {_clock(edited)} in Notion "
+                f"{was or '—'} → {is_ or '—'} · edited {_clock(edited)} on the board "
                 f"(to the minute) · seen {_clock(_stamp(now))} by the console",
             )
 
 
 @dataclass
 class Write:
-    """One move made from the console, until Notion has it."""
+    """One move made from the console, until the board has it."""
 
     page: str
     column: str
@@ -263,10 +262,10 @@ class Write:
 
 
 class Outbox:
-    """The console's writes, kept on disk until Notion confirms each one.
+    """The console's writes, kept on disk until the board confirms each one.
 
     One per ticket: a card moved twice before the first write went out needs
-    the second column in Notion, not both one after the other.
+    the second column on the board, not both one after the other.
     """
 
     def __init__(
@@ -303,7 +302,7 @@ class Outbox:
         """Try the failed writes again, and let go of the conflicts.
 
         A conflict is the console refusing to overwrite what somebody did in
-        Notion; asking for a resynchronisation is saying you have seen it.
+        The board; asking for a resynchronisation is saying you have seen it.
         """
         with self._lock:
             for key, write in list(self._writes.items()):
@@ -378,7 +377,7 @@ class Outbox:
                 "tickets",
                 ids.bare(write.page),
                 write.title,
-                f"moved to {write.status} from the console, but Notion already says "
+                f"moved to {write.status} from the console, but the board already says "
                 f"{conflict.found} (the console showed {write.seen}); not overwritten",
             )
             return "conflict"
@@ -398,7 +397,7 @@ class Outbox:
                 write.next_at = self._clock() + BACKOFF[write.attempts - 1]
             return "failed"
         report.note(
-            "console→notion",
+            "console→board",
             "tickets",
             ids.bare(write.page),
             write.title,
@@ -441,17 +440,17 @@ class Conflict(Exception):
     """The page no longer says what the console showed when the move was made."""
 
     def __init__(self, found: str) -> None:
-        super().__init__(f"Notion already says {found}")
+        super().__init__(f"The board already says {found}")
         self.found = found
 
 
 def send(client: store.Store, database: str, status: str, write: Write) -> store.Page:
     """Read, write, read back. What one attempt of one move is.
 
-    Read first, because a page somebody moved in Notion since the console showed
+    Read first, because a page somebody moved on the board since the console showed
     it must not be overwritten on the strength of an older picture. Read back,
-    because an answered `PATCH` is Notion saying it heard — the page saying the
-    new status is Notion saying it kept it.
+    because an answered `PATCH` is the board saying it heard — the page saying the
+    new status is the board saying it kept it.
     """
     page = client.page(write.page)
     found = str(store.read(page, status) or "")
@@ -473,7 +472,7 @@ def overlay(
     """A card, as the console's own pending write leaves it.
 
     Pending: where it is going, and saying it has not arrived. Failed or in
-    conflict: where Notion has it, and saying why the move did not happen.
+    conflict: where the board has it, and saying why the move did not happen.
     """
     if write is None:
         return ticket
@@ -508,7 +507,7 @@ def settled(ticket: dict[str, Any], entry: dict[str, Any] | None) -> dict[str, A
         return ticket
     edited = timestamps.parse(ticket.get("edited"))
     at = timestamps.parse(entry.get("at"))
-    # Notion's edit is to the minute: an edit in the minute of the refusal is
+    # the board's edit is to the minute: an edit in the minute of the refusal is
     # the runner's own write of the other columns, not somebody answering it.
     if edited is not None and at is not None and edited.replace(second=0, microsecond=0) > at:
         return ticket
@@ -516,7 +515,7 @@ def settled(ticket: dict[str, Any], entry: dict[str, Any] | None) -> dict[str, A
 
 
 def describe(reader: Reader, tickets: list[dict[str, Any]]) -> dict[str, Any]:
-    """The line over the board: when it last agreed with Notion, and what does not.
+    """The line over the board: when the console last agreed with it, and what does not.
 
     Counted off the cards rather than off the outbox, so that the runner's own
     refusals — read from the journal — are counted with the console's.

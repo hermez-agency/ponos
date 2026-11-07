@@ -15,7 +15,7 @@ last one is: no session to wake, nothing to tick again.
 One reading for the two places that ask it, the pass that would claim the
 ticket and the console that draws its card, so that the card never says
 « waiting » for a ticket the runner would take. They differ only in how a page
-is found — Notion asked by the runner, the board already read by the console —
+is found — the board read again by the runner, the one already read by the console —
 which is `lookup`.
 
 A ticket named that cannot be found — deleted, or never shared with the

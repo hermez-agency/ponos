@@ -24,7 +24,7 @@ from .store import Page
 class Entry:
     """One thing the console or the runner wrote down, or refused to do.
 
-    `what` is one of `seen`, `drift`, `console→notion`, `write-failed`, or
+    `what` is one of `seen`, `drift`, `console→board`, `write-failed`, or
     `conflict` when a status was not written over somebody else's.
     """
 
@@ -118,7 +118,7 @@ _COMPUTED = ("formula", "rollup")
 def fingerprint(page: Page) -> str:
     """What a page's properties say, in a few characters.
 
-    What tells two versions of a page apart when Notion's timestamp cannot: it
+    What tells two versions of a page apart when the board's timestamp cannot: it
     is to the minute, and a minute is long enough for a ticket to go through
     three columns.
     """

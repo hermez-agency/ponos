@@ -27,7 +27,7 @@ delete projects get one of their own, with two projects to spare: the others cou
  * So do the accounts, whose people are kept by the server they were invited on.
  *
  * The ports are free ones unless `PONOS_E2E_PORT` names the first (the
- * chat takes the next, the first connection the one after, deleting the one after that, then the ideas, the sessions, and the series, the first connection on Notion, the accounts last): two worktrees running these tests at once must not both
+ * chat takes the next, the first connection the one after, deleting the one after that, then the ideas, the sessions, and the series, the first connection on a fresh installation, the accounts last): two worktrees running these tests at once must not both
  * ask for 8790. They are kept in the environment because Playwright reads this
  * file again in every worker, and a worker that drew its own would knock on a
  * port nobody serves.
@@ -95,7 +95,7 @@ export default defineConfig({
   projects: [
     {
       name: "console",
-      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "setup-without-notion.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts", "series.spec.ts", "accounts.spec.ts"],
+      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "setup-fresh.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts", "series.spec.ts", "accounts.spec.ts"],
       use: { baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
@@ -134,7 +134,7 @@ export default defineConfig({
     },
     {
       name: "fresh",
-      testMatch: "setup-without-notion.spec.ts",
+      testMatch: "setup-fresh.spec.ts",
       use: { baseURL: `http://127.0.0.1:${FRESH_PORT}` },
     },
     {

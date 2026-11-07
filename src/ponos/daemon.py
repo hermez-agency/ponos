@@ -156,7 +156,7 @@ def _serve(runner_class: type, *, dry_run: bool) -> str:
 
 def _usable() -> bool:
     try:
-        config_module.load().require_usable()
+        config_module.load()
     except config_module.ConfigError:
         return False
     return True
@@ -166,9 +166,8 @@ def _watch_config(runner: object, signals: Signals) -> None:
     """Read the configuration again when its file changes — the console edits it.
 
     Most of it is read off `runner.config` at the moment it is needed, so the
-    new one is swapped in and that is all. What the board itself is opened
-    with — Notion's token, standalone or not — cannot be swapped under the
-    sessions using it: the daemon restarts instead, as on an update.
+    new one is swapped in and that is all. What `reconfigure` cannot swap
+    under the sessions using it restarts the daemon instead, as on an update.
     """
     seen = _stamp()
     while not (signals.stop.is_set() or signals.reload.is_set()):
@@ -179,7 +178,6 @@ def _watch_config(runner: object, signals: Signals) -> None:
         seen = stamp
         try:
             fresh = config_module.load()
-            fresh.require_usable()
         except config_module.ConfigError as error:
             print(f"  ! the configuration was not read again: {error}", flush=True)
             continue

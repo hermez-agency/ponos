@@ -7,7 +7,7 @@ From the discussion on a ticket to *Done*: the statuses, the review, *Validated*
 ## A ticket's page: the mission, and what was done
 
 Every ticket's page has two parts, under two headings, and the same two for every ticket
-— in Notion, in the console:
+— in the console, in the MCP, in `ponos.db`:
 
 ```markdown
 ## Mission
@@ -42,7 +42,7 @@ Remove the banner from the dashboard header.
 - **The history**, at the bottom, is one line per session: date, duration, cost, result,
   and a link to the session in the console's live tab, where every step is (with `[web]
   url` set). It is read from the run journal of `ponos.db`, which is where the part is
-  written from — whatever holds the board, the format is the ticket's, not Notion's.
+  written from — the format is the ticket's, not the board's.
 
 The questions of a blocked ticket stay in the comments: that is where they are answered.
 The headings are written in the language of `runner.language` and recognised in either,
@@ -54,9 +54,7 @@ The open tickets of a board written before this format — *Ready*, *Blocked*, *
 and drafts — are put into it once, a few per round of the daemon's upkeep: the page as it stands becomes the
 mission, the toggles the old live report left on it go, and « What was done » gets the
 last report Ponos commented and the sessions the journal has. *Done* and *Cancelled*
-tickets keep the page they ended with. The default template of your Notion board is
-yours to set: give it the two headings, `## Mission` and `## Ce qui a été fait` (or
-`## What was done`).
+tickets keep the page they ended with.
 
 ## The discussion on a ticket
 
@@ -86,12 +84,6 @@ The runner's own reports are included too, trimmed to their verdict and reason; 
 names, session IDs and log paths they carry are of no use to a session. At most the last
 ten comments and 2000 characters, newest kept, so a ticket that has been round three times
 does not spend more of its prompt on its own history than on the work.
-
-This needs one capability the integration does not have by default:
-[notion.so/my-integrations](https://www.notion.so/my-integrations) → your integration →
-**Capabilities** → *Read comments*. Without it the runner says so once and carries on —
-and no ticket ever wakes up, since it cannot see the answer. `ponos doctor` tries
-it on a real ticket and tells you.
 
 ## Talking to it in the comments
 
@@ -131,8 +123,7 @@ Three rules decide when it speaks, and all three are about knowing who is being 
 
 - **a thread it already speaks in belongs to it.** Reply under a report and it answers. A
   new remark elsewhere on the page is a conversation of yours, and stays one;
-- **naming it works wherever it is looking.** `@claude`, or whatever `notion.mention`
-  says, or the integration's own name as Notion writes it when you @-mention it. That
+- **naming it works wherever it is looking.** `@claude`, `@ponos` or `@runner`. That
   covers every ticket it has ever reported on, whatever column that ticket is in now, and
   every ticket that is not settled — `blocked`, `failed`, or with no status at all;
 - **work wins over talk.** A plain answer under the question a `blocked` run asked still
@@ -141,22 +132,17 @@ Three rules decide when it speaks, and all three are about knowing who is being 
   the ticket exactly where it is.
 
 And it never answers itself. Every comment it writes comes back to it on the next look, so
-it asks Notion for its own user ID and compares identifiers rather than trying to recognise
-its own signature. When Notion will not say — a token without the reach, a network that is
-down — it says nothing at all that time. A conversation with oneself is the one failure
-mode here that would never end.
+it compares the author of a comment with its own rather than trying to recognise its own
+signature. A conversation with oneself is the one failure mode here that would never end.
 
 A thread is one long Claude Code session, resumed: ask a second question and it lands in
 the same conversation as the first, which is why the second answer knows what the first one
 said. `claude --resume` in a terminal opens that very session.
 
-The answers run on a cadence of their own — `reply_interval_seconds`, sixty by default —
-because a comment does not change a page and Notion has no way of being asked *what has
-been commented on since*. So it looks where a conversation can plausibly be: the tickets a
-daemon reads anyway, and the pages it has spoken on, `reply_scan` of them per look with the
-window moving each time. A ticket sitting in *Ready* that it has never touched is the one
-place it is not listening — and that one is about to be run, which is where your comment
-was going to be read regardless.
+The daemon looks for an answer to write as soon as a comment lands on the board, and at its
+safety look (`interval_seconds`) besides: it reads the threads of the tickets most recently
+commented on, straight from `ponos.db`. A ticket sitting in *Ready* that it is about to run
+is the one place it does not answer — your comment goes into that run's prompt instead.
 
 Answers never come before the work. With tickets ready, the tickets take their places
 first; the answers — and the look at the blocked tickets, below — then take one place of
@@ -217,7 +203,7 @@ already answered in a comment is left to the usual way of waking.
 ## A prompt on every change of status
 
 Write a prompt in the ticket's `On` column and Ponos runs it each time the ticket's
-status changes — whoever changes it: you in Notion or in the console, or Ponos itself
+status changes — whoever changes it: you in the console, the MCP or a channel, or Ponos itself
 (*Ready → In progress*, *In review → Validated*, → *Blocked*…). The session is told the old
 status, the new one and the ticket (title, page, discussion with the last report, project,
 pull request, cost), and the prompt decides what the transition is worth. One prompt for
@@ -228,8 +214,7 @@ every transition, so it says which ones concern it:
 
 It is the same field in `ponos.db`, and in the console, on the ticket's page under its brief, with the list of its executions:
 the transition each answered, its state, what it cost, how long it took and what it said.
-`ponos init` adds the column to a board that does not have it; `ponos doctor` says if it is
-missing. Settings › Prompt on status change turns it off (`runner.on = false`).
+Settings › Prompt on status change turns it off (`runner.on = false`).
 
 How it behaves, because a prompt that acts on its own needs limits:
 
@@ -264,7 +249,7 @@ the board, because a status the database does not offer would only fail at the v
 a ticket. It also names a status the board offers that is none of these: a ticket there is
 read as a draft, and nobody will ever pick it up.
 
-`ponos init` creates these nine:
+The board has these nine:
 
 | Status | In the console | What it means |
 | --- | --- | --- |
@@ -275,20 +260,19 @@ read as a draft, and nobody will ever pick it up.
 | `validated` | **Validated** | you read it and said yes. **The second gesture that makes the runner act** — it merges the pull request, or publishes what the ticket holds, and then closes it. |
 | `done` | **Done** | that pull request has been merged — or the ticket produced a document, which has nothing to wait for. |
 | `blocked` | **Blocked** | the ticket stopped: the agent would not guess and asked a question, its project could not be located, or something broke — the session, the push, the worktree. Its `Blocage` cell says which. Answer in a comment and the ticket runs again. |
-| `paused` | **Paused** | you stopped it on purpose, from the console, while it was in progress: its session is ended and its worktree and branch kept. The runner **never takes it back by itself** — not from a comment either; only moving it to *Ready* (**Resume**) runs it again, and the new session opens on the work already there, as for any ticket that has run before. *Optional*, like *Cancelled*: `ponos doctor` says so, and `ponos init` adds it to a select. |
-| `cancelled` | **Cancelled** | you gave up on it. **Terminal**, like *Done*, and not *Done*: the runner never runs it — not from *Ready*, not woken by a comment, not even named with `ponos run --ticket` — and the statistics count it neither closed nor open, though what its sessions spent stays in the spending. *Optional*: a board without the option simply has no such gesture; `ponos doctor` says so, and `ponos init` adds it to a select (on a Notion *status* property, add the option by hand). |
+| `paused` | **Paused** | you stopped it on purpose, from the console, while it was in progress: its session is ended and its worktree and branch kept. The runner **never takes it back by itself** — not from a comment either; only moving it to *Ready* (**Resume**) runs it again, and the new session opens on the work already there, as for any ticket that has run before. |
+| `cancelled` | **Cancelled** | you gave up on it. **Terminal**, like *Done*, and not *Done*: the runner never runs it — not from *Ready*, not woken by a comment, not even named with `ponos run --ticket` — and the statistics count it neither closed nor open, though what its sessions spent stays in the spending. |
 
 <a id="why-a-ticket-stopped"></a>**Why a ticket stopped** is a code, not only a sentence. Every
 stop the runner decides has its cause in a catalogue, `src/ponos/blocks.py`: a code
 `domain.cause` — `merge.checks-failed`, `merge.base-moving`, `merge.conflict-decision`,
-`session.question`, `session.no-commit`, `worktree.residue`, `notion.write-failed`… — a
+`session.question`, `session.no-commit`, `worktree.residue`… — a
 family (merge, session, infrastructure, question, access), who has to move (Ponos, you,
-or GitHub and Notion), a label and a line of help in both languages, the gesture it
+or GitHub), a label and a line of help in both languages, the gesture it
 proposes (run it again, answer, clean, look at the CI or at the pull request) and what the
 runner may do about it alone (`retry:n`, `wait-base`, `ask`). The code goes into the
 history and the run in `ponos.db`, into the `Blocage` select of the board — one option per
-code, coloured by family, created by `ponos init`, and named by `ponos doctor` when it is
-missing — and onto the card in the console: a badge with the family's icon, the help under
+code — and onto the card in the console: a badge with the family's icon, the help under
 it, and the gesture first among the buttons. The search over the board filters by it, and
 the statistics count it week by week. The history written before codes existed was read
 back from its sentences, French and English, when `ponos.db` was migrated; a sentence that
@@ -303,7 +287,7 @@ is waiting or running), `réussi` (all of them finished green, skipped ones incl
 `erreur` (one failed, was cancelled or timed out — a red check wins over a running one).
 A pull request with no check shows nothing, never a green. A push puts it back to `en cours`
 until the new commit's checks are in. The state is also written to the `CI` select of the
-board, so a Notion view can filter on it. A ticket that leaves *In review* is no longer
+board, so the board's search can filter on it. A ticket that leaves *In review* is no longer
 followed.
 
 <a id="ci-retries"></a>**A red CI, or a conflict, in review: Ponos takes it back.** On a
@@ -447,10 +431,7 @@ an **`Après`** relation, pointing at other tickets of the same board.
   integration: it would never become *Done*. Nor does a ticket that names itself.
 - **`ponos run --ticket` still runs it**: naming a ticket is asking for it.
 
-`ponos init` adds the column — a relation from the tickets database to itself, which can
-only be declared once the database exists — and running it again adds it to a board built
-before it; `ponos doctor` says so when the column is there under another type. A board without the
-column runs every ready ticket, as before.
+A ticket with no « Après » runs as soon as it is ready, as before.
 
 ## Two attempts: a sibling ticket that tries again
 
@@ -471,8 +452,7 @@ tried by **two tickets** rather than one:
   validation, each on its own; merging one leaves the other open, and you close it. Closing
   the loser automatically is the next step.
 
-The two numbers live in `ponos.db` only (`attempts`, `twin`): the Notion board has no column
-for them, and the sibling is mirrored like any ticket.
+The two numbers live in `ponos.db` (`attempts`, `twin`), beside the ticket's other columns.
 
 ## Read once before the pull request
 
@@ -635,7 +615,7 @@ the one part of a ticket that is pure mechanics.
 daemon — told at once — does the last thing the ticket needs:
 
 ```
-Notion                    Ponos                               what happens
+the board                 Ponos                               what happens
 
 In review     ──────▶     you read it. Good?
     │
@@ -679,11 +659,8 @@ finished. Between the two, the runner does the typing.
 
 Five things are worth knowing:
 
-- **the column is opt-in.** A board whose `statut` does not offer `validated` is never
-  even queried, and everything behaves exactly as it did — you merge by hand, and
-  *In review* → *Done* stays yours. `ponos init` adds the option to an existing
-  board (a real Notion *status* property cannot be widened through the API: `init` says
-  so and you add it in one click);
+- **the column is yours to use.** Never moving a ticket to *Validated* is everything as
+  it was — you merge by hand, and *In review* → *Done* stays yours;
 - **it is claimed like any other work.** A ticket being published moves to *In progress*
   while its session runs, so a second machine watching the same board cannot post the same
   thing twice. And a run that dies mid-publication does **not** put that ticket back in the
@@ -827,7 +804,7 @@ Everything that **recurs** — Monday's dependency review, the report on the fir
 month, the weekly digest — is retyped by hand, or is not done at all.
 
 The parti pris is what keeps the rest simple: no second execution engine beside the
-runner, only **one more source of tickets**. A *schedule* is a row in a Notion database
+runner, only **one more source of tickets**. A *schedule* is a row of the board's schedules
 that describes a ticket and how often it is born. When its moment comes, the runner
 creates that ticket in the ready column — and from there on, everything is the code that
 already existed. Same column, same queue, same session, same pull request. The schedule
@@ -839,11 +816,9 @@ A row is the recipe. `Cadence` (Hourly, Daily, Weekly, Monthly), `At` (the hour,
 carries too — and the **body of the schedule's page is the brief**, copied into each
 ticket, so the ticket reads on its own and its history shows what was asked for that day.
 A ticket born with a `Type` is never classified: set it to *Code* on a schedule whose
-tickets are code, or a long, well-written brief may well read as *Writing*. A schedules
-database built before those two columns existed is offered them by `ponos doctor` and the
-console's health band (or by running `ponos init` again); until then, a schedule whose
-project declares a repository makes *Code* tickets rather than leave them to the
-classifier. Three columns
+tickets are code, or a long, well-written brief may well read as *Writing*. A schedule
+with no `Type` whose project declares a repository makes *Code* tickets rather than leave
+them to the classifier. Three columns
 are the runner's to write: `Next`, `Last`, and `Last ticket`.
 
 ```
@@ -896,10 +871,9 @@ ponos list                               # the whole calendar: tickets and birth
 
 The same calendar is a page of the web console — *Schedules* in the menu,
 `/?view=console/schedules/list` — which is where you look at it from a phone, and where a
-row is written and turned off without opening Notion. See
+row is written and turned off. See
 [The web console](console.md#the-web-console).
 
-Everything here is optional. A workspace with no schedules page has nothing that repeats,
-`doctor` is green on it, and nothing about it runs differently — `ponos init`
-builds the database on a board that predates it, and `runner.schedule = false` turns the
-whole thing off without a single row being unticked.
+Everything here is optional. A board with no schedule has nothing that repeats, `doctor`
+is green on it, and nothing about it runs differently — and `runner.schedule = false` turns
+the whole thing off without a single row being unticked.

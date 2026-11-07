@@ -18,10 +18,10 @@ import type { MarkdownEditorProps } from "./markdown-editor"
  *
  * Whole, it brings CodeMirror and its forty languages, KaTeX, an image uploader
  * and a bar of AI buttons. None of those survives the trip: a page body here is
- * written to Notion or to a Markdown file, and what an agent reads is the text.
+ * written to the board as Markdown, and what an agent reads is the text.
  * An image pasted into it would be a data URL nobody can host, and a formula
  * would reach the prompt as its source. What is kept is what makes it feel like
- * Notion — `/` for a block, a handle to drag one, a bar over a selection — and
+ * a page editor — `/` for a block, a handle to drag one, a bar over a selection — and
  * what a brief is actually written in: headings, lists, quotes, links, tables.
  *
  * Markdown is the editor's own model, not an export of it: what comes out is
@@ -74,7 +74,7 @@ export default function CrepeEditor({
           h1: { label: t("Heading 1") },
           h2: { label: t("Heading 2") },
           h3: { label: t("Heading 3") },
-          // Three levels, as Notion offers: a brief deeper than that is a
+          // Three levels, as page editors offer: a brief deeper than that is a
           // document that wants cutting up.
           h4: null,
           h5: null,

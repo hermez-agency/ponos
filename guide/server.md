@@ -24,7 +24,7 @@ Environment=GH_TOKEN=ghp_…
 
 Scope it to the repositories the runner may touch, and nothing else.
 
-**Paths differ from your laptop.** A project's `Path` property in Notion names one
+**Paths differ from your laptop.** A project's `Path` property on the board names one
 machine's layout, and the server's is not the same. That is why a `[projects]` entry in
 the local configuration wins over it: each machine overrides what it needs, and the board
 keeps the mapping that suits the machine you use most.
@@ -64,8 +64,8 @@ can move a ticket to the ready column can therefore have arbitrary commands run 
 account the runner uses.
 
 On a personal laptop where you are the only author, that is the same trust you already
-give Claude Code. On a server whose board is shared — a Notion workspace with partners, a
-database someone else can edit — it is a different proposition. What makes it sound:
+give Claude Code. On a server whose board is shared — a console partners sign into, a
+ticket someone else can edit — it is a different proposition. What makes it sound:
 
 - a **dedicated account** on the server, holding the repositories and nothing else: no
   other project's secrets, no keys that reach beyond what the runner needs;
@@ -142,7 +142,6 @@ typed in the console's first connection or Settings lands in `/data/config/ponos
 | Variable | What it does |
 |---|---|
 | `PONOS_WEB_EMAIL`, `PONOS_WEB_PASSWORD` | Both set: the console is claimed before anybody opens it, and the first connection starts after the account. |
-| `PONOS_NOTION_TOKEN` | The Notion integration token. |
 | `PONOS_TELEGRAM_TOKEN`, `PONOS_SLACK_TOKEN` | The bots that reach your phone. |
 | `PONOS_WEB_TOKEN` | The console's token, for scripts; drawn and kept in the volume when empty. |
 | `PONOS_VAULT_KEY` | The key of Ponos's own vault (32 bytes, base64: `python3 -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"`). Without it, the image has no keyring and the key is a file on the same volume as `vault.db` — see [Ponos's own vault](configuration.md#ponoss-own-vault-context--vault). |
@@ -211,7 +210,6 @@ Every variable, as `template.toml` gives it — each one carries the same commen
 | `ANTHROPIC_API_KEY` | **you**, or the previous one | an Anthropic key, billed by the token; given without the token above, the provider is `api_key` from the first start |
 | `OPENROUTER_API_KEY` | you, optional | an OpenRouter key, in every session's environment for the other models a ticket calls; the sessions run there only once *Settings › OpenRouter* says so — see [Every other model](configuration.md#every-other-model) |
 | `GH_TOKEN` | you, optional | the account pull requests are opened as (`repo` scope, or fine-grained with Contents and Pull requests on read and write). Empty: create a GitHub App from the console instead, *Settings › GitHub › Connect GitHub* — see [Connect GitHub in one click](configuration.md#connect-github-in-one-click) |
-| `PONOS_NOTION_TOKEN` | you, optional | a Notion integration; without one the tickets are in `ponos.db` on the data volume |
 | `PONOS_TELEGRAM_TOKEN` | you, optional | a bot from @BotFather; say anything to it, then `ponos notify --pair` in Dokploy's *Terminal* tab finds your chat |
 | `PONOS_SLACK_TOKEN` | you, optional | a Slack bot (`xoxb-…`); the channel's ID goes in *Settings › Slack* |
 | `PONOS_LANGUAGE` | the template: `en` | `en` or `fr` — the reports, and the console until you pick another |
@@ -221,10 +219,8 @@ Every variable, as `template.toml` gives it — each one carries the same commen
 starts on a board kept in `ponos.db` and the console is the whole of the interface: sign in,
 add a project, write a ticket. Everything not given yet is said in the console's *Summary*
 — `missing`, and the step that fills it in — rather than by a container restarting in a loop;
-the image answers its healthcheck on `/healthz` whatever is configured. A Notion token given
-later goes in the *Environment* tab, then the
-*Notion* step of `/setup`, which builds the board under the page you shared. A variable
-changed in the *Environment* tab is read at the next **Deploy**.
+the image answers its healthcheck on `/healthz` whatever is configured. A variable changed
+in the *Environment* tab is read at the next **Deploy**.
 
 What the template decides for you, and why:
 
@@ -268,7 +264,7 @@ builds the image — for a fork, or a commit no release carries yet.
 2. **Environment** tab: whichever of the variables above you want — at the least
    `GH_TOKEN`, and the provider's key unless you sign the CLI in. `PONOS_WEB_EMAIL` and
    `PONOS_WEB_PASSWORD` make the console yours before it is ever reachable. Every secret
-   goes here — `PONOS_NOTION_TOKEN`, `PONOS_TELEGRAM_TOKEN`, `PONOS_SLACK_TOKEN` too —
+   goes here — `PONOS_TELEGRAM_TOKEN`, `PONOS_SLACK_TOKEN` too —
    rather than into a file: Dokploy keeps them out of the repository and out of the image.
 3. **Domains** tab: a domain on the service `ponos`, port `8787`, HTTPS on. Traefik
    terminates TLS and says so in `X-Forwarded-Proto`, and every cookie the console sets is

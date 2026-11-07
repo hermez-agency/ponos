@@ -199,7 +199,7 @@ def each_choice_moves_the_ticket_and_leaves_the_instruction_for_the_next_session
     author's — and queues the move; one that files it away moves it at once,
     then says so, so that the runner never reads that comment as an answer.
     """
-    settings = C.Notion()
+    settings = C.BoardNames()
     with _board() as board:
         project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
         api = _ideas_api(board)
@@ -361,7 +361,7 @@ def a_reviewed_ticket_shows_each_job_and_each_file_of_its_pull_request() -> None
     from ponos import git as git_module
     from ponos import github_checks
 
-    settings = C.Notion()
+    settings = C.BoardNames()
     url = "https://github.com/a/b/pull/7"
     jobs = [
         {"name": "core", "bucket": "pass", "link": f"{url}/checks?1"},

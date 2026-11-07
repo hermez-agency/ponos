@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +16,7 @@ from support import (
     case,
 )
 
-from ponos import conversation, notion, session, workspace
+from ponos import conversation, db, session, store, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 
@@ -55,19 +54,13 @@ def comments_the_integration_cannot_read_are_not_a_failure() -> None:
     assert lines == []
 
 
-def _answered(texts: list[str], error: str = "", agent: str = "", spoken: bool = True) -> bool:
-    """Would a reply on that ticket put it back in the queue?
-
-    `spoken`: the ledger remembers the runner commenting there.
-    """
+def _answered(texts: list[str], error: str = "", agent: str = "") -> bool:
+    """Would a reply on that ticket put it back in the queue?"""
     runner = _bare_runner(_CommentClient(texts, error))
-    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    if spoken:
-        runner.ledger.remember_page("p-ticket")
     properties = {}
     if agent:
         properties["Agent"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
-    page = notion.Page(id="p-ticket", url="", title="t", properties=properties)
+    page = store.Page(id="p-ticket", url="", title="t", properties=properties)
     return runner._answered(type("T", (), {"page": page})())
 
 
@@ -103,17 +96,15 @@ def a_ticket_no_run_of_ours_ever_touched_is_left_alone() -> None:
         "a ticket handled by another host is that host's to pick up"
     )
     assert _answered([DONE, "et pour le footer ?"], agent="ponos@laptop")
-    assert not _answered([REPORT, "réponse"], spoken=False), (
-        "no Runner and no comment of ours remembered: never claimed, so never read"
-    )
+    assert _answered([REPORT, "réponse"]), "no Runner, but a report of ours under it"
     assert not _answered([REPORT, "réponse"], error="403 API token does not have access")
 
 
 class _Backlog:
     """A board of pages, counting what reading their comments costs."""
 
-    def __init__(self, pages: list[notion.Page]) -> None:
-        self.pages: list[notion.Page] = pages
+    def __init__(self, pages: list[store.Page]) -> None:
+        self.pages: list[store.Page] = pages
         self.read: list[str] = []
 
     def schema(self, database: str) -> dict[str, str]:
@@ -122,33 +113,33 @@ class _Backlog:
     def options(self, database: str, name: str) -> list[str]:
         return []
 
-    def query(self, database: str, filter: dict[str, Any] | None) -> list[notion.Page]:
+    def query(self, database: str, filter: dict[str, Any] | None) -> list[store.Page]:
         return self.pages
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         self.read.append(page_id)
-        return [notion.Comment(REPORT), notion.Comment("réponse")]
+        if int(page_id.split("-")[1]) < 200:
+            return []
+        return [store.Comment(REPORT), store.Comment("réponse")]
 
 
 @case
-def a_backlog_no_run_ever_reported_on_costs_no_comment_request() -> None:
-    """A ticket never run has no report under it: no request can find one."""
+def a_backlog_no_run_ever_reported_on_wakes_nothing() -> None:
+    """A ticket never run has no report under it: its comments wake nothing."""
 
-    def page(index: int, agent: str = "") -> notion.Page:
+    def page(index: int, agent: str = "") -> store.Page:
         properties = {}
         if agent:
             properties["Agent"] = {"type": "rich_text", "rich_text": [{"plain_text": agent}]}
-        return notion.Page(id=f"p-{index}", url="", title=f"t{index}", properties=properties)
+        return store.Page(id=f"p-{index}", url="", title=f"t{index}", properties=properties)
 
     backlog = [page(index) for index in range(200)]
     ours, theirs, spoken = page(200, "ponos@laptop"), page(201, "ponos@vps"), page(202)
     client = _Backlog([*backlog, ours, theirs, spoken])
     runner = _bare_runner(client)
     runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
-    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    runner.ledger.remember_page("p-202")
     woken = runner.woken()
-    assert client.read == ["p-200", "p-202"], len(client.read)
+    assert "p-201" not in client.read, "another host's ticket is that host's to read"
     assert [ticket.page.id for ticket in woken] == ["p-200", "p-202"]
 
 
@@ -178,7 +169,7 @@ def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
     # A ticket waiting for credit is not among them: it never left Ready.
     assert len(runner._woken_filter()["and"]) == 5
     # A cancelled ticket is given up on: a comment under it wakes nothing — on
-    # a board that offers the option, since Notion refuses a filter on one it
+    # a board that offers the option, since the board refuses a filter on one it
     # does not know.
     offered.append("cancelled")
     excluded = {
@@ -205,7 +196,7 @@ def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
 # -- talking in the comments -------------------------------------------------
 
 
-def _pending(comments: list[notion.Comment], mention: str = "") -> list[conversation.Thread]:
+def _pending(comments: list[store.Comment], mention: str = "") -> list[conversation.Thread]:
     return conversation.waiting(comments, me=ME, spellings=conversation.names(mention, "Ponos"))
 
 
@@ -226,11 +217,11 @@ def comments_are_grouped_into_the_threads_they_belong_to() -> None:
 
 @case
 def a_comment_with_no_thread_of_its_own_is_not_lumped_with_the_others() -> None:
-    """Notion answered without a discussion: two remarks are still two remarks."""
+    """The board answered without a discussion: two remarks are still two remarks."""
     grouped = conversation.threads(
         [
-            notion.Comment("une chose", id="c1"),
-            notion.Comment("une autre", id="c2"),
+            store.Comment("une chose", id="c1"),
+            store.Comment("une autre", id="c2"),
         ]
     )
     assert len(grouped) == 2
@@ -273,14 +264,27 @@ def it_never_answers_itself() -> None:
 
 
 @case
-def a_question_it_has_already_answered_is_not_answered_twice() -> None:
-    """Notion hands back a thread whose reply is still in flight."""
-    ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    ledger.remember_thread("d1", session="s-1", comment="c-42")
-    assert ledger.answered("d1") == "c-42"
-    assert ledger.session_of("d1") == "s-1", "the next question resumes the same session"
-    ledger.forget_session("d1")
-    assert ledger.session_of("d1") == "" and ledger.answered("d1") == "c-42"
+def the_session_of_a_thread_is_kept_on_its_last_answer(state_home: Path) -> None:
+    """Read off the board's comments: no ledger beside them to fall out of step."""
+    from ponos import tickets
+
+    try:
+        made = tickets.create("Un ticket")
+        other = tickets.create("Un autre")
+        tickets.comment(made.id, "pourquoi ?", author="salva", discussion="d1")
+        tickets.comment(made.id, "parce que.", author=ME, discussion="d1")
+        tickets.comment(other.id, "et ici ?", author="salva", discussion="d2")
+        threads = conversation.Threads()
+        assert threads.recent() == [other.id, made.id], "the newest comment first"
+        assert threads.last() > 0
+        threads.remember(made.id, "d1", "s-1")
+        assert threads.session_of(made.id, "d1") == "s-1", "the next question resumes it"
+        assert threads.session_of(other.id, "d1") == "", "a thread is a ticket's"
+        assert threads.talked_on() == {made.id}
+        threads.forget(made.id, "d1")
+        assert threads.session_of(made.id, "d1") == "" and threads.talked_on() == set()
+    finally:
+        db.close()
 
 
 @case
@@ -326,7 +330,7 @@ def _unblocking(
     runner.__class__ = _Unblocking
     assert isinstance(runner, _Unblocking)
     runner.moved, runner.comments_written = [], list(already or [])
-    page = notion.Page(id="p-ticket", url="", title="Ticket A")
+    page = store.Page(id="p-ticket", url="", title="Ticket A")
     sessions: list[str] = []
 
     def fake_run(prompt_text: str, **kwargs: Any) -> session.Outcome:
@@ -351,7 +355,7 @@ def _unblocking(
 @case
 def a_blocked_ticket_whose_cause_is_gone_goes_back_to_ready_with_the_reason() -> None:
     runner, result, sessions = _unblocking("DECISION: unblock\nREASON: Le ticket B est en Done.")
-    assert runner.moved == [{"statut": runner.config.notion.state("ready")}], runner.moved
+    assert runner.moved == [{"statut": runner.config.board.state("ready")}], runner.moved
     assert (
         len(runner.comments_written) == 1
         and "Le ticket B est en Done." in runner.comments_written[0]

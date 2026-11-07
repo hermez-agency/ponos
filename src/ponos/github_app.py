@@ -72,8 +72,7 @@ from . import disk, http
 
 API = "https://api.github.com"
 WEB = "https://github.com"
-# Where the API and the site are, when a test says otherwise — the same seam as
-# `PONOS_NOTION_API`.
+# Where the API and the site are, when a test says otherwise.
 API_ENV = "PONOS_GITHUB_API"
 WEB_ENV = "PONOS_GITHUB_WEB"
 

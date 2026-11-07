@@ -144,9 +144,9 @@ test("markup is text, never markup", () => {
   ])
 })
 
-test("a file attached in Notion is read as its block, and ends a list", () => {
+test("a file a page carried is read as its block, and ends a list", () => {
   const block = "0123456789abcdef0123456789abcdef"
-  const brief = `1. un\n[image attached to the ticket: capture.png (Notion block ${block})]\n1. un`
+  const brief = `1. un\n[image attached to the ticket: capture.png (block ${block})]\n1. un`
   assert.deepEqual(markers(brief), ["1.", "attached", "1."])
   assert.deepEqual(blocks(brief)[1], {
     kind: "attached",

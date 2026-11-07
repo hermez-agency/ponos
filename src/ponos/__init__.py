@@ -1,4 +1,4 @@
-"""ponos — Notion tickets turned into Claude Code sessions."""
+"""ponos — tickets turned into Claude Code sessions."""
 
 __version__ = "0.2.0"
 

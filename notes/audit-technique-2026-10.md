@@ -1,7 +1,7 @@
 # Audit technique de Ponos — octobre 2026
 
 Mesuré le 19 octobre 2026 sur `main` (`5ec72aa`), sur cette machine et dans la CI.
-Chaque recommandation a un ticket brouillon dans Notion (projet Ponos, type Code) ;
+Chaque recommandation a un ticket brouillon sur le board (projet Ponos, type Code) ;
 l'ordre et les dépendances ci-dessous sont ceux des briefs.
 
 ## En bref
@@ -28,8 +28,8 @@ recopiées à la main depuis des `dict` Python.
 5. **La chaîne de la console** : découper les fonctions géantes → config en pydantic →
    console sur FastAPI → `types.ts` généré depuis OpenAPI.
 
-Non recommandé : Typer/Click, alembic/sqlite-utils, structlog, le SDK `notion-client`
-(raisons en § 3).
+Non recommandé : Typer/Click, alembic/sqlite-utils, structlog, un SDK pour l'API
+du board d'alors (raisons en § 3).
 
 ## 1. Contraintes, noir sur blanc
 
@@ -89,10 +89,10 @@ Toute recommandation de ce document, et tout ticket qui en sort, respecte ceci :
   `command_doctor` 517, `config.load` 390, `_execute_code` 286, `do_GET` 230, `do_POST`
   222, `session.run` 214. Ce sont aussi les zones les moins couvertes : `__main__.py`
   26 %, `web/server.py` 63 %.
-- **HTTP à la main, sept fois** : 9 `urlopen` dans 7 modules. Seul Notion réessaie
+- **HTTP à la main, sept fois** : 9 `urlopen` dans 7 modules. Seul le client du board réessaie
   (4 essais, `Retry-After` respecté, rejeu limité aux requêtes idempotentes — bien fait) ;
   GitHub, OpenRouter, Telegram/Slack, images et MCP n'ont **ni réessai ni gestion du
-  429**. La pagination Notion est recopiée 5 fois.
+  429**. La pagination du board est recopiée 5 fois.
 - **Couplage console → cœur** : `web/api.py` importe ~35 modules du cœur et instancie un
   `Runner` (12 mixins), utilisé 74 fois ; `web/api.py` importe `__main__` (le web dépend
   du CLI) ; 36 imports placés dans des fonctions pour esquiver des cycles.
@@ -103,7 +103,7 @@ Toute recommandation de ce document, et tout ticket qui en sort, respecte ceci :
   11 dataclasses, 5 `raise` dans tout le fichier : une valeur fausse est le plus souvent
   remplacée en silence par la valeur par défaut.
 - **`gh repo clone <repository>` sans `--`** (`git.py:227`) : le nom vient d'une page
-  Notion non validée ; une valeur commençant par `-` serait lue comme une option.
+  du board non validée ; une valeur commençant par `-` serait lue comme une option.
 
 ### Basse
 
@@ -148,8 +148,8 @@ la priorité donnée au journal (n° 3).
 | pyright | idem | plus rapide | dépend de Node | non : mypy suffit, pas de Node côté Python |
 | **pre-commit** | rien | ruff avant le push | outil dev | ticket (petit) |
 | **httpx** | 9 `urlopen` | délais, pool, HTTP/2, `MockTransport` pour les tests | ~5 paquets purs Python, mûr | **1ʳᵉ dépendance d'exécution** |
-| tenacity | la boucle de réessai Notion | déclaratif | un paquet de plus | non pour l'instant : la politique Notion (40 lignes, testée) est reprise telle quelle dans le client commun |
-| notion-client (SDK) | `notion.py` | — | une couche de plus, suit l'API avec retard, Ponos n'utilise qu'une poignée d'endpoints | non |
+| tenacity | la boucle de réessai du board | déclaratif | un paquet de plus | non pour l'instant : la politique du board (40 lignes, testée) est reprise telle quelle dans le client commun |
+| le SDK de l'API du board | le client du board | — | une couche de plus, suit l'API avec retard, Ponos n'utilise qu'une poignée d'endpoints | non |
 | **pydantic v2** | `config.load`, payloads de l'API | validation, erreurs lisibles, schéma JSON | ~2 Mo (cœur Rust compilé : roues disponibles pour Linux x86-64/arm64) | ticket, après httpx |
 | pydantic-settings | lecture de `secrets.env` / env | — | — | optionnel, à décider dans le ticket config |
 | **FastAPI + uvicorn** | `http.server`, routage regex, SSE à la main | validation, OpenAPI → types TS, tests `TestClient` | dépendances (Starlette, pydantic, anyio, uvicorn) ; réécriture du serveur | ticket, après pydantic |
@@ -182,19 +182,19 @@ la priorité donnée au journal (n° 3).
 
 Chaque ligne : sous-type · pourquoi · coût · « à faire après ». Les tickets, dans
 l'ordre où les prendre (le brief de chacun répète ses prérequis) :
-[10 — sécurité](https://app.notion.com/p/3fe451680af48197a050d818324699d4) ·
-[4 — journal](https://app.notion.com/p/3fe451680af48106aecae3c3cca6c774) ·
-[1 — ruff](https://app.notion.com/p/3f8451680af481c2b80cec6bb120978c) ·
-[13 — front](https://app.notion.com/p/3fe451680af48184a06ff3da29e3f329) ·
-[5 — environnement](https://app.notion.com/p/3fe451680af4812c9123df0027ad3b66) ·
-[6 — httpx](https://app.notion.com/p/3fe451680af4811f9fc7c7a52d2976d5) ·
-[2 — pre-commit](https://app.notion.com/p/3fe451680af48113b1bed053f60af947) ·
-[3 — mypy](https://app.notion.com/p/3fe451680af481ff9cd3cf32ac078257) ·
-[12 — tests](https://app.notion.com/p/3fe451680af48186a2a4f237e923f9b4) ·
-[7 — fonctions géantes](https://app.notion.com/p/3f8451680af4813ebe6bed8142adf84f) ·
-[8 — pydantic](https://app.notion.com/p/3fe451680af4812097d0e87b2eb38e33) ·
-[9 — FastAPI](https://app.notion.com/p/3f8451680af4811ab322c0c788271cc6) ·
-[11 — types.ts](https://app.notion.com/p/3f8451680af481d29789f29e9a4d2351).
+10 — sécurité (`3fe451680af48197a050d818324699d4`) ·
+4 — journal (`3fe451680af48106aecae3c3cca6c774`) ·
+1 — ruff (`3f8451680af481c2b80cec6bb120978c`) ·
+13 — front (`3fe451680af48184a06ff3da29e3f329`) ·
+5 — environnement (`3fe451680af4812c9123df0027ad3b66`) ·
+6 — httpx (`3fe451680af4811f9fc7c7a52d2976d5`) ·
+2 — pre-commit (`3fe451680af48113b1bed053f60af947`) ·
+3 — mypy (`3fe451680af481ff9cd3cf32ac078257`) ·
+12 — tests (`3fe451680af48186a2a4f237e923f9b4`) ·
+7 — fonctions géantes (`3f8451680af4813ebe6bed8142adf84f`) ·
+8 — pydantic (`3fe451680af4812097d0e87b2eb38e33`) ·
+9 — FastAPI (`3f8451680af4811ab322c0c788271cc6`) ·
+11 — types.ts (`3f8451680af481d29789f29e9a4d2351`).
 
 1. **Ruff : vider la base d'exceptions, puis `ruff format`** · Chore · reprend le
    brouillon « Linter ruff… ». Activer `I` et `UP` (`--fix`), corriger les 25 bugbear,
@@ -214,8 +214,8 @@ l'ordre où les prendre (le brief de chacun répète ses prérequis) :
    somme) ; test sur Debian sans `python3-venv`. · 1 j · après ce socle ; **avant toute
    dépendance d'exécution**.
 6. **Un client HTTP unique sur httpx** · Refactor · `ponos/http.py` : délais, User-Agent,
-   politique de réessai de Notion (idempotence, `Retry-After`) pour tous ; GitHub,
-   OpenRouter, canaux, images, MCP y passent ; pagination Notion factorisée ; tests sur
+   politique de réessai du board (idempotence, `Retry-After`) pour tous ; GitHub,
+   OpenRouter, canaux, images, MCP y passent ; pagination du board factorisée ; tests sur
    `httpx.MockTransport`. · 2–3 j · après 4 et 5.
 7. **Découper les fonctions géantes** · Refactor · reprend le brouillon « Découper les
    fonctions géantes… » : `command_doctor` (517), `config.load` (390), `_execute_code`

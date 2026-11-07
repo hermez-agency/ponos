@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from support import _nameless, _NamelessClient, _naming_session, _TypedClient, case
 
-from ponos import journal, models, notion
+from ponos import journal, models, store
 from ponos.projects import Project
 from ponos.runner import Runner
 from ponos.ticket import Job, Ticket
@@ -28,8 +28,8 @@ class _MovedClient(_NamelessClient):
         self.status = "ready"
         self.said: list[str] = []
 
-    def page(self, page_id: str) -> notion.Page:
-        return notion.Page(
+    def page(self, page_id: str) -> store.Page:
+        return store.Page(
             id=page_id,
             url="",
             title="",
@@ -99,7 +99,7 @@ class _NowhereToBeFound:
 
 class _Unreadable(_NamelessClient):
     def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
-        raise notion.NotionError("GET /blocks/x/children: 502 bad gateway")
+        raise store.StoreError("GET /blocks/x/children: 502 bad gateway")
 
 
 @case
@@ -117,14 +117,14 @@ def a_project_nobody_can_find_blocks_the_ticket_before_anything_is_read(state_ho
 
 
 @case
-def a_body_notion_will_not_hand_over_fails_the_ticket(state_home: Path) -> None:
+def a_body_the_board_will_not_hand_over_fails_the_ticket(state_home: Path) -> None:
     runner, ticket = _nameless("Retirer le shader", "")
     runner.client = _Unreadable("")  # type: ignore[assignment]  # a fake: a body that will not come
     failed = _failures(runner)
     assert runner.prepare(ticket) is None
-    assert [entry["code"] for entry in failed] == ["notion.read-failed"]
+    assert [entry["code"] for entry in failed] == ["board.read-failed"]
     assert "502" in failed[0]["detail"]
-    assert not failed[0].get("blocked"), "a Notion that hiccups is a failure, not a question"
+    assert not failed[0].get("blocked"), "a board that hiccups is a failure, not a question"
 
 
 @case
@@ -174,7 +174,7 @@ def a_naming_session_that_cannot_start_names_the_ticket_from_its_content(state_h
 
 
 @case
-def a_title_notion_refuses_is_not_kept_and_the_ticket_still_runs(state_home: Path) -> None:
+def a_title_the_board_refuses_is_not_kept_and_the_ticket_still_runs(state_home: Path) -> None:
     runner, ticket = _nameless(
         "", "Le bandeau de la console reste blanc au chargement.", refuse=True
     )
@@ -218,12 +218,12 @@ class _RefusesTheModel(_NamelessClient):
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if "Model" in values:
-            raise notion.NotionError("PATCH /pages/x: 400 Model is not a property")
+            raise store.StoreError("PATCH /pages/x: 400 Model is not a property")
         super().update(database_id, page_id, values)
 
 
 @case
-def a_chosen_model_notion_refuses_is_still_run_and_said(state_home: Path) -> None:
+def a_chosen_model_the_board_refuses_is_still_run_and_said(state_home: Path) -> None:
     runner, ticket = _nameless("Retirer le shader", "Il coûte 12 % de CPU pour rien.")
     runner.client = _RefusesTheModel("Il coûte 12 % de CPU pour rien.")  # type: ignore[assignment]  # a fake: no Model column to write
     runner.config.runner.auto_model = True
@@ -268,7 +268,7 @@ class _SubtypedClient(_TypedClient):
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if self._refused in values:
-            raise notion.NotionError(f"PATCH /pages/x: 400 {self._refused} is locked")
+            raise store.StoreError(f"PATCH /pages/x: 400 {self._refused} is locked")
         super().update(database_id, page_id, values)
 
 
@@ -322,7 +322,7 @@ def a_classification_that_cannot_start_blocks_on_the_doubt(state_home: Path) -> 
 
 
 @case
-def a_type_notion_refuses_to_keep_is_run_as_classified_all_the_same(state_home: Path) -> None:
+def a_type_the_board_refuses_to_keep_is_run_as_classified_all_the_same(state_home: Path) -> None:
     runner, ticket = _typed("Le bouton Envoyer", refuse="Type")
     answer = '{"type": "code", "reason": "Un bouton.", "confidence": "high", "alternative": ""}'
     with _naming_session(answer):
@@ -354,7 +354,7 @@ def a_board_without_a_sub_type_column_reads_the_prefix_and_asks_nobody(state_hom
 
 
 @case
-def a_sub_type_notion_refuses_is_still_the_ticket_s(state_home: Path) -> None:
+def a_sub_type_the_board_refuses_is_still_the_ticket_s(state_home: Path) -> None:
     runner, ticket = _typed("[Bug] Le bouton Envoyer", kind="Code", refuse="Sous-type")
     assert runner._subtype(ticket, "b") == ("bug", "")
     assert _client(runner).written == []

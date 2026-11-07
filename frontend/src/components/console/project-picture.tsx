@@ -21,10 +21,8 @@ import { forgetProject } from "@/resources/projects"
 
 /* A project's pictures: the cover of its page, and its icon.
  *
- * They are Notion's own — the banner across the top of a page and the mark in
- * front of its title — so the pictures people already chose for their pages
- * are the ones the console shows, and a picture changed here is the one Notion
- * shows. On a board of files, they are files beside the project's.
+ * The banner across the top of a page and the mark in front of its title:
+ * they are kept by the board, as files beside `ponos.db`.
  *
  * Three places draw them. Wherever a project is named — a card, a row, the
  * picker of a new ticket, the corner of its own page — as its mark: the icon,
@@ -38,7 +36,7 @@ import { forgetProject } from "@/resources/projects"
 
 type Slot = "cover" | "icon"
 
-/** How wide a cover is kept, and how large an icon: what Notion draws them at, and no more. */
+/** How wide a cover is kept, and how large an icon: what the page draws them at, and no more. */
 const LONGEST: Record<Slot, number> = { cover: 1500, icon: 280 }
 
 /** A colour of the project's own, from its name — the same one every time. */
@@ -116,14 +114,14 @@ function PictureNote({ pictures }: { pictures: Pick<Pictures, "cover" | "icon"> 
   return (
     <p className="text-muted-foreground mt-1 text-xs" role="status">
       {failed
-        ? t("Not in Notion yet — kept here, and sent again at the next reading: {{why}}", {
+        ? t("Not on the board yet — kept here, and sent again at the next reading: {{why}}", {
             why: failed.error || "?",
           })
         : waiting
-          ? t("Not in Notion yet — sent again at the next reading.")
-          : conflict === "notion"
-            ? t("Changed on both sides: Notion's picture was newer, and it won.")
-            : t("Changed on both sides: this one was newer, and it won in Notion too.")}
+          ? t("Not on the board yet — sent again at the next reading.")
+          : conflict === "board"
+            ? t("Changed on both sides: the board's picture was newer, and it won.")
+            : t("Changed on both sides: this one was newer, and it won on the board too.")}
     </p>
   )
 }
@@ -325,7 +323,7 @@ function PictureDialog({
       // The panel and the page alone draw the same read: neither draws the old picture again.
       forgetProject(project.id)
       if (answer[slot].pending) {
-        toast.warning(t("Kept here, not yet in Notion"), {
+        toast.warning(t("Kept here, not yet on the board"), {
           description: answer[slot].error || t("It is sent again at the next reading of the board."),
         })
       } else {
@@ -393,7 +391,7 @@ function PictureDialog({
         <DialogHeader>
           <DialogTitle>{t("Change the image")}</DialogTitle>
           <DialogDescription>
-            {t("The cover and the icon of the project's page, in Notion as well as here.")}
+            {t("The cover and the icon of the project's page.")}
           </DialogDescription>
         </DialogHeader>
 

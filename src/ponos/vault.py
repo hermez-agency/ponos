@@ -1,7 +1,7 @@
 """The keys a ticket's session works with, and the one rule that goes with them.
 
 A ticket that publishes a package or redeploys a service needs a token, and the
-only place it could be given used to be the ticket itself — which is a Notion
+only place it could be given used to be the ticket itself — which is a board
 page, a prompt, a transcript and a pull request description, all at once. So a
 secret is never written anywhere Ponos reads from. It stays where it already
 lives — the GNOME keyring, `pass`, Bitwarden, the environment — and `[vault]`
@@ -19,7 +19,7 @@ token may still print it — an `npm whoami --verbose`, an `env` to debug a
 failing deploy — and what it prints travels into its transcript, the steps
 written live into the ticket, the comment that closes it, the console and the
 phone. Each of those has one door everything goes through (`session.run`,
-`notion.Client._request`, the ledger's writes, a channel's request, the
+the ledger's writes, a channel's request, the
 console's JSON), and `mask` stands in it: every value this process has read is
 replaced by `***` before it goes out. Masked by value rather than by name,
 because what leaks is never `$NPM_TOKEN`, it is what it expands to.

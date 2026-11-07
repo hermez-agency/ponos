@@ -1,8 +1,8 @@
 """Creating a project from the console, and what is checked before the page exists.
 
-A project used to be made in Notion and nowhere else, which was the one gesture
+A project used to be made on the board and nowhere else, which was the one gesture
 of the console's projects page that sent somebody away from it. It is made here
-now — through the store, so a board without Notion gets its page the same
+now — through the store, so a board gets its page the same
 way — and what is refused is refused **before** anything is written, because a
 page created and then found wrong is a page somebody has to go and delete.
 
@@ -17,7 +17,7 @@ What is written is what the projects database already says, column for column:
 a database made by hand calls its repository "github" and its path "path", and
 a page that invented "Repository" beside them would be a page whose repository
 nobody sees. The columns this database does not have are left to the store —
-Notion drops them, a file keeps them.
+The board drops them, a file keeps them.
 
 A repository nobody has cloned here is not refused: `projects.py` clones it at
 the first ticket, and `check` says so while the form is being filled in.
@@ -85,7 +85,7 @@ def _column(schema: dict[str, str], used: dict[str, str], key: str) -> str:
     """The column that holds `key`: the one the pages fill in, the one the
     database declares, or the name `init` would give it — in that order.
 
-    The pages first, because a board without Notion declares `init`'s names
+    The pages first, because a board declares `init`'s names
     whatever its pages were written with.
     """
     names = COLUMNS[key]

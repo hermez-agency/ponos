@@ -29,15 +29,13 @@ import socket
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from urllib.parse import urlparse
-
-from . import notion
 
 MEMINFO = "/proc/meminfo"
 
-# Where "can this machine reach anybody" is asked: the board, which is the thing
-# a pass cannot do without, and GitHub, which is the other half of a ticket.
-# Either one answering is a network; both silent is not one.
+# Where "can this machine reach anybody" is asked: Anthropic, which a session
+# cannot do without, and GitHub, which is the other half of a ticket. Either one
+# answering is a network; both silent is not one.
+ANTHROPIC = ("api.anthropic.com", 443)
 GITHUB = ("api.github.com", 443)
 
 
@@ -142,21 +140,14 @@ def overloaded(per_core: float) -> tuple[float, int] | None:
     return measured if measured is not None and measured[0] > per_core * measured[1] else None
 
 
-def _board() -> tuple[str, int]:
-    parsed = urlparse(notion.endpoint())
-    return parsed.hostname or "api.notion.com", parsed.port or (
-        80 if parsed.scheme == "http" else 443
-    )
-
-
 def reachable(timeout: float = 3.0) -> bool:
-    """Does a connection to the board, or to GitHub, open at all?
+    """Does a connection to Anthropic, or to GitHub, open at all?
 
     A TCP connection rather than an HTTP request: it needs no token, costs
-    nothing against Notion's rate limit, and says exactly what is asked — that
-    the name resolves and the route is there.
+    nothing against a rate limit, and says exactly what is asked — that the
+    name resolves and the route is there.
     """
-    for host, port in (_board(), GITHUB):
+    for host, port in (ANTHROPIC, GITHUB):
         try:
             with socket.create_connection((host, port), timeout=timeout):
                 return True

@@ -1,6 +1,6 @@
 """One spelling of a page identifier, whoever wrote it.
 
-Notion hands the same page back dashed in one answer and bare in the next, a URL
+The board hands the same page back dashed in one answer and bare in the next, a URL
 ends with it, a person pastes either. Every comparison, key and file name is
 made on the bare form — thirty-two hexadecimal characters, no dashes — so that
 one page is never two.

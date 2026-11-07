@@ -49,21 +49,21 @@ export function useBoardFeed(follow: (touched: Ticket[]) => void, lost: () => vo
    * that are new or changed, the only ones worth a look. */
   const boardMoved = React.useCallback(
     (fresh: Board, touched: Ticket[], before: Map<string, Ticket["sync"]>) => {
-      // A move that did not reach Notion is said once, when it stops being on
+      // A move that did not reach the board is said once, when it stops being on
       // its way — the card keeps saying it after the toast is gone.
       for (const item of touched) {
         if (item.sync !== "failed" || before.get(item.id) === item.sync) continue
-        toast.error(t("“{{title}}” did not reach Notion", { title: titleOf(item) }), {
+        toast.error(t("“{{title}}” did not reach the board", { title: titleOf(item) }), {
           description: item.sync_error,
         })
       }
-      // A move not made because Notion had changed is said once as well — but
+      // A move not made because the board had changed is said once as well — but
       // it is read from the journal, and stays on the card until somebody acts:
       // what this browser has already shown is remembered across loads, or
       // every new tab said an old refusal again (`conflicts.ts`).
       const { fresh: refused, kept } = unshown(fresh.tickets, shownConflicts())
       for (const item of refused) {
-        toast.error(t("“{{title}}” was changed in Notion meanwhile", { title: titleOf(item) }), {
+        toast.error(t("“{{title}}” was changed on the board meanwhile", { title: titleOf(item) }), {
           description: conflictSaid(item),
         })
       }

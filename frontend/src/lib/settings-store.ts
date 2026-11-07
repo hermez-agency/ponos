@@ -117,7 +117,7 @@ export function useKeysShown(): boolean {
 
 /* -- what was asked for -------------------------------------------------------- */
 
-/** A field's name (`notion.token`) or a card's key (`notify`) the page should bring into view. */
+/** A field's name (`notify.telegram.token`) or a card's key (`notify`) the page should bring into view. */
 let wanted = ""
 
 export function ask(target: string) {
@@ -140,9 +140,9 @@ export function useAsked(): string {
   return React.useSyncExternalStore(subscribe, () => wanted)
 }
 
-/* A setting is named by its path into the file — `notion.status.ready` — and
+/* A setting is named by its path into the file — `notify.telegram.chat` — and
  * react-data-form reads a dot in an input's name as a step into a nested
- * object: it would file the input under `inputs.notion.status` and lose the
+ * object: it would file the input under `inputs.notify.telegram` and lose the
  * flat entry the form was built with. So the dots become dashes on the way in,
  * and the field's own name comes back from the description rather than from
  * the input. */

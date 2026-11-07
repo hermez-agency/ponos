@@ -30,7 +30,7 @@ Semantic versioning, read from the *installation's* point of view — a runner
 already installed on somebody's machine, which updates itself:
 
 - **major** — that installation needs a hand to keep working. A configuration
-  key renamed, a Notion property that now has to exist, a command removed.
+  key renamed, a table the file may no longer hold, a command removed.
 - **minor** — the runner gained something. A new command, a new channel, a new
   thing a ticket can do.
 - **patch** — the runner stopped getting something wrong, and nobody has to

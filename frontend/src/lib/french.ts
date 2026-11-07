@@ -159,8 +159,8 @@ export const FRENCH: Record<string, string> = {
   "go dark": "passer au sombre",
   "Switch to the light theme": "Passer au thème clair",
   "Switch to the dark theme": "Passer au thème sombre",
-  // The board and Notion, side by side: when they last agreed, and what does
-  // not — the line in the bar, its tooltip, and the button beside it.
+  // The board as the console last read it: when, and what is out of step —
+  // the line in the bar, its tooltip, and the button beside it.
   "Resynchronise now": "Resynchroniser maintenant",
   "Notifications, {{count}} unread": "Notifications, {{count}} non lues",
   "{{count}} questions": "{{count}} questions",
@@ -181,23 +181,32 @@ export const FRENCH: Record<string, string> = {
     "resynchroniser maintenant : tout le tableau relu, les déplacements refusés renvoyés",
   "synced {{age}}": "synchro {{age}}",
   "{{count}} s ago": "il y a {{count}} s",
-  "last read of Notion: {{at}}": "dernière lecture de Notion : {{at}}",
+  "last read of the board: {{at}}":
+    "dernière lecture du board : {{at}}",
   "whole board compared: {{at}}": "tableau entier comparé : {{at}}",
   "{{count}} gap found and corrected": "{{count}} écart trouvé et corrigé",
   "{{count}} gaps found and corrected": "{{count}} écarts trouvés et corrigés",
-  "{{count}} move waiting for Notion": "{{count}} déplacement en attente d’envoi à Notion",
-  "{{count}} moves waiting for Notion": "{{count}} déplacements en attente d’envoi à Notion",
-  "{{count}} move Notion refused": "{{count}} déplacement refusé par Notion",
-  "{{count}} moves Notion refused": "{{count}} déplacements refusés par Notion",
-  "{{count}} ticket changed in Notion meanwhile": "{{count}} ticket modifié dans Notion entre-temps",
-  "{{count}} tickets changed in Notion meanwhile":
-    "{{count}} tickets modifiés dans Notion entre-temps",
+  "{{count}} move waiting to be written":
+    "{{count}} déplacement en attente d’écriture",
+  "{{count}} moves waiting to be written":
+    "{{count}} déplacements en attente d’écriture",
+  "{{count}} move the board refused":
+    "{{count}} déplacement refusé par le board",
+  "{{count}} moves the board refused":
+    "{{count}} déplacements refusés par le board",
+  "{{count}} ticket changed on the board meanwhile":
+    "{{count}} ticket modifié sur le board entre-temps",
+  "{{count}} tickets changed on the board meanwhile":
+    "{{count}} tickets modifiés sur le board entre-temps",
   "the last read failed: {{why}}": "la dernière lecture a échoué : {{why}}",
-  // On a card moved from the console, until Notion has it — and on the toast
+  // On a card moved from the console, until the board has it — and on the toast
   // that says it once when it will not.
-  "waiting to be sent to Notion": "en attente d’envoi à Notion",
-  "not sent to Notion": "non envoyé à Notion",
-  "changed in Notion meanwhile — not overwritten": "modifié dans Notion entre-temps — non écrasé",
+  "waiting to be written to the board":
+    "en attente d’écriture sur le board",
+  "not written to the board":
+    "non écrit sur le board",
+  "changed on the board meanwhile — not overwritten":
+    "modifié sur le board entre-temps — non écrasé",
   // On a ready card: why it has not been taken yet, when it is not the ordinary wait — see TicketHeld.
   "waiting: scheduled for {{at}}": "en attente : prévu pour le {{at}}",
   "waiting for: {{tickets}}": "attend : {{tickets}}",
@@ -220,13 +229,15 @@ export const FRENCH: Record<string, string> = {
   "waiting: --limit reached for this run": "en attente : --limit atteint pour ce lancement",
   "waiting: no daemon is running — nothing takes it": "en attente : aucun démon ne tourne — rien ne le prendra",
   waiting: "en attente",
-  "“{{title}}” did not reach Notion": "« {{title}} » n’est pas arrivé dans Notion",
-  "“{{title}}” was changed in Notion meanwhile": "« {{title}} » a été modifié dans Notion entre-temps",
+  "“{{title}}” did not reach the board":
+    "« {{title}} » n’est pas arrivé sur le board",
+  "“{{title}}” was changed on the board meanwhile":
+    "« {{title}} » a été modifié sur le board entre-temps",
   // Why, with the two columns put in (`conflicts.ts`).
-  "Ponos wanted to move it to {{wanted}}, but it is {{found}} in Notion: left as it is.":
-    "Ponos voulait le passer en {{wanted}}, mais il est {{found}} dans Notion : laissé tel quel.",
-  "You moved it to {{wanted}}, but it is {{found}} in Notion: left as it is.":
-    "Vous l’aviez passé en {{wanted}}, mais il est {{found}} dans Notion : laissé tel quel.",
+  "Ponos wanted to move it to {{wanted}}, but it is {{found}} on the board: left as it is.":
+    "Ponos voulait le passer en {{wanted}}, mais il est {{found}} sur le board : laissé tel quel.",
+  "You moved it to {{wanted}}, but it is {{found}} on the board: left as it is.":
+    "Vous l’aviez passé en {{wanted}}, mais il est {{found}} sur le board : laissé tel quel.",
   "event stream": "flux d'événements",
   "connecting…": "connexion…",
   "reconnecting…": "reconnexion…",
@@ -439,8 +450,8 @@ export const FRENCH: Record<string, string> = {
   "The next ticket of this project is told this.":
     "Le prochain ticket de ce projet en prend connaissance.",
   "The brief was not saved": "Le brief n'a pas été enregistré",
-  "This brief changed in Notion since you opened it.":
-    "Ce brief a changé dans Notion depuis l'ouverture de l'éditeur.",
+  "This brief changed on the board since you opened it.":
+    "Ce brief a changé sur le board depuis l'ouverture de l'éditeur.",
   "Saving would overwrite that. Reload it to see the new version — what you typed here is dropped.":
     "Enregistrer l'écraserait. Rechargez-le pour voir la nouvelle version — ce que vous avez saisi ici est abandonné.",
   Reload: "Recharger",
@@ -565,8 +576,8 @@ export const FRENCH: Record<string, string> = {
   "Back to the board": "Retour au tableau",
   "The server gave no reason.": "Le serveur n'a pas donné de raison.",
   "This ticket could not be found.": "Ce ticket est introuvable.",
-  "This ticket does not exist, or Ponos has no access to it (the Notion integration must be added to the page).":
-    "Ce ticket n'existe pas, ou Ponos n'y a pas accès (l'intégration Notion doit être ajoutée à la page).",
+  "This ticket does not exist: it was deleted, or was never on this board.":
+    "Ce ticket n'existe pas : il a été supprimé, ou n'a jamais été sur ce board.",
   "A ticket needs a title.": "Un ticket a besoin d'un titre.",
   "Remove the banner from the dashboard": "Retirer le bandeau du tableau de bord",
   "Earlier columns": "Colonnes précédentes",
@@ -880,9 +891,7 @@ export const FRENCH: Record<string, string> = {
   paused: "en pause",
   "nothing yet": "rien pour l'instant",
   "Nothing repeats here": "Rien ne se répète ici",
-  "This workspace has no “{{page}}” page.":
-    "Cet espace de travail n'a pas de page « {{page}} ».",
-  "builds it.": "la construit.",
+  "This board keeps no schedules.": "Ce tableau ne garde pas de récurrences.",
   "Nothing repeats here yet": "Rien ne se répète encore ici",
   "Nothing repeats for this project yet": "Rien ne se répète encore pour ce projet",
   "Other words or another state, and they will be back.": "D'autres mots ou un autre état, et elles reviendront.",
@@ -891,8 +900,6 @@ export const FRENCH: Record<string, string> = {
   "This project has no page: create it to attach tickets to it.":
     "Ce projet n'a pas de page : créez-la pour y rattacher des tickets.",
   "Create its page": "Créer sa page",
-  "A row in the “{{page}}” database is a ticket that comes back.":
-    "Une ligne de la base « {{page}} », c'est un ticket qui revient.",
   "This schedule is no longer on the board.": "Cette récurrence n'est plus sur le tableau.",
   // The columns of the list, and the fields of the form that writes a row.
   Day: "Jour",
@@ -1037,13 +1044,13 @@ export const FRENCH: Record<string, string> = {
   "Open full size": "Ouvrir en grand",
   "Image attached to the ticket": "Image jointe au ticket",
   "File attached to the ticket": "Fichier joint au ticket",
-  "its pictures, the brief as it reads, and the way to Notion.":
-    "ses images, le brief tel qu'il se lit, et le chemin vers Notion.",
+  "its pictures and the brief as it reads.":
+    "ses images et le brief tel qu'il se lit.",
 
   /* -- a project's pictures ------------------------------------------------ */
   "Change the image": "Changer l'image",
-  "The cover and the icon of the project's page, in Notion as well as here.":
-    "La couverture et l'icône de la page du projet, dans Notion comme ici.",
+  "The cover and the icon of the project's page.":
+    "La couverture et l'icône de la page du projet.",
   Cover: "Couverture",
   Icon: "Icône",
   "Drop an image here, or paste one.": "Déposez une image ici, ou collez-en une.",
@@ -1060,17 +1067,18 @@ export const FRENCH: Record<string, string> = {
   "The cover is changed": "La couverture est changée",
   "The icon is changed": "L'icône est changée",
   "The image was not changed": "L'image n'a pas été changée",
-  "Kept here, not yet in Notion": "Gardée ici, pas encore dans Notion",
+  "Kept here, not yet on the board":
+    "Gardée ici, pas encore sur le board",
   "It is sent again at the next reading of the board.":
     "Elle sera renvoyée à la prochaine lecture du tableau.",
-  "Not in Notion yet — kept here, and sent again at the next reading: {{why}}":
-    "Pas encore dans Notion — gardée ici, et renvoyée à la prochaine lecture : {{why}}",
-  "Not in Notion yet — sent again at the next reading.":
-    "Pas encore dans Notion — renvoyée à la prochaine lecture.",
-  "Changed on both sides: Notion's picture was newer, and it won.":
-    "Changée des deux côtés : celle de Notion était la plus récente, elle l'emporte.",
-  "Changed on both sides: this one was newer, and it won in Notion too.":
-    "Changée des deux côtés : celle-ci était la plus récente, elle l'emporte aussi dans Notion.",
+  "Not on the board yet — kept here, and sent again at the next reading: {{why}}":
+    "Pas encore sur le board — gardée ici, et renvoyée à la prochaine lecture : {{why}}",
+  "Not on the board yet — sent again at the next reading.":
+    "Pas encore sur le board — renvoyée à la prochaine lecture.",
+  "Changed on both sides: the board's picture was newer, and it won.":
+    "Changée des deux côtés : celle du board était la plus récente, elle l'emporte.",
+  "Changed on both sides: this one was newer, and it won on the board too.":
+    "Changée des deux côtés : celle-ci était la plus récente, elle l'emporte aussi sur le board.",
   "This project is a line in config.toml; it is changed in the settings.":
     "Ce projet est une ligne de config.toml ; il se modifie dans les réglages.",
   "What the board calls it. A ticket points at this page, not at this name.":
@@ -1101,12 +1109,12 @@ export const FRENCH: Record<string, string> = {
   Reread: "Relire",
   "Saving…": "Enregistrement…",
   "Reading the context…": "Lecture du contexte…",
-  "This workspace has no “{{page}}” page, so there is nowhere to write.":
-    "Cet espace de travail n'a pas de page « {{page}} » : il n'y a nulle part où écrire.",
+  "This board has no context page, so there is nowhere to write.":
+    "Ce tableau n'a pas de page de contexte : il n'y a nulle part où écrire.",
   "Who you are, what the team does, the stack, the conventions, the things never to do. Keep it to one screen.":
     "Qui vous êtes, ce que fait l'équipe, la stack, les conventions, ce qu'il ne faut jamais faire. Tenez-vous à un écran.",
-  "saved to the “{{page}}” page, and read again on the next run.":
-    "enregistré dans la page « {{page}} », relu au prochain ticket.",
+  "saved to the board, and read again on the next run.":
+    "enregistré sur le tableau, relu au prochain ticket.",
   "The context is saved": "Le contexte est enregistré",
   "Every ticket from here on is told this.": "Chaque ticket à partir de maintenant le reçoit.",
   "The context was not saved": "Le contexte n'a pas été enregistré",
@@ -1156,8 +1164,8 @@ export const FRENCH: Record<string, string> = {
   "No ticket created in the period.": "Aucun ticket créé sur la période.",
   "No {{kind}} ticket created in the period.": "Aucun ticket {{kind}} créé sur la période.",
   "No ticket without a type created in the period.": "Aucun ticket sans type créé sur la période.",
-  "A closing is dated by the runner's history when the runner closed the ticket ({{history}}), by the page's last edit in Notion otherwise ({{edited}}).":
-    "Une fermeture est datée par l'historique du runner quand c'est lui qui a fermé le ticket ({{history}}), sinon par la dernière modification de la page dans Notion ({{edited}}).",
+  "A closing is dated by the runner's history when the runner closed the ticket ({{history}}), by the page's last edit otherwise ({{edited}}).":
+    "Une fermeture est datée par l'historique du runner quand c'est lui qui a fermé le ticket ({{history}}), sinon par la dernière modification de la page ({{edited}}).",
 
   /* -- the settings page, in its own words ----------------------------------- */
   "Reading the configuration…": "Lecture de la configuration…",
@@ -1218,8 +1226,6 @@ export const FRENCH: Record<string, string> = {
   "The runner itself: its languages, its updates, this console, and the room it takes.":
     "Le runner lui-même : ses langues, ses mises à jour, cette console, et la place qu'il prend.",
   "Ticket source": "Source des tickets",
-  "Where your tickets live, and how the runner finds its way in your Notion board.":
-    "Où vivent vos tickets, et comment le runner s'y retrouve dans votre tableau Notion.",
   Execution: "Exécution",
   "How tickets are picked up, what a session may do, and when your review is skipped.":
     "Comment les tickets sont pris, ce qu'une session peut faire, et quand votre relecture est sautée.",
@@ -1235,12 +1241,8 @@ export const FRENCH: Record<string, string> = {
   // The cards, and the sentence each opens on.
   Slack: "Slack",
 
-  "Notion connection": "Connexion à Notion",
-  "The Notion integration that reads and writes your board. `ponos init <page-url>` fills all of this in for you: come here only to fix it by hand.":
-    "L'intégration Notion qui lit et écrit votre tableau. `ponos init <page-url>` remplit tout ceci pour vous : ne venez ici que pour corriger à la main.",
 
   "Board storage": "Stockage du tableau",
-  Notion: "Notion",
 
   "Running tickets": "Exécution des tickets",
   "Check the board every (seconds)": "Consulter le tableau toutes les (secondes)",
@@ -1395,8 +1397,6 @@ export const FRENCH: Record<string, string> = {
   "Access": "Accès",
   "Continue": "Continuer",
   "Checking…": "Vérification…",
-  "Create an internal integration on `notion.so/my-integrations`, share one page with it — the `···` menu → Connections — and paste the two here. The board, its databases and their columns are built under that page, as `ponos init` would.":
-    "Créez une intégration interne sur `notion.so/my-integrations`, partagez une page avec elle — menu `···` → Connexions — et collez les deux ici. Le tableau, ses bases et leurs colonnes sont construits sous cette page, comme le ferait `ponos init`.",
   "No board yet.": "Pas encore de tableau.",
   "Link of the page you shared": "Lien de la page partagée",
   "Only to build a second board: the one above stays where it is otherwise.":
@@ -1451,11 +1451,8 @@ export const FRENCH: Record<string, string> = {
     "Ponos cessera de créer ce ticket. Les tickets déjà créés restent en place.",
   "The schedule could not be run": "La récurrence n'a pas pu être lancée",
   "Project “{{name}}” deleted": "Projet « {{name}} » supprimé",
-  "Its page is in the Notion trash for 30 days.":
-    "Sa page est dans la corbeille de Notion pendant 30 jours.",
   "Its page was put aside in the board's trash folder.":
     "Sa page a été mise de côté dans le dossier trash du tableau.",
-  "Undo in Notion": "Annuler dans Notion",
   "Delete “{{name}}”?": "Supprimer « {{name}} » ?",
   "Ponos will stop following this project.": "Ponos va cesser de suivre ce projet.",
   "Ponos will stop following this project. No ticket points at it.":
@@ -1466,19 +1463,20 @@ export const FRENCH: Record<string, string> = {
     "Ponos va cesser de suivre ce projet. {{count}} tickets y sont liés.",
   "It disappears from the console and is no longer synchronised: the runner takes none of its tickets, and no more tokens are spent on it.":
     "Il disparaît de la console et n'est plus synchronisé : le runner ne prend aucun de ses tickets et plus aucun token n'est dépensé pour lui.",
-  "Its page goes to the Notion trash, where it can be restored for 30 days.":
-    "Sa page part à la corbeille de Notion, où elle reste récupérable 30 jours.",
-  "Its tickets go to the Notion trash too.": "Ses tickets partent aussi à la corbeille de Notion.",
+  "Its page goes to the board's trash, where it is kept and can be restored.":
+    "Sa page part à la corbeille du board, où elle est gardée et reste récupérable.",
+  "Its tickets are deleted too.":
+    "Ses tickets sont supprimés aussi.",
   "Its tickets stay on the board; those that are ready or in progress are blocked, with a comment saying why.":
     "Ses tickets restent sur le tableau ; ceux qui sont prêts ou en cours passent en bloqué, avec un commentaire qui explique pourquoi.",
   "The GitHub repository and the folder on this machine are never deleted. Its throwaway worktrees are cleaned up.":
     "Le dépôt GitHub et le dossier sur cette machine ne sont jamais supprimés. Ses worktrees jetables sont nettoyées.",
   "Its ideas are deleted; what it cost stays in the statistics.":
     "Ses idées sont supprimées ; ce qu'il a coûté reste dans les statistiques.",
-  "Also move its {{count}} ticket to the Notion trash":
-    "Mettre aussi son ticket à la corbeille de Notion",
-  "Also move its {{count}} tickets to the Notion trash":
-    "Mettre aussi ses {{count}} tickets à la corbeille de Notion",
+  "Also delete its {{count}} ticket":
+    "Supprimer aussi son ticket",
+  "Also delete its {{count}} tickets":
+    "Supprimer aussi ses {{count}} tickets",
   "Yes, I am sure I want to delete this project": "Oui, je suis sûr de supprimer ce projet",
   "Deleting…": "Suppression…",
   "Delete the project": "Supprimer le projet",
@@ -1779,15 +1777,12 @@ export const FRENCH: Record<string, string> = {
   "{{done}} of {{count}} ticket done": "{{done}} sur {{count}} ticket fait",
   "{{done}} of {{count}} tickets done": "{{done}} sur {{count}} tickets faits",
   Due: "Échéance",
-  "Open in Notion": "Ouvrir dans Notion",
   "No goal matches these filters.": "Aucun objectif ne correspond à ces filtres.",
   "Another status or project, and they will be back.": "Un autre statut ou projet, et ils reviendront.",
   "No goal.": "Aucun objectif.",
   "No ticket serves this goal yet.": "Aucun ticket ne sert encore cet objectif.",
   "Write one, then point the tickets that serve it at it.":
     "Écrivez-en un, puis rattachez-y les tickets qui le servent.",
-  "The workspace has no Goals database: add one in Notion, and goals can be written here.":
-    "L'espace de travail n'a pas de base Objectifs : ajoutez-en une dans Notion, et les objectifs s'écriront ici.",
   "The goal this ticket serves": "L'objectif que sert ce ticket",
   "New goal": "Nouvel objectif",
   "Edit the goal": "Modifier l'objectif",
@@ -1805,8 +1800,6 @@ export const FRENCH: Record<string, string> = {
   "The tickets that serve this goal; its progress is counted from them.":
     "Les tickets qui servent cet objectif ; son avancement se compte à partir d'eux.",
   "Delete the goal": "Supprimer l'objectif",
-  "The goal is deleted: it goes to Notion's trash, with its count. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead.":
-    "L'objectif est supprimé : il part dans la corbeille de Notion, avec son décompte. Ses tickets restent où ils sont, sans objectif. Pour clore un objectif terminé, marquez-le plutôt atteint ou abandonné.",
   "The goal could not be deleted": "L'objectif n'a pas pu être supprimé",
   "Goal “{{name}}” deleted": "Objectif « {{name}} » supprimé",
   Reached: "Atteint",
@@ -1979,7 +1972,7 @@ export const FRENCH: Record<string, string> = {
   "unknown sub-type “{{subtype}}”": "Sous-type inconnu : « {{subtype}} ».",
   "this schedule is already being launched": "Cette récurrence est déjà en train d'être lancée.",
   "no ticket with id {{id}}":
-    "Ce ticket n'existe pas, ou Ponos n'y a pas accès (l'intégration Notion doit être ajoutée à la page).",
+    "Ce ticket n'existe pas : il a été supprimé, ou n'a jamais été sur ce board.",
   "no project with id {{id}}": "Aucun projet ne porte l'identifiant {{id}}.",
   "this workspace has no projects database": "Cet espace de travail n'a pas de base de projets.",
   "this brief changed in the board since it was opened":

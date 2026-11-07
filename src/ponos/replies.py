@@ -6,9 +6,9 @@ that cannot write, in the repository itself rather than in a copy of it, since
 there is nothing to isolate when nothing can be changed.
 
 Everything here gives way to the work. A ticket this pass is about to handle is
-left alone, because the comment is already going into its prompt; the pass runs
-on a cadence of its own so that a ten-second runner does not scan the board six
-times a minute; and no failure of it ever reaches a ticket.
+left alone, because the comment is already going into its prompt; the daemon
+starts the pass when a comment arrives rather than on a clock; and no failure
+of it ever reaches a ticket.
 
 `conversation.py` reads the threads and decides which are being spoken to; this
 is what is done about them — one thread per page per pass, answered in the
@@ -60,14 +60,12 @@ class Replies(Base):
 
         A pass, not a run: nothing is claimed, no status moves, no worktree is
         made. It reads the threads on the pages where a conversation could be —
-        the tickets this run already looked at, and the pages the runner has
-        spoken on before — and replies where it is being spoken to.
+        the tickets this run already looked at, and the ones most recently
+        commented on — and replies where it is being spoken to.
 
         Everything here gives way to the work. A ticket about to be handled is
-        left alone, because the comment is already going into its prompt; the
-        pass runs on a cadence of its own so a ten-second runner does not scan
-        the board six times a minute; and no failure of it ever reaches a
-        ticket.
+        left alone, because the comment is already going into its prompt; and
+        no failure of it ever reaches a ticket.
 
         `places` is how many answers may be written at once — `max_concurrent`
         when nothing else is running, one when the pass's tickets are.
@@ -76,15 +74,9 @@ class Replies(Base):
             return []
         # An answer is a session too, and the reserve is about sessions. The
         # thread is left unanswered rather than answered badly: the pass that has
-        # credit again finds it exactly where it is, with nothing said in
-        # between — and the clock is deliberately not stamped, so that pass does
-        # not then wait out `reply_interval_seconds` before looking.
+        # credit again finds it exactly where it is, with nothing said in between.
         if self.under_reserve():
             return []
-        ledger = self.ledger
-        if not ledger.due(self.config.runner.reply_interval_seconds):
-            return []
-        ledger.stamp()
 
         me = self.myself()
         if not me:
@@ -92,13 +84,11 @@ class Replies(Base):
             # yours — and a runner answering itself would never stop. Said once,
             # then the tickets.
             reason = self._identity_error or "no user ID came back"
-            self.say(f"  ! comments not answered: Notion would not say who we are ({reason})")
-            ledger.save()
+            self.say(f"  ! comments not answered: the board would not say who we are ({reason})")
             return []
 
         pending = self._pending(me)
         if not pending:
-            ledger.save()
             return []
 
         self.say(f"  ✎ {len(pending)} comment(s) waiting for an answer")
@@ -111,25 +101,20 @@ class Replies(Base):
         results = [answer for answer in answers if answer]
         for result in results:
             state.record(result)
-        ledger.save()
         return results
 
     def _pending(self, me: str) -> list[tuple[str, conversation.Thread]]:
         """The threads to answer this pass, page by page.
 
-        Two sources, and only one of them costs anything. The pages this run has
-        already read are free — their comments are in hand. The rest are the
-        pages the runner has spoken on, taken a window at a time so that a board
-        it has been running against for months does not turn one pass into a
-        hundred requests.
+        The pages this run has already read first — their comments are in hand —
+        then the tickets most recently commented on.
         """
         spellings = self.spellings()
         seen = list(self._comments)
-        remembered = [page for page in self.ledger.known_pages() if page not in self._comments]
-        window = self.ledger.rotate(remembered, self.config.runner.reply_scan)
+        recent = [page for page in self.threads.recent() if page not in self._comments]
 
         pending: list[tuple[str, conversation.Thread]] = []
-        for page_id in [*seen, *window]:
+        for page_id in [*seen, *recent]:
             if page_id in self._claimed:
                 continue
             try:
@@ -139,10 +124,6 @@ class Replies(Base):
                 # Neither is this pass's business to report on.
                 continue
             for thread in conversation.waiting(comments, me=me, spellings=spellings):
-                if self.ledger.answered(thread.discussion) == thread.last.id:
-                    # Already answered: Notion handed back a thread whose reply
-                    # is still in flight.
-                    continue
                 pending.append((page_id, thread))
                 break  # one answer per page per pass: a thread at a time
             if len(pending) >= conversation.ANSWERS:
@@ -199,7 +180,7 @@ class Replies(Base):
         )
 
         discussion = thread.last.discussion_id
-        resumed = self.ledger.session_of(discussion) if discussion else ""
+        resumed = self.threads.session_of(page_id, discussion) if discussion else ""
         outcome = self._reply_session(
             text,
             workdir,
@@ -211,11 +192,10 @@ class Replies(Base):
         )
         if not outcome.ok and resumed and not outcome.exhausted:
             # A session Claude Code no longer has — pruned, or filed on another
-            # machine. The thread's history is in Notion, so a fresh one starts
+            # machine. The thread's history is on the board, so a fresh one starts
             # from everything except the tone of the last exchange.
             self.say("    ↻ that conversation could not be resumed — starting a new one")
-            with self._ledger_lock:
-                self.ledger.forget_session(discussion)
+            self.threads.forget(page_id, discussion)
             outcome = self._reply_session(
                 text, workdir, short, agent, ticket, session_id=session.new_id(), resume=False
             )
@@ -236,11 +216,8 @@ class Replies(Base):
                 log=outcome.log,
             )
         self._comment(ticket, answer, discussion)
-        with self._ledger_lock:
-            self.ledger.remember_thread(
-                discussion, session=outcome.session_id, comment=thread.last.id
-            )
-            self.ledger.remember_page(page_id)
+        if discussion:
+            self.threads.remember(page_id, discussion, outcome.session_id)
         cost = f" · ${outcome.cost_usd:.3f}" if outcome.cost_usd else ""
         self.say(f"    ↳ answered · {outcome.seconds / 60:.1f} min{cost}")
         return {
@@ -282,7 +259,7 @@ class Replies(Base):
             else text
         )
         chosen = self.config.runner.allowed(
-            str(store.read(ticket.page, self.config.notion.prop("model")) or "")
+            str(store.read(ticket.page, self.config.board.prop("model")) or "")
             or agent.model
             or self.config.runner.model
         )

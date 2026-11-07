@@ -8,28 +8,10 @@
 #
 # Secrets — tokens, keys, passwords — are never here. They live in the
 # environment or in ~/.config/ponos/secrets.env (NAME=value, 0600; PONOS_SECRETS
-# moves it): PONOS_NOTION_TOKEN, PONOS_WEB_TOKEN, PONOS_WEB_PASSWORD,
+# moves it): PONOS_WEB_TOKEN, PONOS_WEB_PASSWORD,
 # PONOS_TELEGRAM_TOKEN, PONOS_SLACK_TOKEN, ANTHROPIC_API_KEY, OPENROUTER_API_KEY,
 # PONOS_GITHUB_TOKEN. Where both hold one, secrets.env wins (the console's
 # password: the environment).
-
-[notion]
-# Optional: the tickets live in ponos.db either way. With a token, Notion also
-# holds the projects, agents, goals, schedules and context, and mirrors the
-# tickets. The page must be shared with the integration.
-# `ponos init <url-of-a-notion-page>` builds the databases and writes this line.
-workspace = ""
-# Only to point at one database rather than a whole workspace (a URL is enough).
-tickets_database = ""
-# What you type in a comment to get an answer rather than a run.
-mention = "@claude"
-
-# Which row of the workspace is what (title, case ignored). Only `tickets` is
-# required; `ponos init` names the others.
-[notion.pages]
-tickets = "Tickets"
-projects = "Projects"
-# agents, context, schedules, goals: see `ponos init`
 
 [runner]
 workspace_root = "~/workspace"   # where the repositories are cloned and found

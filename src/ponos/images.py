@@ -1,37 +1,33 @@
 """A project's picture, kept on this machine and kept in step with the board.
 
-A project page already has two pictures, and Notion's own: the **cover**, the
-banner across the top of the page, and the **icon**, the emoji or small image in
-front of its title. Those are what the console shows — a thumbnail in the list,
-a banner on the page — rather than a `Files` column added for the purpose: the
-pictures people have already chosen for their pages are then the ones they see,
-and a picture changed in either place is changed in both without a column to
-keep in step with a cover.
+A project page has two pictures: the **cover**, the banner across the top of the
+page, and the **icon**, the emoji or small image in front of its title. Those are
+what the console shows — a thumbnail in the list, a banner on the page — rather
+than a `Files` column added for the purpose.
 
 Three things make that harder than showing a URL.
 
-**A file Notion hosts is behind a URL that expires within the hour.** Handed to
-a browser, it works on Monday morning and is a broken image by lunch. So no such
-URL leaves this module: what the console is given is its own address,
+**A hosted file may be behind a URL that expires.** Handed to a browser, it
+works on Monday morning and is a broken image by lunch. So no such URL leaves
+this module: what the console is given is its own address,
 `/api/projects/<id>/image/cover`, and what answers it is a copy on disk under
 the state directory. The copy is fetched again when it can no longer be trusted
 — the page was edited since, or the picture is another one — and a URL whose
-hour is up is never tried: the page is read again for a fresh one.
+time is up is never tried: the page is read again for a fresh one.
 
-**A picture changed here has to reach Notion, and may not.** The network is
-down, the integration may not update pages. What was chosen is then kept as a
-*pending* change, shown here as if it had landed, and sent again at the next
-reading of the board. Nothing is lost, and nothing is shown that was not asked.
+**A picture changed here has to reach the board, and may not.** What was
+chosen is then kept as a *pending* change, shown here as if it had landed, and
+sent again at the next reading of the board. Nothing is lost, and nothing is
+shown that was not asked.
 
-**A change comes back.** What the console writes, Notion answers with, and the
-next reading of the board finds it again. Taken for somebody else's change, it
-would be downloaded again — or, worse, a pending change would be settled
-against itself. So a picture is *agreed* on, the way a page is stamped by what the board said:
-what the board said last time we agreed, by an identity that does not change
-with each signature Notion puts on a URL. A reading that finds the agreed
-picture finds nothing new; only a reading that finds another one has seen
-somebody move. And the page the board answers a write with is agreed on at
-once, so a change is never read back as news.
+**A change comes back.** What the console writes, the board answers with, and
+the next reading of the board finds it again. Taken for somebody else's change,
+it would be downloaded again — or, worse, a pending change would be settled
+against itself. So a picture is *agreed* on: what the board said last time we
+agreed, by an identity that does not change with each signature put on a URL. A
+reading that finds the agreed picture finds nothing new; only a reading that
+finds another one has seen somebody move. And the page the board answers a
+write with is agreed on at once, so a change is never read back as news.
 
 When both moved between two readings — a change is still pending here, and the
 page shows another picture than the one agreed — the newest wins, as the console
@@ -54,16 +50,16 @@ from typing import Any
 from . import db, http, ids, timestamps
 from .store import SLOTS, Page, Picture, StoreError
 
-# What one picture may weigh, downloaded or uploaded: Notion's own ceiling for
+# What one picture may weigh, downloaded or uploaded: the console's own ceiling for
 # a file sent in one piece, and far more than any banner needs.
 LIMIT = 20 * 1024 * 1024
 
-# How long before its stated end a Notion URL is already treated as gone: a
+# How long before its stated end a signed URL is already treated as gone: a
 # download that starts in the last seconds of the hour does not finish in it.
 MARGIN = timedelta(minutes=5)
 
-# How a picture is named on disk, by what it is. SVG is kept — Notion's own
-# icons are SVG — and served under a policy that lets it draw and never run.
+# How a picture is named on disk, by what it is. SVG is kept — many icons
+# are SVG — and served under a policy that lets it draw and never run.
 SUFFIXES = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
@@ -86,7 +82,7 @@ def root() -> Path:
 class Face:
     """One picture as the board shows it, reduced to what this module needs.
 
-    `kind` is `emoji`, `file` (Notion keeps it, behind a URL that expires),
+    `kind` is `emoji`, `file` (hosted, behind a URL that expires),
     `external` (somebody else keeps it), `local` (a file beside a Markdown
     page), or empty for no picture at all. `identity` is what stays the same
     for as long as the picture does.
@@ -100,9 +96,9 @@ class Face:
 
 
 def face(raw: dict[str, Any], slot: str) -> Face:
-    """The cover or the icon of a page, in any of the shapes Notion hands over.
+    """The cover or the icon of a page, in any of the shapes a page carries.
 
-    A Notion-hosted file is known by its URL without the query string: the
+    A hosted file is known by its URL without the query string: the
     signature changes on every read, the file it signs does not.
     """
     value = raw.get(slot) or {}
@@ -126,7 +122,7 @@ def face(raw: dict[str, Any], slot: str) -> Face:
             return Face("local", url=url, identity=f"local:{url}")
         return Face("external", url=url, identity=f"external:{url}")
     if kind == "file_upload":
-        # Attached a moment ago and not yet turned into a file by Notion: the
+        # Attached a moment ago and not yet turned into a file: the
         # upload's ID is all there is, and it is enough to recognise it.
         upload = str((value.get("file_upload") or {}).get("id", ""))
         return Face("file", identity=f"upload:{upload}")
@@ -263,7 +259,7 @@ class Cache:
         """What one reading of the board says about a page's pictures.
 
         Called on every page of the projects database each time it is read —
-        which is the synchronisation: a change somebody made in Notion is
+        which is the synchronisation: a change somebody made elsewhere is
         agreed on, a change of ours still waiting is sent again, and when both
         happened since the last reading, the newest wins.
         """
@@ -285,9 +281,9 @@ class Cache:
                 ours = pending.get("at", "")
                 console = timestamps.sortable(ours) > timestamps.sortable(edited)
                 entry["conflict"] = {
-                    "winner": "console" if console else "notion",
+                    "winner": "console" if console else "board",
                     "console": ours,
-                    "notion": edited,
+                    "board": edited,
                 }
                 if not console:
                     self._drop(entry)
@@ -416,7 +412,7 @@ class Cache:
     # -- what the console is shown -------------------------------------------
 
     def shown(self, page_id: str, slot: str) -> dict[str, Any]:
-        """One picture, as the console draws it — never a URL of Notion's.
+        """One picture, as the console draws it — never a URL of somebody else's.
 
         `version` changes whenever the picture may have, which is what the
         console puts in the address of the image so that a browser that kept
@@ -520,12 +516,12 @@ class Cache:
             page = reread()
             seen = face(page.raw, slot)
             if seen.identity != entry.get("agreed"):
-                # Changed in Notion since the last reading: that is the picture now.
+                # Changed on the board since the last reading: that is the picture now.
                 self._agree(entry, seen, _edited(page))
             entry["url"], entry["expires"] = seen.url, seen.expires
             url = seen.url
             if not url:
-                raise StoreError(f"Notion gave no address for the {slot}")
+                raise StoreError(f"the board gave no address for the {slot}")
         return self._fetch(url)
 
     def _read(self, name: str, kind: str) -> tuple[bytes, str]:

@@ -11,7 +11,7 @@ from typing import Any, cast
 from support import _config, _nameless, _NamelessClient, _state_home, case
 
 from ponos import config as C
-from ponos import journal, models, naming, notion, priority, store, voice, workspace
+from ponos import journal, models, naming, priority, store, voice, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 
@@ -122,9 +122,9 @@ def a_priority_is_a_score_from_0_to_100_and_the_old_words_still_read() -> None:
 
 @case
 def the_ready_tickets_run_by_score_highest_first_and_the_oldest_on_a_tie() -> None:
-    def ready(identifier: str, created: str, cell: dict[str, Any] | None) -> notion.Page:
+    def ready(identifier: str, created: str, cell: dict[str, Any] | None) -> store.Page:
         properties = {"Priorité": cell} if cell else {}
-        return notion.Page(
+        return store.Page(
             id=identifier,
             url="",
             title=identifier,
@@ -190,8 +190,7 @@ def the_grid_is_the_configurations_and_an_empty_level_borrows_the_nearest() -> N
     # The grid is no key of the file any more: a line there changes nothing.
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
-        '[notion]\ntoken = "x"\n[runner]\nauto_model_heavy = "anthropic/claude-opus"\n'
-        'auto_model_code = "massive"\n',
+        '[runner]\nauto_model_heavy = "anthropic/claude-opus"\nauto_model_code = "massive"\n',
         encoding="utf-8",
     )
     assert C.load(path).runner.model_grid().model("heavy") == "opus"
@@ -217,14 +216,14 @@ def without_use_fable_the_heaviest_level_and_an_escalation_stop_at_opus() -> Non
 @case
 def a_config_has_no_fable_and_only_the_constant_brings_it_back() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[notion]\ntoken = "x"\n[runner]\n', encoding="utf-8")
+    path.write_text("[runner]\n", encoding="utf-8")
     settings = C.load(path).runner
     assert settings.use_fable is False
     assert settings.auto_model_heaviest == "fable", "the level keeps its name"
     assert settings.model_grid().model("heaviest") == "opus"
     assert settings.allowed("fable") == "opus" and settings.allowed("sonnet") == "sonnet"
     # Not a key of the file any more: a line there changes nothing.
-    path.write_text('[notion]\ntoken = "x"\n[runner]\nuse_fable = true\n', encoding="utf-8")
+    path.write_text("[runner]\nuse_fable = true\n", encoding="utf-8")
     assert C.load(path).runner.use_fable is False
     assert C.Runner(use_fable=True).allowed("fable") == "fable"
 

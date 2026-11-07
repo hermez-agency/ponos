@@ -151,7 +151,7 @@ primary sources.
 That file is what gets published to the ticket, so it must stand on its own: no \
 "as discussed above", no reference to this prompt.
 3. Write it in the language the ticket is written in.
-4. Markdown, and only what Notion renders: headings, bullet and numbered lists, \
+4. Markdown, and only what the console renders: headings, bullet and numbered lists, \
 checkboxes, quotes, code fences, links, bold and italic. No HTML, no tables.
 5. **Match the shape of what is asked, not a default shape.** A procedure wants \
 ordered steps with costs, durations and where each one happens. A short piece — \
@@ -255,7 +255,7 @@ exactly as you write it.
 
 
 UNBLOCK = """\
-A ticket of a Notion board {scope} is in the Blocked column. You are deciding, \
+A ticket of a Ponos board {scope} is in the Blocked column. You are deciding, \
 alone and with nobody to talk to, whether the reason it was blocked still holds.
 
 **You are reading, not working.** Change nothing: no file written, no command \
@@ -762,7 +762,7 @@ def held_secrets(names: Iterable[str], addresses: Iterable[str] = ()) -> str:
             f"This project's secrets are in your environment: {listed}. Use them by "
             "name (`$NAME`), and never print, echo, commit or write their values "
             "anywhere — not in a file, a comment, a log or your report. Any value that "
-            "slips out is replaced by *** before it reaches Notion or the console.\n"
+            "slips out is replaced by *** before it reaches the board or the console.\n"
         )
     if places:
         text += (

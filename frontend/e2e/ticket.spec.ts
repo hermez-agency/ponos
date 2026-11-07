@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test"
 
 /* Opening a ticket from the board draws it at once, and reads its page once.
  *
- * The page used to stay empty until the server had read the whole ticket from
- * Notion — one to three seconds — while the board already held its title, its
+ * The page used to stay empty until the server had read the whole ticket —
+ * one to three seconds — while the board already held its title, its
  * column and its project; and the same read went out two or three times. The
  * read is slowed down here on purpose, so that "at once" means before it.
  */

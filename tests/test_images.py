@@ -13,7 +13,7 @@ from typing import Any
 
 from support import ROOT, _board, _local_api, case
 
-from ponos import db, images, notion, store
+from ponos import db, images, store
 
 # -- a project's picture -----------------------------------------------------
 
@@ -30,9 +30,9 @@ def _project_page(
     cover: dict[str, Any] | None = None,
     icon: dict[str, Any] | None = None,
     edited: str = "2026-09-30T08:00:00.000Z",
-) -> notion.Page:
-    """A project page as Notion hands one over: the pictures are beside the columns."""
-    return notion.Page(
+) -> store.Page:
+    """A project page as the board hands one over: the pictures are beside the columns."""
+    return store.Page(
         id=page_id,
         url="",
         title="Opoil",
@@ -40,7 +40,7 @@ def _project_page(
     )
 
 
-def _notion_file(
+def _hosted_file(
     path: str, signature: str, expires: str = "2026-09-30T09:00:00.000Z"
 ) -> dict[str, Any]:
     return {
@@ -84,20 +84,20 @@ def _pictures(fetched: bytes = JPEG) -> Iterator[_Pictures]:
         pictures.close()
 
 
-def _never(slot: str, picture: store.Picture) -> notion.Page:
+def _never(slot: str, picture: store.Picture) -> store.Page:
     raise AssertionError(f"nothing of ours was waiting, and the {slot} was sent anyway")
 
 
 @case
 def a_project_picture_is_read_in_each_of_its_three_forms() -> None:
-    """A file Notion keeps, a URL somebody else keeps, an emoji — and never Notion's URL.
+    """A file the board keeps, a URL somebody else keeps, an emoji — and never the board's URL.
 
-    The signature on a Notion file changes with every read of the page, the
+    The signature on a board file changes with every read of the page, the
     file does not: known by its signature, the same cover would look like a new
     one every ten minutes, and be downloaded again as often.
     """
-    first = images.face({"cover": _notion_file("w/f/opoil.png", "one")}, "cover")
-    again = images.face({"cover": _notion_file("w/f/opoil.png", "two")}, "cover")
+    first = images.face({"cover": _hosted_file("w/f/opoil.png", "one")}, "cover")
+    again = images.face({"cover": _hosted_file("w/f/opoil.png", "two")}, "cover")
     assert first.kind == "file" and first.expires == "2026-09-30T09:00:00.000Z"
     assert first.identity == again.identity, "a new signature is not a new picture"
     assert first.url != again.url
@@ -112,14 +112,14 @@ def a_project_picture_is_read_in_each_of_its_three_forms() -> None:
 
     with _pictures() as pictures:
         page = _project_page(
-            cover=_notion_file("w/f/opoil.png", "one"),
+            cover=_hosted_file("w/f/opoil.png", "one"),
             icon={"type": "emoji", "emoji": "🛢️"},
         )
         pictures.cache.observe(page, _never)
         cover = pictures.cache.shown(page.id, "cover")
         assert cover["kind"] == "image" and cover["version"]
         # What the console is handed is its own address for the picture, built
-        # by the API: nothing of Notion's, which would be dead within the hour.
+        # by the API: nothing of the board's, which would be dead within the hour.
         assert "amazonaws" not in json.dumps(cover), cover
         assert pictures.cache.shown(page.id, "icon") == {"kind": "emoji", "emoji": "🛢️"}
 
@@ -133,16 +133,16 @@ def a_project_picture_is_read_in_each_of_its_three_forms() -> None:
 
 
 @case
-def a_notion_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_changed() -> None:
+def a_hosted_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_changed() -> None:
     """The copy is what is shown; the page's last edit and the URL's hour decide the rest.
 
     A cover downloaded at nine is still the cover at noon: its URL expired at
     ten, but nothing about the picture did. What makes the copy suspect is the
     page being edited since — and what an expired URL costs is a fresh one,
-    asked of the page, never a request Notion's storage would refuse.
+    asked of the page, never a request the board's storage would refuse.
     """
     with _pictures() as pictures:
-        page = _project_page(cover=_notion_file("w/f/opoil.png", "one"))
+        page = _project_page(cover=_hosted_file("w/f/opoil.png", "one"))
         pictures.cache.observe(page, _never)
         assert pictures.cache.picture(page.id, "cover", lambda: page)[0] == JPEG
         assert len(pictures.fetched) == 1
@@ -151,9 +151,9 @@ def a_notion_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_c
         assert pictures.cache.picture(page.id, "cover", lambda: page)[0] == JPEG
         assert len(pictures.fetched) == 1, "hours later, the copy is still the picture"
 
-        # Edited in Notion: same file name, and possibly another image under it.
+        # Edited on the board: same file name, and possibly another image under it.
         edited = _project_page(
-            cover=_notion_file("w/f/opoil.png", "two", expires="2026-09-30T14:30:00.000Z"),
+            cover=_hosted_file("w/f/opoil.png", "two", expires="2026-09-30T14:30:00.000Z"),
             edited="2026-09-30T13:00:00.000Z",
         )
         pictures.cache.observe(edited, _never)
@@ -164,18 +164,18 @@ def a_notion_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_c
         pictures.now += timedelta(hours=4)
         pictures.cache.observe(
             _project_page(
-                cover=_notion_file("w/f/opoil.png", "three", expires="2026-09-30T15:00:00.000Z"),
+                cover=_hosted_file("w/f/opoil.png", "three", expires="2026-09-30T15:00:00.000Z"),
                 edited="2026-09-30T16:00:00.000Z",
             ),
             _never,
         )
         fresh = _project_page(
-            cover=_notion_file("w/f/opoil.png", "four", expires="2026-09-30T19:00:00.000Z"),
+            cover=_hosted_file("w/f/opoil.png", "four", expires="2026-09-30T19:00:00.000Z"),
             edited="2026-09-30T16:00:00.000Z",
         )
         asked: list[str] = []
 
-        def renewed() -> notion.Page:
+        def renewed() -> store.Page:
             asked.append("page")
             return fresh
 
@@ -187,7 +187,7 @@ def a_notion_file_is_shown_hours_later_and_fetched_again_only_when_it_may_have_c
 
 @case
 def a_picture_the_console_chose_is_not_read_back_as_a_change() -> None:
-    """What Notion answers a write with is agreed on at once.
+    """What the board answers a write with is agreed on at once.
 
     Otherwise the next reading of the board would find a picture it has never
     agreed on, take it for somebody else's change, and download back the very
@@ -198,10 +198,10 @@ def a_picture_the_console_chose_is_not_read_back_as_a_change() -> None:
         pictures.cache.observe(page, _never)
         sent: list[tuple[str, store.Picture]] = []
 
-        def push(slot: str, picture: store.Picture) -> notion.Page:
+        def push(slot: str, picture: store.Picture) -> store.Page:
             sent.append((slot, picture))
             return _project_page(
-                cover=_notion_file("w/u/cover.webp", "answer"), edited="2026-09-30T08:05:00.000Z"
+                cover=_hosted_file("w/u/cover.webp", "answer"), edited="2026-09-30T08:05:00.000Z"
             )
 
         pictures.cache.change(page.id, "cover", store.Picture(data=PNG, type="image/png"), push)
@@ -210,7 +210,7 @@ def a_picture_the_console_chose_is_not_read_back_as_a_change() -> None:
 
         # Read back ten minutes later, with a new signature on the same file.
         again = _project_page(
-            cover=_notion_file("w/u/cover.webp", "later"), edited="2026-09-30T08:05:00.000Z"
+            cover=_hosted_file("w/u/cover.webp", "later"), edited="2026-09-30T08:05:00.000Z"
         )
         pictures.cache.observe(again, _never)
         pictures.cache.observe(again, _never)
@@ -224,7 +224,7 @@ def a_picture_the_console_chose_is_not_read_back_as_a_change() -> None:
 
 
 @case
-def a_picture_notion_refused_is_kept_here_and_sent_again_at_the_next_reading() -> None:
+def a_picture_the_board_refused_is_kept_here_and_sent_again_at_the_next_reading() -> None:
     """No network, no right to update the page: the choice is not lost for that.
 
     It is shown as chosen, with what went wrong, and the next reading of the
@@ -234,8 +234,8 @@ def a_picture_notion_refused_is_kept_here_and_sent_again_at_the_next_reading() -
         page = _project_page(icon={"type": "emoji", "emoji": "🛢️"})
         pictures.cache.observe(page, _never)
 
-        def refuse(slot: str, picture: store.Picture) -> notion.Page:
-            raise notion.NotionError("PATCH /pages/b: 403 Insufficient permissions")
+        def refuse(slot: str, picture: store.Picture) -> store.Page:
+            raise store.StoreError("PATCH /pages/b: 403 Insufficient permissions")
 
         pictures.cache.change(page.id, "icon", store.Picture(data=PNG, type="image/png"), refuse)
         shown = pictures.cache.shown(page.id, "icon")
@@ -245,10 +245,10 @@ def a_picture_notion_refused_is_kept_here_and_sent_again_at_the_next_reading() -
 
         sent: list[store.Picture] = []
 
-        def accept(slot: str, picture: store.Picture) -> notion.Page:
+        def accept(slot: str, picture: store.Picture) -> store.Page:
             sent.append(picture)
             return _project_page(
-                icon=_notion_file("w/u/icon.png", "x"), edited="2026-09-30T08:20:00.000Z"
+                icon=_hosted_file("w/u/icon.png", "x"), edited="2026-09-30T08:20:00.000Z"
             )
 
         pictures.cache.observe(page, accept)
@@ -259,45 +259,45 @@ def a_picture_notion_refused_is_kept_here_and_sent_again_at_the_next_reading() -
 
 @case
 def when_both_sides_changed_the_picture_the_newest_wins_and_says_so() -> None:
-    """A change still waiting here, another made in Notion meanwhile: the later one.
+    """A change still waiting here, another made on the board meanwhile: the later one.
 
-    The console's change carries the moment it was made, Notion's the page's
+    The console's change carries the moment it was made, the board's the page's
     last edit. Whichever lost is gone — but not silently: the entry says which
     side won, and the console shows it.
     """
     before = _project_page(
-        cover=_notion_file("w/f/old.png", "a"), edited="2026-09-30T08:00:00.000Z"
+        cover=_hosted_file("w/f/old.png", "a"), edited="2026-09-30T08:00:00.000Z"
     )
 
-    def refuse(slot: str, picture: store.Picture) -> notion.Page:
-        raise notion.NotionError("urlopen error [Errno -3] Temporary failure in name resolution")
+    def refuse(slot: str, picture: store.Picture) -> store.Page:
+        raise store.StoreError("urlopen error [Errno -3] Temporary failure in name resolution")
 
-    # Chosen here at 08:05, changed in Notion at 08:30: Notion's is the newer.
+    # Chosen here at 08:05, changed elsewhere at 08:30: that one is the newer.
     with _pictures() as pictures:
         pictures.cache.observe(before, _never)
         pictures.cache.change(
             before.id, "cover", store.Picture(url="https://example.org/a.jpg"), refuse
         )
         theirs = _project_page(
-            cover=_notion_file("w/f/theirs.png", "b"), edited="2026-09-30T08:30:00.000Z"
+            cover=_hosted_file("w/f/theirs.png", "b"), edited="2026-09-30T08:30:00.000Z"
         )
         pictures.cache.observe(theirs, _never)
         shown = pictures.cache.shown(before.id, "cover")
-        assert shown["conflict"] == "notion" and "pending" not in shown, shown
+        assert shown["conflict"] == "board" and "pending" not in shown, shown
         assert pictures.cache.entry(before.id, "cover")["agreed"].endswith("theirs.png")
 
-    # Changed in Notion at 08:02, chosen here at 08:05: the console's is the newer.
+    # Changed on the board at 08:02, chosen here at 08:05: the console's is the newer.
     with _pictures() as pictures:
         pictures.cache.observe(before, _never)
         pictures.cache.change(
             before.id, "cover", store.Picture(url="https://example.org/a.jpg"), refuse
         )
         theirs = _project_page(
-            cover=_notion_file("w/f/theirs.png", "b"), edited="2026-09-30T08:02:00.000Z"
+            cover=_hosted_file("w/f/theirs.png", "b"), edited="2026-09-30T08:02:00.000Z"
         )
         sent: list[store.Picture] = []
 
-        def accept(slot: str, picture: store.Picture) -> notion.Page:
+        def accept(slot: str, picture: store.Picture) -> store.Page:
             sent.append(picture)
             return _project_page(
                 cover={"type": "external", "external": {"url": picture.url}},
@@ -311,63 +311,8 @@ def when_both_sides_changed_the_picture_the_newest_wins_and_says_so() -> None:
 
 
 @case
-def the_notion_client_uploads_a_picture_then_sets_it_on_the_page() -> None:
-    """The File Upload API, then one PATCH; a URL is attached without being fetched."""
-    client = notion.Client("ntn_x")
-    calls: list[tuple[str, str, dict[str, Any] | None, bytes | None, str]] = []
-
-    def request(
-        method: str,
-        path: str,
-        body: dict[str, Any] | None = None,
-        *,
-        raw: bytes | None = None,
-        kind: str = "application/json",
-    ) -> dict[str, Any]:
-        calls.append((method, path, body, raw, kind))
-        if path == "/file_uploads":
-            return {"id": "upload-1", "status": "pending"}
-        if path.startswith("/pages/"):
-            return {"id": "b" * 32, "properties": {}, **(body or {})}
-        return {"status": "uploaded"}
-
-    client._request = request  # type: ignore[method-assign]
-    page = client.set_picture(
-        "b" * 32, "cover", store.Picture(data=PNG, type="image/png", name="opoil.png")
-    )
-    assert [call[:2] for call in calls] == [
-        ("POST", "/file_uploads"),
-        ("POST", "/file_uploads/upload-1/send"),
-        ("PATCH", f"/pages/{'b' * 32}"),
-    ]
-    assert calls[0][2] == {"filename": "opoil.png", "content_type": "image/png"}
-    sent, kind = calls[1][3], calls[1][4]
-    assert kind.startswith("multipart/form-data; boundary=")
-    assert sent is not None
-    assert PNG in sent and b'name="file"; filename="opoil.png"' in sent
-    assert calls[2][2] == {"cover": {"type": "file_upload", "file_upload": {"id": "upload-1"}}}
-    assert images.face(page.raw, "cover").identity == "upload:upload-1"
-
-    calls.clear()
-    client.set_picture("b" * 32, "icon", store.Picture(emoji="🛢️"))
-    client.set_picture("b" * 32, "cover", store.Picture(url="https://example.org/a.jpg"))
-    client.set_picture("b" * 32, "icon", store.Picture())
-    assert [call[2] for call in calls] == [
-        {"icon": {"type": "emoji", "emoji": "🛢️"}},
-        {"cover": {"type": "external", "external": {"url": "https://example.org/a.jpg"}}},
-        {"icon": None},
-    ]
-    try:
-        client.set_picture("b" * 32, "cover", store.Picture(emoji="🛢️"))
-    except notion.NotionError:
-        pass
-    else:
-        raise AssertionError("Notion has no emoji cover, and must not be asked for one")
-
-
-@case
 def a_local_project_keeps_its_picture_beside_the_database() -> None:
-    """The same gestures on a board without Notion: the picture is a file next to `ponos.db`.
+    """The same gestures on a board: the picture is a file next to `ponos.db`.
 
     The page keeps its address, and nothing is downloaded, since there is
     nowhere to download from.

@@ -18,7 +18,7 @@ test("the line under a label is the first sentence, the rest goes behind the « 
     splitHelp("Where your git repositories are, e.g. `~/workspace`. A project's repository is looked for here."),
     ["Where your git repositories are, e.g. `~/workspace`.", "A project's repository is looked for here."]
   )
-  assert.equal(splitHelp("From notion.so/profile/integrations. Share it.")[0], "From notion.so/profile/integrations.")
+  assert.equal(splitHelp("From github.com/settings/tokens. Paste it.")[0], "From github.com/settings/tokens.")
   assert.equal(splitHelp("Rien : « Tout » attend.")[0], "Rien : « Tout » attend.")
   assert.equal(splitHelp("Le niveau. « Lecture seule » protège.")[0], "Le niveau.")
 })
@@ -28,15 +28,15 @@ test("a search reads past accents and case", () => {
 })
 
 const fields = [
-  { name: "notion.token", words: ["Jeton d'intégration", "Le secret qui commence par `ntn_`.", "Integration token"] },
+  { name: "web.token", words: ["Jeton de la console", "Le secret qui ouvre la console.", "Console token"] },
   { name: "runner.model", words: ["Modèle par défaut", "`opus`, `sonnet` ou `haiku`.", "Default model"] },
   { name: "runner.resolve_model", words: ["Modèle qui résout les conflits", "Vide : le modèle du ticket."] },
   { name: "notify.telegram.token", words: ["Jeton du bot Telegram", "Depuis @BotFather."] },
 ]
 
 test("a field is found by its label, its help or its key, the key first", () => {
-  assert.deepEqual(search(fields, "jeton").map((field) => field.name), ["notion.token", "notify.telegram.token"])
-  assert.deepEqual(search(fields, "NOTION.TOKEN").map((field) => field.name), ["notion.token"])
+  assert.deepEqual(search(fields, "jeton").map((field) => field.name), ["web.token", "notify.telegram.token"])
+  assert.deepEqual(search(fields, "WEB.TOKEN").map((field) => field.name), ["web.token"])
   assert.deepEqual(search(fields, "modele").map((field) => field.name), ["runner.model", "runner.resolve_model"])
   // The help counts, after the labels.
   assert.deepEqual(search(fields, "botfather").map((field) => field.name), ["notify.telegram.token"])

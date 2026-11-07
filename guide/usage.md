@@ -7,8 +7,6 @@ The `ponos` command, from a terminal.
 ## Usage
 
 ```sh
-ponos init <url>   # build (or complete) the Notion board under a page
-ponos init <url> --token -  # the same, saving the Notion token read from stdin or asked unechoed (--no-demo: no demonstration ticket)
 ponos config       # open config.toml in your editor
 ponos list         # the ready tickets, and their project
 ponos daemon       # hold the places and fill each one as it frees — what ponos.service runs (--dry-run)
@@ -23,14 +21,12 @@ ponos logs --service         # the runner's and the console's own log, ponos.log
 ponos status       # daemon, console, places taken and free per project, the queue and why each waits, recent tickets
 ponos history      # what has been handled, with the pull requests (-n, --number: how many)
 ponos history --csv --project <name> --month 2026-10   # every session of a project and what it cost, as CSV (--since, --to: another period)
-ponos projects     # Notion project → local repository mapping
+ponos projects     # project → local repository mapping
 ponos diagnose "<what does not work>" --project <name>  # a Diagnostic ticket, ready: the cause found, then its fix tickets (--draft: leave it in the drafts)
 ponos subtypes     # the code tickets by sub-type
 ponos subtypes --backfill    # fill the empty ones from their prefix (--dry-run: write nothing, --all: done and cancelled ones too)
 ponos schedules    # what comes back on its own, and when it next does
 ponos schedules --run <name>  # make its ticket now, without waiting for the hour (--force: even if the last one is still open)
-ponos import notion          # bring everything Notion holds into ponos.db (run again, it adds nothing)
-ponos import notion --check  # parity report: what Notion has that ponos.db lacks (writes nothing)
 ponos doctor       # full diagnostics
 ponos clean                  # empty worktree directories that are only root-owned residue (no .git)
 ponos clean --force          # remove worktrees, their branches, and scratch dirs
@@ -62,8 +58,8 @@ ponos vault rotate          # seal every entry again under a new key
 The first attempt is best made by hand, on a ticket you choose:
 
 ```sh
-ponos run --ticket https://www.notion.so/... --dry-run   # look first
-ponos run --ticket https://www.notion.so/...             # then go
+ponos run --ticket http://127.0.0.1:8787/tickets/... --dry-run   # look first
+ponos run --ticket http://127.0.0.1:8787/tickets/...             # then go
 ```
 
 ### Exit codes
@@ -74,7 +70,7 @@ What a script, a cron line or a container's healthcheck can read from `$?`:
 |------|-------|
 | `0` | Done — and also a `run` that found the daemon and asked it to look, or a network that is down: the next look is the one that does the work. |
 | `1` | A problem to look at: `doctor` found some, the board could not be read, a `run` whose every ticket failed (one failed out of three is still `0`), a `run --ticket` the daemon had no free place for. |
-| `2` | Nothing was tried: the configuration cannot be read or is unusable (`run`, `status`, `doctor`, `init`, `notify`…), a command line `ponos` does not understand, or a checkout refused because it would write the real state. |
+| `2` | Nothing was tried: the configuration cannot be read or is unusable (`run`, `status`, `doctor`, `notify`…), a command line `ponos` does not understand, or a checkout refused because it would write the real state. |
 | `130` | Stopped with Ctrl-C. |
 
 ### The runner gives way to your desktop

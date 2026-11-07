@@ -20,7 +20,7 @@ Two things are said once, here, rather than in each route:
   OpenAPI schema the page's types come from; they are lenient about the rest,
   as the dictionaries they replace were.
 
-Every route is a plain `def`: the `Api` waits on Notion, git and processes,
+Every route is a plain `def`: the `Api` waits on the board, git and processes,
 and FastAPI runs such a route on a thread of its own — which is what
 `http.server` did for every request.
 """
@@ -76,7 +76,7 @@ TOO_LARGE = (
 )
 
 # Except a picture, which is a file and not a message: the console shrinks it
-# before sending, and this is Notion's own ceiling for one piece.
+# before sending, and this is the board's own ceiling for one piece.
 MAX_PICTURE = 20 * 1024 * 1024
 
 # What a picture is served under. It is drawn by an <img> and never run: an SVG
@@ -102,7 +102,7 @@ class _Pattern(Convertor[str]):
         return value
 
 
-# A Notion page, with or without its dashes; a file of the conversation; a
+# A page, with or without its dashes; a file of the conversation; a
 # picture's slot; a log file's name.
 register_url_convertor("page", _Pattern(r"[0-9a-fA-F-]{32,36}"))
 register_url_convertor("attachment", _Pattern(r"[0-9a-f]{12}"))
@@ -475,8 +475,7 @@ def project_image(request: Request, project_id: str, slot: str) -> Response:
 
 @router.get("/api/files/{file_id:page}", response_class=Response)
 def file(request: Request, file_id: str) -> Response:
-    # A file the import brought home is served from here; one that is still on
-    # Notion's side is sent on to a fresh address.
+    # A file a page names is served from here, or is not there at all.
     if (kept := page_files.find(file_id)) is not None:
         media, inline = page_files.served_as(kept)
         return Response(
@@ -488,12 +487,7 @@ def file(request: Request, file_id: str) -> Response:
                 "Content-Security-Policy": "default-src 'none'; sandbox",
             },
         )
-    return Response(
-        b"",
-        status_code=302,
-        media_type="text/plain",
-        headers={"Location": _api(request).attachment(file_id)},
-    )
+    raise LookupError(f"no such file: {file_id}")
 
 
 @router.get("/api/context", response_model=answers.Context)
@@ -687,11 +681,6 @@ def setup_github() -> Response:
     return answer(setup.github())
 
 
-@router.get("/api/setup/notion", response_model=answers.Shared)
-def setup_notion(request: Request) -> Response:
-    return answer(setup.notion_shared(_api(request), {}))
-
-
 @router.get("/api/setup/projects", response_model=answers.ProjectChoices)
 def setup_projects(request: Request) -> Response:
     return answer(setup.project_choices(_api(request)))
@@ -862,16 +851,6 @@ def setup_done() -> Response:
 @router.post("/api/setup/provider", response_model=answers.ProviderChecked)
 def setup_provider(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(setup.save_provider(_api(request), payload))
-
-
-@router.post("/api/setup/notion", response_model=answers.NotionProvisioned)
-def setup_save_notion(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
-    return answer(setup.save_notion(_api(request), payload))
-
-
-@router.post("/api/setup/notion/shared", response_model=answers.Shared)
-def setup_notion_shared(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
-    return answer(setup.notion_shared(_api(request), payload))
 
 
 @router.post("/api/setup/demo", response_model=answers.TicketCreated)

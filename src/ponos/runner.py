@@ -104,8 +104,6 @@ class Runner(
         orphans = [] if self.dry_run or reference else self.orphans()
         self._claimed |= {ticket_id for ticket_id, *_ in orphans}
         self._usage_warned = False
-        self._unwritten = set()
-        self.mirror()
         self.answers()
         # Once a period, and under the lock, so that it is the pass that sends it.
         if not reference:
@@ -124,7 +122,6 @@ class Runner(
         else:
             if not self.dry_run:
                 self.sweep()
-                self.reshape()
                 self.close_merged()
                 # Here rather than after the work: a pass with nothing ready
                 # returns before it gets there, and that is most passes.
@@ -342,7 +339,7 @@ class Runner(
                 # The validated column, whether or not a place is free: its
                 # merges happen right here, and its publications take the next
                 # place. Both are held out of the next reading by hand, for the
-                # same reason tickets are — Notion may still be serving the
+                # same reason tickets are — the board may still be serving the
                 # status that was just written over.
                 settled, fresh = self.delivering(carried)
                 results += state.record_all(settled)

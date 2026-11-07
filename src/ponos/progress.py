@@ -29,18 +29,17 @@ Nothing here can fail a ticket. Every call to the board is caught, and one that
 refuses three writes in a row switches the line off for the rest of the session.
 
 Nor can it slow one down. The steps come from the loop that reads the session's
-output, and a write to Notion can take minutes — four tries, each waiting out a
-429 —, during which nothing read the pipe: it filled, and the CLI stopped on its
-next write while its timeout kept running. The line is therefore written from
-**a thread of its own**: feeding it only counts, and what piles up while Notion
-is slow goes down in one write when it answers.
+output, and a write to the board can wait — a database locked by another
+writer —, during which nothing would read the pipe: it would fill, and the CLI
+stop on its next write while its timeout kept running. The line is therefore
+written from **a thread of its own**: feeding it only counts, and what piles up
+while the board is slow goes down in one write when it answers.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import re
 import threading
 import time
 from collections.abc import Callable
@@ -62,7 +61,7 @@ LINE = 200
 # this is the part a human actually reads, in the console's live tab.
 SAID = 5700
 
-# Consecutive Notion refusals after which the reporting gives up for good.
+# Consecutive refusals of the board after which the reporting gives up for good.
 MAX_FAILURES = 3
 
 
@@ -222,35 +221,6 @@ def describe(event: dict[str, Any]) -> list[Step]:
                     )
                 steps.append(Step("Error", _one_line(content or "")))
     return steps
-
-
-# The titles the live report gave the toggle it used to append to a ticket's
-# page: “⏳ Live”, “⏳ Live — 4 steps · 2 minutes” while it ran, “✓ 12 steps · 9
-# minutes” once done, “⚠️ Trace — 3 steps · …” when the run went wrong. Bold,
-# all of it.
-_LIVE_TITLE = re.compile(r"⏳ .+|✓ \d+ .+|⚠️ .+ — \d+ .+", re.DOTALL)
-
-
-def is_live(block: dict[str, Any]) -> bool:
-    """Whether a block of a page is one of the toggles a run's live report left.
-
-    None is written any more, but the pages written before the format in two
-    parts (ticket_page.py) still hold them: a brief must not read them — old
-    steps an agent can take for instructions — and putting such a page into
-    its two parts takes them away. The title is the mark, bold from end to end,
-    opening on the sign of a run and, once it had settled, on how many steps it
-    counted. A toggle somebody wrote by hand rarely looks like that, and costs
-    only itself if it does.
-    """
-    if block.get("type") != "toggle":
-        return False
-    parts = (block.get("toggle") or {}).get("rich_text") or []
-    if not parts or not all((part.get("annotations") or {}).get("bold") for part in parts):
-        return False
-    title = "".join(
-        part.get("plain_text") or (part.get("text") or {}).get("content", "") for part in parts
-    )
-    return bool(_LIVE_TITLE.fullmatch(title.strip()))
 
 
 class Live:

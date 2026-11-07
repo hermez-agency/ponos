@@ -444,7 +444,7 @@
    Outside any layer, because Crepe's own sheets are: a rule in a layer loses to
    an unlayered one whatever its specificity. The variables are Crepe's names
    for shadcn's colours, so the dark mode needs nothing of its own. The sizes
-   are Notion's rather than Crepe's: Crepe draws a document, sixty pixels of
+   are a form's rather than Crepe's: Crepe draws a document, sixty pixels of
    margin and a title in 42px serif, and these are fields in a form. The left
    gutter is the room the block handle is drawn in — on a page of its own: in a
    form, the text starts where the other fields' does, at 12px, and the handle

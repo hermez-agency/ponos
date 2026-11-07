@@ -4,7 +4,7 @@
  * Kept apart and importing nothing, like `composer.ts`, so `node --test` reads
  * it as it stands. The page hands in what it drew — the words already
  * translated — so a search for « jeton » finds the token on a console in
- * French, and a search for `notion.token` finds it in either language.
+ * French, and a search for `notify.telegram.token` finds it in either language.
  */
 
 /** One field, as the search reads it. */
@@ -28,7 +28,7 @@ export function folded(text: string): string {
  * The first sentence is the one that says what the setting does; what follows
  * is the detail — the floor, the exception, the variable that wins over it.
  * A sentence ends on a stop followed by a capital or a quote, so "e.g. `opus`"
- * and "notion.so/profile" are not ends of anything. */
+ * and "github.com/settings" are not ends of anything. */
 export function splitHelp(text: string): [string, string] {
   const match = /^(.*?[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ“«])/s.exec(text)
   if (!match) return [text, ""]

@@ -85,7 +85,6 @@ const TRIED = new Set(["claude.api_key"])
 // The command a card is checked with. The CLI already knows how to say whether
 // a token works; the settings page does not need a second opinion.
 const CHECKS: Record<string, [string, string]> = {
-  notion: ["doctor", "does that token reach your board?"],
   notify: ["notify", "send yourself a test message"],
 }
 

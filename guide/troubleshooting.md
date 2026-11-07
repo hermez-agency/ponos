@@ -10,7 +10,6 @@
 | `Failed to connect to bus` (an older installer) | there is no systemd user session here — WSL, a container, SSH: install again, the console is now started without it |
 | the browser does not open | open `http://127.0.0.1:8787` yourself; nothing answers? `ponos service run` starts it and says why it cannot |
 | `ponos: command not found` | `~/.local/bin` is not in your `PATH` — the installer prints the line to add |
-| Notion shows no page in the console | the page is not shared with the integration: `···` at the top right of the page → *Connections* → your integration. The console sees it within seconds |
 | the demonstration ticket fails | the console shows what the run said. *Run the full diagnosis* on the summary is `ponos doctor`, and is the text to paste when asking for help |
 
 [When it does not work](#when-it-does-not-work) has the rest, once Ponos runs.
@@ -21,19 +20,14 @@
 
 | Symptom | Most likely cause |
 | --- | --- |
-| `object not found` on the database | the page is not shared with the integration (`···` → Connections). Sharing the page that holds the workspace covers everything under it |
-| a comment gets no answer | the integration cannot read or write comments (`Capabilities` → *Read comments*, *Insert comments*), or the comment is not addressed to it — reply under one of its reports, or name it. `ponos doctor` says which |
-| “no page named … in the workspace” | the row is called something else. `doctor` lists what it did find — rename the row, set `[notion.pages]`, or run `ponos init` to create it |
-| the agent knows nothing about you | no `Context` row in the workspace, or the page is empty. `doctor` says which, and the run says so once |
-| “comments not readable” | the integration lacks *Read comments* (my-integrations → Capabilities). The ticket runs, without its discussion, and answering it in a comment no longer wakes it |
+| a comment gets no answer | the comment is not addressed to it — reply under one of its reports, or name it (`@claude`). `ponos doctor` says whether replies are on |
+| the agent knows nothing about you | the global context, on top of the Projects page, is empty. The run says so once |
 | a comment on a ticket changes nothing | the ticket is *done*, or no run of this host ever reported on it — those two never wake |
-| a ticket keeps running again and again | its report never gets posted, so your answer stays the last word: the integration lost *Insert comments* |
 | a ticket ignores its agent | the `Rôle` column is missing or is not a relation — `doctor` names it |
-| “project not found on disk” | none of what the project declares leads to a repository — the comment lists each way that was tried and why it failed. Fix its `Path` or `Repository` property, or add `"Notion name" = "/path"` under `[projects]` |
+| “project not found on disk” | none of what the project declares leads to a repository — the comment lists each way that was tried and why it failed. Fix its `Path` or `Repository` property, or add `"Project name" = "/path"` under `[projects]` |
 | a ticket ran, but its comment says a declaration is wrong | the repository was found by a fallback: a `Path` pointing nowhere, or a `Repository` GitHub has since renamed. Correct the project page — `ponos projects` shows it with a `!` until you do |
 | a ticket became a document when you wanted code | its project names no repository. Give the project page a `Path` or a `Repository` |
 | “nothing to work from” | the ticket has neither a title nor a description — a page left on the bare template counts as empty |
-| a report says Notion “may have applied” a write | the answer to a comment, a new page or appended blocks timed out *after* it was sent — or Notion answered 5xx. It is not sent again, because a duplicate is worse than a gap: look at the ticket, the write is usually there. Reads and property updates are retried up to four times, and a `429` waits what its `Retry-After` asks, up to a minute |
 | a ticket failed with “the runner itself broke” | something raised while that ticket was being handled — a board that stopped answering, a bug. The comment carries what was raised, and the other tickets ran on. A git or `gh` command that outlives its timeout is not one of those any more: it answers as a failed command (code 124), which every step already knows how to report |
 | a ticket sat in *In progress* forever | it no longer can: the daemon puts back any ticket this host claimed that no session is on any more |
 | the daemon runs and nothing moves | `ponos status` says why each ticket of the queue waits: every place taken, its project at its limit, a ticket it comes after, or the subscription's window spent — until when. Tickets are where they were, and start as soon as that changes |
@@ -61,7 +55,7 @@ output never shows — the full trace of every error they caught, a route of the
 that answered a 500 included, and a line for each request that came back 4xx or 5xx. It
 turns over at a megabyte and keeps five files behind; `ponos clean --days` drops the old
 ones with the session logs. Values read from a vault and anything shaped like a token
-(`ghp_…`, `sk-…`, `ntn_…`, a Telegram bot token…) are masked before they are written.
+(`ghp_…`, `sk-…`, a Telegram bot token…) are masked before they are written.
 `ponos logs --service` prints its end (`-f` follows it), and the console shows the same
 lines in **Settings**, under *What this console runs on*, with **Read the journal**.
 
@@ -107,7 +101,7 @@ said, the `.imported` files can go. The session logs stay files, under `logs/`.
 Every run — one session on one ticket — is a row of `ponos.db`, and every step of it a
 row under that: what the agent said, which tool it called on what (a command, a file),
 which call failed, when, and what the run had cost so far when that is known. It is
-written as the session goes, whatever the board — Notion, Markdown or both — and whatever
+written as the session goes, whatever
 `runner.progress` says; it is closed with what the ticket came to (*done* with its pull
 request, *blocked* with its question, *failed*, *waiting* for credit). A run the runner was
 killed in keeps no status, and reads as such.

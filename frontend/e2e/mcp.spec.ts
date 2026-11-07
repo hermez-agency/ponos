@@ -22,7 +22,7 @@ test("the MCP tab sits next to the others and says what an MCP is", async ({ pag
   await page.getByRole("tab", { name: "MCP" }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/settings/read/config/mcp")
   await expect(page.getByText("What is an MCP?", { exact: true })).toBeVisible()
-  await expect(page.getByText("it is thanks to the Notion one")).toBeVisible()
+  await expect(page.getByText("a browser, GitHub, the services a project names")).toBeVisible()
 })
 
 test("each client gets a command or a block with this console's address", async ({ page }) => {
@@ -84,7 +84,7 @@ test("the servers of the sessions are listed with their state", async ({ page })
         available: true,
         failed: false,
         servers: [
-          { name: "notion", target: "https://mcp.notion.com/mcp", state: "ok" },
+          { name: "playwright", target: "npx @playwright/mcp", state: "ok" },
           { name: "github", target: "https://api.github.com/mcp", state: "auth" },
           { name: "broken", target: "npx", state: "error" },
         ],
@@ -94,8 +94,8 @@ test("the servers of the sessions are listed with their state", async ({ page })
   await open(page)
   const list = page.getByTestId("mcp-servers")
   await expect(list.locator("[data-server]")).toHaveCount(3)
-  await expect(list.locator('[data-server="notion"]')).toHaveAttribute("data-state", "ok")
-  await expect(list.locator('[data-server="notion"]')).toContainText("Connected")
+  await expect(list.locator('[data-server="playwright"]')).toHaveAttribute("data-state", "ok")
+  await expect(list.locator('[data-server="playwright"]')).toContainText("Connected")
   await expect(list.locator('[data-server="github"]')).toContainText("To sign in")
   await expect(list.locator('[data-server="broken"]')).toContainText("Failing")
 })

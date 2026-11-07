@@ -36,7 +36,7 @@ export function onGoalsMoved(listener: () => void) {
 
 /** Whether going from one board to the next changes a goal's count: a ticket
  * that serves one came, went, changed column or changed goal — or reached
- * Notion, for a card this tab moved: drawn in its column before the write, it
+ * the board, for a card this tab moved: drawn in its column before the write, it
  * changes column for the server only then. The first board changes nothing —
  * the goals were read with it. */
 export function movesGoals(before: Board | null, after: Board): boolean {

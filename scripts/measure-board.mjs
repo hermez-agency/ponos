@@ -63,7 +63,7 @@ const seed = `
 import datetime, json, sys
 from ponos import config, db, ledger, pages
 
-settings = config.Notion()
+settings = config.BoardNames()
 board = ledger.Ledger(pages.Pages(settings), settings)
 board.workspace(settings)
 prop = settings.prop

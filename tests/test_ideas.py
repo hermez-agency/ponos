@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import http.client
 import json
 import re
 import shutil
 import subprocess
 import tempfile
-import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from support import FRONTEND, _bare_api, _board, _ideas_api, _local_api, _state_home, case
+from support import FRONTEND, _board, _ideas_api, _local_api, case
 
 from ponos import (
     db,
@@ -21,9 +19,6 @@ from ponos import (
     ideas,
     ids,
     kinds,
-    markdown,
-    notion,
-    pages,
     progress,
     schedules,
     session,
@@ -574,7 +569,7 @@ def an_idea_turned_into_a_ticket_is_a_draft_and_a_project_idea_a_project(state_h
         assert "Usine" in asked[1]["prompt"], "the workspace is told its projects"
         assert '"project" for a new project' in asked[1]["prompt"]
 
-        settings = api.config.notion
+        settings = api.config.board
         kept = api.idea_ticket(mine["id"])
         assert kept["status"] == "ticket" and kept["ticket"]
         ticket = board.page(kept["ticket"])
@@ -843,122 +838,8 @@ def the_console_reads_and_rewrites_the_brief_a_schedule_is_born_with() -> None:
 
 
 @case
-def the_console_says_which_board_it_is_looking_at() -> None:
-    """The panes read it: a Notion link is worth drawing on one and not the other."""
-    with _board() as board, _state_home():
-        said = _local_api(board).state()
-    assert said["notion"] is False
-
-
-@case
-def a_block_reads_back_whichever_end_of_the_wire_it_came_from() -> None:
-    """`plain` serves two callers, and they hand it two shapes.
-
-    Notion returns a piece of rich text with `plain_text` on it; a block this
-    code has just built carries `text.content`. Reading only the first left the
-    live report writing a file full of empty bullets.
-    """
-    built = markdown.to_blocks("- une puce")[0]
-    assert "plain_text" not in json.dumps(built), "premise: a built block has no plain_text"
-    assert markdown.plain(built) == "- une puce"
-    returned = {
-        "type": "bulleted_list_item",
-        "bulleted_list_item": {"rich_text": [{"plain_text": "une puce"}]},
-    }
-    assert markdown.plain(returned) == "- une puce"
-
-
-@case
-def an_image_in_a_brief_is_named_for_the_session_and_drawn_by_the_console() -> None:
-    """A capture in a Notion brief: no dead link anywhere, a fresh one on demand.
-
-    The line used to carry the file's address cut off its signature, which S3
-    answers with 403 from the first second — shown as is on the console, in
-    English, crochets and all. It now names the file and the block holding it:
-    the session is still told there is a picture, and the console asks the
-    board where that block's file is at the moment it draws it.
-    """
-    signed = "https://prod-files-secure.s3.us-west-2.amazonaws.com/w/f/opoil-bug-prix-negatif.png?X-Amz-Signature=abc"
-    block_id = "3ec45168-0af4-8106-be46-dbf34ca5cc95"
-    image: dict[str, Any] = {
-        "id": block_id,
-        "type": "image",
-        "image": {
-            "type": "file",
-            "file": {"url": signed, "expiry_time": "2026-10-01T10:00:00.000Z"},
-            "caption": [{"plain_text": "Prix négatif affiché au client"}],
-        },
-    }
-    line = markdown.plain(image)
-    assert "amazonaws" not in line and "?" not in line, line
-    assert (
-        line
-        == f"[image attached to the ticket: Prix négatif affiché au client (Notion block {block_id.replace('-', '')})]"
-    )
-    read = markdown.ATTACHED.match(line)
-    assert read and read["kind"] == "image" and read["block"] == block_id.replace("-", "")
-    assert read["label"] == "Prix négatif affiché au client"
-    # Without a caption, the file's own name says what it is.
-    image["image"]["caption"] = []
-    nameless = markdown.ATTACHED.match(markdown.plain(image))
-    assert nameless and nameless["label"] == "opoil-bug-prix-negatif.png"
-    pdf = {"id": "b" * 32, "type": "pdf", "pdf": {"type": "external", "external": {"url": ""}}}
-    unlabelled = markdown.ATTACHED.match(markdown.plain(pdf))
-    assert unlabelled and unlabelled["label"] is None
-
-    client = notion.Client("ntn_x")
-    asked: list[str] = []
-
-    def request(method: str, path: str, body: Any = None, **_: Any) -> dict[str, Any]:
-        asked.append(path)
-        if path == f"/blocks/{'c' * 32}":
-            return {"id": "c" * 32, "type": "paragraph", "paragraph": {"rich_text": []}}
-        return image
-
-    client._request = request  # type: ignore[method-assign]
-    assert client.attachment(block_id.replace("-", "")) == signed
-    try:
-        client.attachment("c" * 32)
-        raise AssertionError("a paragraph holds no file")
-    except LookupError:
-        pass
-
-    from ponos.web import app as web_app
-
-    api = _bare_api(client)
-    console = web_app.Console(("127.0.0.1", 0), api, "tok")
-    threading.Thread(target=console.serve_forever, daemon=True).start()
-    try:
-
-        def get(path: str) -> tuple[int, str]:
-            connection = http.client.HTTPConnection(
-                "127.0.0.1", console.server_address[1], timeout=5
-            )
-            connection.request("GET", path, headers={"Authorization": "Bearer tok"})
-            response = connection.getresponse()
-            response.read()
-            connection.close()
-            return response.status, response.getheader("Location") or ""
-
-        # Signed at the moment it is opened, and the browser is sent there.
-        assert get(f"/api/files/{block_id}") == (302, signed)
-        assert asked[-1] == f"/blocks/{block_id.replace('-', '')}"
-        assert get(f"/api/files/{'c' * 32}")[0] == 404
-    finally:
-        console.shutdown()
-        console.server_close()
-
-    # A board without Notion has no blocks: a line copied from Notion is only a name.
-    try:
-        pages.Pages().attachment(block_id)
-        raise AssertionError("a board without Notion holds no Notion file")
-    except LookupError:
-        pass
-
-
-@case
 def the_live_line_is_written_on_a_board_of_files_too() -> None:
-    """The board's live column comes off the same flush on a board without Notion.
+    """The board's live column comes off the same flush on a board in `ponos.db`.
 
     What must not happen is the report disabling itself there — a ponos.db
     installation would silently stop having one — nor writing the session's
@@ -979,7 +860,7 @@ def the_live_line_is_written_on_a_board_of_files_too() -> None:
         assert not live.disabled
         written = board.blocks_text(page_id)
         assert "src/x.py" not in written and "J'ai lu le fichier." not in written, written
-        # Cleared on the way out, exactly as on a Notion board.
+        # Cleared on the way out, as it always was.
         assert store.read(board.page(page_id), "Progress") == ""
 
 

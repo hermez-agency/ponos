@@ -16,23 +16,23 @@ from typing import Any
 
 from support import _bare_runner, _config, _no_session, _Unblocking, case
 
-from ponos import credits, notion, projects, session, store, unblocking
+from ponos import credits, projects, session, store, unblocking
 from ponos import ticket as ticket_module
 from ponos.ticket import short_id
 
 KEEP = "DECISION: keep\nREASON: B n'est pas fini."
 
 
-def _page(ident: str, title: str, status: str = "blocked", **values: Any) -> notion.Page:
+def _page(ident: str, title: str, status: str = "blocked", **values: Any) -> store.Page:
     """A row of the board, last edited `age` ago (two hours unless told otherwise)."""
     age: timedelta = values.pop("age", timedelta(hours=2))
     edited = values.pop("edited", (datetime.now(UTC) - age).isoformat())
     properties: dict[str, Any] = {"statut": {"type": "status", "status": {"name": status}}}
     for name, checked in values.items():
         properties[name.replace("_", " ")] = {"type": "checkbox", "checkbox": checked}
-    return notion.Page(
+    return store.Page(
         id=ident,
-        url=f"https://notion.so/{ident}",
+        url=f"https://board.invalid/{ident}",
         title=title,
         properties=properties,
         raw={"last_edited_time": edited},
@@ -42,16 +42,16 @@ def _page(ident: str, title: str, status: str = "blocked", **values: Any) -> not
 class _Board:
     """A tickets database: the blocked rows when filtered, the whole board when not."""
 
-    def __init__(self, pages: list[notion.Page], refuses: str = "") -> None:
+    def __init__(self, pages: list[store.Page], refuses: str = "") -> None:
         self.pages, self.refuses = pages, refuses
         self.asked: list[dict[str, Any] | None] = []
 
     def schema(self, database_id: str) -> dict[str, str]:
         if self.refuses:
-            raise notion.NotionError(self.refuses)
+            raise store.StoreError(self.refuses)
         return {"statut": "status"}
 
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         self.asked.append(filter_)
         if filter_ is None:
             return self.pages
@@ -115,7 +115,7 @@ def _examined(calls: list[dict[str, Any]]) -> list[str]:
     return [
         url
         for call in calls
-        for url in ("https://notion.so/" + name for name in ("a", "b", "c", "d", "e"))
+        for url in ("https://board.invalid/" + name for name in ("a", "b", "c", "d", "e"))
         if url in call["prompt"]
     ]
 
@@ -172,12 +172,12 @@ def a_pass_that_ran_holds_the_column_for_the_next_few_minutes(state_home: Path) 
 
 @case
 def a_board_that_cannot_be_read_is_said_once_and_spends_nothing(state_home: Path) -> None:
-    runner = _pass(_Board([_page("a", "A")], refuses="Notion is down"))
+    runner = _pass(_Board([_page("a", "A")], refuses="the board is down"))
     with _no_session(KEEP) as calls:
         assert runner.unblock() == []
     assert calls == []
     assert [line for line in runner.said if "not examined" in line] == [
-        "  ! blocked tickets not examined: Notion is down"
+        "  ! blocked tickets not examined: the board is down"
     ], runner.said
 
 
@@ -200,7 +200,7 @@ def only_the_blocked_tickets_nobody_is_on_are_looked_at(state_home: Path) -> Non
     runner.flag, runner.answered, runner._claimed = "Waiting for credit", {"c"}, {"e"}
     with _no_session(KEEP) as calls:
         results = runner.unblock()
-    assert _examined(calls) == ["https://notion.so/a"], _examined(calls)
+    assert _examined(calls) == ["https://board.invalid/a"], _examined(calls)
     assert [result["id"] for result in results] == ["a"]
     assert board.asked[0] == {"property": "statut", "status": {"equals": "blocked"}}, (
         "the blocked column, by the status the board is written in"
@@ -213,7 +213,7 @@ def a_ticket_examined_lately_waits_for_its_own_clock(state_home: Path) -> None:
     runner = _pass(_Board([_page("a", "A"), _page("b", "B")]))
     with _no_session(KEEP) as calls:
         results = runner.unblock()
-    assert _examined(calls) == ["https://notion.so/b"], "a was seen, b was not yet"
+    assert _examined(calls) == ["https://board.invalid/b"], "a was seen, b was not yet"
     assert [result["id"] for result in results] == ["b"]
 
 
@@ -222,7 +222,7 @@ def a_date_the_runner_cannot_read_does_not_hide_a_ticket(state_home: Path) -> No
     runner = _pass(_Board([_page("a", "A", edited="")]))
     with _no_session(KEEP) as calls:
         runner.unblock()
-    assert _examined(calls) == ["https://notion.so/a"]
+    assert _examined(calls) == ["https://board.invalid/a"]
 
 
 @case
@@ -252,7 +252,7 @@ def a_reserve_reached_mid_pass_stops_it_there(state_home: Path) -> None:
     runner.reserves = [0.0, 0.0, time.time() + 3600]
     with _no_session(KEEP) as calls:
         results = runner.unblock()
-    assert _examined(calls) == ["https://notion.so/a"] and len(results) == 1
+    assert _examined(calls) == ["https://board.invalid/a"] and len(results) == 1
     assert not credits.held(what="unblock:b")
 
 
@@ -263,7 +263,7 @@ def a_ticket_that_cannot_be_examined_does_not_stop_the_others(state_home: Path) 
     with _no_session(KEEP) as calls:
         results = runner.unblock()
     assert [result["id"] for result in results] == ["b"]
-    assert _examined(calls) == ["https://notion.so/b"]
+    assert _examined(calls) == ["https://board.invalid/b"]
     assert "    ! A not examined: A: object not found" in runner.said, runner.said
 
 
@@ -284,7 +284,7 @@ def out_of_credit_the_ticket_is_looked_at_again_at_the_next_pass(state_home: Pat
 @case
 def the_session_reads_the_whole_board_a_line_per_ticket(state_home: Path) -> None:
     others = [_page(f"x{n:03d}", f"Autre {n}", status="done") for n in range(unblocking.OVERVIEW)]
-    nameless = notion.Page(id="z", url="", title="Sans statut")
+    nameless = store.Page(id="z", url="", title="Sans statut")
     runner = _pass(_Board([_page("a", "Ticket A"), *others, nameless]))
     with _no_session(KEEP) as calls:
         runner.unblock()
@@ -297,7 +297,7 @@ def the_session_reads_the_whole_board_a_line_per_ticket(state_home: Path) -> Non
 
 @case
 def a_short_board_is_shown_whole_with_a_mark_for_a_missing_status() -> None:
-    runner = _pass(_Board([_page("a", "Ticket A"), notion.Page(id="z", url="", title="Nu")]))
+    runner = _pass(_Board([_page("a", "Ticket A"), store.Page(id="z", url="", title="Nu")]))
     assert runner._overview() == (
         f"- [blocked] Ticket A ({short_id('a')})\n- [?] Nu ({short_id('z')})"
     )
@@ -321,7 +321,7 @@ def a_code_ticket_is_examined_in_its_repository(state_home: Path) -> None:
 @case
 def a_note_the_page_cannot_be_read_back_is_written_rather_than_lost(state_home: Path) -> None:
     class _Unreadable(_Pass):
-        def comments(self, page_id: str) -> list[notion.Comment]:
+        def comments(self, page_id: str) -> list[store.Comment]:
             raise store.StoreError("comments: object not found")
 
     runner = _pass(_Board([]))

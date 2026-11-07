@@ -12,18 +12,10 @@ import { explain, explainNeed, PLAIN } from "./said.ts"
 // The steps are drawn once their own words are in, beside the console's.
 const FRENCH: Record<string, string> = { ...CONSOLE, ...SETUP_FRENCH }
 
-const NOTION = "no Notion token yet — the console's first connection, or `ponos init`, sets it"
-const CONFIG =
-  "notion.token (PONOS_NOTION_TOKEN, in /home/me/secrets.env or the environment), notion.workspace (or notion.tickets_database) in /home/me/config.toml must be set\n  ponos init <page-url>   builds the databases"
-
 test("a sentence of the server is a key of French, its technical words kept apart", () => {
-  const notion = explain(NOTION)
-  assert.equal(notion.key, "There is no Notion token yet.")
-  assert.equal(notion.detail, NOTION, "the original stays behind the details")
-  const config = explain(CONFIG)
-  assert.equal(config.key, "The Notion token and the board are not set yet.")
-  assert.match(config.detail, /PONOS_NOTION_TOKEN/)
-  assert.equal(explain("notion.workspace (or notion.tickets_database) in /c.toml must be set").key, "The Notion board is not chosen yet.")
+  const keyless = 'claude.provider = "api_key" with no key: claude.api_key, or ANTHROPIC_API_KEY'
+  assert.equal(explain(keyless).key, "No Anthropic API key is set.")
+  assert.equal(explain(keyless).detail, keyless, "the original stays behind the details")
   assert.equal(explain("not signed in — claude auth login").detail, "claude auth login")
 })
 
@@ -43,10 +35,6 @@ test("a tool the machine lacks is said with its name, and the command behind it"
 test("every sentence the steps repeat has its French", () => {
   const sayings = [
     ...PLAIN,
-    NOTION,
-    CONFIG,
-    "notion.token (X) in y must be set",
-    "notion.workspace in y must be set",
     'claude.provider = "api_key" with no key: claude.api_key, or ANTHROPIC_API_KEY',
     'claude.provider = "openrouter" with no key: openrouter.key, or OPENROUTER_API_KEY',
     "not signed in — claude auth login",

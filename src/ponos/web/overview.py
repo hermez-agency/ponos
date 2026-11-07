@@ -68,9 +68,6 @@ class Overview(Base):
             "budget": budget_limit if budget_spent >= budget_limit > 0 else 0.0,
             "budget_spent": round(budget_spent, 2),
             "workspace_root": str(configuration.runner.workspace_root),
-            # Whether there is a Notion behind this board: the panes read it to
-            # know whether a Notion link is worth drawing.
-            "notion": not configuration.standalone,
             "interval_seconds": configuration.runner.interval_seconds,
             "model": configuration.runner.model or "default",
             "permission_mode": configuration.runner.permission_mode,
@@ -96,7 +93,7 @@ class Overview(Base):
         `project`, its page's: the same figures over that project's tickets.
         """
         first, last = statistics.period(start, end, datetime.now().date())
-        # The board the watching thread last read, rather than a Notion query
+        # The board the watching thread last read, rather than a board query
         # of its own: changing the period redraws the page, not the board.
         tickets = self.watch.recent(2 * self.watch.interval)["tickets"]
         return statistics.figures(
@@ -105,7 +102,7 @@ class Overview(Base):
             first,
             last,
             project=project,
-            kind_of=self.config.notion.kind_of,
+            kind_of=self.config.board.kind_of,
         )
 
     def spending_csv(

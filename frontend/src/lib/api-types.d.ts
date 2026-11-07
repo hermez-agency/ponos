@@ -780,24 +780,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/setup/notion": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Setup Notion */
-        get: operations["setup_notion_api_setup_notion_get"];
-        put?: never;
-        /** Setup Save Notion */
-        post: operations["setup_save_notion_api_setup_notion_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/setup/projects": {
         parameters: {
             query?: never;
@@ -1084,23 +1066,6 @@ export interface paths {
         put?: never;
         /** Setup Provider */
         post: operations["setup_provider_api_setup_provider_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/setup/notion/shared": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Setup Notion Shared */
-        post: operations["setup_notion_shared_api_setup_notion_shared_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3099,9 +3064,6 @@ export interface components {
             text: string;
             /** @description The page it is written on, "" where the workspace has none. */
             page: string;
-            /** @description What that page is called, for the sentence that says it is missing. */
-            where: string;
-            notion: boolean;
             editable: boolean;
         };
         ContextSaved: {
@@ -3119,7 +3081,7 @@ export interface components {
             /** @description The status as the board spells it. */
             status: string;
             /**
-             * @description On its way to Notion, and not there yet: see `web/board.py`.
+             * @description On its way to the board, and not there yet: see `web/board.py`.
              * @constant
              */
             sync?: "pending";
@@ -3366,7 +3328,7 @@ export interface components {
             id: string;
             name: string;
             url: string;
-            /** @description The row's own columns, as written in Notion — empty where it has none. */
+            /** @description The row's own columns, as written on the board — empty where it has none. */
             description: string;
             criterion: string;
             due: string;
@@ -3405,7 +3367,7 @@ export interface components {
              *     not send its tickets.
              */
             written: string[];
-            /** @description Those Notion refused, each with why: the others were written all the same. */
+            /** @description Those the board refused, each with why: the others were written all the same. */
             failed: components["schemas"]["GoalTicketFailed"][];
             name: string;
         };
@@ -3420,7 +3382,7 @@ export interface components {
              *     not send its tickets.
              */
             written: string[];
-            /** @description Those Notion refused, each with why: the others were written all the same. */
+            /** @description Those the board refused, each with why: the others were written all the same. */
             failed: components["schemas"]["GoalTicketFailed"][];
         };
         GoalTicket: {
@@ -3432,7 +3394,7 @@ export interface components {
         };
         GoalTicketFailed: {
             id: string;
-            /** @description Why Notion refused to point that ticket at the goal, or to release it. */
+            /** @description Why the board refused to point that ticket at the goal, or to release it. */
             error: string;
         };
         Goals: {
@@ -3441,8 +3403,6 @@ export interface components {
             statuses: string[];
             /** @description Whether the workspace has a goals database at all. */
             configured: boolean;
-            /** @description Whether a Notion sits behind this board. */
-            notion?: boolean;
         };
         HTTPValidationError: {
             detail?: components["schemas"]["ValidationError"][];
@@ -3451,7 +3411,7 @@ export interface components {
         HealthCheck: {
             code: string;
             /** @enum {string} */
-            group: "notion" | "github" | "claude" | "projects" | "machine" | "settings";
+            group: "board" | "github" | "claude" | "projects" | "machine" | "settings";
             /**
              * @description `info` is a setting said rather than judged: `ponos doctor`'s grey line, left off the band.
              * @enum {string}
@@ -3894,7 +3854,7 @@ export interface components {
             /** @description The status as the board spells it. */
             status: string;
             /**
-             * @description On its way to Notion, and not there yet: see `web/board.py`.
+             * @description On its way to the board, and not there yet: see `web/board.py`.
              * @constant
              */
             sync?: "pending";
@@ -3961,15 +3921,6 @@ export interface components {
             /** @description How many times the ticket rang for this kind: one line says them all. */
             count: number;
         };
-        NotionProvisioned: {
-            /** @description Each a kind — `created`, `kept` — and the sentence that says it. */
-            steps: [
-                string,
-                string
-            ][];
-            problem: string;
-            board: components["schemas"]["SetupBoard"];
-        };
         Ok: {
             ok: boolean;
         };
@@ -4029,8 +3980,7 @@ export interface components {
         /**
          * @description One of a project's two pictures, as the console draws it.
          *
-         *     `src` is the console's own address for the image, never the board's: a
-         *     file Notion keeps is behind a URL that is dead within the hour, so the
+         *     `src` is the console's own address for the image, never the board's: the
          *     server keeps a copy and serves that.
          */
         Picture: {
@@ -4048,7 +3998,7 @@ export interface components {
              * @description Changed on both sides between two readings: which side's picture won.
              * @enum {string}
              */
-            conflict?: "notion" | "console" | "";
+            conflict?: "board" | "console" | "";
         };
         /** @description What a picture's change answers: both pictures of the project, as they now are. */
         Pictures: {
@@ -4124,7 +4074,7 @@ export interface components {
             content: string;
             /** @description What `saveProject` is handed back as `base`: refused if the page no longer says it. */
             version: string;
-            /** @description The kinds of Notion content Markdown cannot hold, and how many of each. */
+            /** @description What a save would drop of the page, by kind and count — empty: a page is its Markdown. */
             losses: {
                 [key: string]: number;
             };
@@ -4177,7 +4127,7 @@ export interface components {
         ProjectDeleted: {
             id: string;
             name: string;
-            /** @description Where the page can be restored from; empty on a board without Notion. */
+            /** @description Where the page can be restored from; empty when the board has no such address. */
             url: string;
             tickets: number;
             blocked: number;
@@ -4319,8 +4269,6 @@ export interface components {
         Projects: {
             projects: components["schemas"]["Project"][];
             workspace_root: string;
-            /** @description Whether a Notion sits behind this board. */
-            notion: boolean;
         };
         ProviderChecked: {
             ok: boolean;
@@ -4452,8 +4400,6 @@ export interface components {
             /** @description What the sessions have cost since midnight. */
             budget_spent: number;
             workspace_root: string;
-            /** @description Whether a Notion sits behind this board. */
-            notion: boolean;
             interval_seconds: number;
             model: string;
             permission_mode: string;
@@ -4656,10 +4602,6 @@ export interface components {
              *     when unknown.
              */
             timezone?: string;
-            /** @description What that page is called, for the sentence that says it is missing. */
-            page: string;
-            /** @description Whether a Notion sits behind this board. */
-            notion?: boolean;
             schedules: components["schemas"]["Schedule"][];
             /** @description What the form offers for the type and the sub-type: only the columns the database has. */
             choices?: components["schemas"]["ScheduleChoices"];
@@ -4765,13 +4707,6 @@ export interface components {
         SetupBoard: {
             /** @enum {string} */
             state: "ok" | "missing" | "error";
-            notion: boolean;
-            /** @description The ID, for the technical detail: `name` is what the page says. */
-            workspace: string;
-            /** @description The workspace's title on Notion, "" when Notion did not say it. */
-            name: string;
-            /** @description Where it opens on Notion, "" when Notion did not say it. */
-            url: string;
             /** @description Null when the board could not be counted. */
             tickets: number | null;
             said: string;
@@ -4846,7 +4781,6 @@ export interface components {
             code_drawn: boolean;
             container: boolean;
             version: string;
-            notion: boolean;
         };
         /** @description What the installation amounts to: one entry per thing that has to work. */
         SetupSummary: {
@@ -4858,26 +4792,6 @@ export interface components {
             projects: components["schemas"]["SetupProjects"];
             channels: components["schemas"]["SetupChannels"];
             environment: components["schemas"]["SetupEnvironment"];
-        };
-        /** @description What Notion has shared with the integration so far. */
-        Shared: {
-            ok: boolean;
-            said: string;
-            /** @description Notion said the token is not one of its own: the page says it, translated. */
-            refused?: boolean;
-            /** @description The integration's name, as Notion shows it in the Connections menu. */
-            name: string;
-            pages: components["schemas"]["SharedPage"][];
-            boards: components["schemas"]["SharedBoard"][];
-        };
-        SharedBoard: {
-            id: string;
-            url: string;
-        };
-        SharedPage: {
-            id: string;
-            title: string;
-            url: string;
         };
         Sizes: {
             worktrees: number;
@@ -4930,7 +4844,7 @@ export interface components {
             statuses: components["schemas"]["StatusCount"][];
             /** @description The same tickets, by project; "" for a ticket with none. */
             projects: components["schemas"]["ProjectCount"][];
-            /** @description How many closings the runner's history dated, and how many Notion's last edit had to. */
+            /** @description How many closings the runner's history dated, and how many the page's last edit had to. */
             dated: components["schemas"]["Dated"];
             /** @description What a ticket closed in the period cost in all; null when none was. */
             average: number | null;
@@ -5055,7 +4969,7 @@ export interface components {
             weeks: components["schemas"]["Week"][];
             subtypes: components["schemas"]["SubtypeCount"][];
         };
-        /** @description When the board last agreed with Notion, and what does not. `board.describe`. */
+        /** @description When the console last read the whole board, and what does not agree. `board.describe`. */
         SyncEvent: {
             synced_at: string;
             reconciled_at: string;
@@ -5137,13 +5051,13 @@ export interface components {
             scheduled: string;
             created: string;
             /**
-             * @description Notion's `last_edited_time`: when a done ticket closed, where the runner's history does not
-             *     say.
+             * @description The page's `last_edited_time`: when a done ticket closed, where the runner's history does
+             *     not say.
              */
             edited: string;
             /**
-             * @description A move that has not reached Notion: on its way, refused, or not made
-             *     because Notion had been changed meanwhile — see `web/board.py`.
+             * @description A move that has not reached the board: on its way, refused, or not made
+             *     because the ticket had been changed meanwhile — see `web/board.py`.
              * @enum {string}
              */
             sync?: "pending" | "failed" | "conflict";
@@ -5227,13 +5141,13 @@ export interface components {
             scheduled: string;
             created: string;
             /**
-             * @description Notion's `last_edited_time`: when a done ticket closed, where the runner's history does not
-             *     say.
+             * @description The page's `last_edited_time`: when a done ticket closed, where the runner's history does
+             *     not say.
              */
             edited: string;
             /**
-             * @description A move that has not reached Notion: on its way, refused, or not made
-             *     because Notion had been changed meanwhile — see `web/board.py`.
+             * @description A move that has not reached the board: on its way, refused, or not made
+             *     because the ticket had been changed meanwhile — see `web/board.py`.
              * @enum {string}
              */
             sync?: "pending" | "failed" | "conflict";
@@ -7273,61 +7187,6 @@ export interface operations {
             };
         };
     };
-    setup_notion_api_setup_notion_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Shared"];
-                };
-            };
-        };
-    };
-    setup_save_notion_api_setup_notion_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotionProvisioned"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     setup_projects_api_setup_projects_get: {
         parameters: {
             query?: never;
@@ -7913,41 +7772,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProviderChecked"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    setup_notion_shared_api_setup_notion_shared_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Shared"];
                 };
             };
             /** @description Validation Error */

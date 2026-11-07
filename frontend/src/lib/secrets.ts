@@ -1,6 +1,6 @@
 /* Passwords and tokens, seen before a message leaves the page.
  *
- * What is typed at a ticket becomes a Notion comment, and a comment stays. The
+ * What is typed at a ticket becomes a comment, and a comment stays. The
  * runner masks what it recognises before writing it (see `redaction.py`), but
  * a person about to paste a password deserves to be told before it leaves the
  * page at all: so the bar holds the message back once, says why, and a second

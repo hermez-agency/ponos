@@ -44,7 +44,7 @@ test("the filters offer the values the goals have, once each", () => {
   assert.deepEqual(valuesOf([LAUNCH, TIDY], "projects"), ["Ponos", "Website"])
 })
 
-test("a due date is said as a day, whatever time Notion gave it", () => {
+test("a due date is said as a day, whatever time it came with", () => {
   assert.equal(dueOf("2026-12-31", "en-GB"), "31 Dec 2026")
   assert.equal(dueOf("2026-12-31T18:00:00.000+02:00", "en-GB"), "31 Dec 2026")
   assert.equal(dueOf("", "en-GB"), "")

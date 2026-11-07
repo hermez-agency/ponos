@@ -22,7 +22,6 @@ from support import (
     _bare_api,
     _environment,
     _Fresh,
-    _http_answering,
     _saved,
     _state_home,
     _time_passes,
@@ -47,7 +46,6 @@ def the_console_only_listens_beyond_localhost_when_told_to() -> None:
     from ponos.web import server as web_server
 
     configuration = C.Config(
-        notion=C.Notion(token="ntn_x", tickets_database="a" * 32),
         runner=C.Runner(),
         projects={},
         path=Path("/nowhere/config.toml"),
@@ -64,7 +62,6 @@ def the_console_only_listens_beyond_localhost_when_told_to() -> None:
 def _web_config(**web: Any) -> C.Config:
     """A configuration that is nothing but its [web] table."""
     return C.Config(
-        notion=C.Notion(token="ntn_x", tickets_database="a" * 32),
         runner=C.Runner(),
         projects={},
         path=Path("/nowhere/config.toml"),
@@ -257,6 +254,7 @@ def the_first_connection_writes_the_whole_installation_at_once() -> None:
     from ponos.web import setup as web_setup
 
     path, _ = _saved()
+    C.write_secrets(C.secrets_path(path), {"PONOS_SLACK_TOKEN": "xoxb-kept"})
     api = _Fresh(path)
     report = web_setup.apply(
         api,  # type: ignore[arg-type]  # a double: what a first connection asks of an Api
@@ -281,7 +279,7 @@ def the_first_connection_writes_the_whole_installation_at_once() -> None:
     assert passwords.is_digest(secrets["PONOS_WEB_PASSWORD"]), "and the password as its digest only"
     assert 'chat = "4242"' in written and "123:abc" not in written
     assert secrets["PONOS_TELEGRAM_TOKEN"] == "123:abc"
-    assert secrets["PONOS_NOTION_TOKEN"] == "ntn_real", "the rest is left where it was"
+    assert secrets["PONOS_SLACK_TOKEN"] == "xoxb-kept", "the rest is left where it was"
     assert api.context == "I am Salva. Answer in French.", "the rules reach every ticket"
 
     entry = web_server.sign_in(api.config, "tok")
@@ -307,14 +305,6 @@ def a_first_connection_that_cannot_be_signed_into_later_is_refused() -> None:
         (
             {"email": "me@example.com", "password": "one I remember", "confirm": "another"},
             "not the same",
-        ),
-        (
-            {
-                "email": "me@example.com",
-                "password": "one I remember",
-                "notion_page": "my notion page",
-            },
-            "Notion page ID",
         ),
     ):
         api = _Fresh(path)
@@ -484,26 +474,16 @@ def the_openapi_schema_is_behind_the_same_door_as_the_api() -> None:
 
 
 @case
-def a_ticket_notion_does_not_have_is_a_404_not_the_boards_failure() -> None:
-    """A link to a deleted ticket, or one of another workspace: Notion says 404.
+def a_ticket_the_board_does_not_have_is_a_404_not_the_boards_failure() -> None:
+    """A link to a deleted ticket, or one never there: the board says 404.
 
     That is the board answering, and its answer is "no such page" — not a board
-    that failed to answer, which is the 502 a page offers to try again. The
-    sentence is one the page can translate; Notion's, in English and naming the
-    integration, stays in the journal.
+    that failed to answer, which is the 502 a page offers to try again.
     """
-    import httpx
-
-    from ponos import notion
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            404,
-            json={"message": "Could not find page with ID: 00000000-0000-0000-0000-00000000dead."},
-        )
+    from support import _board
 
     gone = "0" * 28 + "dead"
-    with _http_answering(handler), _console(_bare_api(notion.Client("ntn_x"))) as console:
+    with _board() as board, _console(_bare_api(board)) as console:
         key = {"Authorization": "Bearer tok"}
         status, _, said = _talk_to(console, "GET", f"/api/tickets/{gone}", **key)
     assert (status, said) == (404, {"error": f"no ticket with id {gone}"}), (status, said)
@@ -898,7 +878,7 @@ def a_file_beside_the_static_folder_is_not_one_of_its_files() -> None:
 
 
 @case
-def a_repository_named_on_a_notion_page_is_checked_before_a_command_sees_it() -> None:
+def a_repository_named_on_a_project_page_is_checked_before_a_command_sees_it() -> None:
     """A project page is anybody's who edits the board, and its name reaches `gh`.
 
     `owner/name`, in GitHub's alphabet, or nothing is run at all; and `--`

@@ -23,7 +23,7 @@ const START: Record<string, string> = {
   [FOOTER]: "review",
 }
 
-/** A card moved the way another tab, or Notion, would move it: not through this page. */
+/** A card moved the way another tab, or the runner, would move it: not through this page. */
 async function move(page: Page, id: string, column: string) {
   const response = await page.request.post(`/api/tickets/${id}/status`, {
     data: { column },

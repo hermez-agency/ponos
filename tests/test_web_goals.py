@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import threading
-import time
 from typing import Any
 
-import httpx
-from support import _bare_api, _board, _http_answering, _local_api, case
+from support import _board, _local_api, case
 
-from ponos import ledger, notion, store, workspace
+from ponos import ledger, store
 from ponos.ticket import short_id
 from ponos.web import api as web_api
 
@@ -23,7 +19,7 @@ class _Watch:
 
 
 def _api(board: ledger.Ledger) -> web_api.Api:
-    """An Api over a board without Notion, which counts a goal's tickets without `board`."""
+    """An Api over a board, which counts a goal's tickets without `board`."""
     api = _local_api(board)
     api.watch = _Watch()  # type: ignore[assignment]  # a double: nothing watches
     api._goals, api._goals_at = {}, 0.0
@@ -127,7 +123,7 @@ def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed() -> None:
         api = _api(board)
         goal = api.create_goal("Lancer la v1", {})["id"]
         tickets = [_ticket(board, f"t{index}") for index in range(5)]
-        api.reader.read(board, "tickets", api.config.notion.prop("status"))
+        api.reader.read(board, "tickets", api.config.board.prop("status"))
         refused = tickets[2]
         asked: list[str] = []
         update, page = board.update, board.page
@@ -138,7 +134,7 @@ def tying_tickets_to_a_goal_writes_each_once_and_says_which_failed() -> None:
                 raise store.StoreError("PATCH /pages: 429 rate limited")
             return update(database, page_id, values)
 
-        def read_back(page_id: str) -> notion.Page:
+        def read_back(page_id: str) -> store.Page:
             asked.append(f"page {page_id}")
             return page(page_id)
 
@@ -197,334 +193,3 @@ def a_goal_s_priority_is_read_as_a_score_whatever_its_column_holds() -> None:
             # Written outside the console: what the read behind the answer finds.
             api._drop_goals()
             assert api.goals()["goals"][0]["priority"] == score, (cell, api.goals())
-
-
-# -- on Notion -----------------------------------------------------------------
-
-# An Objectifs database as it is made by hand in Notion: its status a column of
-# the status type, its priority still a select, its title under a name of its own.
-_GOALS_SCHEMA = {
-    "Nom": "title",
-    "Description": "rich_text",
-    "Critère": "rich_text",
-    "Échéance": "date",
-    "Statut": "status",
-    "Priorité": "select",
-    "Projets": "relation",
-}
-
-
-class _Notion:
-    """Notion's API reduced to the goals and projects databases, behind a `MockTransport`.
-
-    It keeps what it is sent — the rows, and the body of every PATCH — because
-    what is under test is what the console asks of Notion, not what it shows.
-    `refuse` makes the next PATCH of a page's columns answer 400, as Notion
-    does to an option a status column does not offer — a refusal `update` does
-    not ask again, unlike a column whose type changed. `options` are those of
-    the goals' status column: given, a row is made with the first, as Notion
-    does with a column's default, and a name it does not offer is a 400.
-    """
-
-    def __init__(self, schema: dict[str, str], options: list[str] | None = None) -> None:
-        self.schemas = {"goals": schema, "projects": {"Name": "title"}}
-        self.options = options
-        self.pages: dict[str, dict[str, Any]] = {}
-        self.patches: list[tuple[str, dict[str, Any]]] = []
-        self.refuse = False
-
-    def row(self, database: str, title: str) -> str:
-        page_id = f"{len(self.pages) + 1:032x}"
-        self.pages[page_id] = {
-            "id": page_id,
-            "url": f"https://www.notion.so/{page_id}",
-            "parent": database,
-            "archived": False,
-            "properties": {
-                name: {"type": "title", "title": [{"plain_text": title}]}
-                for name, kind in self.schemas[database].items()
-                if kind == "title"
-            },
-        }
-        if self.options and database == "goals":
-            for name, kind in self.schemas[database].items():
-                if kind == "status":
-                    self.pages[page_id]["properties"][name] = {
-                        "type": kind,
-                        "status": {"name": self.options[0]},
-                    }
-        return page_id
-
-    def _write(self, page: dict[str, Any], properties: dict[str, Any]) -> None:
-        for name, value in properties.items():
-            kind = self.schemas[page["parent"]][name]
-            if kind in ("title", "rich_text"):
-                value = {kind: [{"plain_text": part["text"]["content"]} for part in value[kind]]}
-            page["properties"][name] = {"type": kind, **value}
-
-    def __call__(self, request: httpx.Request) -> httpx.Response:
-        path = request.url.path.split("/v1", 1)[-1]
-        body = json.loads(request.content or b"{}")
-        parts = path.strip("/").split("/")
-        if request.method == "GET" and parts[0] == "databases":
-            schema = self.schemas[parts[1]]
-            return httpx.Response(
-                200,
-                json={
-                    "id": parts[1],
-                    "properties": {
-                        name: {"type": kind}
-                        if kind != "status" or self.options is None
-                        else {"type": kind, kind: {"options": [{"name": o} for o in self.options]}}
-                        for name, kind in schema.items()
-                    },
-                },
-            )
-        if request.method == "POST" and parts[0] == "databases" and parts[-1] == "query":
-            rows = [
-                page
-                for page in self.pages.values()
-                if page["parent"] == parts[1] and not page["archived"]
-            ]
-            return httpx.Response(200, json={"results": rows, "has_more": False})
-        if request.method == "POST" and path == "/pages":
-            database = body["parent"]["database_id"]
-            title = next(
-                value["title"][0]["text"]["content"]
-                for name, value in body["properties"].items()
-                if self.schemas[database][name] == "title"
-            )
-            page_id = self.row(database, title)
-            self._write(self.pages[page_id], body["properties"])
-            return httpx.Response(200, json=self.pages[page_id])
-        if request.method == "PATCH" and parts[0] == "pages":
-            page = self.pages[parts[1]]
-            self.patches.append((parts[1], body))
-            if "properties" in body:
-                if self.refuse:
-                    self.refuse = False
-                    return httpx.Response(400, json={"message": "Invalid status option."})
-                for value in body["properties"].values():
-                    named = (value.get("status") or {}).get("name", "")
-                    if self.options is not None and "status" in value and named not in self.options:
-                        return httpx.Response(400, json={"message": "Invalid status option."})
-                self._write(page, body["properties"])
-            if body.get("archived"):
-                page["archived"] = True
-            return httpx.Response(200, json=page)
-        raise AssertionError(f"{request.method} {path} is not something the goals ask")
-
-
-def _notion_api(fake: _Notion) -> web_api.Api:
-    """An Api whose Notion is `fake`, read through the real client."""
-    api = _bare_api(notion.Client("ntn_x"))
-    assert api._runner is not None
-    api._runner._workspace = workspace.Workspace(
-        tickets="tickets", projects="projects", goals="goals"
-    )
-    api.watch = _Watch()  # type: ignore[assignment]  # a double: nothing watches
-    api._goals, api._goals_at = {}, 0.0
-    api.board = lambda max_age=0.0: {"tickets": []}  # type: ignore[method-assign]  # a double
-    # The board read once, as the watcher would have: nothing is read behind
-    # an answer, on a Notion that is gone once the case is over.
-    api.reader.read(api.runner.client, api.runner.database, api.config.notion.prop("status"))
-    return api
-
-
-@case
-def a_goal_is_created_edited_and_archived_on_a_notion_database() -> None:
-    fake = _Notion(_GOALS_SCHEMA)
-    with _http_answering(fake):
-        api = _notion_api(fake)
-        site = fake.row("projects", "Website")
-        created = api.create_goal(
-            "Lancer la v1",
-            {
-                "description": "La première version",
-                "criterion": "dix clients payants",
-                "due": "2026-12-31",
-                "status": "Actif",
-                "priority": 80,
-                "projects": [site],
-            },
-        )
-        goal = created["id"]
-        assert [page["id"] for page in fake.pages.values() if page["parent"] == "goals"] == [goal]
-        [(patched, body)] = fake.patches
-        assert patched == goal
-        assert body == {
-            "properties": {
-                "Description": {
-                    "rich_text": [{"type": "text", "text": {"content": "La première version"}}]
-                },
-                "Critère": {
-                    "rich_text": [{"type": "text", "text": {"content": "dix clients payants"}}]
-                },
-                "Échéance": {"date": {"start": "2026-12-31"}},
-                # A status column is written as one, and the priority as the
-                # select's nearest word, never as "80".
-                "Statut": {"status": {"name": "Actif"}},
-                "Priorité": {"select": {"name": "High"}},
-                "Projets": {"relation": [{"id": site}]},
-                "Nom": {"title": [{"type": "text", "text": {"content": "Lancer la v1"}}]},
-            }
-        }, body
-        [row] = api.goals()["goals"]
-        assert (row["name"], row["status"], row["active"]) == ("Lancer la v1", "Actif", True)
-        assert row["priority"] == 75 and row["due"] == "2026-12-31", row
-        assert row["projects"] == ["Website"] and row["project_ids"] == [site], row
-
-        fake.patches.clear()
-        api.save_goal(goal, {"status": "En pause", "priority": 20, "due": ""})
-        assert fake.patches == [
-            (
-                goal,
-                {
-                    "properties": {
-                        "Échéance": {"date": None},
-                        "Statut": {"status": {"name": "En pause"}},
-                        "Priorité": {"select": {"name": "Low"}},
-                    }
-                },
-            )
-        ], fake.patches
-        [row] = api.goals()["goals"]
-        assert (row["status"], row["active"], row["priority"], row["due"]) == (
-            "En pause",
-            False,
-            25,
-            "",
-        ), row
-        assert row["criterion"] == "dix clients payants", "what the form left out is kept"
-
-        fake.patches.clear()
-        assert api.delete_goal(goal) == {"id": goal, "name": "Lancer la v1"}
-        assert fake.patches == [(goal, {"archived": True})], fake.patches
-        assert api.goals()["goals"] == []
-
-
-@case
-def a_column_the_goals_database_lacks_is_left_out_of_the_patch() -> None:
-    fake = _Notion({name: kind for name, kind in _GOALS_SCHEMA.items() if name != "Critère"})
-    with _http_answering(fake):
-        api = _notion_api(fake)
-        goal = api.create_goal("Ranger", {"criterion": "plus rien", "status": "Actif"})["id"]
-        [(_, body)] = fake.patches
-        assert set(body["properties"]) == {"Statut", "Nom"}, body
-        assert api.goals()["goals"][0]["status"] == "Actif"
-        assert api.goals()["goals"][0]["id"] == goal
-
-
-@case
-def a_goal_whose_columns_cannot_be_written_is_not_left_behind() -> None:
-    fake = _Notion(_GOALS_SCHEMA)
-    with _http_answering(fake):
-        api = _notion_api(fake)
-        fake.refuse = True
-        try:
-            api.create_goal("Lancer la v1", {"status": "Actif", "priority": 80})
-        except notion.NotionError:
-            pass
-        else:
-            raise AssertionError("a refused write is said")
-        assert api.goals()["goals"] == [], "the row made before the refusal is not kept"
-
-        # Asked again, as whoever saw the error would: one goal, not two.
-        api.create_goal("Lancer la v1", {"status": "Actif", "priority": 80})
-        assert [row["name"] for row in api.goals()["goals"]] == ["Lancer la v1"]
-
-
-@case
-def a_goal_created_without_a_status_takes_the_one_its_notion_status_column_defaults_to() -> None:
-    fake = _Notion(_GOALS_SCHEMA, options=["Actif", "En pause", "Atteint"])
-    with _http_answering(fake):
-        api = _notion_api(fake)
-        # What the form sends when "No status" is left: every field, the status empty.
-        values = {"name": "Lancer la v1", "description": "", "status": "", "projects": []}
-        created = api.create_goal("Lancer la v1", values)
-        listed = api.goals()
-        assert [row["name"] for row in listed["goals"]] == ["Lancer la v1"], listed
-        assert listed["goals"][0]["status"] == "Actif", "the status column's own default"
-        # The form offers the column's own options, not a word list of its own.
-        assert listed["statuses"] == ["Actif", "En pause", "Atteint"], listed
-
-        api.save_goal(created["id"], {"status": "Atteint"})
-        assert api.goals()["goals"][0]["status"] == "Atteint"
-        # A status cannot be emptied: saying none leaves the one it has.
-        api.save_goal(created["id"], {"status": "", "name": "Lancer la v2"})
-        assert api.goals()["goals"][0]["status"] == "Atteint"
-
-
-def _serving(fake: _Notion, goal: str) -> str:
-    """A ticket of the board, pointing at this goal."""
-    fake.schemas["tickets"] = {"Name": "title", "Objectif": "relation"}
-    ticket = fake.row("tickets", "un")
-    fake.pages[ticket]["properties"]["Objectif"] = {"type": "relation", "relation": [{"id": goal}]}
-    return ticket
-
-
-@case
-def the_goals_are_answered_from_what_the_console_holds_without_asking_notion() -> None:
-    """Sixteen seconds measured for the goals page opened after a few idle minutes.
-
-    The board held and the goals read once, the next answer asks Notion
-    nothing — the tickets' database least of all. Past the watcher's period it
-    is still the one given, at once, and the goals are read again behind it:
-    what that finds reaches the page on the stream.
-    """
-    fake = _Notion(_GOALS_SCHEMA)
-    asked: list[str] = []
-
-    def counted(request: httpx.Request) -> httpx.Response:
-        asked.append(f"{request.method} {request.url.path.split('/v1', 1)[-1]}")
-        return fake(request)
-
-    with _http_answering(counted):
-        api = _notion_api(fake)
-        goal = api.create_goal("Lancer la v1", {})["id"]
-        _serving(fake, goal)
-        api.reader.read(api.runner.client, api.runner.database, "statut")
-        api.goals()
-        asked.clear()
-        row = api.goals()["goals"][0]
-        assert asked == [], asked
-        assert row["tickets"] == {"draft": 1}, row
-
-        channel = api.hub.subscribe()
-        fake.row("goals", "Ranger")  # written in Notion meanwhile
-        assert api._goal_pages_held is not None
-        read_at, pages = api._goal_pages_held
-        api._goal_pages_held = (read_at - api.config.web.poll_seconds, pages)
-        assert [row["name"] for row in api.goals()["goals"]] == ["Lancer la v1"]
-        assert channel.get(timeout=10).kind == "goals"
-        assert asked == ["POST /databases/goals/query"], "the goals, and not the board"
-        names = sorted(row["name"] for row in api.goals()["goals"])
-        assert names == ["Lancer la v1", "Ranger"], names
-
-
-@case
-def a_console_that_holds_no_ticket_answers_its_goals_and_counts_them_behind() -> None:
-    """1 800 tickets are sixteen seconds of Notion: the page is not kept waiting for them."""
-    fake = _Notion(_GOALS_SCHEMA)
-    gate = threading.Event()
-
-    def held_back(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/databases/tickets/query") and not gate.is_set():
-            gate.wait(10)
-        return fake(request)
-
-    with _http_answering(held_back):
-        gate.set()
-        api = _notion_api(fake)
-        gate.clear()
-        api._reader = None  # type: ignore[assignment]  # a console that has not read its board yet
-        goal = api.create_goal("Lancer la v1", {})["id"]
-        _serving(fake, goal)
-        channel = api.hub.subscribe()
-        started = time.monotonic()
-        row = api.goals()["goals"][0]
-        assert time.monotonic() - started < 2, "the board is not waited for"
-        assert row["tickets"] == {}, row
-        gate.set()
-        assert channel.get(timeout=10).kind == "goals"
-        assert api.goals()["goals"][0]["tickets"] == {"draft": 1}

@@ -17,9 +17,8 @@ who is being spoken to:
   report and it answers you. A new remark elsewhere on the page is a
   conversation of yours, and stays one;
 - **naming it works wherever the runner is looking.** A comment carrying
-  `@claude` — or whatever `notion.mention` says, or the integration's own name
-  as Notion writes it when you @-mention it — is addressed to the runner,
-  whatever the ticket's status. Where it looks is the `Ledger`'s business;
+  `@claude`, `@ponos` or `@runner` — is addressed to the runner,
+  whatever the ticket's status. Where it looks is `Threads`' business;
 - **work wins over talk.** A plain answer under a question a run asked is still
   what puts the ticket back in the queue: that loop was the point of `blocked`,
   and it keeps it. Naming the runner is how you ask for words instead.
@@ -27,8 +26,8 @@ who is being spoken to:
 And one rule about not talking to itself. Every comment the runner writes comes
 back to it on the next pass; recognising its own voice by the signature it
 happens to write would hold until the day it writes something else. So it asks
-Notion for its own user ID and compares identifiers — and when it cannot get
-one, it says nothing at all. A conversation with oneself is the single failure
+the board for its own identity and compares it with the comment's author — and
+when it cannot get one, it says nothing at all. A conversation with oneself is the single failure
 mode here that never ends on its own.
 """
 
@@ -36,35 +35,28 @@ from __future__ import annotations
 
 import re
 import shutil
-import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from . import db, store, voice
 from .config import state_dir
 
-# What to call it when you want its attention. Configurable — `notion.mention` —
-# because the word has to be one you would type, and half the boards this runs
-# on are written in French.
+# What to call it when you want its attention: a word you would type.
 MENTION = "@claude"
 
-# Always understood, whatever the configuration says: the tool's own name is not
-# something anyone should have to declare in order to be able to use it.
+# Always understood too: the tool's own name is not something anyone should
+# have to declare in order to be able to use it.
 ALIASES = ("@ponos", "@runner")
 
-# How many pages one pass looks at, and how many answers it writes. The scan is
-# one request per page and a run can happen every ten seconds; the answers are
-# Claude sessions, and five people waiting is already a busy afternoon.
-SCAN = 20
+# How many answers one pass writes: they are Claude sessions, and five people
+# waiting is already a busy afternoon.
 ANSWERS = 5
 
 # How a comment relayed from Telegram or Slack opens (see `channels.answer`).
 # It is written by the integration and it is *not* the runner speaking: it is
 # you, from your phone, and it has to wake a blocked ticket exactly as the same
-# words typed into Notion would. Shared with `channels` rather than spelled
+# words typed into the console would. Shared with `channels` rather than spelled
 # twice, because the day the sentence changes in one place and not the other,
 # every answer given from a phone stops arriving. Every language's opening, not
 # only the configured one: the answers given before `runner.language` changed
@@ -75,7 +67,7 @@ RELAYED = voice.openings("relayed")
 # belongs in the page rather than under it.
 ANSWER_CHARS = 4000
 
-# What the ledger remembers, at most. Beyond this the oldest are dropped: a
+# How many of the tickets most recently commented on a pass reads. Beyond this a
 # conversation nobody has touched in two hundred tickets is over.
 REMEMBERED = 200
 
@@ -84,7 +76,7 @@ REMEMBERED = 200
 class Thread:
     """One discussion on a page, oldest comment first.
 
-    Notion groups comments into discussions, and that grouping is what makes an
+    Comments are grouped into discussions, and that grouping is what makes an
     answer an answer: posted into the thread it belongs to, it sits under the
     question instead of at the bottom of the page.
     """
@@ -132,7 +124,7 @@ def ours(comment: store.Comment, me: str) -> bool:
 def threads(comments: Iterable[store.Comment]) -> list[Thread]:
     """The comments of a page, grouped into their discussions, in order.
 
-    A comment whose discussion Notion did not give us is a thread of one rather
+    A comment that names no discussion is a thread of one rather
     than a thread of everything: lumping unrelated remarks together would have
     the runner answer a question nobody asked it.
     """
@@ -150,11 +142,10 @@ def threads(comments: Iterable[store.Comment]) -> list[Thread]:
 def names(mention: str = "", integration: str = "") -> tuple[str, ...]:
     """Every way of naming the runner in a comment.
 
-    The configured word, the built-in aliases, and the integration's own name —
-    the last one because @-mentioning it in Notion is the gesture people
-    actually make, and it reaches the API as that name in plain text. A name
-    under four characters is left out: a bot called “IA” would answer every
-    sentence containing it.
+    The word, the built-in aliases, and the board's own name for the runner
+    — the last one because @-mentioning it is the gesture people actually
+    make. A name under four characters is left out: a bot called “IA” would
+    answer every sentence containing it.
     """
     found = [mention.strip() or MENTION, *ALIASES]
     if len(integration.strip()) >= 4:
@@ -235,172 +226,100 @@ def transcript(thread: Thread, me: str, limit: int = 12, budget: int = 2000) -> 
 
 
 @dataclass
-class Ledger:
-    """Where the runner speaks, and what it has already answered.
+class Threads:
+    """Where a conversation may be waiting, and the session that is having it.
 
-    Two things live here. **The pages it has spoken on**, because a comment
-    does not change a page and Notion offers no way to ask "what has been
-    commented on since": the only affordable scan is of the pages where a
-    conversation could plausibly be. And **the thread it is talking in**, with
-    the Claude session that is doing the talking — so a follow-up question
-    lands in the same session as the one before it, and the conversation is a
-    conversation rather than a series of strangers.
-
-    Kept in `ponos.db` (the `conversation_*` tables, which replaced
-    `conversations.json`), and still read and written whole: a pass loads it
-    once and saves what it ends with. `database` names another file, for a test.
+    Both are read off the board's own comments, in `ponos.db`. **Where to look**
+    is the tickets most recently commented on — a read of the file, not a
+    request per page, so there is no window to move and no interval to wait
+    out. **The session** is kept on the runner's answer itself, in the column
+    `session` of its comment, so a follow-up question lands in the same Claude
+    session as the one before it and the conversation is a conversation rather
+    than a series of strangers. `database` names another file, for a test.
     """
 
-    pages: dict[str, str] = field(default_factory=dict)
-    threads: dict[str, dict[str, Any]] = field(default_factory=dict)
-    cursor: int = 0
-    at: float = 0.0
     database: Path | None = None
 
-    @classmethod
-    def load(cls, database: Path | None = None) -> Ledger:
-        ledger = cls(database=database)
+    def recent(self) -> list[str]:
+        """The tickets commented on most recently first, `REMEMBERED` at most."""
         try:
-            with db.transaction(immediate=False, location=database) as connection:
-                pages = connection.execute("SELECT page, at FROM conversation_pages").fetchall()
-                threads = connection.execute(
-                    "SELECT discussion, session, answered, at FROM conversation_threads"
+            with db.transaction(immediate=False, location=self.database) as connection:
+                rows = connection.execute(
+                    "SELECT ticket FROM ticket_comments GROUP BY ticket "
+                    "ORDER BY MAX(id) DESC LIMIT ?",
+                    (REMEMBERED,),
                 ).fetchall()
-                scan = connection.execute("SELECT cursor, at FROM conversation_scan").fetchone()
         except db.ERRORS:
-            return ledger
-        ledger.pages = {str(page): str(at) for page, at in pages}
-        ledger.threads = {
-            str(discussion): {"session": session, "answered": answered, "at": at}
-            for discussion, session, answered, at in threads
-        }
-        if scan:
-            ledger.cursor, ledger.at = int(scan[0]), float(scan[1])
-        return ledger
+            return []
+        return [str(ticket) for (ticket,) in rows]
 
-    def save(self) -> None:
-        """Best effort: a ledger that cannot be written costs a resumed session
-        and a rotation, never a run."""
-        pages = _newest(self.pages, REMEMBERED)
-        threads = _newest_threads(self.threads, REMEMBERED)
+    def last(self) -> int:
+        """The newest comment on the board, by its number: 0 when there is none."""
+        try:
+            with db.transaction(immediate=False, location=self.database) as connection:
+                row = connection.execute("SELECT MAX(id) FROM ticket_comments").fetchone()
+        except db.ERRORS:
+            return 0
+        return int(row[0] or 0) if row else 0
+
+    def session_of(self, ticket: str, discussion: str) -> str:
+        """The session that last answered in that thread, or ""."""
+        try:
+            with db.transaction(immediate=False, location=self.database) as connection:
+                row = connection.execute(
+                    "SELECT session FROM ticket_comments WHERE ticket = ? AND discussion = ? "
+                    "AND session != '' ORDER BY id DESC LIMIT 1",
+                    (_key(ticket), discussion),
+                ).fetchone()
+        except db.ERRORS:
+            return ""
+        return str(row[0]) if row else ""
+
+    def remember(self, ticket: str, discussion: str, session: str) -> None:
+        """The answer just written in that thread was this session's.
+
+        Best effort: a session not written down costs the next question a fresh
+        session, never an answer.
+        """
         try:
             with db.transaction(location=self.database) as connection:
-                connection.execute("DELETE FROM conversation_pages")
-                connection.executemany(
-                    "INSERT INTO conversation_pages (page, at) VALUES (?, ?)", list(pages.items())
-                )
-                connection.execute("DELETE FROM conversation_threads")
-                connection.executemany(
-                    "INSERT INTO conversation_threads (discussion, session, answered, at)"
-                    " VALUES (?, ?, ?, ?)",
-                    [
-                        (
-                            discussion,
-                            str(thread.get("session") or ""),
-                            str(thread.get("answered") or ""),
-                            str(thread.get("at") or ""),
-                        )
-                        for discussion, thread in threads.items()
-                    ],
-                )
                 connection.execute(
-                    "INSERT OR REPLACE INTO conversation_scan (id, cursor, at) VALUES (1, ?, ?)",
-                    (self.cursor, self.at),
+                    "UPDATE ticket_comments SET session = ? WHERE id = "
+                    "(SELECT MAX(id) FROM ticket_comments WHERE ticket = ? AND discussion = ?)",
+                    (session, _key(ticket), discussion),
                 )
         except db.ERRORS:
             pass
 
-    def due(self, interval_seconds: int) -> bool:
-        """Has enough time passed to look at the board again?
-
-        The scan is a request per page, and a run can come round every ten
-        seconds — while a comment, unlike a ticket, is written by a person and
-        can wait a minute. This is the difference between a feature and a way of
-        spending the integration's rate limit.
-        """
-        return time.time() - self.at >= max(0, interval_seconds)
-
-    def stamp(self) -> None:
-        self.at = time.time()
-
-    # -- pages ---------------------------------------------------------------
-
-    def remember_page(self, page_id: str) -> None:
-        """The runner just spoke here, so here is where it may be answered."""
-        if page_id:
-            self.pages[page_id.replace("-", "")] = _now()
-
-    def knows(self, page_id: str) -> bool:
-        """Has the runner spoken on that page — whatever its Agent column says?"""
-        return page_id.replace("-", "") in self.pages
-
-    def known_pages(self) -> list[str]:
-        """The pages it has spoken on, most recently first."""
-        return [
-            page for page, _ in sorted(self.pages.items(), key=lambda item: item[1], reverse=True)
-        ]
-
-    def rotate(self, pages: list[str], limit: int) -> list[str]:
-        """`limit` pages to look at now, taking the next ones each pass.
-
-        A board is scanned a page at a time and a run can come round every ten
-        seconds; taking the whole list every pass would spend the integration's
-        rate limit on tickets nobody has touched in a month. So the window
-        moves, and every page comes up within a few passes.
-        """
-        if not pages:
-            return []
-        if limit <= 0 or limit >= len(pages):
-            self.cursor = 0
-            return list(pages)
-        start = self.cursor % len(pages)
-        window = (pages + pages)[start : start + limit]
-        self.cursor = (start + limit) % len(pages)
-        return window
-
-    # -- threads -------------------------------------------------------------
-
-    def session_of(self, discussion: str) -> str:
-        return str((self.threads.get(discussion) or {}).get("session") or "")
-
-    def answered(self, discussion: str) -> str:
-        """The ID of the last comment the runner answered in that thread.
-
-        Notion can hand back a comment we have just replied to — the reply
-        travels, the read is a moment behind. Without this the second pass would
-        answer the same question twice, in the same thread, minutes apart.
-        """
-        return str((self.threads.get(discussion) or {}).get("answered") or "")
-
-    def remember_thread(self, discussion: str, *, session: str, comment: str) -> None:
-        if not discussion:
-            return
-        entry = dict(self.threads.get(discussion) or {})
-        entry.update({"session": session, "answered": comment, "at": _now()})
-        self.threads[discussion] = entry
-
-    def forget_session(self, discussion: str) -> None:
+    def forget(self, ticket: str, discussion: str) -> None:
         """A session that could not be resumed is a session that is gone.
 
         Its transcript was pruned, or the machine changed. The thread keeps its
-        history in Notion, which is enough to start a fresh one from.
+        history on the board, which is enough to start a fresh one from.
         """
-        if discussion in self.threads:
-            self.threads[discussion] = {**self.threads[discussion], "session": "", "at": _now()}
+        try:
+            with db.transaction(location=self.database) as connection:
+                connection.execute(
+                    "UPDATE ticket_comments SET session = '' WHERE ticket = ? AND discussion = ?",
+                    (_key(ticket), discussion),
+                )
+        except db.ERRORS:
+            pass
+
+    def talked_on(self) -> set[str]:
+        """The tickets a session still answers on — their scratch directories are kept."""
+        try:
+            with db.transaction(immediate=False, location=self.database) as connection:
+                rows = connection.execute(
+                    "SELECT DISTINCT ticket FROM ticket_comments WHERE session != ''"
+                ).fetchall()
+        except db.ERRORS:
+            return set()
+        return {str(ticket) for (ticket,) in rows}
 
 
-def _now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def _newest(entries: dict[str, str], keep: int) -> dict[str, str]:
-    ordered = sorted(entries.items(), key=lambda item: item[1], reverse=True)
-    return dict(ordered[:keep])
-
-
-def _newest_threads(entries: dict[str, dict[str, Any]], keep: int) -> dict[str, dict[str, Any]]:
-    ordered = sorted(entries.items(), key=lambda item: str(item[1].get("at", "")), reverse=True)
-    return dict(ordered[:keep])
+def _key(ticket: str) -> str:
+    return ticket.replace("-", "")
 
 
 def trim(answer: str, limit: int = ANSWER_CHARS) -> str:

@@ -143,7 +143,7 @@ def a_naming_that_fails_falls_back_on_the_first_line_of_the_content(state_home: 
 
 
 @case
-def a_title_notion_refuses_leaves_the_ticket_to_run_under_the_default_label(
+def a_title_the_board_refuses_leaves_the_ticket_to_run_under_the_default_label(
     state_home: Path,
 ) -> None:
     """A name is a comfort. Losing it must not cost the ticket its run."""

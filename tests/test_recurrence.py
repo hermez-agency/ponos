@@ -7,16 +7,13 @@ from pathlib import Path
 from typing import Any, cast
 
 from support import (
-    _Board,
-    _FakeClient,
     _recurring,
     _schedule_page,
     _ScheduleClient,
-    _settings,
     case,
 )
 
-from ponos import notion, projects, provision, schedules, state, workspace
+from ponos import projects, schedules, state, store, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 
@@ -88,8 +85,8 @@ def a_schedule_nobody_can_read_is_none_rather_than_an_exception() -> None:
     assert aware is not None and aware.tzinfo is not None
 
 
-def _ticket_page(page_id: str, status: str) -> notion.Page:
-    return notion.Page(
+def _ticket_page(page_id: str, status: str) -> store.Page:
+    return store.Page(
         id=page_id,
         url="",
         title=page_id,
@@ -151,7 +148,7 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies() -> None:
     assert values["Model"] == "opus" and values["Priorité"] == 40
 
     # Born typed, it is never handed to the classifier.
-    born = notion.Page(
+    born = store.Page(
         id="t-1",
         url="",
         title="Revue — 2026-10-16",
@@ -193,7 +190,7 @@ def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code
     schedules database had no Type to say Code, and the classifier read its brief.
     Until the column is there, a project with a repository is enough to say it."""
     stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
-    project = notion.Page(
+    project = store.Page(
         id="p-northwind",
         url="",
         title="Northwind",
@@ -211,7 +208,7 @@ def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code
     assert "Sous-type" not in values, "the sub-type is still the ticket's own to find"
 
     # A project without one is a document: left to the classifier, as before.
-    paper = notion.Page(id="p-northwind", url="", title="Northwind", properties={})
+    paper = store.Page(id="p-northwind", url="", title="Northwind", properties={})
     runner = _recurring([_schedule_page("s-1", next=stale)], tickets={"p-northwind": paper})
     runner.recur()
     assert "Type" not in _schedules(runner).created[0][1]
@@ -252,7 +249,7 @@ def a_launch_that_fails_is_raised_and_leaves_last_alone() -> None:
     runner = _recurring([_schedule_page("s-1")], refuses="400 body failed validation")
     try:
         runner.launch("s-1")
-    except notion.NotionError:
+    except store.StoreError:
         pass
     else:
         raise AssertionError("the failure has to reach whoever asked")
@@ -268,7 +265,7 @@ def the_body_of_the_schedule_is_copied_into_the_ticket_it_makes() -> None:
 
     page_id, body = _schedules(runner).appended[0]
     assert page_id == "t-1"
-    assert "Revue des dépendances" in body and "https://notion.so/s-1" in body
+    assert "Revue des dépendances" in body and "https://board.invalid/s-1" in body
     assert "Lister les dépendances en retard" in body
     # And the schedule is told what it produced, which is how the next pass
     # knows whether this occurrence is over.
@@ -357,7 +354,7 @@ def a_dry_run_says_what_would_be_born_and_writes_nowhere() -> None:
 def the_occurrence_is_taken_before_it_is_made() -> None:
     """A crash between the two loses one occurrence; the other order makes two.
 
-    So a ticket Notion refuses still leaves `Next` moved on: one lost report
+    So a ticket the board refuses still leaves `Next` moved on: one lost report
     beats two identical tickets and the session each of them costs.
     """
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
@@ -372,7 +369,7 @@ def the_occurrence_is_taken_before_it_is_made() -> None:
 def an_occurrence_that_could_not_be_taken_makes_no_ticket() -> None:
     """`Next` left in the past by a refused write would fire on every pass.
 
-    Notion answering 500 to the write on the schedule's row, the ticket would
+    The board refusing the write on the schedule's row, the ticket would
     still be made, and the next pass would read the same `Next` and make it
     again: two passes, two tickets for one occurrence.
     """
@@ -383,84 +380,11 @@ def an_occurrence_that_could_not_be_taken_makes_no_ticket() -> None:
 
 
 @case
-def a_next_column_nobody_can_write_takes_no_occurrence() -> None:
-    """A formula is read, never written: Notion would drop the value silently."""
-    stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
-    runner = _recurring([_schedule_page("s-1", next=stale)], columns={"Next": "formula"})
-    assert runner.recur() == [] and runner.recur() == []
-    assert _schedules(runner).created == [] and _schedules(runner).written == []
-
-
-@case
 def a_workspace_with_nothing_that_repeats_is_a_workspace_that_runs() -> None:
-    """The whole feature is optional: no row, no warning, no difference."""
-    client = _FakeClient(
-        {"Tickets": "p-tickets", "Context": "p-context", "Objectifs": "p-goals"}, text="x"
-    )
-    space = workspace.from_notion(client, _settings())  # type: ignore[arg-type]  # a fake: a workspace in memory
-    assert space.schedules == ""
-    assert not space.warnings
-
-    present = _FakeClient(
-        {"Tickets": "p-tickets", "Context": "p-context", "Schedules": "p-schedules"}, text="x"
-    )
-    assert workspace.from_notion(present, _settings()).schedules  # type: ignore[arg-type]  # the same == "db-of-p-schedules"
-
-    # And a Runner reading a workspace without one asks Notion nothing at all.
+    """The whole feature is optional: a Runner reading a workspace without it asks nothing."""
     runner = _recurring([])
     runner._workspace = workspace.Workspace(tickets="db-tickets")
     assert runner.recur() == [] and runner.schedules() == []
-
-
-@case
-def the_schedules_database_is_built_after_the_tickets_it_points_at() -> None:
-    """A relation cannot name a database that does not exist yet."""
-    board = _Board()
-    provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake: a board in memory
-
-    schema = board._schemas["db-schedules"]
-    for expected in (
-        "Cadence",
-        "At",
-        "Day",
-        "Active",
-        "Next",
-        "Last",
-        "Last ticket",
-        "Type",
-        "Sous-type",
-    ):
-        assert expected in schema, expected
-    # The same options as the tickets', so a value copied across is one they offer.
-    tickets = board._schemas["db-tickets"]
-    for column in ("Type", "Sous-type"):
-        assert schema[column] == tickets[column], column
-    assert schema["Last ticket"]["relation"]["database_id"] == "db-tickets"
-    assert schema["Project"]["relation"]["database_id"] == "db-projects"
-    assert board.created.index("db-tickets") < board.created.index("db-schedules")
-
-    cadences = [option["name"] for option in schema["Cadence"]["select"]["options"]]
-    assert cadences == list(schedules.CADENCES)
-
-    # The example schedule is left unticked: an init must start nothing.
-    example = board._rows["db-schedules"]
-    assert len(example) == 1
-    row = provision.schedules_schema(_settings(), "db-tickets", "db-projects")
-    assert len(row) == 13, "twelve columns beside the title"
-
-
-@case
-def init_run_again_on_a_board_that_already_schedules_touches_nothing() -> None:
-    board = _Board()
-    provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake: a board in memory
-    before = dict(board._schemas["db-schedules"])
-    board.created.clear()
-
-    second = provision.provision(board, _settings(), "root")  # type: ignore[arg-type]  # a fake: a board in memory
-    assert board.created == [], "no second schedules database, no second example"
-    assert board._schemas["db-schedules"] == before
-    assert any("Schedules" in what for verb, what in second.steps if verb == "kept")
-    assert all(verb == "kept" for verb, _ in second.steps), second.steps
 
 
 @case

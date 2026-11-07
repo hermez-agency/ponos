@@ -81,8 +81,7 @@ UpgradePhase = Literal[
 class Picture(Shape):
     """One of a project's two pictures, as the console draws it.
 
-    `src` is the console's own address for the image, never the board's: a
-    file Notion keeps is behind a URL that is dead within the hour, so the
+    `src` is the console's own address for the image, never the board's: the
     server keeps a copy and serves that.
     """
 
@@ -95,7 +94,7 @@ class Picture(Shape):
     """Chosen here, and not yet taken by the board."""
     error: str = omitted()
     """Why the board did not take it — it is tried again at the next reading."""
-    conflict: Literal["notion", "console", ""] = omitted()
+    conflict: Literal["board", "console", ""] = omitted()
     """Changed on both sides between two readings: which side's picture won."""
 
 
@@ -235,11 +234,11 @@ class Ticket(Shape):
     scheduled: str
     created: str
     edited: str
-    """Notion's `last_edited_time`: when a done ticket closed, where the runner's history does not
-    say."""
+    """The page's `last_edited_time`: when a done ticket closed, where the runner's history does
+    not say."""
     sync: Literal["pending", "failed", "conflict"] = omitted()
-    """A move that has not reached Notion: on its way, refused, or not made
-    because Notion had been changed meanwhile — see `web/board.py`."""
+    """A move that has not reached the board: on its way, refused, or not made
+    because the ticket had been changed meanwhile — see `web/board.py`."""
     sync_error: str = omitted()
     """Why, when it is not on its way."""
     sync_status: str = omitted()
@@ -436,7 +435,7 @@ class Moved(Shape):
     status: str
     """The status as the board spells it."""
     sync: Literal["pending"] = omitted()
-    """On its way to Notion, and not there yet: see `web/board.py`."""
+    """On its way to the board, and not there yet: see `web/board.py`."""
 
 
 # -- projects ------------------------------------------------------------------
@@ -503,7 +502,7 @@ class ProjectBrief(Shape):
     version: str
     """What `saveProject` is handed back as `base`: refused if the page no longer says it."""
     losses: dict[str, int]
-    """The kinds of Notion content Markdown cannot hold, and how many of each."""
+    """What a save would drop of the page, by kind and count — empty: a page is its Markdown."""
 
 
 class ValidationField(Shape):
@@ -687,7 +686,7 @@ class ProjectDeleted(Shape):
     id: str
     name: str
     url: str
-    """Where the page can be restored from; empty on a board without Notion."""
+    """Where the page can be restored from; empty when the board has no such address."""
     tickets: int
     blocked: int
     trashed: int
@@ -696,8 +695,6 @@ class ProjectDeleted(Shape):
 class Projects(Shape):
     projects: list[Project]
     workspace_root: str
-    notion: bool
-    """Whether a Notion sits behind this board."""
 
 
 class Context(Shape):
@@ -706,9 +703,6 @@ class Context(Shape):
     text: str
     page: str
     """The page it is written on, "" where the workspace has none."""
-    where: str
-    """What that page is called, for the sentence that says it is missing."""
-    notion: bool
     editable: bool
 
 
@@ -872,10 +866,6 @@ class Schedules(Shape):
     timezone: str = omitted()
     """The zone the hours are said in (the runner's), for the calendar to lay them out in; empty
     when unknown."""
-    page: str
-    """What that page is called, for the sentence that says it is missing."""
-    notion: bool = omitted()
-    """Whether a Notion sits behind this board."""
     schedules: list[Schedule]
     choices: ScheduleChoices = omitted()
     """What the form offers for the type and the sub-type: only the columns the database has."""
@@ -1291,8 +1281,6 @@ class RunnerState(Shape):
     budget_spent: float
     """What the sessions have cost since midnight."""
     workspace_root: str
-    notion: bool
-    """Whether a Notion sits behind this board."""
     interval_seconds: int
     model: str
     permission_mode: str
@@ -1423,7 +1411,7 @@ class HealthCheck(Shape):
     """One check of `health.py`: a sentence with `{{name}}` holes, and the params that fill them."""
 
     code: str
-    group: Literal["notion", "github", "claude", "projects", "machine", "settings"]
+    group: Literal["board", "github", "claude", "projects", "machine", "settings"]
     state: Literal["ok", "warn", "error", "info"]
     """`info` is a setting said rather than judged: `ponos doctor`'s grey line, left off the band."""
     title: str
@@ -2001,7 +1989,7 @@ class Statistics(Shape):
     projects: list[ProjectCount]
     """The same tickets, by project; "" for a ticket with none."""
     dated: Dated
-    """How many closings the runner's history dated, and how many Notion's last edit had to."""
+    """How many closings the runner's history dated, and how many the page's last edit had to."""
     average: float | None
     """What a ticket closed in the period cost in all; null when none was."""
     blocks: Blocks = omitted()
@@ -2032,7 +2020,7 @@ class Goal(Shape):
     name: str
     url: str
     description: str
-    """The row's own columns, as written in Notion — empty where it has none."""
+    """The row's own columns, as written on the board — empty where it has none."""
     criterion: str
     due: str
     status: str
@@ -2058,8 +2046,6 @@ class Goals(Shape):
     """The options of the goals' status column, in the database's order."""
     configured: bool
     """Whether the workspace has a goals database at all."""
-    notion: bool = omitted()
-    """Whether a Notion sits behind this board."""
 
 
 class GoalNamed(Shape):
@@ -2070,7 +2056,7 @@ class GoalNamed(Shape):
 class GoalTicketFailed(Shape):
     id: str
     error: str
-    """Why Notion refused to point that ticket at the goal, or to release it."""
+    """Why the board refused to point that ticket at the goal, or to release it."""
 
 
 class GoalSaved(Shape):
@@ -2079,7 +2065,7 @@ class GoalSaved(Shape):
     """The tickets pointed at the goal, or released from it, by this save — none when the form did
     not send its tickets."""
     failed: list[GoalTicketFailed]
-    """Those Notion refused, each with why: the others were written all the same."""
+    """Those the board refused, each with why: the others were written all the same."""
 
 
 class GoalCreated(GoalSaved):
@@ -2472,7 +2458,6 @@ class SetupState(Shape):
     """The console drew a code when it started — without one, outside is refused."""
     container: bool
     version: str
-    notion: bool
 
 
 SetupHealth = Literal["ok", "missing", "error"]
@@ -2539,13 +2524,6 @@ class SetupModel(Shape):
 
 class SetupBoard(Shape):
     state: SetupHealth
-    notion: bool
-    workspace: str
-    """The ID, for the technical detail: `name` is what the page says."""
-    name: str
-    """The workspace's title on Notion, "" when Notion did not say it."""
-    url: str
-    """Where it opens on Notion, "" when Notion did not say it."""
     tickets: int | None
     """Null when the board could not be counted."""
     said: str
@@ -2609,34 +2587,6 @@ class SetupSummary(Shape):
     projects: SetupProjects
     channels: SetupChannels
     environment: SetupEnvironment
-
-
-class NotionProvisioned(Provisioned):
-    board: SetupBoard
-
-
-class SharedPage(Shape):
-    id: str
-    title: str
-    url: str
-
-
-class SharedBoard(Shape):
-    id: str
-    url: str
-
-
-class Shared(Shape):
-    """What Notion has shared with the integration so far."""
-
-    ok: bool
-    said: str
-    refused: bool = omitted()
-    """Notion said the token is not one of its own: the page says it, translated."""
-    name: str
-    """The integration's name, as Notion shows it in the Connections menu."""
-    pages: list[SharedPage]
-    boards: list[SharedBoard]
 
 
 class Repository(Shape):
@@ -2785,7 +2735,7 @@ class TalkEvent(Message):
 
 
 class SyncEvent(Shape):
-    """When the board last agreed with Notion, and what does not. `board.describe`."""
+    """When the console last read the whole board, and what does not agree. `board.describe`."""
 
     synced_at: str
     reconciled_at: str

@@ -1,6 +1,6 @@
 """Talking: the discussion on a ticket, the decisions a card waits on, and the chat's frame.
 
-Nothing here is a new place to talk. A ticket's discussion is the one Notion
+Nothing here is a new place to talk. A ticket's discussion is the one the board
 already holds, read as a conversation and answered in the thread the runner
 last spoke in; a decision is a comment on that same thread and, when the ticket
 goes back to work, a move. What is said from the console says it was relayed,
@@ -37,7 +37,7 @@ class Discussion(Base):
         """What has been said on one ticket, oldest first.
 
         This is the ticket's terminal, and it is not a new place to talk: it is
-        the discussion Notion already holds, read as a conversation. An answer
+        the discussion the board already holds, read as a conversation. An answer
         relayed from a phone — or from this console — wears the runner's token
         and is nonetheless yours, so it is shown under your name and without the
         line that says which device it came through.
@@ -60,7 +60,7 @@ class Discussion(Base):
         last = messages[-1] if messages else None
         return {
             "id": page_id,
-            "mention": self.config.notion.mention or conversation.MENTION,
+            "mention": conversation.MENTION,
             "messages": messages,
             "waiting": bool(
                 last
@@ -79,8 +79,8 @@ class Discussion(Base):
 
         Two things make it work. It goes **into the thread the runner last spoke
         in**, so it sits under the question and so the next pass finds a thread
-        it is part of. And it opens with `conversation.RELAYED`, because the only
-        Notion token this console has is the runner's own: without that line the
+        it is part of. And it opens with `conversation.RELAYED`, because the
+        console writes in the runner's own name: without that line the
         next run would read its own voice, and answer itself forever.
 
         A password or a token in it never reaches the page: it is masked here,
@@ -126,7 +126,7 @@ class Discussion(Base):
         stop reads the same, guessed from its words.
         """
         page, column, comments = self._waiting(page_id)
-        settings = self.config.notion
+        settings = self.config.board
         said = self.runner.voice
         if column == "review":
             found = decisions.delivered(comment.text for comment in comments)
@@ -209,7 +209,7 @@ class Discussion(Base):
         `who`, the account that chose, when the console is shared.
         """
         page, column, comments = self._waiting(page_id)
-        settings = self.config.notion
+        settings = self.config.board
         said = self.runner.voice
         if column == "review":
             solutions = decisions.deciding(
@@ -302,7 +302,7 @@ class Discussion(Base):
 
     def _waiting(self, page_id: str) -> tuple[store.Page, str, list[store.Comment]]:
         """A card that waits on you: its page, its column, what was said on it."""
-        settings = self.config.notion
+        settings = self.config.board
         page = self.reader.get(page_id) or self.runner.client.page(page_id)
         status = str(store.read(page, settings.prop("status")) or "")
         column = _columns(settings).get(status, "draft")
@@ -337,12 +337,12 @@ class Discussion(Base):
     def brief(self) -> str:
         """What the workspace conversation is told before your first sentence.
 
-        Written once per conversation, not once per message: it costs two Notion
-        reads, and repeating it every turn would spend them for a session that
-        already remembers. What it carries is the frame — who you are, what the
-        projects are, where they live — and one instruction that matters more
-        than the rest: the board is changed through `ponos`, not by
-        guessing at the Notion API.
+        Written once per conversation, not once per message: it costs two reads
+        of the board, and repeating it every turn would spend them for a session
+        that already remembers. What it carries is the frame — who you are, what
+        the projects are, where they live — and one instruction that matters
+        more than the rest: the board is changed through `ponos`, not by
+        guessing at its database.
         """
         configuration = self.config
         lines = [
@@ -355,8 +355,8 @@ class Discussion(Base):
             "- `ponos` is on your PATH. `ponos list`, `status`, `history`,",
             "  `projects`, `logs <id>` and `doctor` are how you look at the board;",
             "  `run` handles the ready tickets now.",
-            "- The Notion board is the source of truth for tickets. Read it through the",
-            "  `ponos` command rather than through the Notion API directly.",
+            "- The board (ponos.db, shown by the console) is the source of truth for",
+            "  tickets. Read it through the `ponos` command, never through the database.",
             "- You are not inside a ticket: nothing here has a worktree, a branch or a",
             "  pull request waiting. Work that deserves those is work that deserves a",
             "  ticket — say so, and offer to create one.",
@@ -391,9 +391,8 @@ def _relayed(said: voice.Voice, channel: str, who: str) -> str:
 def _voice(comment: store.Comment, me: str) -> str:
     """Who said this: the runner, or you.
 
-    `conversation.ours` is the answer wherever Notion will say who we are. Where
-    it will not — an integration without the *Read user information* capability —
-    the mark a report opens with is enough to *read* a discussion. It is not
+    `conversation.ours` is the answer wherever the board says who we are. Where
+    it does not, the mark a report opens with is enough to *read* a discussion. It is not
     enough to answer one, which is why `converse` stays silent in that case and
     this does not.
     """

@@ -157,7 +157,7 @@ def _serving(api: web_api.Api) -> Iterator[web_app.Console]:
     from ponos.web import server as web_server
 
     api._config = C.Config(
-        notion=api.config.notion,
+        board=api.config.board,
         runner=api.config.runner,
         projects={},
         path=Path("/nowhere/config.toml"),
@@ -213,7 +213,7 @@ def a_reader_sees_and_is_refused_and_a_member_validates_under_their_name(
     comment on the ticket says who, as does the ticket's audit; neither changes
     the settings or the accounts; and an account deleted is signed out.
     """
-    settings = C.Notion()
+    settings = C.BoardNames()
     with _board() as board:
         api = _ideas_api(board)
         said = api.runner.voice

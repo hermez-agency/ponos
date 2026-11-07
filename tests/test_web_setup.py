@@ -10,7 +10,6 @@ from typing import Any, cast
 from support import ROOT, _environment, _Fresh, _saved, case
 
 from ponos import config as C
-from ponos import notion
 from ponos.web import answers
 from ponos.web import api as web_api
 from ponos.web import base as web_base
@@ -126,109 +125,6 @@ def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing() ->
 
 
 @case
-def the_first_connection_finds_what_notion_shares_and_keeps_only_a_token_it_accepts() -> None:
-    """No page link to copy: what the integration can see is what is offered.
-
-    A token Notion refuses is said in words a newcomer can act on and is not
-    written — the board would otherwise be a 401 every few seconds. One it
-    accepts is written, and asked again with nothing typed: that is the poll the
-    page runs while somebody is in Notion sharing a page.
-    """
-    from ponos.web import setup as web_setup
-
-    path, _ = _saved()
-    api = _api(path)
-    original = notion.Client.my_name, notion.Client.shared
-    shared: dict[str, list[dict[str, Any]]] = {"pages": []}
-
-    def refused(self: notion.Client) -> str:
-        raise notion.NotionError("Notion 401: API token is invalid.")
-
-    try:
-        notion.Client.my_name = refused  # type: ignore[method-assign]  # a double: Notion says 401
-        said = web_setup.notion_shared(api, {"token": "ntn_wrong"})
-        assert said["ok"] is False and "notion.so/my-integrations" in said["said"], said
-        answers.Shared.model_validate(said)
-        assert C.read_secrets(C.secrets_path(path))["PONOS_NOTION_TOKEN"] == "ntn_real"
-
-        notion.Client.my_name = lambda self: "Ponos"  # type: ignore[method-assign]  # a double
-        notion.Client.shared = lambda self, directory: (  # type: ignore[method-assign]  # a double
-            shared["pages"],
-            [],
-        )
-        said = web_setup.notion_shared(api, {"token": "ntn_right"})
-        assert said["ok"] and said["name"] == "Ponos" and said["pages"] == []
-        assert api.config.notion.token == "ntn_right", "accepted, so written"
-        shared["pages"] = [{"id": "a" * 32, "title": "Ponos", "url": ""}]
-        said = web_setup.notion_shared(api, {})
-        assert [page["title"] for page in said["pages"]] == ["Ponos"], (
-            "the share is seen on the next ask"
-        )
-    finally:
-        notion.Client.my_name, notion.Client.shared = original  # type: ignore[method-assign]
-
-
-@case
-def the_board_step_needs_no_token_to_work_without_notion() -> None:
-    """No token is an installation whose board is `ponos.db`: nothing is missing, nothing is asked."""
-    from ponos.web import setup as web_setup
-
-    path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text("[notion]\n", encoding="utf-8")
-    api = _api(path)
-    with _environment(PONOS_NOTION_TOKEN=None):
-        drawn = web_setup._board(api)
-        # _Fresh has no board to count tickets on; what matters is that none asks for a token.
-        assert drawn["notion"] is False and "token" not in drawn["said"], drawn
-
-
-@case
-def what_is_shared_with_the_integration_is_pages_to_build_under_and_boards_already_built() -> None:
-    """A row of somebody's table is not a place for a board; a `ponos` database is one."""
-    client = notion.Client("ntn_x")
-    asked: list[dict[str, Any]] = []
-
-    def answer(
-        method: str, path: str, body: dict[str, Any] | None = None, **_: Any
-    ) -> dict[str, Any]:
-        asked.append(body or {})
-        assert body is not None
-        if body["filter"]["value"] == "page":
-            return {
-                "results": [
-                    {
-                        "id": "1" * 32,
-                        "url": "u1",
-                        "parent": {"type": "workspace"},
-                        "properties": {
-                            "title": {"type": "title", "title": [{"plain_text": "Home"}]}
-                        },
-                    },
-                    {
-                        "id": "2" * 32,
-                        "url": "u2",
-                        "parent": {"type": "database_id"},
-                        "properties": {
-                            "Name": {"type": "title", "title": [{"plain_text": "A ticket"}]}
-                        },
-                    },
-                ]
-            }
-        return {
-            "results": [
-                {"id": "3" * 32, "url": "u3", "title": [{"plain_text": "ponos"}]},
-                {"id": "4" * 32, "url": "u4", "title": [{"plain_text": "ponos archive"}]},
-            ]
-        }
-
-    client._request = answer  # type: ignore[method-assign]  # a double: Notion's search, answered
-    pages, boards = client.shared("ponos")
-    assert [page["title"] for page in pages] == ["Home"]
-    assert [board["id"] for board in boards] == ["3" * 32]
-    assert asked[1]["query"] == "ponos"
-
-
-@case
 def the_language_chosen_before_the_account_is_written_with_it() -> None:
     """The first step needs nobody signed in, and is written once somebody is."""
     from ponos.web import setup as web_setup
@@ -273,11 +169,10 @@ def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositorie
 
 @case
 def a_token_written_alone_is_read_by_the_console_without_a_restart() -> None:
-    """The first connection writes a Notion token to `secrets.env` and nothing else.
+    """A token written to `secrets.env` alone is the console's at once.
 
     A console that only watched `config.toml` kept the token it started with,
-    and the page that had just been told “Notion knows this token” went on
-    asking Notion with none.
+    and the page that had just been told a key was saved went on without it.
     """
 
     path, _ = _saved()
@@ -290,10 +185,10 @@ def a_token_written_alone_is_read_by_the_console_without_a_restart() -> None:
 
     console.chat = Chat()  # type: ignore[assignment]  # a double: no conversation
     secrets = C.secrets_path(path)
-    C.write_secrets(secrets, {"PONOS_NOTION_TOKEN": "ntn_pasted"})
+    C.write_secrets(secrets, {"PONOS_TELEGRAM_TOKEN": "123:pasted"})
     later = secrets.stat().st_mtime + 2
     os.utime(secrets, (later, later))
-    assert console.config.notion.token == "ntn_pasted"
+    assert console.config.notify.telegram.get("token") == "123:pasted"
 
 
 @case
@@ -316,7 +211,7 @@ def the_installer_gives_the_same_install_commands_as_doctor() -> None:
 
 @case
 def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through() -> None:
-    """A board without Notion is usable at once: nothing but a mark says the steps are still owed."""
+    """A board is usable at once: nothing but a mark says the steps are still owed."""
     from support import _state_home
 
     from ponos.web import setup as web_setup
@@ -327,44 +222,6 @@ def a_fresh_container_is_sent_to_the_steps_until_they_have_been_gone_through() -
         assert not web_setup.pending()
     with _state_home(), _environment(PONOS_CONTAINER=None):
         assert not web_setup.pending(), "a machine installed with install.sh is not sent there"
-
-
-@case
-def the_summary_names_a_notion_board_by_its_title_and_links_to_it() -> None:
-    """Thirty-two hexadecimal characters say nothing to whoever reads the summary."""
-    from types import SimpleNamespace
-
-    from ponos.web import setup as web_setup
-
-    workspace = "3a8451680af480918afcf0eb9cf70e7b"
-
-    class Answering(notion.Client):
-        def __init__(self, answer: dict[str, Any] | Exception) -> None:
-            super().__init__("ntn_setup")
-            self.answer = answer
-
-        def resolve_database(self, identifier: str) -> str:
-            return identifier
-
-        def database(self, database_id: str) -> dict[str, Any]:
-            if isinstance(self.answer, Exception):
-                raise self.answer
-            return self.answer
-
-    def titled(client: object) -> dict[str, str]:
-        api = SimpleNamespace(runner=SimpleNamespace(client=client))
-        return web_setup._titled(api, workspace)  # type: ignore[arg-type]
-
-    answered = {
-        "title": [{"plain_text": "Master "}, {"plain_text": "workspace"}],
-        "url": f"https://www.notion.so/{workspace}",
-    }
-    assert titled(Answering(answered)) == {
-        "name": "Master workspace",
-        "url": f"https://www.notion.so/{workspace}",
-    }
-    assert titled(Answering(notion.NotionError("object not found"))) == {}, "no name, no failure"
-    assert titled(object()) == {}, "a board that is not Notion has no title to read"
 
 
 @case

@@ -11,7 +11,7 @@ from typing import Any
 from support import FRONTEND, ROOT, _board_runner, _BoardClient, _reviewed, case
 
 from ponos import config as C
-from ponos import journal, provision, session, state, store, voice
+from ponos import journal, session, state, store, voice
 from ponos import ticket as ticket_module
 from ponos.web import statistics as web_statistics
 from ponos.web import tickets as web_tickets
@@ -112,7 +112,7 @@ def every_cause_is_described_whole_in_both_languages() -> None:
         "merge.push-refused",
         "merge.no-pr",
         "publish.failed",
-        "notion.write-failed",
+        "board.write-failed",
         "access.sudo",
         "access.credentials",
         "project.no-repo",
@@ -243,19 +243,12 @@ def a_session_that_did_not_finish_is_told_by_its_cause() -> None:
 
 
 @case
-def the_board_offers_the_column_and_doctor_names_it_when_it_is_missing() -> None:
+def the_board_offers_the_column_with_every_cause() -> None:
     from ponos import blocks
 
-    settings = C.Notion()
-    column = provision.tickets_schema(settings)["Blocage"]
-    options = [option["name"] for option in column["select"]["options"]]
-    assert options == list(blocks.CODES), options
-    assert "block" in store.COLUMNS and store.COLUMNS["block"][0] == ("select",)
+    settings = C.BoardNames()
+    assert store.options(settings, "Blocage") == list(blocks.CODES)
     assert store.shape(settings)["tickets"]["Blocage"] == "select"
-    from test_health import _columns
-
-    columns = _columns(settings, {"statut": "status"})
-    assert "“Blocage”" in columns.params["missing"], columns.params
 
 
 @case

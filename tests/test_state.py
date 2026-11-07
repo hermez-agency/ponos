@@ -83,7 +83,7 @@ def a_copy_of_a_secret_is_private_before_it_holds_anything() -> None:
 
     Written with the umask and tightened with `chmod` afterwards, each was
     readable by the group for the moment in between — the configuration holds
-    the Notion token, the bot tokens and the console's password.
+    the bot tokens and the console's password.
     """
     from ponos.web import server as web_server
 
@@ -100,7 +100,7 @@ def a_copy_of_a_secret_is_private_before_it_holds_anything() -> None:
     try:
         with _state_home():
             path = Path(tempfile.mkdtemp()) / "config.toml"
-            path.write_text('[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n')
+            path.write_text("[runner]\n")
             path.chmod(0o600)
             C.edit(path, [("runner", "model", "opus")])
             secret = web_server.token(C.load(path))

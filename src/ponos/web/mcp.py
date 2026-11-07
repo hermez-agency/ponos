@@ -2,8 +2,8 @@
 
 From claude.ai, from Claude Code, from a phone: a conversation that can see the
 tasks, open one, create one in the right project and answer the question a
-blocked one asks — without the Notion connector, and without knowing whether the
-board has a Notion behind it. What a tool hands back is a task, a
+blocked one asks — without knowing how the board is kept. What a tool hands
+back is a task, a
 project, an idea, a sum of money: never a page, a database or a property. The
 `Api` underneath is the console's own, so a task created here is the task the
 console's *New ticket* creates, and an answer is the comment the console's
@@ -141,8 +141,8 @@ TOOLS: list[dict[str, Any]] = [
         "scope": READ,
         "description": "Le compte Ponos au nom duquel vous agissez : l'adresse de la console, "
         "l'email de la personne qui s'y connecte, le client connecté (claude.ai, Claude Code…) et "
-        "son accès (lecture seule, ou lecture et écriture), où vit le tableau (Notion ou fichiers "
-        "Markdown), le nombre de projets et de tâches qui vous attendent. À appeler en premier pour "
+        "son accès (lecture seule, ou lecture et écriture), où vit le tableau (ponos.db), "
+        "le nombre de projets et de tâches qui vous attendent. À appeler en premier pour "
         "vérifier que le connecteur marche, ou quand on demande « qui suis-je ? ».",
         "inputSchema": _schema(),
     },
@@ -765,7 +765,7 @@ def _icon(project: dict[str, Any]) -> str:
 
 
 def _task(card: dict[str, Any]) -> dict[str, Any]:
-    """A card of the board, as a task: what any board says, and nothing of Notion's."""
+    """A card of the board, as a task: what any board says, and nothing of how it is kept."""
     return {
         "id": card["id"],
         "short": card["short"],
