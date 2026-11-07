@@ -779,6 +779,64 @@ class MemoriesImported(Memories):
     imported: int
 
 
+class SkillFile(Shape):
+    path: str
+    size: int
+
+
+class SkillClash(Shape):
+    project: str
+    project_name: str
+
+
+class Skill(Shape):
+    """A skill Ponos gives its sessions — see skills.py."""
+
+    id: int
+    name: str
+    description: str
+    enabled: bool
+    scope: list[str]
+    """Project ids; empty for every session."""
+    files: int
+    """Files beside the SKILL.md."""
+    created: str
+    updated: str
+    scope_names: list[str]
+    conflicts: list[SkillClash]
+    """Projects in its scope whose repository already holds a skill of that name: theirs wins."""
+
+
+class RepositorySkill(Shape):
+    name: str
+    description: str
+    project: str
+    project_name: str
+    repository: str
+
+
+class Skills(Shape):
+    skills: list[Skill]
+    repositories: list[RepositorySkill]
+    """What the repositories hold, read only."""
+    file_limit: int
+    """Bytes in one attached file."""
+
+
+class SkillOpened(Shape):
+    id: int
+    name: str
+    description: str
+    enabled: bool
+    scope: list[str]
+    files: int
+    created: str
+    updated: str
+    markdown: str
+    body: str
+    attached: list[SkillFile]
+
+
 class ContextSaved(Shape):
     ok: bool
     text: str

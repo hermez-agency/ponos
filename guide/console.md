@@ -663,6 +663,7 @@ you open it:
 | **Context** | the global context: the standing text every ticket is told first, for all the projects. Folded to a few lines, *See all* reads the rest, *Edit* writes it in place with the editor the brief uses; leaving with something typed asks first |
 | **Memory** | what Ponos remembers from one session to the next — see [Memory](#memory) below |
 | **Library** | reference files kept for the sessions — see [Library](#library) below |
+| **Skills** | the Claude Code skills Ponos gives its sessions — see [Skills](#skills) below |
 | **Vault** | Ponos's own vault — the keys, logins and notes the sessions are given, [kept encrypted](configuration.md#ponoss-own-vault-context--vault). An admin's: for a member or a reader the tab is not there, and the API answers 403 |
 
 The context used to sit beside the Projects page, and the vault was a tab of Settings; the
@@ -734,6 +735,44 @@ Over MCP, `list_library` (read) lists the files, for a project or a tag or a wor
 `get_library_file` reads one file's metadata — never its content. The API is `GET /api/library`,
 `POST /api/library/upload?name=…` (the raw file as the body), `PUT`/`DELETE /api/library/<id>` and
 `GET /api/library/<id>/file[?download=1]`.
+
+#### Skills
+
+A session is a Claude Code session, and Claude Code loads *skills*: a folder `.claude/skills/<name>/`
+with a `SKILL.md` (a frontmatter with `name` and `description`, then instructions) and any files
+beside it. **Skills** is where Ponos keeps the ones it gives its sessions, so that you see and choose
+what a session receives instead of committing them in every repository.
+
+The tab lists each skill with its **name**, **description**, **scope** (all the sessions, or the
+projects it is limited to) and **state** (*active* or *inactive*). *New skill* writes one: a name
+(lower case, digits and hyphens), a description — what it is for and when Claude should use it, which
+is what Claude reads to decide —, the body of the `SKILL.md` in the Markdown editor, and the scope.
+The pencil edits it and attaches or removes the files beside the `SKILL.md`; *Disable* keeps a skill
+but stops giving it; the bin deletes it. *Import a folder* and *Import a .zip* read a skill that
+already exists (the folder or the archive holds a `SKILL.md`, at its root or one level down; the name
+comes from its frontmatter, or the folder's name). Keys of the frontmatter Ponos does not edit
+(`allowed-tools`, for instance) are kept when you save.
+
+**Where they are kept.** In `ponos.db` (tables `skills` and `skill_files`): a skill is a few small
+files that the console writes and the runner reads, and the database keeps them in one transaction
+with their row, follows the backup of `ponos.db` and has no path on disk to validate. A file is 1 MB
+at most, a skill 100 files and 5 MB.
+
+**What reaches a session.** When a ticket's session starts on a repository, the active skills whose
+scope covers its project are written in its worktree, under `.claude/skills/<name>/` — the worktree of
+the ticket only, never the project's own checkout. Each folder carries a `.gitignore` made of `*`, so
+that the skills are in no commit and no pull request. A worktree picked up again has its skills
+redone, and a skill disabled since is removed from it. Another project's skills are never there.
+
+**The repository wins.** A skill the repository already provides (`.claude/skills/<name>` in the
+worktree) is never overwritten: Ponos's skill of that name is not placed for that project, the run
+says so, and the row shows a warning naming the projects concerned. Below the list, *In the
+repositories* shows, read only, the skills the projects' clones hold, each with the project and
+repository it comes from.
+
+Over MCP, `list_skills` (read) gives the same lists. The API is `GET`/`POST /api/skills`,
+`GET`/`PUT`/`DELETE /api/skills/<id>`, `POST /api/skills/<id>/files` and `DELETE
+/api/skills/<id>/file?path=…`, and `POST /api/skills/import`.
 
 ### Goals
 
@@ -1263,6 +1302,7 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `list_solutions` | Solutions d'une tâche en attente | read | why a blocked task stopped (its kind, its reason, what is done) or what a task in review delivered (sentence, pull request, checks, points to check), and the choices the console offers on a blocked ticket's discussion and its Decide tab |
 | `apply_solution` | Appliquer une solution | write | one of those choices: the decision and its instruction in the task's discussion, then the move — *ready*, *validated* or *done* |
 | `list_memories` | Mémoire | read | what Ponos remembers: facts with their type, scope, source and state (accepted, proposed, refused) |
+| `list_skills` | Skills | read | the skills Ponos gives its sessions (name, description, scope, state, clashes) and, read only, those the repositories hold |
 | `propose_memory` | Proposer un souvenir | write | a fact put to the person; it stays *proposed* — no session reads it — until accepted in Context → Memory |
 | `list_library` | Bibliothèque | read | the reference files kept for the sessions: name, description, tags, scope, type, size and path on this machine — the content is read from the path |
 | `get_library_file` | Un fichier de la bibliothèque | read | one file's metadata |
