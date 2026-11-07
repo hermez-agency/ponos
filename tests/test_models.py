@@ -187,13 +187,6 @@ def the_grid_is_the_configurations_and_an_empty_level_borrows_the_nearest() -> N
     writing = C.Runner(auto_model_light="", auto_model_writing="light").model_grid()
     text = models.choose("Un mot", "", kind="writing", code=False, grid=writing)
     assert text.model == "sonnet", text
-    # The grid is no key of the file any more: a line there changes nothing.
-    path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text(
-        '[runner]\nauto_model_heavy = "anthropic/claude-opus"\nauto_model_code = "massive"\n',
-        encoding="utf-8",
-    )
-    assert C.load(path).runner.model_grid().model("heavy") == "opus"
 
 
 @case
@@ -222,9 +215,6 @@ def a_config_has_no_fable_and_only_the_constant_brings_it_back() -> None:
     assert settings.auto_model_heaviest == "fable", "the level keeps its name"
     assert settings.model_grid().model("heaviest") == "opus"
     assert settings.allowed("fable") == "opus" and settings.allowed("sonnet") == "sonnet"
-    # Not a key of the file any more: a line there changes nothing.
-    path.write_text("[runner]\nuse_fable = true\n", encoding="utf-8")
-    assert C.load(path).runner.use_fable is False
     assert C.Runner(use_fable=True).allowed("fable") == "fable"
 
 

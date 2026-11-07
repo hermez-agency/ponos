@@ -18,7 +18,7 @@ from .github import _github_rights, _repository
 def _project(config: config_module.Config, row: dict[str, str]) -> list[Check]:
     name = row["name"]
     params = {"project": name}
-    resolver = projects.Resolver(config.runner.workspace_root, config.projects, config.github)
+    resolver = projects.Resolver(config.runner.workspace_root, config.github)
     path = resolver.locate(name, row["path"], row["repository"], row["id"])
     found: list[Check] = []
     if path is None:
@@ -157,7 +157,7 @@ def _workspace_root(config: config_module.Config) -> list[Check]:
                 ],
             )
         ]
-    resolver = projects.Resolver(root, config.projects, config.github)
+    resolver = projects.Resolver(root, config.github)
     index = resolver._index()  # noqa: SLF001 — diagnostics
     found = [
         _check(

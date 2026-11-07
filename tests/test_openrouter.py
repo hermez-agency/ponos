@@ -56,9 +56,8 @@ def a_routed_session_is_told_where_to_go_and_with_what() -> None:
         openrouter.environment(bare.openrouter)["ANTHROPIC_BASE_URL"]
         == "https://gw.example/anthropic"
     )
-    # The gateway is a constant: a line in the file does not move it.
-    blank = _config('[openrouter]\nkey = "k"\nbase_url = "https://gw.example"\n')
-    assert blank.openrouter.base_url == C.OPENROUTER_URL
+    # The gateway is a constant.
+    assert _config('[openrouter]\nkey = "k"\n').openrouter.base_url == C.OPENROUTER_URL
 
 
 @case

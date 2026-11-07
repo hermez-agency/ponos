@@ -260,7 +260,7 @@ def the_summary_and_doctor_agree_on_a_workspace_folder_that_does_not_exist_yet()
     path, _ = _saved(f'[runner]\nworkspace_root = "{root}"\n')
     api = _api(path)
     said = web_setup._projects(api.config)
-    assert said == {"state": "ok", "root": str(root), "repositories": 0, "configured": 0}
+    assert said == {"state": "ok", "root": str(root), "repositories": 0}
     assert root.is_dir()
     (check,) = health._workspace_root(api.config)
     assert check.state == health.OK, check

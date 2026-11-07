@@ -170,15 +170,15 @@ Sentences = Annotated[tuple[str, ...], BeforeValidator(_sentences)]
 class Table(BaseModel):
     """One table of the file.
 
-    A key nobody reads is left alone, as it always was: an installation keeps
-    lines an older version wrote, and its secrets until the launch moves them.
-    It is not kept quiet for all that — a misspelt key is a setting that does
-    nothing: `unknown` names it, for `ponos doctor` and the health band.
-    A number is read as text where text is wanted — a Telegram chat id is an
+    A key no table reads is refused, with its line (`read`): a misspelt key
+    is a setting that does nothing, and the file that holds one is a file
+    somebody believes says more than it does. What an older version wrote,
+    `ponos config` converts once (conversion.py) — the loader does not read
+    yesterday's format on the side. A number is read as text where text is wanted — a Telegram chat id is an
     integer to TOML and a string to everything downstream.
     """
 
-    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True, frozen=True)
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True, frozen=True)
 
 
 # -- the tables -----------------------------------------------------------------
@@ -218,8 +218,7 @@ class RunnerTable(Table):
     app_language: Text = Runner.app_language
     base_branch: Text = Runner.base_branch
     # The types of ticket the runner merges without waiting for a review, as
-    # a list rather than one boolean a type. `config.load` reads the four
-    # booleans a file still holds when this one is not written.
+    # a list rather than one boolean a type.
     force_validated: Annotated[tuple[str, ...], BeforeValidator(_forced)] = ()
     merge_method: Annotated[str, _one_of(MERGE_METHODS)] = Runner.merge_method
     local_ci: bool = Runner.local_ci
@@ -320,16 +319,11 @@ class PermissionsTable(Table):
 
 
 class VaultTable(Table):
-    """`[vault]`: what each project is given. `config._vault` checks what it can hand over.
-
-    An entry that cannot be handed over is said by `ponos doctor` rather than
-    refused here: the rest of the file, and the other projects, still work.
-    """
+    """`[vault]`: where a project's keys are read. Which ones it is given is its own (ponos.db)."""
 
     provider: Annotated[str, BeforeValidator(lambda value: str(value).strip().lower() or "env")] = (
         "env"
     )
-    projects: dict[str, Any] = Field(default_factory=dict)
 
 
 class GithubAccessTable(Table):
@@ -348,7 +342,6 @@ class File(Table):
     """The whole of `config.toml`."""
 
     runner: RunnerTable = Field(default_factory=RunnerTable)
-    projects: dict[str, str] = Field(default_factory=dict)
     web: WebTable = Field(default_factory=WebTable)
     notify: NotifyTable = Field(default_factory=NotifyTable)
     claude: ClaudeTable = Field(default_factory=ClaudeTable)
@@ -366,21 +359,63 @@ def read(raw: dict[str, Any], text: str, path: Path) -> File:
     """The file, validated — or a ConfigError with a line per value that is not read.
 
     The first line is the one the console shows when a save is refused; the
-    others are indented under it, as `ponos doctor` prints them.
+    others are indented under it, as `ponos doctor` prints them. A key or a
+    table no model knows is one of them, named with its line.
+
+    A secret the file still holds is the one exception, left out before the
+    file is read: the launch moves it into the vault (`config.move_secrets`),
+    and one that could not be moved is ignored and said (`config.exposed`), so
+    that a vault whose key is gone leaves Ponos on the environment rather than
+    stopped.
     """
     if "notion" in raw:
         line = line_of(text, ("notion",))
         at = f"{path}, line {line}" if line else str(path)
         raise ConfigError(
             f"{at}: [notion] — Ponos no longer works with Notion: the board is ponos.db. "
-            "Remove this table and every [notion.…] one from the file"
+            "Remove this table and every [notion.…] one from the file (ponos config does)"
         )
     try:
-        return File.model_validate(raw)
+        return File.model_validate(without_secrets(raw))
     except ValidationError as error:
-        raise ConfigError(
-            "\n  ".join(_said(detail, text, path) for detail in error.errors())
-        ) from None
+        # In the order of the file rather than of the model: read top to bottom.
+        said = [_said(detail, text, path) for detail in error.errors()]
+        raise ConfigError("\n  ".join(sorted(said, key=lambda line: _line(line, path)))) from None
+
+
+def without_secrets(raw: dict[str, Any]) -> dict[str, Any]:
+    """The parsed file less the secrets it may still hold, and the tables only they made.
+
+    `[openrouter]` was a table for its key alone: the key gone, nothing of it is left.
+    """
+    kept = {name: _copied(value) for name, value in raw.items()}
+    for table, key in SECRETS:
+        parts = table.split(".")
+        trail: list[dict[str, Any]] = [kept]
+        for part in parts:
+            node = trail[-1].get(part)
+            if not isinstance(node, dict):
+                break
+            trail.append(node)
+        else:
+            trail[-1].pop(key, None)
+            for depth in range(len(parts), 0, -1):
+                if trail[depth]:
+                    break
+                del trail[depth - 1][parts[depth - 1]]
+    return kept
+
+
+def _copied(value: object) -> Any:
+    return (
+        {name: _copied(item) for name, item in value.items()} if isinstance(value, dict) else value
+    )
+
+
+def _line(said: str, path: Path) -> int:
+    """The line one of `_said`'s sentences is about; 0 when it names none."""
+    found = re.match(rf"{re.escape(str(path))}, line (\d+):", said)
+    return int(found.group(1)) if found else 0
 
 
 def _said(detail: ErrorDetails, text: str, path: Path) -> str:
@@ -388,6 +423,8 @@ def _said(detail: ErrorDetails, text: str, path: Path) -> str:
     where = tuple(str(part) for part in detail["loc"])
     line = line_of(text, where)
     at = f"{path}, line {line}" if line else str(path)
+    if detail["type"] == "extra_forbidden":
+        return f"{at}: {_unknown(where, detail['input'])}"
     given = repr(detail["input"])
     if len(given) > 60:
         given = given[:57] + "…"
@@ -396,12 +433,12 @@ def _said(detail: ErrorDetails, text: str, path: Path) -> str:
 
 
 # A table header, `[notify.telegram]`, and the key a line sets, quoted or dotted.
-_HEADER = re.compile(r"^\s*\[\s*([^\[\]]+?)\s*\]\s*(?:#.*)?$")
+HEADER = re.compile(r"^\s*\[\s*([^\[\]]+?)\s*\]\s*(?:#.*)?$")
 _PART = r""""([^"]*)"|'([^']*)'|([A-Za-z0-9_-]+)"""
-_KEY = re.compile(rf"^\s*((?:{_PART})(?:\s*\.\s*(?:{_PART}))*)\s*=")
+KEY = re.compile(rf"^\s*((?:{_PART})(?:\s*\.\s*(?:{_PART}))*)\s*=")
 
 
-def _dotted(written: str) -> tuple[str, ...]:
+def dotted(written: str) -> tuple[str, ...]:
     return tuple(
         next(part for part in match.groups() if part is not None)
         for match in re.finditer(_PART, written)
@@ -417,11 +454,11 @@ def line_of(text: str, where: tuple[str, ...]) -> int:
     found, depth = 0, 0
     table: tuple[str, ...] = ()
     for number, line in enumerate(text.splitlines(), 1):
-        if header := _HEADER.match(line):
-            table = _dotted(header.group(1))
+        if header := HEADER.match(line):
+            table = dotted(header.group(1))
             path = table
-        elif key := _KEY.match(line):
-            path = table + _dotted(key.group(1))
+        elif key := KEY.match(line):
+            path = table + dotted(key.group(1))
         else:
             continue
         if len(path) > depth and where[: len(path)] == path:
@@ -429,177 +466,20 @@ def line_of(text: str, where: tuple[str, ...]) -> int:
     return found
 
 
-# -- what is written and read by nobody -----------------------------------------
-
-# The keys this version stopped reading when `config.toml` came down to what
-# somebody actually changes: each is now a constant of `config.py` (the default
-# its dataclass has always had), and a file that still writes one is read all
-# the same — `retired` names it for `ponos doctor`. The refusal of what no
-# table knows comes with the command that converts the file, not before: an
-# installation updated on its own must not stop on the line it was left with.
-# `force_validated_<type>` became the one list `force_validated`; the rest has
-# no successor. Tables whole — `[openrouter]`, `[speech]`, `[review]` — are here
-# key by key and have no model any more.
-REMOVED: dict[str, tuple[str, ...]] = {
-    "runner": (
-        "max_concurrent_per_project",
-        "relaunch_delay_seconds",
-        "min_free_memory_mb",
-        "max_load_per_core",
-        "session_workers",
-        "min_free_disk_mb",
-        "credit_reserve_percent",
-        "permission_mode",
-        "branch_prefix",
-        "fetch",
-        "push",
-        "open_pull_request",
-        "rebase",
-        "force_validated_code",
-        "force_validated_writing",
-        "force_validated_external",
-        "force_validated_publication",
-        "resolve_conflicts",
-        "resolve_conflicts_except",
-        "resolve_model",
-        "checks_timeout_minutes",
-        "local_ci_attempts",
-        "local_ci_concurrent",
-        "review_model",
-        "setup_timeout_minutes",
-        "keep_worktree_on_failure",
-        "attach_sessions",
-        "session_host",
-        "dry_run",
-        "prompt_file",
-        "document_prompt_file",
-        "delivery_prompt_file",
-        "notify",
-        "progress",
-        "progress_interval_seconds",
-        "reply",
-        "reply_interval_seconds",
-        "pr_review_comments",
-        "pr_review_mention",
-        "reply_scan",
-        "reply_timeout_minutes",
-        "reply_permission_mode",
-        "on",
-        "on_interval_seconds",
-        "on_max_depth",
-        "on_timeout_minutes",
-        "on_permission_mode",
-        "unblock_interval_seconds",
-        "schedule",
-        "update_interval_seconds",
-        "log_retention_days",
-        "clean_done_worktrees",
-        "stale_worktree_days",
-        "tmp_retention_hours",
-        "docker_prune",
-        "worktree_exclude",
-        "classify",
-        "classify_model",
-        "classify_confidence",
-        "auto_model",
-        "auto_model_light",
-        "auto_model_standard",
-        "auto_model_heavy",
-        "auto_model_heaviest",
-        "auto_model_code",
-        "auto_model_writing",
-        "auto_model_external",
-        "auto_model_publication",
-        "auto_model_subtype_bug",
-        "auto_model_subtype_feature",
-        "auto_model_subtype_improvement",
-        "auto_model_subtype_chore",
-        "auto_model_subtype_refactor",
-        "auto_model_subtype_perf",
-        "auto_model_subtype_docs",
-        "auto_model_subtype_security",
-        "auto_model_escalate",
-        "use_fable",
-    ),
-    "notify.telegram": ("default_project",),
-    "notify.slack": ("default_project",),
-    "notify": (
-        "replies",
-        "digest_day",
-        "digest_hour",
-    ),
-    "web": (
-        "trusted_proxies",
-        "poll_seconds",
-        "chat_timeout_minutes",
-        "chat_model",
-        "attachment_max_mb",
-        "attachment_days",
-        "send_after_transcription",
-    ),
-    "openrouter": (
-        "base_url",
-        "route_sessions",
-        "transcription_model",
-    ),
-    "speech": (
-        "enabled",
-        "voice_fr",
-        "voice_en",
-        "speed",
-    ),
-    "browser": ("default", "headless"),
-    "review": ("ci_retries",),
-    "budget": ("on_usd",),
-}
-
-
-def retired(raw: dict[str, Any], text: str) -> list[tuple[int, str]]:
-    """Each key the file still holds that is a constant now: its line and its dotted name."""
-    secrets = {(*table.split("."), key) for table, key in SECRETS}
-    found: list[tuple[int, str]] = []
-    for table, keys in REMOVED.items():
-        where = tuple(table.split("."))
-        node: object = raw
-        for part in where:
-            node = node.get(part) if isinstance(node, dict) else None
-        if not isinstance(node, dict):
-            continue
-        for key in keys:
-            if key in node and (*where, key) not in secrets:
-                found.append((line_of(text, (*where, key)), f"{table}.{key}"))
-    return sorted(found)
-
-
-def unknown(raw: dict[str, Any], text: str) -> list[tuple[int, str, str]]:
-    """Each key no table reads: its line, its dotted name, and the known one it is closest to.
-
-    `read` ignores them; this is what says so. A table whose keys are the
-    file's to choose — `[projects]`, `[github]` — has none,
-    and a table nobody knows is one key, its contents left unread.
-    """
-    exempt = (
-        {(*table.split("."), key) for table, key in SECRETS}
-        | {(*table.split("."), key) for table, keys in REMOVED.items() for key in keys}
-        # A table that has no model any more: its keys are said by `retired`.
-        | {(table,) for table in REMOVED if table not in File.model_fields}
+def _unknown(where: tuple[str, ...], given: object) -> str:
+    """What is said of a key, or a table, that is no part of the file."""
+    name = ".".join(where)
+    shown = f"[{name}]" if isinstance(given, dict) else name
+    what = "table" if isinstance(given, dict) else "key"
+    model: type[BaseModel] = File
+    for part in where[:-1]:
+        kind = model.model_fields[part].annotation if part in model.model_fields else None
+        if not (isinstance(kind, type) and issubclass(kind, Table)):
+            break
+        model = kind
+    close = difflib.get_close_matches(where[-1], list(model.model_fields), n=1)
+    hint = f" (did you mean {'.'.join((*where[:-1], close[0]))}?)" if close else ""
+    return (
+        f"{shown} is not a {what} of config.toml{hint} — "
+        "ponos config converts a file an older version wrote"
     )
-    found: list[tuple[int, str, str]] = []
-
-    def walk(model: type[Table], node: dict[str, Any], where: tuple[str, ...]) -> None:
-        for key, value in node.items():
-            path = (*where, key)
-            known = model.model_fields.get(key)
-            if known is None:
-                if path not in exempt:
-                    close = difflib.get_close_matches(key, model.model_fields, n=1)
-                    found.append((line_of(text, path), ".".join(path), close[0] if close else ""))
-            elif (
-                isinstance(kind := known.annotation, type)
-                and issubclass(kind, Table)
-                and isinstance(value, dict)
-            ):
-                walk(kind, value, path)
-
-    walk(File, raw, ())
-    return sorted(found)

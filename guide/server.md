@@ -25,9 +25,9 @@ Environment=GH_TOKEN=ghp_…
 Scope it to the repositories the runner may touch, and nothing else.
 
 **Paths differ from your laptop.** A project's `Path` property on the board names one
-machine's layout, and the server's is not the same. That is why a `[projects]` entry in
-the local configuration wins over it: each machine overrides what it needs, and the board
-keeps the mapping that suits the machine you use most.
+machine's layout, and the server's is not the same. That is why the *Repository path* of a
+project's Settings tab, kept in that machine's `ponos.db`, wins over it: each machine
+overrides what it needs, and the board keeps the mapping that suits the machine you use most.
 
 **The session link must cross the network.** A session that ran on the server left its
 transcript there, so a link opening a local terminal would find nothing. Set

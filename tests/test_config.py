@@ -69,9 +69,7 @@ def force_validated_is_off_for_every_type_until_the_file_says_otherwise() -> Non
     assert not any(
         quiet.forces_validation(kind) for kind in ("code", "writing", "external", "publication", "")
     )
-    runner = _config(
-        "[runner]\nforce_validated_code = true\nforce_validated_publication = true\n"
-    ).runner
+    runner = _config('[runner]\nforce_validated = ["code", "publication"]\n').runner
     assert runner.forces_validation("code") and runner.forces_validation("publication")
     assert not runner.forces_validation("writing")
     assert not runner.forces_validation("external")
@@ -96,7 +94,7 @@ def a_project_with_its_own_validation_overrides_the_file_both_ways() -> None:
     taken at its word, even against the file — on where the file is off, off
     where the file is on. And a database that cannot be read validates nothing.
     """
-    eager = _config("[runner]\nforce_validated_code = true\n")
+    eager = _config('[runner]\nforce_validated = ["code"]\n')
     quiet = _config("")
     page = "1234abcd-0000-0000-0000-00000000beef"
     with _state():
@@ -230,8 +228,8 @@ def a_project_page_sets_its_path_and_its_vault_keys_without_the_toml() -> None:
             page = board.create_row("projects", "Perso", {})
             api = _local_api(board)
             read = api.project_settings(page)
-            assert read["path"] == {"value": "", "file": ""}
-            assert read["vault"]["entries"] == {} and read["vault"]["file"] == {}
+            assert read["path"] == {"value": ""}
+            assert read["vault"]["entries"] == {} and "file" not in read["vault"]
             saved = api.save_project_settings(page, {"path": {"value": "~/workspace/perso"}})
             assert saved["path"]["value"] == "~/workspace/perso"
             saved = api.save_project_settings(
@@ -270,7 +268,6 @@ def the_interval_never_reaches_systemd_as_zero() -> None:
 def the_update_check_keeps_its_hourly_constant() -> None:
     """The interval of the check is no key any more: the file cannot ask for a fetch a second."""
     assert _config("").runner.update_interval_seconds == 3600
-    assert _config("[runner]\nupdate_interval_seconds = 5\n").runner.update_interval_seconds == 3600
     assert _config("").runner.auto_update is True
     assert _config("[runner]\nauto_update = false\n").runner.auto_update is False
 
@@ -397,14 +394,12 @@ def the_consoles_sign_in_may_live_in_the_environment_rather_than_the_file() -> N
 def the_consoles_trusted_proxies_come_from_the_file_or_else_the_environment() -> None:
     """Traefik's address is only known to the deployment: a container says it.
 
-    Not a key of the file any more: a line there is ignored, the environment answers.
+    Not a key of the file any more: the environment answers.
     """
     path, config = _saved()
     assert config.web.trusted_proxies == ("127.0.0.1", "::1"), "this machine, by default"
     with _environ(**{C.TRUSTED_PROXIES_ENV: " 10.0.1.5, ,10.0.2.0/24 "}):
         assert C.load(path).web.trusted_proxies == ("10.0.1.5", "10.0.2.0/24")
-        written, _ = _saved('\n[web]\ntrusted_proxies = ["192.0.2.1"]\n')
-        assert C.load(written).web.trusted_proxies == ("10.0.1.5", "10.0.2.0/24")
 
 
 @contextmanager

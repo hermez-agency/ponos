@@ -374,9 +374,6 @@ def a_key_granted_to_leadz_reaches_a_leadz_session_and_no_other(vault_home: Path
     used = vault_store.listing()[0]
     assert (used["last_ticket"], used["last_project"]) == ("ticket-42", "leadz")
     assert vault_store.history(made["id"])[0]["action"] == "read"
-    # `[vault]` may name it too, and wins over the page on the same variable.
-    runner.config = _config('[vault]\n[vault.projects]\nPonos = { MA_CLE = "ponos:MA_CLE" }\n')
-    assert runner._secrets(_job("Ponos")) == {"MA_CLE": SECRET}
     text = prompt.build(
         prompt.DEFAULT,
         project="Leadz",
@@ -395,7 +392,7 @@ def a_key_granted_to_leadz_reaches_a_leadz_session_and_no_other(vault_home: Path
     assert runner._secrets(job) == {"MA_CLE": SECRET, "MA_CLE_URL": "https://openrouter.ai/keys"}
     assert job.addresses == ["MA_CLE_URL"]
     assert vault.mask("https://openrouter.ai/keys") == "https://openrouter.ai/keys"
-    assert runner._secrets(_job("Ponos")) == {"MA_CLE": SECRET}, "no address it was not granted"
+    assert runner._secrets(_job("Ponos")) == {}, "nor the address of a key it was not granted"
     text = prompt.build(
         prompt.DEFAULT,
         project="Leadz",
@@ -607,7 +604,6 @@ def _serving(api: web_api.Api) -> Iterator[web_app.Console]:
     api._config = C.Config(
         board=api.config.board,
         runner=api.config.runner,
-        projects={},
         path=Path("/nowhere/config.toml"),
         web=C.Web(email="salva@example.com", password="the owner's own"),
     )

@@ -117,9 +117,8 @@ class Section:
     title: str
     blurb: str
     fields: tuple[Field, ...] = ()
-    # The sections that are not lists of known keys: `[projects]` and
-    # `[github]` are mappings you add rows to, and the console draws them as
-    # such. The name of the table is the name of the list `describe` sends.
+    # The section that is not a list of known keys: `[github]` is a mapping
+    # you add rows to, and the console draws it as such. The name of the table is the name of the list `describe` sends.
     pairs: str = ""
     # The page this card is on — one of `GROUPS`.
     group: str = ""
@@ -178,17 +177,6 @@ GROUPS: tuple[Group, ...] = (
 # The folded blocks a group may end on, as `key: (title, blurb)`. None today:
 # the board's names are fixed (see `config.PROPERTIES`).
 FOLDS: dict[str, tuple[str, str]] = {}
-
-# Keys the file still reads but the page no longer draws, and the field that
-# says the same thing now. Saving that field removes the old line, so a file
-# moves to the new key the first time somebody touches it — and one that is
-# never touched keeps working as it did. See `save`.
-LEGACY: dict[str, str] = {
-    # `runner.notify` came first and said "one desktop notification per ticket";
-    # `notify.desktop` falls back on it, and is the one the page shows.
-    "runner.notify": "notify.desktop",
-}
-
 
 # Within a group, the order is the order of need: the card somebody setting up
 # a board fills in first, then the ones they come back to. Within a card, the
@@ -661,17 +649,6 @@ SECTIONS: tuple[Section, ...] = (
         ),
     ),
     Section(
-        key="projects",
-        group="code",
-        title="Project folders",
-        blurb=(
-            "Which folder on this machine holds a project's repository. Only needed "
-            "when it is not found on its own: a `path` or `github` property on the project "
-            "page does the same, for every machine."
-        ),
-        pairs="projects",
-    ),
-    Section(
         key="github",
         group="code",
         title="GitHub accounts",
@@ -921,24 +898,22 @@ def _table(raw: dict[str, Any], table: str) -> dict[str, Any]:
 
 # The four switches of the validation card are one key of the file, the list
 # `runner.force_validated`: the page keeps drawing one switch per type, and these
-# two read and write the list from them. A file that still has the old booleans
-# is read as they say (see `config._runner`) and loses them on its first save.
+# two read and write the list from them.
 FORCED = "force_validated_"
 
 
 def _forced(raw: dict[str, Any], kind: str) -> bool | None:
-    """Is this type in the file's list — or, for an older file, its own boolean; None if unsaid."""
+    """Is this type in the file's list; None if the file has none."""
     table = _table(raw, "runner")
     if isinstance(table.get("force_validated"), list):
         return kind in [str(item).strip().lower() for item in table["force_validated"]]
-    old = table.get(f"{FORCED}{kind}")
-    return old if isinstance(old, bool) else None
+    return None
 
 
 def _forced_changes(
     config: Config, raw: dict[str, Any], given: dict[str, object]
 ) -> list[tuple[str, str, object]]:
-    """The one list the switches make, and the old booleans that go.
+    """The one list the switches make.
 
     What a switch left alone says is what the runner does today, so touching
     one never turns another on or off.
@@ -946,14 +921,8 @@ def _forced_changes(
     now = {kind: config.runner.forces_validation(kind) for kind in config_module.TYPES}
     for kind, value in given.items():
         now[kind] = bool(value)
-    held = _table(raw, "runner")
-    present = [
-        ("runner", f"{FORCED}{kind}", None)
-        for kind in config_module.TYPES
-        if f"{FORCED}{kind}" in held
-    ]
     chosen = [kind for kind in config_module.TYPES if now[kind]]
-    return [*present, ("runner", "force_validated", chosen)]
+    return [("runner", "force_validated", chosen)]
 
 
 def _fallback(config: Config, entry: Field) -> object:
@@ -1114,10 +1083,6 @@ def describe(config: Config) -> dict[str, Any]:
         ],
         "sections": sections,
         "docker": {"available": docker.available, "installed": docker.installed},
-        "projects": [
-            {"name": name, "value": str(path)}
-            for name, path in sorted(_table(raw, "projects").items())
-        ],
         "github": [
             {"name": owner, "value": str(account)}
             for owner, account in sorted(_table(raw, "github").items())
@@ -1214,11 +1179,10 @@ def _value(entry: Field, offered: object) -> object:
 def _pairs(raw: dict[str, Any], table: str, offered: object) -> list[tuple[str, str, object]]:
     """One `name = value` table as the browser now has it, against what is there.
 
-    The two the file holds: `[projects]`, a project's name and a path, and
-    `[github]`, an owner and the account it is worked under. Both are mappings
-    you add rows to rather than lists of known keys, so both are saved by what
-    the browser sends *in full* — a row that is no longer there is a line that
-    goes away.
+    The one the file holds: `[github]`, an owner and the account it is
+    worked under. A mapping you add rows to rather than a list of known keys,
+    so it is saved by what the browser sends *in full* — a row that is no
+    longer there is a line that goes away.
     """
     if not isinstance(offered, list):
         raise ValueError(f"{table}: a list of {{name, value}}")
@@ -1270,19 +1234,12 @@ def save(config: Config, payload: dict[str, Any]) -> dict[str, Any]:
             forced[entry.key.removeprefix(FORCED)] = given
             continue
         changes.append((entry.table, entry.key, given))
-        # The key it replaces goes with it: one line in the file says it, not two
-        # that might disagree. See `LEGACY`.
-        for old, new in LEGACY.items():
-            if new == entry.name:
-                table, _, key = old.rpartition(".")
-                changes.append((table, key, None))
 
     raw = config_module.read_raw(config.path)
     if forced:
         changes += _forced_changes(config, raw, forced)
-    for table in ("projects", "github"):
-        if table in payload:
-            changes += _pairs(raw, table, payload[table])
+    if "github" in payload:
+        changes += _pairs(raw, "github", payload["github"])
 
     if not changes:
         return {"saved": [], "after": []}

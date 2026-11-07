@@ -7,7 +7,8 @@ The `ponos` command, from a terminal.
 ## Usage
 
 ```sh
-ponos config       # open config.toml in your editor
+ponos config       # convert config.toml if an older version wrote it, else open it in your editor
+ponos config --convert       # convert it if it needs it, and never open an editor
 ponos list         # the ready tickets, and their project
 ponos daemon       # hold the places and fill each one as it frees — what ponos.service runs (--dry-run)
 ponos run          # start now what can start: the daemon is asked, or this runs alone when there is none

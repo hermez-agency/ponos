@@ -18,8 +18,6 @@ from .check import ERROR, INFO, OK, WARN, Check, _check
 def _settings(config: config_module.Config) -> list[Check]:
     return [
         *_secrets(config),
-        *_keys(config),
-        *_retired(config),
         *_languages(config.runner),
         *_validation(config.runner),
         *_self_review(config.runner),
@@ -123,41 +121,6 @@ def _secrets(config: config_module.Config) -> list[Check]:
             title,
             "No secret in {{file}}, none in Ponos's vault either: the environment holds them.",
             params={"file": config.path.name},
-        )
-    ]
-
-
-def _keys(config: config_module.Config) -> list[Check]:
-    """A key of config.toml no table reads: a setting that does nothing, said rather than refused."""
-    return [
-        _check(
-            "settings.keys",
-            WARN,
-            "Configuration",
-            "{{file}}, line {{line}}: {{key}} is not a known key — did you mean {{match}}?"
-            if match
-            else "{{file}}, line {{line}}: {{key}} is not a known key.",
-            params={"file": config.path.name, "line": str(line), "key": key, "match": match},
-            cause="It is ignored, and its default applies.",
-        )
-        for line, key, match in config.unknown
-    ]
-
-
-def _retired(config: config_module.Config) -> list[Check]:
-    """The keys of config.toml that are constants now: read as the default, and told once."""
-    if not config.retired:
-        return []
-    names = ", ".join(key for _, key in config.retired)
-    return [
-        _check(
-            "settings.retired",
-            INFO,
-            "Configuration",
-            "{{file}} still holds {{count}} keys that are constants now ({{keys}}).",
-            params={"file": config.path.name, "count": str(len(config.retired)), "keys": names},
-            cause="They are ignored, and each one's default applies.",
-            steps=["Delete those lines; the file keeps working as it is until then."],
         )
     ]
 
@@ -308,20 +271,16 @@ def _self_review(settings: config_module.Runner) -> list[Check]:
     ]
 
 
-def _grants(config: config_module.Config) -> tuple[dict[str, dict[str, str]], list[str]]:
-    """What each project is given: `[vault.projects]` of an older file, then the project's own keys.
+def _grants() -> tuple[dict[str, dict[str, str]], list[str]]:
+    """What each project is given: the keys its Settings tab keeps in `ponos.db`.
 
-    The project's Settings tab keeps its keys in `ponos.db` (project_settings.py);
-    one of them replaces the file's for the same variable. A key the runner
-    keeps for itself is refused here as it is when the file names it.
+    A key the runner keeps for itself is refused here, as the session would be refused it.
     """
-    grants = {name: dict(granted) for name, granted in config.vault.projects.items()}
+    grants: dict[str, dict[str, str]] = {}
     found: list[str] = []
     reserved = config_module.reserved_variables()
     for name, entries in project_settings.every_vault().items():
-        kept = grants.setdefault(
-            next((one for one in grants if one.casefold() == name.casefold()), name), {}
-        )
+        kept = grants.setdefault(name, {})
         for variable, item in entries.items():
             why = vault.problems(variable, item, reserved)
             if why:
@@ -339,7 +298,7 @@ def _vault(config: config_module.Config) -> list[Check]:
     """
     settings = config.vault
     title = "Vault"
-    grants, own_problems = _grants(config)
+    grants, own_problems = _grants()
     found = [
         _check(
             "settings.vault",

@@ -18,9 +18,7 @@ What is reached, and what never is, is the whole of the decision:
   directory go — except one holding changes nobody committed;
 - **the ideas** found for the project are dropped, with their cost. **History**
   (what was spent, how it ended) is kept as it is: the global statistics are a
-  sum over it, and a deleted project's spending still happened;
-- a **`[projects]` line** of the configuration naming it goes too, otherwise the
-  project would come straight back as one "from the configuration".
+  sum over it, and a deleted project's spending still happened.
 
 A session running on one of its tickets refuses the deletion. Stopping a session
 from here would be a second gesture hidden in the first one.
@@ -30,7 +28,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import config as config_module
 from .. import ideas, state, store
 from ..ticket import short_id
 from . import live
@@ -101,8 +98,6 @@ class Removal(Base):
         url = client.trash(bare)
         dropped = ideas.forget(bare)
         removed, kept = self.runner.drop_for(shorts)
-        if name in self.config.projects:
-            config_module.edit(self.config.path, [("projects", name, None)])
         # Shown gone at once: the index is read again, the tickets with it, and
         # every open console hears of it without waiting for the next poll.
         self.forget_projects()

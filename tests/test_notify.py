@@ -472,9 +472,7 @@ def a_channel_exists_only_once_both_of_its_values_are_there() -> None:
 def the_switch_that_came_first_still_means_what_it_said() -> None:
     """`runner.notify` was the desktop notification; it is a constant now, `notify.desktop` the key."""
     assert _config("").notify.desktop is True
-    assert _config("[runner]\nnotify = false\n").notify.desktop is True
     assert _config("[notify]\ndesktop = false\n").notify.desktop is False
-    assert _config("[runner]\nnotify = false\n\n[notify]\ndesktop = true\n").notify.desktop is True
 
 
 @case

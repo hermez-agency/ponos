@@ -69,6 +69,7 @@ from ponos import (  # noqa: E402
     project_settings,
     provider,
     question,
+    schema,
     state,
     store,
     tickets,
@@ -1220,8 +1221,11 @@ def bench(**overrides: object) -> Iterator[Bench]:
             (root / "config.toml").write_text(
                 CONFIGURATION.format(
                     workspace=root / "workspace",
+                    # Only the keys the file has: the rest is put on the runner (`load`).
                     settings="\n".join(
-                        f"{key} = {json.dumps(value)}" for key, value in settings.items()
+                        f"{key} = {json.dumps(value)}"
+                        for key, value in settings.items()
+                        if key in schema.RunnerTable.model_fields
                     ),
                 ),
                 encoding="utf-8",

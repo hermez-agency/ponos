@@ -756,7 +756,7 @@ interface GroupExtras {
   fields: SettingField[]
   /** Drawn at the top of a card — the console's own language, on the languages card. */
   extra: (section: SettingSection) => React.ReactNode
-  /** A card that is a list of rows rather than of fields: `[projects]`, `[github]`. */
+  /** A card that is a list of rows rather than of fields: `[github]`. */
   pairs: (section: SettingSection) => React.ReactNode
   note: SaveNote | null
 }

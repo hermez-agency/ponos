@@ -570,7 +570,7 @@ def health_says_a_daemon_that_does_not_run_and_how_many_places_it_holds() -> Non
     assert stopped.state == "error" and "not running" in stopped.said, "enabled is not enough"
     assert health._service(Service("disabled")).state == "error"
 
-    config = _config("[runner]\ninterval_seconds = 120\nmax_concurrent = 3\nprogress = false\n")
+    config = _config("[runner]\ninterval_seconds = 120\nmax_concurrent = 3\n")
     with (
         _patched(health.shutil, which=lambda name: f"/usr/bin/{name}"),
         _patched(
@@ -943,12 +943,13 @@ def health_says_what_leaves_the_machine_unread_and_what_cannot_be_merged() -> No
 
 
 @case
-def health_says_which_key_each_project_is_given_by_the_vault() -> None:
-    from ponos import health
+def health_says_which_key_each_project_is_given_by_the_vault(state_home: Path) -> None:
+    from ponos import health, project_settings
 
     assert _verdicts(health._vault(_config(""))) == [("settings.vault", "info")]
     assert health._vault(_config('[vault]\nprovider = "1pass"\n'))[0].state == "error"
-    granted = _config('[vault.projects.Ponos]\nNPM_TOKEN = "env:PONOS_TEST_NPM"\n')
+    granted = _config("")
+    project_settings.set_vault("ponos-1", "Ponos", {"NPM_TOKEN": "env:PONOS_TEST_NPM"})
     with _environment(PONOS_TEST_NPM="npm_0123456789abcdef"):
         found = health._vault(granted)
     assert ("settings.vault", "ok") in _verdicts(found) and health.problems(found) == 0
@@ -1054,7 +1055,7 @@ def doctor_finds_a_sound_installation_in_place_and_a_broken_one_wrong(state_home
     C.private_state()  # as a launch leaves it, see `__main__`
     root = Path(tempfile.mkdtemp())
     path = root / "config.toml"
-    path.write_text(f'[runner]\nworkspace_root = "{root}"\nmin_free_disk_mb = 5120\n')
+    path.write_text(f'[runner]\nworkspace_root = "{root}"\n')
     with _environment(PONOS_CONFIG=str(path)), _machine():
         code, said = _doctor_said(cli.command_doctor, None)
     assert code == 0, said

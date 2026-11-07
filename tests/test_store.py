@@ -45,12 +45,7 @@ def the_board_is_ponos_db() -> None:
 
 @case
 def the_console_lists_every_project_it_knows_of() -> None:
-    """The board's own, and the ones only the configuration names.
-
-    A name the file maps to a path and the board has never heard of is still a
-    project of this installation — and the row says so, rather than sending
-    somebody looking for a page that does not exist.
-    """
+    """The board's own, each with where its repository is."""
     with _board() as board:
         code = board.create_row("projects", "ponos", {"Repository": "user/repo"})
         board.create_row("projects", "Site vitrine", {})
@@ -58,7 +53,6 @@ def the_console_lists_every_project_it_knows_of() -> None:
         board.update("tickets", ticket, {"Project": [code]})
 
         api = _local_api(board)
-        api._config.projects["Jeu d'usine"] = "/home/salva/workspace/usine"
         asked: list[str] = []
         query = api.runner.client.query
 
@@ -71,7 +65,7 @@ def the_console_lists_every_project_it_knows_of() -> None:
         assert api.runner.database not in asked, "the tickets are the console's to count"
 
     rows = {project["name"]: project for project in drawn["projects"]}
-    assert set(rows) == {"ponos", "Site vitrine", "Jeu d'usine"}
+    assert set(rows) == {"ponos", "Site vitrine"}
     assert rows["ponos"]["kind"] == "code"
     assert rows["ponos"]["repository"] == "user/repo"
     # Counted by the console on the tickets it already holds: a count here was
@@ -79,8 +73,6 @@ def the_console_lists_every_project_it_knows_of() -> None:
     assert "tickets" not in rows["ponos"]
     # No repository declared anywhere: a document project, not a broken one.
     assert rows["Site vitrine"]["kind"] == "document"
-    assert rows["Jeu d'usine"]["source"] == "config"
-    assert rows["Jeu d'usine"]["path"] == "/home/salva/workspace/usine"
 
 
 @case
@@ -266,7 +258,7 @@ def a_project_is_created_from_the_console_with_what_its_page_says() -> None:
             ticket = api.create_ticket("Un ticket", project=code["id"])["id"]
             relation = store.read(board.page(ticket), board.settings.prop("project"))
             assert relation == [code["id"]]
-            found = projects.Resolver(root, {}).resolve(board, relation[0])
+            found = projects.Resolver(root).resolve(board, relation[0])
             assert found.path == clone and found.github == code["repository"]
         finally:
             shutil.rmtree(root, ignore_errors=True)
@@ -299,7 +291,7 @@ def a_project_is_created_from_a_folder_and_names_its_remote() -> None:
         assert made["path"] == str(clone)
         assert made["repository"] == "https://github.com/SalvadorCardona/jeu"
         assert store.read(board.page(made["id"]), "Path") == str(clone)
-        found = projects.Resolver(Path(directory), {}).resolve(board, made["id"])
+        found = projects.Resolver(Path(directory)).resolve(board, made["id"])
         assert found.path == clone and found.is_code
 
 
@@ -343,22 +335,6 @@ def a_project_the_console_cannot_create_is_refused_before_anything_is_written() 
         assert "repository_error" in checked and "path_error" in checked
         checked = api.check_project("owner/name")
         assert checked == {"repository": "https://github.com/owner/name", "cloned": ""}
-
-
-@case
-def a_project_the_configuration_alone_names_gets_its_page_under_its_own_name() -> None:
-    """A line of `[projects]` the board has no page for does not take its name:
-    the page made under it is that project's, and the line becomes its path."""
-    with _board() as board:
-        api = _creatable(board)
-        api._config.projects["Atelier"] = "/home/salva/workspace/atelier"
-        assert [row["source"] for row in api.all_projects()["projects"]] == ["config"]
-
-        api.create_project({"name": "Atelier", "kind": "document"})
-
-        rows = api.all_projects()["projects"]
-        assert [(row["name"], row["source"]) for row in rows] == [("Atelier", "board")]
-        assert rows[0]["configured"] == "/home/salva/workspace/atelier"
 
 
 @case
@@ -489,7 +465,7 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost() 
 
         # The ticket is still reachable, and the runner refuses its project.
         try:
-            projects.Resolver(Path(tempfile.mkdtemp()), {}).resolve(board, code)
+            projects.Resolver(Path(tempfile.mkdtemp())).resolve(board, code)
         except (LookupError, store.StoreError):
             pass
         else:
@@ -537,7 +513,7 @@ def a_project_in_the_trash_does_not_resolve() -> None:
             return store.Page(id=page_id, url="", title="Site", raw={"archived": True})
 
     try:
-        projects.Resolver(Path(tempfile.mkdtemp()), {}).resolve(Backend(), "p" * 32)  # type: ignore[arg-type]  # a fake: one page, archived
+        projects.Resolver(Path(tempfile.mkdtemp())).resolve(Backend(), "p" * 32)  # type: ignore[arg-type]  # a fake: one page, archived
     except LookupError as error:
         assert "deleted" in str(error) and "Site" in str(error)
     else:
@@ -570,7 +546,7 @@ def a_brief_is_saved_only_from_the_version_it_was_opened_at() -> None:
         assert board.blocks_text(page) == "# Voix\n\n* Écris en français."
         assert written["version"] != opened["version"]
         assert (
-            projects.Resolver(Path("/nowhere"), {}).brief(board, page)
+            projects.Resolver(Path("/nowhere")).brief(board, page)
             == "# Voix\n\n* Écris en français."
         )
 

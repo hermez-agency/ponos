@@ -795,32 +795,20 @@ class Permissions:
 
 @dataclass
 class Vault:
-    """Which keys each project's sessions are given, and where they are read. See vault.py.
+    """Where a project's keys are read. See vault.py.
 
-    `projects` is `project → {VARIABLE: item}`: the variable the session sees,
-    and the item the provider holds it under — prefixed with another provider
-    (`pass:hermez/npm`) when that one key lives elsewhere. A project the table
-    does not name is given nothing. `problems` is what the file asked for and
-    cannot have, said by `ponos doctor` rather than discovered in a ticket.
+    Which keys each project's sessions are given is the project's own, in
+    `ponos.db` (`project_settings.vault`). `problems` is what the file asked
+    for and cannot have, said by `ponos doctor` rather than discovered in a ticket.
     """
 
     provider: str = "env"
-    projects: dict[str, dict[str, str]] = field(default_factory=dict)
     problems: tuple[str, ...] = ()
-
-    def granted(self, project: str) -> dict[str, str]:
-        """The variables that project may have — matched however the board spells it."""
-        wanted = project.strip().casefold()
-        for name, secrets in self.projects.items():
-            if name.strip().casefold() == wanted:
-                return dict(secrets)
-        return {}
 
 
 @dataclass
 class Config:
     runner: Runner
-    projects: dict[str, str]
     path: Path
     web: Web = field(default_factory=Web)
     notify: Notify = field(default_factory=Notify)
@@ -842,12 +830,6 @@ class Config:
     # The secrets `config.toml` still holds, as `table.key` — ignored, and said
     # so: see `move_secrets`.
     exposed: tuple[str, ...] = ()
-    # The keys no table reads, as `(line, "table.key", "the known key it is
-    # closest to")` — ignored, and said so: see `schema.unknown`.
-    unknown: tuple[tuple[int, str, str], ...] = ()
-    # The keys the file holds that are constants now — line and dotted name:
-    # see `schema.REMOVED`.
-    retired: tuple[tuple[int, str], ...] = ()
 
     @property
     def console_url(self) -> str:
@@ -1440,12 +1422,11 @@ def load(path: Path | None = None, *, secrets: dict[str, str] | None = None) -> 
     secrets, the environment, the defaults that depend on where this runs.
     """
     target = path or config_path()
-    raw, file, unknown, retired = _validated(target)
+    raw, file = _validated(target)
     stored = kept_secrets() if secrets is None else secrets
-    runner = _runner(file.runner, _section(raw, "runner"))
+    runner = _runner(file.runner)
     return Config(
         runner=runner,
-        projects={name: os.path.expanduser(value) for name, value in file.projects.items()},
         path=target,
         web=_web(file.web, stored),
         notify=_notify(file.notify, stored, runner),
@@ -1465,8 +1446,6 @@ def load(path: Path | None = None, *, secrets: dict[str, str] | None = None) -> 
         github=dict(file.github),
         github_access=_github_access(file.github_access, stored),
         exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),
-        unknown=unknown,
-        retired=retired,
     )
 
 
@@ -1487,17 +1466,10 @@ def readable() -> bool:
     return True
 
 
-def _validated(
-    target: Path,
-) -> tuple[
-    dict[str, Any],
-    schema.File,
-    tuple[tuple[int, str, str], ...],
-    tuple[tuple[int, str], ...],
-]:
-    """The file as TOML says it, read against schema.py, and the keys it reads none of.
+def _validated(target: Path) -> tuple[dict[str, Any], schema.File]:
+    """The file as TOML says it, and read against schema.py.
 
-    Or a ConfigError naming what is wrong.
+    Or a ConfigError naming what is wrong — a key no table reads included.
     """
     if not target.exists():
         raise ConfigError(
@@ -1517,25 +1489,12 @@ def _validated(
             "This version's environment is missing it — ponos update --environment makes it, "
             "and so does the next run"
         ) from error
-    return (
-        raw,
-        schema.read(raw, text, target),
-        tuple(schema.unknown(raw, text)),
-        tuple(schema.retired(raw, text)),
-    )
+    return raw, schema.read(raw, text, target)
 
 
-def _runner(table: schema.RunnerTable, raw: dict[str, Any]) -> Runner:
-    """The runner the file describes: its ~16 keys, every other setting the constant it was.
-
-    The four `force_validated_<type>` booleans a file still holds are read when
-    it does not write `force_validated` — a retired key stays tolerated, and the
-    machine whose file says `force_validated_code = true` keeps merging its code.
-    """
-    if "force_validated" in table.model_fields_set:
-        forced = table.force_validated
-    else:
-        forced = tuple(kind for kind in VALIDATED if raw.get(f"force_validated_{kind}") is True)
+def _runner(table: schema.RunnerTable) -> Runner:
+    """The runner the file describes: its ~16 keys, every other setting the constant it was."""
+    forced = table.force_validated
     read = table.model_dump(exclude={"force_validated"})
     return Runner(
         **{
@@ -1609,7 +1568,9 @@ def read_github_access(raw: dict[str, Any], stored: dict[str, str]) -> GithubAcc
     from . import schema
 
     try:
-        table = schema.GithubAccessTable.model_validate(_section(raw, "github_access"))
+        table = schema.GithubAccessTable.model_validate(
+            _section(schema.without_secrets(raw), "github_access")
+        )
     except ValueError:  # pydantic's ValidationError
         table = schema.GithubAccessTable()
     return _github_access(table, stored)
@@ -1633,34 +1594,8 @@ def reserved_variables() -> set[str]:
 
 
 def _vault(table: schema.VaultTable) -> Vault:
-    """`[vault]`, checked: what cannot be handed over is said.
-
-    A project's secrets are written either as a table — `NPM_TOKEN =
-    "hermez/npm"`, the variable and the item it is read from — or as a list of
-    names, each read under its own name. An entry that is no variable name, or
-    that would take the place of one of the runner's own keys, is left out and
-    named in `problems`: a session must never be handed a project's
-    `ANTHROPIC_API_KEY` in place of the one the runner chose.
-    """
+    """`[vault]`, checked: a provider Ponos does not know is said."""
     found: list[str] = []
     if table.provider not in vault.PROVIDERS:
         found.append(f"vault.provider = {table.provider!r} is none of {', '.join(vault.PROVIDERS)}")
-    reserved = reserved_variables()
-    projects: dict[str, dict[str, str]] = {}
-    for project, entries in table.projects.items():
-        if isinstance(entries, dict):
-            pairs = [(str(name).strip(), str(item).strip()) for name, item in entries.items()]
-        elif isinstance(entries, (list, tuple)):
-            pairs = [(str(name).strip(), str(name).strip()) for name in entries]
-        else:
-            found.append(f"vault.projects.{project} is neither a table nor a list")
-            continue
-        kept: dict[str, str] = {}
-        for variable, item in pairs:
-            why = vault.problems(variable, item, reserved)
-            if why:
-                found.append(f"vault.projects.{project}: {why}")
-                continue
-            kept[variable] = item
-        projects[str(project)] = kept
-    return Vault(provider=table.provider, projects=projects, problems=tuple(found))
+    return Vault(provider=table.provider, problems=tuple(found))

@@ -69,10 +69,9 @@ BROWSER = "browser"
 # repository and Ponos, and fix tickets in the drafts.
 DIAGNOSTIC = "diagnostic"
 # Where its repository is on this machine — see projects.py: a string. Absent,
-# `[projects]` in the file, then the page's `path` property.
+# the page's `path` property.
 PATH = "path"
-# The keys the vault gives its sessions — see vault.py: `{VARIABLE: item}`, read
-# beside `[vault.projects]`, which a project's own entry replaces key by key.
+# The keys the vault gives its sessions — see vault.py: `{VARIABLE: item}`.
 VAULT = "vault"
 
 

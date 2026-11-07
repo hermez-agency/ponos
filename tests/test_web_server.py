@@ -47,7 +47,6 @@ def the_console_only_listens_beyond_localhost_when_told_to() -> None:
 
     configuration = C.Config(
         runner=C.Runner(),
-        projects={},
         path=Path("/nowhere/config.toml"),
         web=C.Web(host="0.0.0.0"),
     )
@@ -63,7 +62,6 @@ def _web_config(**web: Any) -> C.Config:
     """A configuration that is nothing but its [web] table."""
     return C.Config(
         runner=C.Runner(),
-        projects={},
         path=Path("/nowhere/config.toml"),
         web=C.Web(**web),
     )

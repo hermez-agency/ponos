@@ -455,11 +455,9 @@ An address written anywhere the console shows text — an answer, the output of 
 step of a session, a comment on a ticket — is a link you can click. A pull request the
 runner just opened is one click away, not a URL to read out loud into another tab.
 
-**Projects** is every project this installation knows of, from wherever it knows it: the
-[projects database](board.md#the-projects-database) of your board, the `[projects]` table of your
-configuration, and where the repository turned out to be on this disk. One name on a card
-that says which of the three it came from, how many tickets point at it, and what it
-declares — so "no repository could be found" has somewhere to be answered. A search field
+**Projects** is every project of the [projects database](board.md#the-projects-database) of
+your board, and where its repository turned out to be on this disk. One name on a card
+that says how many tickets point at it, and what it declares — so "no repository could be found" has somewhere to be answered. A search field
 finds a project by a part of its name (or its type) and a *Type* menu keeps the code projects or
 the documents; both are kept in the address, so a shared link or a reload opens the same list.
 
@@ -481,18 +479,13 @@ that, its *brief* — the audience, the voice, the conventions, the things never
 every ticket of that project is told before it is told the ticket. *Edit* opens the same
 four fields the page holds: the name, the repository, the path, and the brief itself. What
 is written goes to the column your page already carries — `Repository`, `github` or `repo`,
-whichever you named it — rather than to a second one beside it. A project only `[projects]`
-names has no page to write to, so it says so and points at the settings, where that line
-lives; over its tickets, where *New ticket* would be, it says *This project has no page:
-create it to attach tickets to it*, with a link that opens *New project* on its name and its
-path — the page made under that name is that project's, and the `[projects]` line its path.
+whichever you named it — rather than to a second one beside it.
 
 **What else a project's page gathers.** Its *Schedules* tab (`&tab=schedules`) is the list of
 the schedules whose tickets are for it, in a table or a calendar, with *New schedule* already
 set on the project. Under the figures of its *Tickets* tab, a *Goals* box lists the active goals
 that name it, each with *n of m tickets done* and its bar, and *See every goal of the project*
-opens the Goals page kept to it. A project only `[projects]` names has neither: a schedule and
-a goal point at a page.
+opens the Goals page kept to it.
 
 **A project can be deleted** — from its card or row (the “…” menu) and from its page, next to
 *Edit*. A dialog names it, counts the tickets that point at it and asks for its name before
@@ -504,9 +497,7 @@ the board by default, but the ready and in-progress ones are put in *Blocked* wi
 saying why; a checkbox in the dialog trashes them too. The GitHub repository, the folder on
 this machine and the branches are never touched, only the throwaway worktrees under the state
 directory are cleaned (one with uncommitted changes is kept). The project's ideas are deleted;
-**what it spent stays in the history**, since the global statistics are a sum over it. A
-`[projects]` line of the configuration naming it is removed too, or it would come straight
-back as a project “from the configuration”. A project with a session running on one of its
+**what it spent stays in the history**, since the global statistics are a sum over it. A project with a session running on one of its
 tickets cannot be deleted: stop the session or wait for it to end. A ticket that still points
 at a trashed project is blocked by the runner, never worked on.
 
@@ -601,9 +592,9 @@ what you save here keeps the comments that were around the line.
 Each section of the file is a page of its own, and the one you are on is in the address:
 `/?view=console/settings/read/config/notify` is a link to the notification settings that
 you can send to somebody. Only that section is drawn, and what you typed in one you left
-is given back when you come back to it. `[projects]` and `[github]` are the two sections
-you add rows to rather than fields you fill, so they are tables under that page, each with
-its own *add* dialog and a confirmation before a row goes.
+is given back when you come back to it. `[github]` is the section you add rows to rather
+than fields you fill, so it is a table under that page, with its own *add* dialog and a
+confirmation before a row goes.
 
 The sections follow what you are trying to do rather than the tables of the file — *Running
 tickets*, *Models and usage*, *Repositories and pull requests*, *Notifications*… — from the

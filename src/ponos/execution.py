@@ -605,7 +605,7 @@ class Execution(Base):
         return github_token.session_environment(owner) if owner else {}
 
     def _secrets(self, job: Job) -> dict[str, str]:
-        """The keys `[vault]` grants this job's project, read now — see vault.py.
+        """The keys this job's project is given, read now — see vault.py.
 
         Read at every session rather than kept: a token rotated in the keyring
         is the one the next session gets. Under the runner's own variables, so
@@ -614,8 +614,8 @@ class Execution(Base):
         ticket runs without it.
 
         Ponos's own vault adds the entries Context → Vault grants the project
-        (vault_store.py), under what `[vault]` says: a line of the file is the
-        more deliberate of the two. What the session is given of it is written
+        (vault_store.py), under what the project's Settings tab names: a line
+        written for the one project is the more deliberate of the two. What the session is given of it is written
         in the vault's journal, with the ticket.
         """
         if self.dry_run:
@@ -626,11 +626,7 @@ class Execution(Base):
         except (sqlite3.Error, OSError) as error:
             self.say(f"    ! the vault of Ponos cannot be read: {error}")
             kept = {}
-        granted = {
-            **kept,
-            **self.config.vault.granted(project),
-            **project_settings.vault(job.project.page_id),
-        }
+        granted = {**kept, **project_settings.vault(job.project.page_id)}
         if getattr(job, "kind", "") == "diagnostic":
             # The entries the project's SSH hosts name, declared on its settings
             # page for this road alone: a deliberate grant, read like the others.

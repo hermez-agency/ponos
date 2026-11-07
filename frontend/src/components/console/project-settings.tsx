@@ -443,8 +443,7 @@ function PlanCard({
  * `.ponos/setup.sh` runs if it has one. */
 /* Where the repository is on this machine, and the keys the project's
  * sessions are given from the vault: both live in ponos.db now, typed and
- * saved with their button like the setup below. What an older config.toml
- * still says is shown, read-only, until the file is converted. */
+ * saved with their button like the setup below. */
 function PathCard({
   path,
   saving,
@@ -479,11 +478,6 @@ function PathCard({
           <Label htmlFor="project-path-value" className="leading-snug font-semibold">
             {t("Path")}
           </Label>
-          {path.file ? (
-            <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
-              {t("An older config.toml still says {{path}} under [projects].", { path: path.file })}
-            </p>
-          ) : null}
           <div className="mt-2.5 flex gap-2">
             <Input
               id="project-path-value"
@@ -532,7 +526,6 @@ function VaultCard({
   const t = useT()
   const [text, setText] = React.useState(toLines(vault.entries))
   const changed = text.trim() !== toLines(vault.entries).trim()
-  const inherited = Object.keys(vault.file)
   return (
     <Card data-card="project-vault" className="gap-0 py-0">
       <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
@@ -562,13 +555,6 @@ function VaultCard({
               )}
             />
           </p>
-          {inherited.length ? (
-            <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
-              {t("An older config.toml still grants {{keys}} under [vault.projects].", {
-                keys: inherited.join(", "),
-              })}
-            </p>
-          ) : null}
           <Textarea
             id="project-vault-entries"
             className="mt-2.5 font-mono text-[13px]"

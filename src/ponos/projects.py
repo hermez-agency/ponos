@@ -2,8 +2,7 @@
 
 Three ways, in this order, from the most explicit to the least:
 
-1. the path set in the project's Settings tab (`ponos.db`), or a `[projects]` entry
-   still read from an older configuration — the project's name, the path;
+1. the path set in the project's Settings tab (`ponos.db`);
 2. a **`path` property on the project page**, which keeps the mapping
    on the board rather than in a file on one machine;
 3. the project's `github` property, matched against the `origin` remotes of the
@@ -123,11 +122,9 @@ class Resolver:
     def __init__(
         self,
         workspace_root: Path,
-        overrides: dict[str, str],
         accounts: dict[str, str] | None = None,
     ) -> None:
         self._root = workspace_root
-        self._overrides = overrides
         # Which GitHub account each owner is worked under: asking about a
         # repository, and cloning one, are as much that account's business as
         # the pull request is. See `git.token_for`.
@@ -167,13 +164,13 @@ class Resolver:
             return ""
 
     def _declared(self, name: str, page_id: str = "") -> str:
-        """The path the project is given by Ponos: its own setting first, then `[projects]`.
+        """The path the project is given in its Settings tab, "" when it is given none.
 
         Imported here: `project_settings` reads `kinds`, which reads this module.
         """
         from . import project_settings
 
-        return project_settings.path(page_id) or self._overrides.get(name, "")
+        return project_settings.path(page_id)
 
     def locate(self, name: str, path: str = "", github: str = "", page_id: str = "") -> Path | None:
         """Where the clone of a project is on this disk, or None if it is nowhere.

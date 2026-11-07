@@ -210,7 +210,7 @@ def max_concurrent_per_project_is_a_constant_of_two() -> None:
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "config.toml"
         assert C.Runner().max_concurrent_per_project == 2
-        path.write_text("[runner]\nmax_concurrent_per_project = 3\n", encoding="utf-8")
+        path.write_text("[runner]\n", encoding="utf-8")
         assert C.load(path).runner.max_concurrent_per_project == 2
 
 
@@ -971,8 +971,7 @@ def _paid_then_cut(failure: Exception) -> list[dict[str, Any]]:
     with _board() as board:
         path = Path(tempfile.mkdtemp()) / "config.toml"
         path.write_text(
-            "[runner]\ndry_run = false\nprogress = false\nreply = false\n"
-            "auto_update = false\nnotify = false\nattach_sessions = false\n",
+            "[runner]\nauto_update = false\n",
             encoding="utf-8",
         )
         page_id = board.create_row(

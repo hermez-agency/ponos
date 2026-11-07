@@ -562,12 +562,11 @@ def _recurring(
     runner.client = _ScheduleClient(pages, tickets, refuses, marks, columns)  # type: ignore[assignment]  # a fake: only the schedules
     runner.config = C.Config(
         runner=C.Runner(schedule=schedule, max_load_per_core=0),
-        projects={},
         path=Path("/nowhere"),
         notify=C.Notify(desktop=False),
     )
     runner._workspace = workspace.Workspace(tickets="db-tickets", schedules="db-schedules")
-    runner.resolver = projects.Resolver(Path("/nowhere"), {})
+    runner.resolver = projects.Resolver(Path("/nowhere"))
     runner.agent_label = "ponos@laptop"
     runner.quiet = True
     runner.dry_run = dry_run
@@ -780,7 +779,6 @@ def _board_runner(
         # No update looked for mid-pass: that is a `git fetch` of this checkout.
         # Nor the load of whatever else this machine runs: a test case asks for it.
         runner=C.Runner(auto_update=False, max_load_per_core=0),
-        projects={},
         path=Path("/nowhere"),
         notify=C.Notify(desktop=False),
     )
@@ -1079,7 +1077,6 @@ def _bare_api(client: Any, me: str = "runner-id") -> web_api.Api:
     api.hub = web_live.Hub()
     api._config = C.Config(
         runner=C.Runner(),
-        projects={},
         path=Path("/nowhere/config.toml"),
         web=C.Web(),
     )
@@ -1292,7 +1289,6 @@ def _local_api(board: ledger.Ledger) -> web_api.Api:
     api = _bare_api(board, me=board.me())
     api._config = C.Config(
         runner=C.Runner(),
-        projects={},
         path=Path("/nowhere/config.toml"),
         web=C.Web(),
     )
@@ -1301,7 +1297,7 @@ def _local_api(board: ledger.Ledger) -> web_api.Api:
     runner.config = api._config
     runner._workspace = board.workspace(api._config.board)
     # Where a project's clone is looked for, for the page that says it.
-    runner.resolver = projects.Resolver(api._config.runner.workspace_root, {})
+    runner.resolver = projects.Resolver(api._config.runner.workspace_root)
     # What `state()` folds in and nothing here exercises: the chat and the
     # command line are the console's own, and have no board behind them.
     api.chat = type("Chat", (), {"defaults": lambda self: {}})()

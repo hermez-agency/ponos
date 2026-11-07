@@ -946,7 +946,6 @@ def the_runner_never_runs_a_cancelled_ticket_even_when_named() -> None:
         runner._journals = {}
         runner.config = C.Config(
             runner=C.Runner(),
-            projects={},
             path=Path("/nowhere/config.toml"),
             web=C.Web(),
         )
@@ -1555,28 +1554,6 @@ def the_settings_are_five_pages_and_every_key_is_on_one_of_them_once() -> None:
     assert [group["key"] for group in drawn["groups"]] == groups
     assert drawn["folds"] == []
     assert {section["group"] for section in drawn["sections"]} == set(groups)
-
-
-@case
-def the_old_desktop_switch_is_one_field_and_moves_when_touched() -> None:
-    """`runner.notify` and `notify.desktop` said the same thing in two places.
-
-    The page draws the second only; a save of it takes the old line away, so
-    the file ends up saying it once. The old key is retired: nothing reads it.
-    """
-    assert "runner.notify" not in web_settings.FIELDS
-    assert web_settings.LEGACY["runner.notify"] in web_settings.FIELDS
-    path, config = _saved("\n[runner]\nnotify = false\n")
-    drawn = {
-        field["name"]: field
-        for section in web_settings.describe(config)["sections"]
-        for field in section["fields"]
-    }
-    assert drawn["notify.desktop"]["fallback"] is True, "the old key answers no more"
-    web_settings.save(config, {"settings": {"notify.desktop": True}})
-    text = path.read_text()
-    assert "notify = false" not in text and "desktop = true" in text, text
-    assert C.load(path).notify.desktop is True
 
 
 @case

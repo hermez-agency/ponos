@@ -64,10 +64,8 @@ def _history() -> None:
 def the_digest_is_off_unless_asked(state_home: Path) -> None:
     assert digest.period(_config("").notify, _local(2, 12)) is None
     assert _config('[notify]\ndigest = "monthly"\n').notify.digest == "off", "a typo asks nothing"
-    settings = _config(
-        '[notify]\ndigest = "weekly"\ndigest_day = "friday"\ndigest_hour = 18\n'
-    ).notify
-    # The day and the hour are constants: Monday at nine, whatever a file still says.
+    settings = _config('[notify]\ndigest = "weekly"\n').notify
+    # The day and the hour are constants: Monday at nine.
     assert (settings.digest, settings.digest_day, settings.digest_hour) == ("weekly", "monday", 9)
 
 

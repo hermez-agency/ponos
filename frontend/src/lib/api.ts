@@ -469,7 +469,6 @@ export const api = {
     answer(client.POST("/api/chat/{identifier}/queue/discard", { params: { path: { identifier: chat } } })),
   saveSettings: (payload: {
     settings: Record<string, SettingValue>
-    projects?: Pair[]
     github?: Pair[]
   }) => answer(client.POST("/api/settings", { body: payload })),
   saveContext: (text: string) => answer(client.POST("/api/context", { body: { text } })),

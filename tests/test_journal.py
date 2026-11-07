@@ -224,7 +224,7 @@ def every_road_out_of_a_ticket_closes_its_run(state_home: Path) -> None:
     try:
         runner = Runner.__new__(Runner)
         runner._journals = {}
-        runner.config = C.Config(runner=C.Runner(), projects={}, path=Path("/nowhere"))
+        runner.config = C.Config(runner=C.Runner(), path=Path("/nowhere"))
         runner.dry_run = False
         written: list[str] = []
 

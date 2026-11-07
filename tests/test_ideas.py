@@ -20,6 +20,7 @@ from ponos import (
     ids,
     kinds,
     progress,
+    project_settings,
     schedules,
     session,
     store,
@@ -483,7 +484,7 @@ def ideas_for_a_project_are_found_in_one_call_and_never_proposed_twice(state_hom
         subprocess.run(["git", "init", "-q", str(clone)], check=True)
         (clone / "README.md").write_text("# Usine\n\nConstruire des chaînes de production.\n")
         api = _ideas_api(board)
-        api._config.projects["Usine"] = str(clone)
+        project_settings.set_path(project, "Usine", str(clone))
 
         first = [
             _idea(f"Idée numéro {word}")

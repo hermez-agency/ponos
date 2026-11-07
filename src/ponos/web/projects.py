@@ -92,11 +92,9 @@ class Projects(Base):
     def all_projects(self) -> dict[str, Any]:
         """Every project this installation knows of, from wherever it knows it.
 
-        Three sources, and the pane shows the three as one list because that is
-        how somebody thinks of their projects: the board's own database; the
-        `[projects]` table of the configuration, which is a path this machine
-        maps a name onto; and — for either of those — where the repository
-        actually turned out to be on this disk.
+        Two sources, and the pane shows them as one list because that is how
+        somebody thinks of their projects: the board's own database, and where
+        the repository actually turned out to be on this disk.
 
         A configuration entry for a project the board already has is not a
         second project: it is the same one, with its path resolved. Only a name
@@ -108,24 +106,9 @@ class Projects(Base):
             known = self.projects()
         except store.StoreError:
             known = {}
-        overrides = dict(self.config.projects)
         for project in sorted(known.values(), key=lambda item: item["name"].lower()):
-            filed = overrides.pop(project["name"], "")
-            declared = project_settings.path(project["id"]) or filed
+            declared = project_settings.path(project["id"])
             rows.append({**project, "configured": declared, "source": "board"})
-        for name, path in sorted(overrides.items(), key=lambda pair: pair[0].lower()):
-            rows.append(
-                {
-                    "id": "",
-                    "name": name,
-                    "kind": "code",
-                    "url": "",
-                    "repository": "",
-                    "path": path,
-                    "configured": path,
-                    "source": "config",
-                }
-            )
         # No count of tickets per project: that was the whole tickets database
         # read again on every call, three hundred pages to write six numbers,
         # while the console already holds every ticket the stream sent it. It

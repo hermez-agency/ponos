@@ -8,7 +8,8 @@ The configuration file, who answers the sessions, GitHub and the vault.
 
 Everything lives in **`~/.config/ponos/config.toml`**, created by the installer
 with mode `600` — everything but the secrets. `ponos config` opens it in
-`$EDITOR`. The copies the console makes when it saves (`config.toml.bak`, and the scratch
+`$EDITOR` — once it has converted a file an older version wrote, see
+[*A file from an older version*](#a-file-from-an-older-version-ponos-config). The copies the console makes when it saves (`config.toml.bak`, and the scratch
 copy it checks before swapping it in) are created `600` too, as are the console's token,
 the session logs — under a `logs/` directory only your account can enter —, the files
 attached in the console's chat and `ponos.db`: each is created with that mode rather than
@@ -62,23 +63,45 @@ that neither file still holds a secret.
 pydantic): what a key may hold, its default, and the rules the runner always applied — a
 value under a key's floor is the floor (`interval_seconds = 0` is one second), a word that
 is none of a key's choices is the default (a typo in `update_channel` is `release`, never
-`main`), an amount left blank is no limit, and a key nobody reads is left alone. A value
-none of that reads — a port that is not a number, a list where a word goes — stops the
-runner, the console's save and `ponos doctor` with the key and its line:
+`main`), and an amount left blank is no limit. A value none of that reads — a port that is
+not a number, a list where a word goes — stops the runner, the console's save and
+`ponos doctor` with the key and its line:
 
 ```text
 ✗ /home/you/.config/ponos/config.toml, line 12: web.port = 'eighty' — Input should be a valid integer, unable to parse string as an integer
 ```
 
-A key nobody reads is not refused — a file keeps what an older version wrote — but it is
-not kept quiet either: a misspelt key is a setting that does nothing. `ponos doctor` and the
-console's health band warn of it, with its line and the known key it is closest to:
+So does a key, or a table, that no model reads: a misspelt key is a setting that does
+nothing while looking like one. The line names it, and the known one it is closest to:
 
 ```text
-! Configuration: config.toml, line 4: runner.max_concurent is not a known key — did you mean max_concurrent?
+✗ /home/you/.config/ponos/config.toml, line 4: runner.max_concurent is not a key of config.toml (did you mean runner.max_concurrent?) — ponos config converts a file an older version wrote
 ```
 
 The secrets an older version wrote in the file are not among them: those are moved, see above.
+
+### A file from an older version: `ponos config`
+
+The file came down to some thirty keys in four steps, and what left it is listed, key by
+key, in the `CHANGELOG.md` entry of that version. A file written before is converted once,
+by hand, with:
+
+```sh
+ponos config            # converts, says what moved — and opens the file when there was nothing to convert
+ponos config --convert  # converts, and never opens an editor
+```
+
+It keeps the file as it was beside it (`config.toml.old.bak`), moves the secrets still in it
+into Ponos's vault, each `[projects]` line into the *Repository path* of that project's
+Settings tab and each `[vault.projects]` table into its *Vault keys* (what the project
+already says wins), writes the four `force_validated_<type>` booleans as the one
+`force_validated` list, and removes every retired key and table — `[notion]`,
+`[openrouter]`, `[speech]`, `[browser]`, `[review]`, `[storage]` and `[issues]` included — with the comment block above
+a table's header. Nothing is regenerated: the rest of the file, its comments included, stays
+as you wrote it. A key it does not know to have been retired is left where it is — it may
+be a misspelling of a real one — and the load names it. Run again, it finds nothing to do and
+writes nothing. No launch converts on its own: until it is run, Ponos stops on the first
+line it does not read.
 
 `config.example.toml` is read against these models by the tests, and documents every key
 they read — no more, no fewer.
@@ -129,7 +152,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `runner.app_language` | `""` | the language the console opens in; empty follows `runner.language` — see [The language it answers in](board.md#the-language-it-answers-in) |
 | `runner.base_branch` | `""` | empty = each repository's default branch |
 | `runner.merge_method` | `"squash"` | how a **validated** pull request is merged — `squash`, `merge`, `rebase` |
-| `runner.force_validated` | `[]` | the types of ticket validated as soon as their session succeeds, among `"code"` (the pull request is merged, then *Done*), `"publication"` (published without waiting in review), `"writing"` and `"external"` (which already end in *Done*, so they change nothing today) — see [*Force validated*](tickets.md#force-validated-skipping-the-review). Replaces the four `force_validated_<type>` booleans, which are still read when this line is absent |
+| `runner.force_validated` | `[]` | the types of ticket validated as soon as their session succeeds, among `"code"` (the pull request is merged, then *Done*), `"publication"` (published without waiting in review), `"writing"` and `"external"` (which already end in *Done*, so they change nothing today) — see [*Force validated*](tickets.md#force-validated-skipping-the-review). Replaces the four `force_validated_<type>` booleans (`ponos config` converts them) |
 | `runner.local_ci` | `false` | run the project's CI on this machine, in Docker, once the session has committed and before the push — the command the project's Settings tab declares, else its workflows through `act`; a red one goes back to the same session to be fixed. Needs Docker; a project may say otherwise for itself. GitHub's CI still runs |
 | `runner.self_review` | `true` | before the push, a session in plan mode reads the diff against the ticket's done criterion and the project's CLAUDE.md; what it finds blocking goes back to the ticket's session once, then the pull request opens and its *Review* section says what was fixed and what was left. A project may say otherwise for itself — see [Read once before the pull request](tickets.md#read-once-before-the-pull-request) |
 | `runner.unblock` | `false` | look once at a ticket that waits on its own, and answer it when the answer is already written |
@@ -146,7 +169,6 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `claude.provider` | `""` | who answers the sessions — see *Who answers the sessions* below |
 | `permissions.allowed`, `permissions.ask` | | what a session does alone, and what always waits for your word |
 | `github_access.mode`, `github_access.token_item` | `""` | how GitHub is reached without `gh` — see *Connect GitHub* below |
-| `[projects]` | | no longer written here: a project's path is set in its Settings tab (*Repository path*). A `[projects]` table from an older file is still read |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |
 | `[vault]` | | what each project's sessions are given — see *Keys a ticket may use* below |
 | `OPENROUTER_API_KEY` | | not a key of this file: the secret is in Ponos's vault or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
@@ -446,19 +468,19 @@ sometimes a pull request. So keys stay where they already live, and `[vault]` sa
 things: **where** they are read, and **which ones each project is given**. The first stays in
 `config.toml`; the second is set per project, in the project's Settings tab (*Vault keys*, one
 `NPM_TOKEN = hermez/npm` per line — a bare name is read under its own name), and kept in `ponos.db`.
-The `[vault.projects]` tables below are what an older file says: they are still read, a key the
-project sets itself replaces the file's for the same variable, and `ponos doctor` checks both.
+A `[vault.projects]` table of an older file is moved there by [`ponos config`](#a-file-from-an-older-version-ponos-config).
 
 ```toml
 [vault]
 provider = "pass"                 # env, keyring, pass or bitwarden
+```
 
-[vault.projects.Ponos]            # the project's exact name on the board
-NPM_TOKEN = "hermez-agency/npm"   # the variable the session sees = the item it is read from
-GH_DEPLOY_TOKEN = "keyring:ponos-deploy"   # one key that lives somewhere else
+and, in the *Vault keys* of the project's Settings tab:
 
-[vault.projects]
-Leadz = ["LEADZ_DOKPLOY_TOKEN"]   # a list: each one read under its own name
+```text
+NPM_TOKEN = hermez-agency/npm     # the variable the session sees = the item it is read from
+GH_DEPLOY_TOKEN = keyring:ponos-deploy   # one key that lives somewhere else
+LEADZ_DOKPLOY_TOKEN               # alone: read under its own name
 ```
 
 | `provider` | Reads | What it needs |
@@ -470,8 +492,8 @@ Leadz = ["LEADZ_DOKPLOY_TOKEN"]   # a list: each one read under its own name
 
 Those keys reach the sessions of **that project's tickets, and nobody else's**, as
 environment variables. The prompt tells the session their names — never their values —
-and asks it to use them as `$NPM_TOKEN` and never print them. A project the table does not
-name is given nothing; the runner's own variables (`PONOS_*`, `ANTHROPIC_API_KEY`, the
+and asks it to use them as `$NPM_TOKEN` and never print them. A project that names no key is
+given nothing; the runner's own variables (`PONOS_*`, `ANTHROPIC_API_KEY`, the
 OpenRouter key) are never handed to a project, and win over a key of the same name. Each
 key is read again at every session, so a token rotated in the keyring is the one the next
 ticket gets; one that cannot be read is said in the log, by name, and the ticket runs
@@ -504,14 +526,11 @@ token that can do everything your account can.
    #   ponos vault set NPM_TOKEN --project Ponos
    ```
 
-3. Grant it to the project, in `~/.config/ponos/config.toml`:
+3. Grant it to the project: `provider = "pass"` under `[vault]` in
+   `~/.config/ponos/config.toml`, and in the *Vault keys* of the Ponos project's Settings tab:
 
-   ```toml
-   [vault]
-   provider = "pass"
-
-   [vault.projects.Ponos]
-   NPM_TOKEN = "hermez-agency/npm"      # or "keyring:hermez-agency-npm", or "env:NPM_TOKEN"
+   ```text
+   NPM_TOKEN = hermez-agency/npm      # or keyring:hermez-agency-npm, or env:NPM_TOKEN
    ```
 
 4. `ponos doctor` reads it, and answers `✓ Vault: Ponos is given NPM_TOKEN.` — or why it could not. A

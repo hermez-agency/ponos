@@ -980,9 +980,7 @@ def a_spent_window_mid_pass_says_so_on_the_tickets_it_did_not_start(state_home: 
 
 @case
 def the_credit_reserve_is_a_constant() -> None:
-    """No key of the file any more: the reserve is the constant, whatever a file still says."""
-    assert _config("[runner]\ncredit_reserve_percent = 10\n").runner.credit_reserve_percent == 5
-    assert _config("[runner]\ncredit_reserve_percent = 150\n").runner.credit_reserve_percent == 5
+    """No key of the file any more: the reserve is the constant."""
     assert _config("[runner]\n").runner.credit_reserve_percent == 5
 
 

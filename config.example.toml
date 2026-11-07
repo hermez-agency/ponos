@@ -3,8 +3,9 @@
 # About thirty keys, and every one is also in the console's Settings (it writes
 # into this very file, one line at a time, and leaves these comments alone).
 # Everything not named here is a constant of the code — the retired keys, and
-# what each became, are listed in CHANGELOG.md. A file that still holds one is
-# read all the same: `ponos doctor` names it. After any change:  ponos doctor
+# what each became, are listed in CHANGELOG.md. A key or a table not named here
+# stops Ponos, with its line; `ponos config` converts a file an older version
+# wrote. After any change:  ponos doctor
 #
 # Secrets — tokens, keys, passwords — are never here, and never read from here:
 # one left here is moved into Ponos's vault at the next launch. They live in that
@@ -102,10 +103,6 @@ url = ""      # the address the console is reached at, for the links in messages
 email = ""    # the sign-in e-mail (PONOS_WEB_EMAIL wins); the password is a secret
 library_max_mb = 50  # the most a file of Context → Library may weigh, in MB
 
-# Older files only: a project's path is set in its Settings tab now (ponos.db).
-[projects]
-# "Trader Ia" = "~/workspace/labo/trader-ia"
-
 # Which `gh` account each repository owner is worked under, for a machine that
 # answers to two GitHubs: owner (as in the URL) = account (as `gh auth status`
 # lists it). A GitHub App or token (below) comes first for the owners it covers.
@@ -120,12 +117,8 @@ library_max_mb = 50  # the most a file of Context → Library may weigh, in MB
 mode = ""
 # token_item = "pass:ponos/github"
 
-# The keys a project's sessions are given as environment variables, masked as ***
-# wherever the runner writes. provider: "env", "keyring", "pass", "bitwarden" or
-# "ponos" (Settings → Vault); an item may name another: "pass:hermez/npm".
+# Where the keys a project's sessions are given are read: "env", "keyring",
+# "pass", "bitwarden" or "ponos" (Settings → Vault); an item may name another,
+# "pass:hermez/npm". Which keys each project is given is set in its Settings tab.
 [vault]
 provider = "env"
-
-# Older files only: a project's keys are set in its Settings tab now (ponos.db).
-[vault.projects]
-# Leadz = ["LEADZ_DOKPLOY_TOKEN"]
