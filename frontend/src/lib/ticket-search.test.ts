@@ -66,13 +66,13 @@ test("the words are looked for in the title, the runner's line, the pull request
   assert.equal(keeps(ticket(), { text: "brief" }), false)
 })
 
-test("a ticket is found by its id, its branch or its Notion address, and only that one", () => {
+test("a ticket is found by its id, its branch or its address, and only that one", () => {
   assert.equal(keeps(ticket(), { text: "#d05c" }), true)
   assert.equal(keeps(ticket(), { text: "d05" }), false, "three characters are not an id")
   const branch = "ticket/ponos-petits-moteurs-de-recherche-sur-la-d05cddf6"
   assert.equal(keeps(ticket(), { text: branch }), true)
   assert.equal(keeps(ticket({ short: "aaaa1111" }), { text: branch }), false)
-  const address = "https://app.notion.com/p/Ponos-Petits-moteurs-3f7451680af48149b759f63ad05cddf6"
+  const address = "http://127.0.0.1:8787/tickets/3f7451680af48149b759f63ad05cddf6"
   assert.equal(keeps(ticket(), { text: address }), true)
   assert.equal(keeps(ticket({ id: "0".repeat(32) }), { text: address }), false)
 })

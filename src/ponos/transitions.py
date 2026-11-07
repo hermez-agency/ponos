@@ -1,13 +1,13 @@
 """A ticket that says what happens when its status changes: the « On » column.
 
-A ticket carries a prompt, and every change of its status — yours in Notion,
+A ticket carries a prompt, and every change of its status — yours on the board,
 the runner's when it claims or finishes it, a script's — runs that prompt in a
 session of its own, told the old status, the new one and the ticket. The prompt
 decides what the transition is worth: « when it goes to validated, create the
 deployment ticket » is one line of text on the ticket rather than a feature.
 
 **A change is something this module saw, not something it was told.** Nothing in
-the runner announces a status moving; Notion's board is moved from four places,
+the runner announces a status moving; the board is moved from four places,
 one of them a person's browser. So the board is read — only the tickets whose
 « On » is filled, at most once in `on_interval_seconds` — and compared with the
 status each was last seen with. The first sight of a ticket is a starting point,
@@ -280,7 +280,7 @@ class Transitions(Base):
             return []
 
     def _watch(self) -> None:
-        settings = self.config.notion
+        settings = self.config.board
         column, status = settings.prop("on"), settings.prop("status")
         if column not in self.client.schema(self.database):
             return
@@ -331,7 +331,7 @@ class Transitions(Base):
 
     def _fire(self, row: dict[str, Any]) -> dict[str, Any] | None:
         """Run one change's prompt. The row is finished here, whatever happens."""
-        settings = self.config.notion
+        settings = self.config.board
         ticket = Ticket(self.client.page(row["ticket"]))
         prompt = str(store.read(ticket.page, settings.prop("on")) or "")
         if not prompt:
@@ -442,7 +442,7 @@ class Transitions(Base):
 
     def _describe(self, ticket: Ticket, row: dict[str, Any], prompt: str, project: str) -> str:
         """What the session is shown of the change: the facts, then the prompt."""
-        settings = self.config.notion
+        settings = self.config.board
         page = ticket.page
         facts = [
             f"- Old status: {row['old']}",
@@ -467,7 +467,7 @@ class Transitions(Base):
 
     def _statuses(self) -> dict[str, str]:
         """{ticket id: status} for the whole board, before an execution."""
-        status = self.config.notion.prop("status")
+        status = self.config.board.prop("status")
         return {
             Ticket(page).id: str(store.read(page, status) or "")
             for page in self.client.query(self.database)

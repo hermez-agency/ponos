@@ -150,9 +150,9 @@ describe("the figures", () => {
   })
 
   test("a question that failed says why", async () => {
-    statistics.mockRejectedValue(new Error("Notion did not answer"))
+    statistics.mockRejectedValue(new Error("The board did not answer"))
     render(<StatisticsBand />)
-    expect(await screen.findByText("Notion did not answer")).toBeTruthy()
+    expect(await screen.findByText("The board did not answer")).toBeTruthy()
     expect(screen.queryByText("Counting the tickets…")).toBeNull()
   })
 })

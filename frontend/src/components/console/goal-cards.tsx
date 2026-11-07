@@ -3,7 +3,6 @@ import {
   Ban,
   CalendarDays,
   CircleCheck,
-  ExternalLink,
   FolderGit2,
   LayoutGrid,
   Link2,
@@ -51,7 +50,7 @@ import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 import { EmptyState } from "./empty-state"
 import { Eyebrow } from "./frame"
 import { useOpensOverTheList } from "./record-window"
-import { SEED, columnTitle, reachable } from "./ticket-bits"
+import { SEED, columnTitle } from "./ticket-bits"
 
 /* One goal, as the list of the goals draws it — a card, or the page it opens on.
  *
@@ -248,7 +247,7 @@ function GoalCard({ goal }: { goal: Goal }) {
   )
 }
 
-/* The rows are every goal the filters keep, in Notion's order: drawn soonest due first. */
+/* The rows are every goal the filters keep, in the board's order: drawn soonest due first. */
 export function GoalCards({ rows = [] }: ListComponentPropsInterface) {
   const drawn = byDeadline(rows.flatMap((row) => (row.data ? [row.data as GoalItem] : [])))
   return (
@@ -369,18 +368,6 @@ function GoalWhole({ goal, reread }: { goal: Goal; reread: () => void }) {
             <CloseGoal key={closing.status} goal={goal} closing={closing} reread={reread} />
           )
         )}
-        {/* Without Notion a goal has no page address to open. */}
-        {reachable(goal.url) ? (
-          <a
-            href={goal.url}
-            target="_blank"
-            rel="noreferrer"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            <ExternalLink />
-            {t("Open in Notion")}
-          </a>
-        ) : null}
         <DeleteGoal goal={goal} />
       </div>
     </article>
@@ -503,13 +490,12 @@ function CloseGoal({
   )
 }
 
-/* Deleted after a confirmation, and said so: the goal goes to Notion's trash —
- * or, without Notion, only from Ponos's own board — and and the tickets that served it simply serve none. Set apart
+/* Deleted after a confirmation, and said so: the goal leaves the board, and the
+ * tickets that served it simply serve none. Set apart
  * from the statuses, since a goal that is over is closed, not deleted. */
 function DeleteGoal({ goal }: { goal: Goal }) {
   const t = useT()
-  const notion = useGoals().notion
-  // Its words without Notion are in `goal-french.ts`: fetched before the dialog opens.
+  // Its words are in `goal-french.ts`: fetched before the dialog opens.
   useFrench(words)
   const navigate = useNavigate()
   if (!canAct()) return null
@@ -530,13 +516,9 @@ function DeleteGoal({ goal }: { goal: Goal }) {
     <ConfirmDialog
       title={t("Delete “{{name}}”?", { name: goal.name })}
       description={
-        !notion
-          ? t(
-              "The goal is deleted. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead."
-            )
-          : t(
-              "The goal is deleted: it goes to Notion's trash, with its count. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead."
-            )
+        t(
+          "The goal is deleted. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead."
+        )
       }
       destructive
       confirm={
@@ -561,7 +543,7 @@ function DeleteGoal({ goal }: { goal: Goal }) {
 export function NoGoal() {
   const t = useT()
   const { filterContext } = useListViewContext()
-  const { configured, notion, problem, goals: known } = useGoals()
+  const { configured, problem, goals: known } = useGoals()
   if (problem) return <EmptyState robot="error">{problem}</EmptyState>
   // The list rests on the active goals: with none, the closed ones are one click away.
   if (
@@ -603,7 +585,7 @@ export function NoGoal() {
     </EmptyState>
   ) : (
     <EmptyState icon={Target} title={t("No goal.")}>
-      {notion ? t("The workspace has no Goals database: add one in Notion, and goals can be written here.") : null}
+      {null}
     </EmptyState>
   )
 }

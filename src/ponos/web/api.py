@@ -1,8 +1,8 @@
 """What the console can ask for, and what it is allowed to change.
 
-The board stays Notion's. Nothing here is a second database: a ticket read is a
-ticket read from Notion, a ticket moved is a `PATCH` on the same page you would
-have dragged with your thumb. The console adds what Notion cannot do — the live
+The board is `ponos.db`'s. Nothing here is a second database: a ticket read is a
+ticket read from the board, a ticket moved is a write on the same row you would
+have dragged with your thumb. The console adds what the board cannot do — the live
 steps of a running session, the CLI, and a conversation about the whole
 workspace — and duplicates nothing it already does well.
 
@@ -11,12 +11,12 @@ full-time reader of your workspace: the configuration (reloaded when its file
 changes), the project index, and the tickets database ID. The tickets
 themselves are held too, and brought up to date by what changed — how, and why
 a move from the console waits in a queue rather than in the browser, is
-`board.py`'s to say. So is a ticket's page, while Notion says it has not been
+`board.py`'s to say. So is a ticket's page, while the board says it has not been
 edited — see `Tickets._brief`.
 
 Which is why the console is *one* object, for as long as it serves, as a run
 is: every one of those reads is kept once, and so are the moves waiting for
-Notion and the stream every open page listens to. A second holder of any of
+The board and the stream every open page listens to. A second holder of any of
 them is a page told one thing by the stream and another by the board — a
 project renamed in one pane and not in the next, a move sent twice. So the
 state is not split: `base.py` holds it, and says what each piece is.

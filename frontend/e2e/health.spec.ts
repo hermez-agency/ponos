@@ -29,22 +29,22 @@ const check = (code: string, state: "ok" | "warn" | "error", extra: Record<strin
 
 const RED = {
   checks: [
-    check("notion.token", "ok", { title: "Notion token", said: "Connected as “{{name}}”.", params: { name: "Ponos" } }),
-    check("notion.columns", "error", {
-      title: "Tickets properties",
-      said: "Properties missing on the tickets database: {{missing}}.",
-      params: { missing: "“Runner”, “Progress”" },
-      cause: "The board predates a version of Ponos, or a property was renamed or retyped.",
+    check("board.tickets", "ok", { title: "Board", said: "The board is ponos.db: {{count}} ticket(s).", params: { count: "12" } }),
+    check("machine.stray", "error", {
+      title: "Left running",
+      said: "{{count}} process(es) left running in the worktree {{name}}.",
+      params: { count: "2", name: "ponos-1a2b3c4d" },
+      cause: "A session ended and left its servers behind.",
       notes: [
-        { name: "Runner", said: ["which machine took a ticket is not written — fine on one machine, but a second one on this board would put back the tickets the first is running"] },
-        { name: "Progress", said: ["nothing says what a session is doing while it runs"] },
+        { name: "vite", said: ["a development server, on port 5173"] },
+        { name: "pytest", said: ["a test run nobody waits for any more"] },
       ],
       fix: {
-        action: "notion_columns",
-        label: "Configure",
-        confirm: "Add {{missing}} to the tickets database? Existing properties are left as they are.",
-        missing: "“Runner”, “Progress”",
-        target: "",
+        action: "stray_processes",
+        label: "Stop",
+        confirm: "Stop the {{count}} process(es) left running in the worktree {{name}}?",
+        missing: "",
+        target: "ponos-1a2b3c4d",
       },
     }),
     check("github.repository", "error", {
@@ -81,7 +81,7 @@ async function open(page: Page, answers: unknown[], fixed: string[] = [], unfold
   )
   await page.route("**/api/health/fix", (route: Route) => {
     fixed.push(route.request().postData() ?? "")
-    return route.fulfill({ json: { done: "added Progress, Runner", ...GREEN } })
+    return route.fulfill({ json: { done: "2 process(es) stopped", ...GREEN } })
   })
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   // Folded is the default; a test that wants the lines asks for them.
@@ -100,11 +100,11 @@ test("a red installation draws each problem with its way out, and a green one dr
   const band = page.getByTestId("health-band")
   await expect(band).toBeVisible()
   await expect(band.getByTestId("health-check")).toHaveCount(4)
-  const columns = band.locator('[data-code="notion.columns"]')
-  await expect(columns.getByTestId("health-fix")).toBeVisible()
+  const stray = band.locator('[data-code="machine.stray"]')
+  await expect(stray.getByTestId("health-fix")).toBeVisible()
   const repository = band.locator('[data-code="github.repository"]')
   await expect(repository.getByRole("link", { name: "Open the link" })).toHaveAttribute("href", /installations\/new/)
-  await expect(band.locator('[data-code="notion.token"]')).toHaveCount(0)
+  await expect(band.locator('[data-code="board.tickets"]')).toHaveCount(0)
   await shot(page, "health-red")
 
   // The steps and the cause are behind each problem's own toggle.
@@ -122,21 +122,21 @@ test("a red installation draws each problem with its way out, and a green one dr
 test("a fix is made only once it is confirmed", async ({ page }) => {
   const fixed: string[] = []
   await open(page, [RED], fixed)
-  const columns = page.locator('[data-code="notion.columns"]')
-  await columns.getByTestId("health-fix").click()
+  const stray = page.locator('[data-code="machine.stray"]')
+  await stray.getByTestId("health-fix").click()
   const dialog = page.getByRole("alertdialog")
-  await expect(dialog).toContainText("“Runner”, “Progress”")
+  await expect(dialog).toContainText("ponos-1a2b3c4d")
   await shot(page, "health-confirm")
   await dialog.getByRole("button", { name: "Cancel" }).click()
   // Gone, not closing: a second click under its fading overlay finds nothing.
   await expect(page.getByRole("alertdialog")).toHaveCount(0)
   expect(fixed).toEqual([])
 
-  await columns.getByTestId("health-fix").click()
-  await page.getByRole("alertdialog").getByRole("button", { name: "Configure" }).click()
+  await stray.getByTestId("health-fix").click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Stop" }).click()
   await expect(page.getByTestId("health-band")).toHaveCount(0)
   expect(fixed).toHaveLength(1)
-  expect(JSON.parse(fixed[0])).toEqual({ action: "notion_columns", target: "", confirmed: true })
+  expect(JSON.parse(fixed[0])).toEqual({ action: "stray_processes", target: "ponos-1a2b3c4d", confirmed: true })
 })
 
 test("a green installation never draws the band", async ({ page }) => {
@@ -174,14 +174,14 @@ test("unfolded, the band pushes the statistics down instead of covering them", a
   expect(list.y + list.height).toBeLessThanOrEqual(below.y)
 })
 
-test("the detail of a problem names each property once, and the raw error only there", async ({ page }) => {
+test("the detail of a problem names each thing once, and the raw error only there", async ({ page }) => {
   await open(page, [RED])
-  const columns = page.locator('[data-code="notion.columns"]')
-  await columns.getByTestId("health-detail-toggle").focus()
+  const stray = page.locator('[data-code="machine.stray"]')
+  await stray.getByTestId("health-detail-toggle").focus()
   await page.keyboard.press("Enter")
-  const detail = columns.getByTestId("health-detail")
+  const detail = stray.getByTestId("health-detail")
   await expect(detail.getByRole("listitem")).toHaveCount(2)
-  await expect(detail).toContainText("“Runner”")
+  await expect(detail).toContainText("vite")
 })
 
 for (const width of [1440, 375]) {
@@ -213,8 +213,8 @@ test("in French, the checks' own sentences arrive with the band, fetched apart",
     if (/health-french-[^/]+\.js$/.test(request.url())) fetched.push(request.url())
   })
   await open(page, [RED])
-  const columns = page.locator('[data-code="notion.columns"]')
-  await expect(columns).toContainText("Propriétés manquantes sur la base de tickets : « Runner », « Progress ».")
+  const stray = page.locator('[data-code="machine.stray"]')
+  await expect(stray).toContainText("2 processus laissés en marche dans le worktree ponos-1a2b3c4d.")
   // Three errors stop tickets; the warning is counted beside them, not among them.
   await expect(page.getByTestId("health-toggle")).toContainText(
     "3 points à corriger pour que les tickets partent · 1 avertissement"
@@ -249,11 +249,11 @@ test("the band shows what the server itself found: a schedule nobody fired, noth
   await page.addInitScript(() => localStorage.setItem("ponos-health-open", "open"))
   await page.goto("/")
   const band = page.getByTestId("health-band")
-  const late = band.locator('[data-code="notion.schedule"]')
+  const late = band.locator('[data-code="board.schedule"]')
   await expect(late).toBeVisible({ timeout: 30_000 })
   await expect(late).toHaveAttribute("data-state", "error")
   await expect(late).toContainText("Weekly digest")
-  await expect(band.locator('[data-code="notion.schedule"]')).toHaveCount(1)
+  await expect(band.locator('[data-code="board.schedule"]')).toHaveCount(1)
   // A setting said rather than judged is `doctor`'s grey line, never one of these.
   await expect(band.locator('[data-state="info"], [data-state="ok"]')).toHaveCount(0)
   await shot(page, "health-server")

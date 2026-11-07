@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ponos — Écris le ticket. Il revient fait.</title>
-<meta name="description" content="Écris le ticket. Il revient fait. Ponos est un harnais autour de Claude Code qui exécute tes tâches sur ta machine — code, rédaction, actions, publications — sur un tableau à lui, la console. Notion et GitHub se branchent si tu le veux, et rien ne part sans ton oui.">
+<meta name="description" content="Écris le ticket. Il revient fait. Ponos est un harnais autour de Claude Code qui exécute tes tâches sur ta machine — code, rédaction, actions, publications — sur un tableau à lui, la console. GitHub et ton téléphone se branchent si tu le veux, et rien ne part sans ton oui.">
 <link rel="canonical" href="https://the-ponos.app/fr/">
 <link rel="alternate" hreflang="en" href="https://the-ponos.app/">
 <link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/">
@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Ponos — Écris le ticket. Il revient fait.">
-<meta property="og:description" content="Un harnais autour de Claude Code qui exécute tes tâches sur ta machine — une pull request, un texte, une action, une publication. Un tableau à lui ; Notion et GitHub seulement si tu le veux.">
+<meta property="og:description" content="Un harnais autour de Claude Code qui exécute tes tâches sur ta machine — une pull request, un texte, une action, une publication. Un tableau à lui ; GitHub seulement si tu le veux.">
 <meta property="og:url" content="https://the-ponos.app/fr/">
 <meta property="og:locale" content="fr">
 <meta property="og:locale:alternate" content="en">
@@ -24,7 +24,7 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ponos — Écris le ticket. Il revient fait.">
-<meta name="twitter:description" content="Un harnais autour de Claude Code qui exécute tes tâches sur ta machine — code, rédaction, actions, publications. Notion et GitHub en option.">
+<meta name="twitter:description" content="Un harnais autour de Claude Code qui exécute tes tâches sur ta machine — code, rédaction, actions, publications. Un tableau à lui.">
 <meta name="twitter:image" content="https://the-ponos.app/mascot/og.png?v=ecran">
 <script type="application/ld+json">
 {
@@ -57,7 +57,7 @@
     "Un coffre qui donne à chaque projet ses seules clés, masquées partout",
     "Un tableau à lui : la console web locale, sur une base locale",
     "Un chat avec la machine, dans la console",
-    "Intégrations facultatives : Notion, GitHub, Telegram, Slack, OpenRouter pour tout autre modèle"
+    "Intégrations facultatives : GitHub, Telegram, Slack, OpenRouter pour tout autre modèle"
   ],
   "author": {
     "@type": "Organization",
@@ -401,7 +401,7 @@
   .works { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1.5rem; color: var(--muted-foreground); font-size: .875rem; }
   .works .badge { font-size: .8125rem; padding: .25rem .625rem; color: var(--foreground); }
 
-  /* -- 4. integrations: a card each, then Notion told at length -- */
+  /* -- 4. integrations: a card each -- */
   .plug { gap: 1rem; }
   .plug .card-header { grid-template-columns: 1fr auto; align-items: center; }
   .plug .card-title { font-size: 1.125rem; }
@@ -416,39 +416,8 @@
   .sub-head pre { margin-top: 1.25rem; }
   @media (max-width: 640px) { .sub-head { margin-top: 3.5rem; } }
 
-  /* -- notion: one band — a few words and the command, then one window that
-     tells the round, step by step. The mark is Notion's "Made for Notion" badge
-     as their brand guidelines ask: never the bare logo, never animated. -- */
-  .band { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 3rem; align-items: center; margin-top: 5rem; scroll-margin-top: 76px; }
-  @media (max-width: 860px) { .band { grid-template-columns: minmax(0, 1fr); gap: 2rem; } }
-  @media (max-width: 640px) { .band { margin-top: 3.5rem; } }
-  .band h3 { font-size: clamp(1.5rem, 3vw, 1.875rem); line-height: 1.15; margin: .5rem 0 0; }
-  .band-text > p { color: var(--muted-foreground); font-size: 1.0625rem; margin: .875rem 0 0; }
-  /* The command wraps rather than slide under its Copy button. */
-  .band pre { margin-top: 1.25rem; padding-right: 4.5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .band-text > .made-for { display: flex; margin-top: 1.5rem; }
-  .made-for img { display: block; width: auto; height: 48px; }
-  .dark .made-for .light, html:not(.dark) .made-for .dark { display: none; }
-  .band-show { display: flex; flex-direction: column; gap: .875rem; min-width: 0; }
-  .steps { display: flex; height: auto; overflow-x: auto; scrollbar-width: none; }
-  .steps .tabs-trigger { height: 1.875rem; }
-  /* Below the window on a phone, where the thumb is — and scrolled, not squeezed. */
-  @media (max-width: 640px) { .steps { order: 1; } .steps .tabs-trigger { flex: none; } .captions { order: 2; } }
-  /* Every scene in one frame of the same size: the band does not jump from a
-     capture to the next, and the board's wider frame sits on Notion's dark. */
-  .stage { display: grid; aspect-ratio: 1020 / 756; background: color-mix(in srgb, var(--foreground) 92%, var(--card)); }
-  .dark .stage { background: color-mix(in srgb, var(--foreground) 9%, var(--background)); }
-  .window .stage > * { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: contain; background: none; }
-  .window .stage > [hidden] { display: none; }
-  .band.closed .window { opacity: 0; translate: 0 1.5rem; }
-  .band .window { transition: opacity .6s ease, translate .6s ease; }
-  /* The tallest caption gives the height, so the next one never moves the page. */
-  .captions { display: grid; }
-  .captions p { grid-area: 1 / 1; margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
-  .captions p b { color: var(--foreground); font-weight: 600; }
-  .captions p:not(.on) { visibility: hidden; }
-  /* The captures are Notion in dark: on the light page, a bar and an edge a shade
-     deeper than the card keep them from bleeding into the white around. */
+  /* A window around a capture: on the light page, a bar and an edge a shade
+     deeper than the card keep it from bleeding into the white around. */
   .window {
     position: relative; margin: 0; border: 1px solid color-mix(in srgb, var(--foreground) 16%, var(--border));
     border-radius: var(--radius-xl); overflow: hidden; background: var(--card); box-shadow: 0 24px 60px -30px rgb(0 0 0 / .45);
@@ -472,7 +441,6 @@
   .play { padding: 0; }
   .play svg { width: 1.375rem; height: 1.375rem; }
   .loop:not(.held) .play, .loop:not(.ready) .window-bar .btn { display: none; }
-  .notion-foot { margin: 3.5rem 0 0; color: var(--muted-foreground); font-size: .9375rem; }
 
   /* -- 5. the console -- */
   .shots { margin: 0; }
@@ -614,7 +582,7 @@
         <code id="install-cmd">curl -LsSf https://raw.githubusercontent.com/<wbr>hermez-agency/ponos/<wbr>main/install.sh | sh</code>
         <button class="btn btn-outline btn-sm" id="copy-install" type="button" aria-label="Copier la commande d’installation">Copier</button>
       </div>
-      <p class="byline">Libre et gratuit, MIT · Linux · macOS · Python et git · Demande Claude Code — <a href="#integrations">Notion et GitHub sont facultatifs</a>.</p>
+      <p class="byline">Libre et gratuit, MIT · Linux · macOS · Python et git · Demande Claude Code — <a href="#integrations">GitHub est facultatif</a>.</p>
     </div>
     <figure class="card flow" id="flow" data-step="3" data-kind="code">
       <div class="flow-body" role="img" aria-label="La boucle en trois temps. Un, tu écris le ticket sur ton tableau : Console : limiter la colonne Done, Ready. Deux, Ponos le fait sur ta machine avec Claude Code : fait, les tests passent. Trois, tu décides : la pull request #96 revient avec deux boutons — Validate, et il la fusionne ; ou Run again, et il la reprend avec ta remarque. Une publication préparée revient de la même façon.">
@@ -749,7 +717,7 @@
     </div>
     <div class="works">
       <span>Tourne sur</span><span class="badge">Claude Code</span><span>et un tableau à lui. Se branche à</span>
-      <span class="badge">Notion</span><span class="badge">GitHub</span><span class="badge">Telegram</span><span class="badge">Slack</span><span class="badge">OpenRouter</span>
+      <span class="badge">GitHub</span><span class="badge">Telegram</span><span class="badge">Slack</span><span class="badge">OpenRouter</span>
       <span>— <a href="#integrations">seulement si tu le veux</a>.</span>
     </div>
   </div>
@@ -879,12 +847,7 @@
       <h2>Se branche là où tu travailles déjà. Si tu veux.</h2>
       <p>Ponos n’a besoin que de Claude Code. Chacune de ces intégrations est un jeton de plus dans les réglages, et aucune n’est obligatoire.</p>
     </div>
-    <div class="grid g4">
-      <article class="card plug">
-        <div class="card-header"><h3 class="card-title">Notion</h3><span class="badge">facultatif</span></div>
-        <p><b>Ton tableau dans Notion.</b> Tickets, projets et plannings deviennent des bases Notion, et chaque compte rendu est écrit sur la page du ticket.</p>
-        <div class="card-footer"><a href="#notion">Ton tableau dans Notion ↓</a></div>
-      </article>
+    <div class="grid g3">
       <article class="card plug">
         <div class="card-header"><h3 class="card-title">GitHub</h3><span class="badge">facultatif</span></div>
         <p><b>Pull requests.</b> Un ticket de code en revient une, fusionnée sur ton oui. <b>Connecte GitHub</b> d’un clic depuis la console : Ponos crée sa propre GitHub App, tu choisis les dépôts, aucun jeton à coller — ou garde <code>gh</code>. La rédaction, les actions et les publications n’en ont pas besoin.</p>
@@ -901,52 +864,6 @@
         <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Tous les autres modèles →</a></div>
       </article>
     </div>
-
-    <div class="band" id="notion">
-      <div class="band-text">
-        <span class="label">Notion</span>
-        <h3>Ton tableau dans Notion.</h3>
-        <p>Les tickets sont des lignes d’une base Notion : partage une page avec une intégration Notion, et <code>init</code> construit le reste dessous. Ponos lit les tickets que tu y écris, et répond sur la même page.</p>
-        <pre data-copy><span class="p">$ </span>ponos init https://www.notion.so/ta-page --token -</pre>
-        <p class="made-for">
-          <img class="light" src="../media/notion/made-for-notion-white.svg" width="106" height="48" alt="Made for Notion">
-          <img class="dark" src="../media/notion/made-for-notion-black.svg" width="106" height="48" alt="Made for Notion">
-        </p>
-      </div>
-      <div class="band-show">
-        <div class="tabs-list steps" role="group" aria-label="Étapes d’un ticket dans Notion">
-          <button class="tabs-trigger" type="button" data-step="write" aria-pressed="true">Tu écris dedans</button>
-          <button class="tabs-trigger" type="button" data-step="report" aria-pressed="false">Il rend compte sur le ticket</button>
-          <button class="tabs-trigger" type="button" data-step="validate" aria-pressed="false">Ta colonne est le feu vert</button>
-        </div>
-        <figure class="window loop">
-          <div class="window-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span data-title>Tableau Ponos</span><button class="btn btn-ghost btn-icon" type="button" data-toggle aria-label="Mettre l’animation en pause"><svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg><svg class="pause-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button></div>
-          <div class="stage">
-            <img data-scene="write" data-title="Tableau Ponos" src="../media/notion/notion-board.webp" width="948" height="484" loading="lazy" alt="Un tableau Notion en sombre, avec les colonnes Ready, In progress, In review, Validated et Done, et une carte par ticket nommant son projet.">
-            <video data-scene="report" data-title="Un ticket en revue" muted playsinline preload="none" data-poster="../media/notion/notion-read-result-poster.webp" width="1020" height="756" hidden
-                   aria-label="Un ticket en revue ouvert dans Notion : le journal replié de Ponos se déplie, montrant ses étapes et ses vérifications, puis son commentaire avec la pull request et ce que la passe a coûté.">
-              <source src="../media/notion/notion-read-result.mp4" type="video/mp4">
-            </video>
-            <video data-scene="report" data-title="Un ticket de rédaction" muted playsinline preload="none" data-poster="../media/notion/notion-text-poster.webp" width="1020" height="756" hidden
-                   aria-label="Un ticket de rédaction dans Notion : le texte écrit par Ponos apparaît dans la page du ticket elle-même.">
-              <source src="../media/notion/notion-text.mp4" type="video/mp4">
-            </video>
-            <video data-scene="validate" data-title="Tableau Ponos" muted playsinline preload="none" data-poster="../media/notion/notion-board.webp" width="948" height="484" hidden
-                   aria-label="Sur le tableau Notion, une carte est glissée de In review à Validated.">
-              <source src="../media/notion/notion-validate.mp4" type="video/mp4">
-            </video>
-          </div>
-          <button class="btn play" type="button" data-play aria-label="Lancer l’animation"><svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg></button>
-        </figure>
-        <div class="captions">
-          <p class="on"><b>Tu écris là où tu travailles déjà.</b> Les tickets sont des lignes d’une base Notion ; leur <em>Project</em> pointe vers le dépôt — ou vers aucun, pour un texte.</p>
-          <p><b>Il rend compte sur le ticket lui-même.</b> Chaque passe laisse un journal replié dans la page — chaque fichier lu, chaque commande lancée, ce qu’il a dit — et un commentaire avec la pull request, la durée et le coût.</p>
-          <p><b>Un texte revient en texte.</b> Notes de version, newsletter, post : écrits directement dans le ticket, prêts à copier.</p>
-          <p><b>Ta colonne est le feu vert.</b> Glisse la carte vers <em>Validated</em> : il fusionne ou publie. Pas avant.</p>
-        </div>
-      </div>
-    </div>
-    <p class="notion-foot"><code>ponos.db</code> reste la référence ; Notion en est une copie. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#the-mirror-ponosdb-first-notion-a-copy">Le miroir →</a></p>
 
     <div class="sec-head" id="claude" style="margin:5rem 0 1.5rem;scroll-margin-top:76px">
       <span class="label">Claude</span>
@@ -984,8 +901,8 @@
     <div class="install-grid" style="margin-top:1rem">
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ensuite, la console te guide</h3></div>
-        <p>Sur <code>http://127.0.0.1:8787</code>, une première connexion par étapes, chacune vérifiée pour de bon avant la suivante : la langue, ton mot de passe, qui répond aux sessions, Notion — colle le jeton, ajoute Ponos à une page, le tableau se construit dessous —, GitHub en un clic, un premier projet, et un ticket de démonstration joué sur-le-champ pour prouver que tout marche.</p>
-        <p>Pas de Notion ? Le tableau vit dans <code>ponos.db</code> : <a href="#notion">Ton tableau dans Notion</a> dit les deux.</p>
+        <p>Sur <code>http://127.0.0.1:8787</code>, une première connexion par étapes, chacune vérifiée pour de bon avant la suivante : la langue, ton mot de passe, qui répond aux sessions, GitHub en un clic, un premier projet, et un ticket de démonstration joué sur-le-champ pour prouver que tout marche.</p>
+        <p>Le tableau n’a pas d’étape : les tickets vivent dans <code>ponos.db</code>, sur ta machine.</p>
       </div>
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ce qu’il lui faut</h3></div>
@@ -1030,7 +947,6 @@
             <ul>
               <li><b>L’installeur s’est arrêté.</b> Il a affiché ce qui manque et la commande qui l’installe : lance-la, puis relance la ligne d’installation.</li>
               <li><b>La console ne s’ouvre pas.</b> Va toi-même sur <code>http://127.0.0.1:8787</code> ; si rien ne répond, <code>ponos service run</code> la démarre et dit pourquoi elle ne peut pas.</li>
-              <li><b>Notion ne trouve aucune page.</b> La page doit être partagée avec l’intégration : <code>···</code> en haut à droite → <em>Connections</em> → ton intégration. La console la voit en quelques secondes.</li>
               <li><b>Le ticket de démonstration échoue.</b> La console montre ce que la passe a dit ; <em>Run the full diagnosis</em> sur le récapitulatif — ou <code>ponos doctor</code> dans un terminal — vérifie tout, et c’est le texte à coller pour demander de l’aide.</li>
             </ul>
           </div>
@@ -1044,7 +960,7 @@
             <p>Les trois étapes sont <a href="#server">plus haut</a>. L’image embarque tout ce dont un ticket a besoin — Claude Code, git, <code>gh</code>, Node —, figée sur la version avec laquelle le modèle a été publié, et tourne sous un utilisateur à elle, jamais root. Quatre volumes nommés gardent la configuration et le tableau, les clones, et les connexions de Claude Code et de <code>gh</code> ; un healthcheck interroge <code>/healthz</code> ; la mémoire est plafonnée à 4 Go.</p>
             <ul>
               <li><b>Obligatoire :</b> <code>CLAUDE_CODE_OAUTH_TOKEN</code> (ton abonnement) ou <code>ANTHROPIC_API_KEY</code>.</li>
-              <li><b>Facultatif :</b> <code>OPENROUTER_API_KEY</code> pour tous les autres modèles ; <code>GH_TOKEN</code> pour les pull requests — ou une GitHub App, créée depuis la console ; <code>PONOS_NOTION_TOKEN</code> pour un tableau dans Notion — sans lui, le tableau reste dans <code>ponos.db</code> ; <code>PONOS_TELEGRAM_TOKEN</code> et <code>PONOS_SLACK_TOKEN</code> pour ton téléphone.</li>
+              <li><b>Facultatif :</b> <code>OPENROUTER_API_KEY</code> pour tous les autres modèles ; <code>GH_TOKEN</code> pour les pull requests — ou une GitHub App, créée depuis la console ; <code>PONOS_TELEGRAM_TOKEN</code> et <code>PONOS_SLACK_TOKEN</code> pour ton téléphone.</li>
               <li><b>Générées ou à définir :</b> <code>PONOS_WEB_EMAIL</code>, <code>PONOS_WEB_PASSWORD</code> et <code>PONOS_WEB_TOKEN</code> ; <code>PONOS_LANGUAGE</code>, <code>en</code> ou <code>fr</code> ; <code>TZ</code>, le fuseau dans lequel les heures d’un planning sont lues.</li>
             </ul>
             <p>Un Dokploy sans Ponos dans son catalogue l’importe : un service <em>Compose</em>, <em>Advanced › Import</em>, et le Base64 que la <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">documentation</a> affiche.</p>
@@ -1095,7 +1011,7 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Les tickets qui reviennent <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">La console web <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude">Connecter Ponos à Claude <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#without-notion">Le tableau sans Notion <span>§</span></a>
+      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#where-the-tickets-live">Où vivent les tickets <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Tous les autres modèles <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#connect-github-in-one-click">Connecter GitHub en un clic <span>§</span></a>
       <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#several-github-accounts">Plusieurs comptes GitHub <span>§</span></a>
@@ -1253,82 +1169,6 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
       select(next); next.focus(); e.preventDefault();
     });
   });
-
-  /* --- Notion: one window, the round told scene by scene — the board, his
-     report, a text, the go-ahead — each video calling the next when it ends.
-     Nothing is fetched before the band is near, then one video at a time, the
-     next one loading while the current plays. It plays only on screen, and never
-     on its own if motion is unwelcome: the board waits, with its play button,
-     and the steps still show each scene. --- */
-  var band = document.getElementById('notion');
-  var fig = band.querySelector('.loop');
-  var scenes = Array.prototype.slice.call(fig.querySelectorAll('[data-scene]'));
-  var steps = Array.prototype.slice.call(band.querySelectorAll('[data-step]'));
-  var captions = band.querySelectorAll('.captions p');
-  var barTitle = fig.querySelector('[data-title]');
-  var toggle = fig.querySelector('[data-toggle]');
-  var current = 0, still = 0, onScreen = false;
-  function poster(v) { if (v.tagName === 'VIDEO' && !v.poster) v.poster = v.getAttribute('data-poster'); }
-  function playing() { return !fig.classList.contains('held') && onScreen; }
-  function stop() {
-    clearTimeout(still); still = 0;
-    var el = scenes[current];
-    if (el.tagName === 'VIDEO') el.pause();
-    fig.classList.remove('playing'); toggle.setAttribute('aria-label', 'Lancer l’animation');
-  }
-  function run() {
-    if (!playing()) return;
-    var el = scenes[current];
-    fig.classList.add('playing'); toggle.setAttribute('aria-label', 'Mettre l’animation en pause');
-    if (el.tagName === 'VIDEO') {
-      el.play().catch(function () {});
-      var next = scenes[(current + 1) % scenes.length];
-      if (next.tagName === 'VIDEO') { poster(next); next.preload = 'auto'; }
-    } else if (!still) {
-      still = setTimeout(function () { still = 0; show(current + 1); }, 3500);
-    }
-  }
-  function show(i) {
-    stop();
-    current = (i + scenes.length) % scenes.length;
-    var el = scenes[current];
-    scenes.forEach(function (s, n) { s.hidden = n !== current; });
-    Array.prototype.forEach.call(captions, function (c, n) { c.classList.toggle('on', n === current); });
-    steps.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-step') === el.getAttribute('data-scene'))); });
-    barTitle.textContent = el.getAttribute('data-title');
-    if (el.tagName === 'VIDEO') { poster(el); el.currentTime = 0; }
-    run();
-  }
-  function start() { fig.classList.remove('held'); run(); }
-  function hold() { fig.classList.add('held'); stop(); }
-  scenes.forEach(function (el) { if (el.tagName === 'VIDEO') el.addEventListener('ended', function () { show(current + 1); }); });
-  steps.forEach(function (b) {
-    b.addEventListener('click', function () {
-      for (var n = 0; n < scenes.length; n++) if (scenes[n].getAttribute('data-scene') === b.getAttribute('data-step')) return show(n);
-    });
-  });
-  fig.classList.add('ready');
-  fig.classList.toggle('held', reduce);
-  toggle.addEventListener('click', function () { if (fig.classList.contains('playing')) hold(); else start(); });
-  fig.querySelector('[data-play]').addEventListener('click', start);
-  if ('IntersectionObserver' in window) {
-    // The window opens as the band comes in, and the round starts once it has.
-    if (!reduce) band.classList.add('closed');
-    var near = new IntersectionObserver(function (entries) {
-      if (!entries[0].isIntersecting) return;
-      scenes.forEach(poster); near.disconnect();
-    }, { rootMargin: '800px 0px' });
-    var seen = new IntersectionObserver(function (entries) {
-      onScreen = entries[0].isIntersecting;
-      if (!onScreen) { stop(); return; }
-      if (!band.classList.contains('closed')) { run(); return; }
-      band.classList.remove('closed');
-      setTimeout(run, 600);
-    }, { threshold: 0.4 });
-    near.observe(band); seen.observe(fig);
-  } else {
-    scenes.forEach(poster); fig.classList.add('held');
-  }
 
   /* --- the loop, filmed on the console: the light film or the dark one, as
      the page is; nothing fetched before the section is near; playing only

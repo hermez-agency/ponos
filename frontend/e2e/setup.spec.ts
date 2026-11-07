@@ -50,10 +50,6 @@ test("the first connection goes from the account to the summary", async ({ page 
   await expect(page.getByRole("checkbox")).toHaveCount(0)
 
   await page.getByRole("button", { name: "Continue" }).click()
-  await expect(page.getByTestId("setup-notion")).toBeVisible()
-  await expect(page.getByText("Connecting a Notion board is optional")).toBeVisible()
-
-  await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-github")).toBeVisible()
   await page.getByRole("button", { name: "Continue" }).click()
   await expect(page.getByTestId("setup-project")).toBeVisible()
@@ -75,7 +71,7 @@ test("the first connection goes from the account to the summary", async ({ page 
   await expect(provider).toHaveAttribute("data-state", "missing")
   await expect(provider).toContainText("Claude Code CLI (subscription)")
   await expect(summary.locator('[data-row="board"]')).toHaveAttribute("data-state", "ok")
-  await expect(summary.locator('[data-row="board"]')).toContainText("without Notion")
+  await expect(summary.locator('[data-row="board"]')).toContainText("Board kept by Ponos")
   await expect(summary.locator('[data-row="environment"]')).toContainText("Machine — Ponos")
 
   // Each line leads to the step that changes it.
@@ -85,7 +81,7 @@ test("the first connection goes from the account to the summary", async ({ page 
 
   // Each step is marked by its lines, read once: going from one to another asks nothing again.
   const steps = page.getByRole("list", { name: "Steps" })
-  await expect(steps.getByRole("button", { name: /Notion/ })).toHaveAttribute("data-state", "ok")
+  await expect(steps.getByRole("button", { name: /First ticket/ })).toHaveAttribute("data-state", "missing")
   await expect(steps.getByRole("button", { name: /Claude provider/ })).toHaveAttribute("data-state", "missing")
   let reads = 0
   page.on("request", (request) => {

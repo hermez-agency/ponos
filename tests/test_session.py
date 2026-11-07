@@ -144,7 +144,7 @@ def a_session_is_not_given_the_runners_own_secrets() -> None:
     own = {
         "PONOS_WEB_PASSWORD": "password-of-the-console",
         "PONOS_WEB_TOKEN": "token-of-the-console",
-        "PONOS_NOTION_TOKEN": "ntn_token-of-notion",
+        "PONOS_GITHUB_TOKEN": "github_pat_token-of-github",
         "PONOS_TELEGRAM_TOKEN": "token-of-telegram",
         "PONOS_SLACK_TOKEN": "xoxb-token-of-slack",
     }
@@ -157,7 +157,7 @@ def a_session_is_not_given_the_runners_own_secrets() -> None:
             "sys.stdin.read()\n"
             f"open({str(seen)!r}, 'w').write(json.dumps(dict(os.environ)))\n"
             # What `env` would have printed, had the variable been there.
-            f"said = {own['PONOS_SLACK_TOKEN']!r} + ' ' + {own['PONOS_NOTION_TOKEN']!r}\n"
+            f"said = {own['PONOS_SLACK_TOKEN']!r} + ' ' + {own['PONOS_GITHUB_TOKEN']!r}\n"
             "print(json.dumps({'type': 'assistant', 'message': {'content': "
             "[{'type': 'text', 'text': said}]}}))\n"
             "print(json.dumps({'type': 'result', 'result': 'RESULT: ok', 'session_id': 's'}))\n"
@@ -169,7 +169,9 @@ def a_session_is_not_given_the_runners_own_secrets() -> None:
         try:
             # Read as `config.load` reads them: from now on, masked.
             config.secret({}, "notify.slack", "token")
-            config.secret({"PONOS_NOTION_TOKEN": own["PONOS_NOTION_TOKEN"]}, "notion", "token")
+            config.secret(
+                {"PONOS_GITHUB_TOKEN": own["PONOS_GITHUB_TOKEN"]}, "github_access", "token"
+            )
             outcome = session.run(
                 "env",
                 cwd=home,
@@ -185,7 +187,7 @@ def a_session_is_not_given_the_runners_own_secrets() -> None:
             assert got["NPM_TOKEN"] == "granted-by-the-vault"
             transcript = (home / "session.jsonl").read_text()
             assert own["PONOS_SLACK_TOKEN"] not in transcript, transcript
-            assert own["PONOS_NOTION_TOKEN"] not in transcript, transcript
+            assert own["PONOS_GITHUB_TOKEN"] not in transcript, transcript
             assert vault.MASK in transcript
         finally:
             vault.forget()

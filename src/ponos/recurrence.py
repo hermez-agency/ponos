@@ -33,7 +33,7 @@ class Recurrence(Base):
         database = self.workspace.schedules
         if not database:
             return []
-        settings = self.config.notion
+        settings = self.config.board
         return [schedules_module.read(page, settings) for page in self.client.query(database)]
 
     def born(self) -> list[dict[str, Any]]:
@@ -85,8 +85,8 @@ class Recurrence(Base):
           loses one occurrence; the other order would create two, which costs a
           session and dirties the board. A second runner on another machine
           reads a `Next` that has already moved, and does nothing. And an
-          occurrence that could not be taken — the write refused, or `Next` a
-          formula Notion will not let anyone write — is not acted on at all.
+          occurrence that could not be taken — the write refused — is not acted
+          on at all.
         - **The timezone is this machine's**, the same reading `scheduled_for`
           gives a date on a ticket.
         """
@@ -106,7 +106,7 @@ class Recurrence(Base):
                 # A new schedule does not fire the second it is written: writing
                 # “Weekly / Monday” on a Tuesday must not produce a ticket now.
                 if upcoming:
-                    self._mark(schedule, {self.config.notion.prop("next_run"): upcoming})
+                    self._mark(schedule, {self.config.board.prop("next_run"): upcoming})
                     self.say(
                         f"  ⧗ {schedule.name} — first occurrence "
                         f"{upcoming.strftime('%Y-%m-%d %H:%M')}"
@@ -127,8 +127,8 @@ class Recurrence(Base):
             if not self._mark(
                 schedule,
                 {
-                    self.config.notion.prop("next_run"): upcoming,
-                    self.config.notion.prop("last_run"): now,
+                    self.config.board.prop("next_run"): upcoming,
+                    self.config.board.prop("last_run"): now,
                 },
             ):
                 continue
@@ -170,7 +170,7 @@ class Recurrence(Base):
         # After the ticket rather than before, unlike a pass: nobody is racing
         # this one for the occurrence, and a `Last` that moved for a ticket that
         # was never made would be a lie.
-        self._mark(schedule, {self.config.notion.prop("last_run"): datetime.now().astimezone()})
+        self._mark(schedule, {self.config.board.prop("last_run"): datetime.now().astimezone()})
         state.record(entry)
         return entry
 
@@ -186,7 +186,7 @@ class Recurrence(Base):
         """
         if not schedule.last_ticket:
             return False
-        settings = self.config.notion
+        settings = self.config.board
         try:
             page = self.client.page(schedule.last_ticket)
         except store.StoreError:
@@ -219,7 +219,7 @@ class Recurrence(Base):
         on to the next one. `strict`, for a launch somebody asked for: the
         failure is raised to them instead.
         """
-        settings = self.config.notion
+        settings = self.config.board
         moment = datetime.now().astimezone()
         stamp = moment.strftime("%Y-%m-%d %H:%M" if schedule.cadence == "Hourly" else "%Y-%m-%d")
         title = f"{schedule.name} — {stamp}"
@@ -253,7 +253,7 @@ class Recurrence(Base):
                 f"  ! {schedule.name} — the ticket could not be created: {voice_module.line(error)}"
             )
             return None
-        # Linked first, so that a body Notion refuses still leaves the schedule
+        # Linked first, so that a body the board refuses still leaves the schedule
         # knowing what it produced — otherwise the next occurrence makes a twin.
         self._mark(schedule, {settings.prop("last_ticket"): page_id})
         # And kept on this side, every one of them: the page above only ever
@@ -301,7 +301,7 @@ class Recurrence(Base):
             schema = self.client.schema(self.workspace.schedules)
         except store.StoreError:
             return False
-        if self.config.notion.prop("type") in schema:
+        if self.config.board.prop("type") in schema:
             return False
         return self.resolver.declares(self.client, schedule.project)
 
@@ -309,13 +309,10 @@ class Recurrence(Base):
         """Write back onto a schedule. Never a reason to fail a pass.
 
         But a reason not to go on: whether the write landed is what is answered,
-        and `recur` makes no ticket for an occurrence it could not take. A
-        column Notion computes itself — a formula, a rollup — is not refused,
-        its value is dropped without a word; so it is caught here, before the
-        write, rather than believed written.
+        and `recur` makes no ticket for an occurrence it could not take.
 
         Dates go over as ISO 8601 rather than as `str(datetime)`, which spells
-        the separator as a space and is not what Notion accepts.
+        the separator as a space and is not what is read back.
         """
         if self.dry_run or not self.workspace.schedules:
             return True
@@ -324,16 +321,10 @@ class Recurrence(Base):
             for name, value in values.items()
         }
         try:
-            schema = self.client.schema(self.workspace.schedules)
-            computed = [name for name in written if schema.get(name) in store.READ_ONLY]
-            if computed:
-                self.say(
-                    f"  ! {schedule.name} — {', '.join(computed)} cannot be written: "
-                    "Notion computes it"
-                )
-                return False
             self.client.update(self.workspace.schedules, schedule.page.id, written)
         except store.StoreError as error:
-            self.say(f"  ! {schedule.name} — Notion refused the write: {voice_module.line(error)}")
+            self.say(
+                f"  ! {schedule.name} — the board refused the write: {voice_module.line(error)}"
+            )
             return False
         return True

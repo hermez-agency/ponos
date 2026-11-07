@@ -36,7 +36,7 @@ import { ProjectTickets } from "./project-tickets"
 import { Robot } from "./robot"
 import { ScopedIdeas } from "./scoped-ideas"
 import { StatisticsBand } from "./statistics"
-import { Away, Chip, reachable } from "./ticket-bits"
+import { Chip } from "./ticket-bits"
 
 /* A project's own switches, a tab opened now and then: kept out of the first
  * load, which has a budget. */
@@ -295,7 +295,7 @@ function ProjectTabs({ project, children }: { project: ProjectItem; children: Re
  * every page of the console. The page drew its own on top of it — two ways
  * back, two titles, two edit buttons — so what only a project has is said in
  * that header instead: the kind of work above the name, and on the right the
- * page in Notion, how many tickets point at it, and the edit button.
+ * how many tickets point at it, and the edit button.
  *
  * Written here rather than told to the package's, as the ticket's is (see
  * `TicketHead`): the package says the whole page id under the title —
@@ -407,18 +407,15 @@ export function ProjectActions() {
   const count = useTicketCount(project?.name ?? "")
   const navigate = useNavigate()
   if (!project) return null
-  /** Where the project is really written, when that is somewhere a browser can go. */
-  const away = reachable(project.url) ? project.url : ""
   return (
     <>
-      {/* What the project is, before what can be done to it: a count (not beside the list, which says it on the row), then a
-       * way out to Notion — both read-only, both the same small print. */}
+      {/* What the project is, before what can be done to it: a count (not beside the list, which says it on the row) —
+       * read-only, the small print. */}
       {context.panel ? null : count === null ? (
         <Skeleton className="h-5 w-16 rounded-full" />
       ) : count ? (
         <Chip>{counted(count, "{{count}} ticket", "{{count}} tickets")}</Chip>
       ) : null}
-      {away ? <Away label="Notion" href={away} /> : null}
       {/* Then the actions, one height so the row reads as one group. */}
       {isAPage(project.id) && canAct() ? <IdeasButton project={project.id} name={project.name} inline /> : null}
       {isAPage(project.id) && canAct() ? <DiagnoseButton project={project} /> : null}

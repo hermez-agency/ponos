@@ -6,7 +6,7 @@ executing, delivering, answering — passes a `Ticket` or a `Job` to the next
 one, so they have to live somewhere that none of those modules owns, or the
 first one to import the second would be importing the whole run back.
 
-`Ticket` is a Notion page read the way a run reads it; `Job` is that ticket
+`Ticket` is a page read the way a run reads it; `Job` is that ticket
 once a run has decided where it will happen — which branch, which worktree,
 which session, in whose voice — and is filled in as the run learns the rest.
 """
@@ -115,7 +115,7 @@ class Job:
 def short_id(page_id: str) -> str:
     """Eight characters that actually tell two tickets apart.
 
-    Notion page IDs are time-ordered: two tickets created the same day share a
+    Page IDs are time-ordered: two tickets created the same day share a
     long *prefix*. Taking the first eight gave both of the first two tickets
     written for this tool the same short id — which would have had them fight
     over one scratch directory. The tail is where the entropy is.

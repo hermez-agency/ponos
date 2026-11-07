@@ -6,7 +6,7 @@ the whole run under a constant — in the journal, in the notifications, in the
 comments posted back, in the pull request, and, worst of all, in the branch,
 where every nameless ticket looks like every other one.
 
-So the runner names it from what it says, and writes the name **into Notion**:
+So the runner names it from what it says, and writes the name **onto the board**:
 a title that only ever existed in one run's memory would leave the page just as
 anonymous for whoever opens it next.
 

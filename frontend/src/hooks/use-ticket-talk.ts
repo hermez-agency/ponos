@@ -40,7 +40,7 @@ export function useTicketTalk() {
     setTalkLoading(true)
     try {
       const payload = await api.talk(open.id)
-      // Notion took a moment and you opened another card in it: this answer is
+      // The board took a moment and you opened another card in it: this answer is
       // about a ticket nobody is looking at any more.
       if (openId.current !== open.id) return
       setTalk(payload.messages)
@@ -115,7 +115,7 @@ export function useTicketTalk() {
   /* The board moved: keep the open ticket's terminal describing the right
    * one. Reread the discussion only when the ticket *changed column* — that
    * is when a run ended and left its report under it. A ticket in flight
-   * redraws the board every few seconds, and asking Notion for its comments
+   * redraws the board every few seconds, and asking the board for its comments
    * each time would be polling a conversation that has not moved. The
    * "reread" button is there. */
   const follow = React.useCallback(

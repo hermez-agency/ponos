@@ -33,10 +33,10 @@ import { projectsOnce } from "@/resources/projects"
  *
  * Listed and written: a card per goal, how many of its tickets are done, and
  * the page of one in a drawer over the list — and the forms that create one,
- * change any of its columns, tie tickets to it and delete it, which is Notion's
- * trash — a goal met or given up is closed by its status instead, and kept. The progress is the server's count of the tickets the board lists (see
- * `Api.goals`), so it is the same with or without a Notion behind the board,
- * and it is read again after every write.
+ * change any of its columns, tie tickets to it and delete it, which is the
+ * board's trash — a goal met or given up is closed by its status instead, and
+ * kept. The progress is the server's count of the tickets the board lists (see
+ * `Api.goals`), and it is read again after every write.
  *
  * The rows are every goal, read once for whoever asks while the request is
  * out, and filtered here: a workspace has a handful of them, and the filters
@@ -73,12 +73,10 @@ interface LastRead {
   /** The options of the database's status column, which the form offers. */
   statuses: string[]
   configured: boolean
-  /** Whether a Notion sits behind the board: without one, a goal has no Notion page and no trash. */
-  notion: boolean
   problem: string
 }
 
-let read: LastRead = { goals: null, statuses: [], configured: true, notion: true, problem: "" }
+let read: LastRead = { goals: null, statuses: [], configured: true, problem: "" }
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void) {
@@ -106,7 +104,6 @@ function readAgain(): Promise<Goal[]> {
         goals: fresh.goals,
         statuses: fresh.statuses,
         configured: fresh.configured,
-        notion: fresh.notion ?? true,
         problem: "",
       }
       listeners.forEach((listener) => listener())
@@ -274,11 +271,10 @@ const fields: FormInterface["inputs"] = {
 const form: FormInterface = { label: { submit: "Save" }, inputs: fields }
 
 /* A new goal is one being pursued, as the database spells it (`goals.ACTIVE`):
- * a Notion Status column refuses a name it does not offer, where a board
- * without Notion takes any — and offers none before its first goal is written. */
+ * the board takes any name — and offers none before its first goal is written. */
 function activeStatus(): string {
   const spelled = read.statuses.find((value) => ["actif", "active", "en cours"].includes(value.toLowerCase()))
-  return spelled ?? (read.notion ? "" : "actif")
+  return spelled ?? "actif"
 }
 
 /* It says so once written: the package's toast hands its sentence over as it
@@ -309,7 +305,7 @@ const withIds = (goal: Goal): GoalItem => ({
   tickets: (goal.linked ?? []).map((ticket) => ticket.id),
 })
 
-/** Said when Notion refused some of the tickets a save tied or untied: the others were written. */
+/** Said when the board refused some of the tickets a save tied or untied: the others were written. */
 const unwritten = (saved: GoalSaved) => {
   if (!saved.failed.length) return
   toast.error(t("Tickets not tied to the goal: {{count}}", { count: saved.failed.length }), {

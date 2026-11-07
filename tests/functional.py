@@ -3,25 +3,23 @@
 
     uv run python tests/functional.py   # or python3, with requirements.txt installed
 
-`tests/run.py` covers the pure part and assumes it touches nothing — not Notion,
-not git, not the network. What that leaves uncovered is the road itself: ready
-ticket, worktree, session, branch, pull request, status written back. And that
-is the half which breaks quietly. A ticket that runs on an empty directory, a
-session paid for and thrown away, a pull request nobody ever linked to its
-ticket — none of those raises anything. They leave a board that still looks
-plausible.
+`tests/run.py` covers the pure part and assumes it touches nothing — not git,
+not the network. What that leaves uncovered is the road itself: ready ticket,
+worktree, session, branch, pull request, status written back. And that is the
+half which breaks quietly. A ticket that runs on an empty directory, a session
+paid for and thrown away, a pull request nobody ever linked to its ticket —
+none of those raises anything. They leave a board that still looks plausible.
 
-So the world is doubled rather than mocked. A Notion of our own answers on a
-local port and keeps a state any test can read back; a repository and a bare
+So the world is doubled rather than mocked. The board is the real one —
+`ponos.db`, in a state directory of the test's own — and a scenario writes and
+reads it the way the console would, through the store; a repository and a bare
 remote stand in for GitHub; a `claude` and a `gh` at the head of `PATH` do what
-the real ones do, minus the thinking and the network. The runner is told none of
-it: it loads a configuration, reads its board and works. The one thing it cannot
-guess is where Notion lives, and that is the single seam added to the code —
-`PONOS_NOTION_API`, see `notion.endpoint`.
+the real ones do, minus the thinking and the network. The runner is told none
+of it: it loads a configuration, reads its board and works.
 
 Nothing here leaves the machine, and nothing is written outside a temporary
-directory: `XDG_STATE_HOME` moves with the test, and takes the worktrees, the
-logs and the history with it.
+directory: `XDG_STATE_HOME` moves with the test, and takes the board, the
+worktrees, the logs and the history with it.
 """
 
 from __future__ import annotations
@@ -62,13 +60,10 @@ from ponos import (  # noqa: E402
     db,
     diagnostic,
     github_checks,
-    images,
     journal,
-    ledger,
     library,
     local_ci,
-    notion,
-    notion_import,
+    pages,
     planning,
     preview,
     project_settings,
@@ -79,7 +74,6 @@ from ponos import (  # noqa: E402
     tickets,
 )
 from ponos import config as C  # noqa: E402
-from ponos import http as http_module  # noqa: E402
 from ponos.runner import Runner  # noqa: E402
 from ponos.ticket import short_id  # noqa: E402
 
@@ -101,7 +95,7 @@ if (
 
 
 def _ident() -> str:
-    """A Notion identifier: 32 hexadecimal characters, as `is_identifier` reads."""
+    """A page identifier: 32 hexadecimal characters."""
     return uuid.uuid4().hex
 
 
@@ -109,457 +103,57 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-# -- a Notion of our own -----------------------------------------------------
-
-
-def _rich(text: str) -> list[dict[str, Any]]:
-    """Rich text as Notion hands it back — content to write, plain_text to read."""
-    return [{"type": "text", "text": {"content": text}, "plain_text": text}]
-
-
-def _stored(value: dict[str, Any]) -> dict[str, Any]:
-    """One written property, as a reader would then find it.
-
-    `notion._encode` writes `{"status": {"name": "done"}}`: the type is the only
-    key, and it is not repeated inside. What comes back from the API carries it
-    as `type`, and a rich text carries `plain_text` beside the content it was
-    given. Doing both here is what makes a value written by the runner readable
-    by the runner — which is most of what these tests are about.
-    """
-    kind = next(iter(value))
-    stored = {"type": kind, **value}
-    if kind in ("rich_text", "title"):
-        stored[kind] = [
-            {**part, "plain_text": part.get("text", {}).get("content", "")} for part in value[kind]
-        ]
-    return stored
+# -- the board, as a person reaches it ----------------------------------------
 
 
 class Board:
-    """Notion reduced to what `notion.py` actually asks of it.
+    """`ponos.db`, written and read through the store — the gestures of the console.
 
-    Pages, databases, blocks and comments in four dictionaries, and the routing
-    that serves them. Everything a test wants to know afterwards — the status a
-    ticket ended on, the pull request written into it, what was said in its
-    comments — is read straight off here rather than off a transcript of
-    requests: the point is the board somebody would look at on Monday.
+    Everything a test wants to know afterwards — the status a ticket ended on,
+    the pull request written into it, what was said in its comments — is read
+    straight off the board somebody would look at on Monday, not off a
+    transcript of what the runner did.
     """
 
-    def __init__(self) -> None:
-        self.databases: dict[str, dict[str, Any]] = {}
-        self.pages: dict[str, dict[str, Any]] = {}
-        self.blocks: dict[str, list[dict[str, Any]]] = {}
-        self.comments: list[dict[str, Any]] = []
-        # Files handed over through the File Upload API, and where they are
-        # served from afterwards — this server, under a URL that "expires".
-        self.uploads: dict[str, dict[str, Any]] = {}
-        self.files: dict[str, tuple[bytes, str]] = {}
-        self.address = ""
-        self.requests: list[str] = []
-        # Every request this Notion could not answer, so that a run is never
-        # silently short of one: most roads in `notion.py` swallow a refusal.
-        self.refused: list[str] = []
-        self.me = {"object": "user", "id": _ident(), "name": "Ponos", "type": "bot"}
-        # A Notion whose token is refused: every request answers 401.
-        self.down = False
+    def __init__(self, config: Path) -> None:
+        self.config = config
 
-    # -- building a board ----------------------------------------------------
+    @property
+    def client(self) -> store.Store:
+        """The store the runner opens, on the file the bench wrote — read again each time."""
+        return store.open(C.load(self.config))
 
-    def database(self, title: str, properties: dict[str, Any]) -> str:
-        identifier = _ident()
-        self.databases[identifier] = {
-            "object": "database",
-            "id": identifier,
-            "title": _rich(title),
-            "properties": properties,
-        }
-        return identifier
+    # -- writing -------------------------------------------------------------
 
-    def page(
-        self,
-        properties: dict[str, dict[str, Any]],
-        *,
-        database: str = "",
-        body: str = "",
-    ) -> str:
-        identifier = _ident()
-        self.pages[identifier] = {
-            "object": "page",
-            "id": identifier,
-            "url": f"https://notion.invalid/{identifier}",
-            "created_time": _now(),
-            "last_edited_time": _now(),
-            "parent": (
-                {"type": "database_id", "database_id": database}
-                if database
-                else {"type": "workspace", "workspace": True}
-            ),
-            "properties": properties,
-        }
-        self.blocks[identifier] = (
-            [
-                {
-                    "object": "block",
-                    "id": _ident(),
-                    "type": "paragraph",
-                    "has_children": False,
-                    "paragraph": {"rich_text": _rich(line)},
-                }
-                for line in body.splitlines()
-                if line.strip()
-            ]
-            if body
-            else []
-        )
-        return identifier
+    def set(self, page_id: str, name: str, value: Any) -> None:
+        """One column of a ticket, as a person would change it."""
+        self.client.update("tickets", page_id, {name: value})
+
+    def comment(self, page_id: str, text: str) -> None:
+        """Somebody else's comment on a ticket, in a discussion of its own."""
+        tickets.comment(page_id, text, author="someone", discussion=_ident())
+
+    def trash(self, page_id: str) -> None:
+        self.client.trash(page_id)
 
     # -- reading it back -----------------------------------------------------
 
     def value(self, page_id: str, name: str) -> Any:
-        page = self.pages[page_id]
-        return notion.read(
-            notion.Page(id=page_id, url="", title="", properties=page["properties"]), name
-        )
+        return store.read(self.client.page(page_id), name)
+
+    def url(self, page_id: str) -> str:
+        return self.client.page(page_id).url
 
     def body(self, page_id: str) -> str:
-        """The page's blocks, flattened — enough to say what was written into it."""
-        lines = []
-        for block in self.blocks.get(page_id, []):
-            payload = block.get(block.get("type", ""), {})
-            lines.append(
-                "".join(part.get("plain_text", "") for part in payload.get("rich_text", []))
-            )
-        return "\n".join(lines)
+        """The page's text — enough to say what was written into it."""
+        return self.client.blocks_text(page_id)
 
     def said(self, page_id: str) -> list[str]:
         """Everything commented on that page, oldest first."""
-        return [
-            "".join(part.get("plain_text", "") for part in comment["rich_text"])
-            for comment in self.comments
-            if comment["page"] == page_id
-        ]
+        return [comment.text for comment in self.client.comments(page_id)]
 
-    # -- serving it ----------------------------------------------------------
-
-    def handle(
-        self,
-        method: str,
-        path: str,
-        query: dict[str, Any],
-        body: dict[str, Any],
-        token: str,
-        raw: bytes = b"",
-    ) -> tuple[int, Any]:
-        """One request, routed. The endpoints `notion.py` calls, and those only.
-
-        Anything else is refused *and remembered*: a client that grew a request
-        nobody doubled here would otherwise fail somewhere far from here, and
-        most of the roads in `notion.py` swallow a refusal on purpose.
-        """
-        self.requests.append(f"{method} {path}")
-        if self.down or not token.startswith("Bearer "):
-            return 401, {"message": "API token is invalid"}
-        parts = [part for part in path.split("/") if part]
-        if parts and parts[0] == "v1":
-            parts = parts[1:]
-        route = (method, *("*" if C.is_identifier(part) else part for part in parts))
-        identifier = next((part for part in parts if C.is_identifier(part)), "")
-
-        if route == ("GET", "databases", "*"):
-            found = self.databases.get(identifier)
-            return (200, found) if found else (404, {"message": "database not found"})
-        if route == ("POST", "databases", "*", "query"):
-            return 200, self._query(identifier, body)
-        if route == ("GET", "pages", "*"):
-            found = self.pages.get(identifier)
-            return (200, self._signed(found)) if found else (404, {"message": "page not found"})
-        if route == ("POST", "file_uploads"):
-            upload = _ident()
-            self.uploads[upload] = {"status": "pending", **body}
-            return 200, {"object": "file_upload", "id": upload, "status": "pending"}
-        if route == ("POST", "file_uploads", "*", "send"):
-            return self._receive(identifier, raw)
-        if route == ("PATCH", "pages", "*"):
-            return self._update(identifier, body)
-        if route == ("POST", "pages"):
-            return self._create(body)
-        if route == ("GET", "blocks", "*", "children"):
-            return 200, {"results": self.blocks.get(identifier, []), "has_more": False}
-        if route == ("PATCH", "blocks", "*", "children"):
-            return 200, {"results": self._append(identifier, body.get("children", []))}
-        if route == ("PATCH", "blocks", "*"):
-            return 200, self._retitle(identifier, body)
-        if route == ("DELETE", "blocks", "*"):
-            # Archived, as Notion does: gone from its parent's children.
-            for parent, held in self.blocks.items():
-                self.blocks[parent] = [block for block in held if block["id"] != identifier]
-            return 200, {"object": "block", "id": identifier, "archived": True}
-        if route == ("GET", "comments"):
-            page = (query.get("block_id") or [""])[0].replace("-", "")
-            return 200, {
-                "results": [one for one in self.comments if one["page"] == page],
-                "has_more": False,
-            }
-        if route == ("POST", "comments"):
-            return self._comment(body)
-        if route == ("GET", "users", "me"):
-            return 200, self.me
-        self.refused.append(f"{method} /{'/'.join(parts)}")
-        return 404, {"message": f"the fake Notion does not serve {method} /{'/'.join(parts)}"}
-
-    def _query(self, database_id: str, body: dict[str, Any]) -> dict[str, Any]:
-        if database_id not in self.databases:
-            return {"results": [], "has_more": False}
-        filter_ = body.get("filter")
-        results = [
-            self._signed(page)
-            for page in self.pages.values()
-            if page["parent"].get("database_id") == database_id
-            and not page.get("archived")
-            and self._matches(page, filter_)
-        ]
-        return {"results": results, "has_more": False, "next_cursor": None}
-
-    def _matches(self, page: dict[str, Any], filter_: dict[str, Any] | None) -> bool:
-        if not filter_:
-            return True
-        if "and" in filter_:
-            return all(self._matches(page, one) for one in filter_["and"])
-        if "or" in filter_:
-            return any(self._matches(page, one) for one in filter_["or"])
-        name = filter_.get("property", "")
-        value = notion.read(
-            notion.Page(id=page["id"], url="", title="", properties=page["properties"]), name
-        )
-        for kind, condition in filter_.items():
-            if kind == "property" or not isinstance(condition, dict):
-                continue
-            if "equals" in condition and value != condition["equals"]:
-                return False
-            if "does_not_equal" in condition and value == condition["does_not_equal"]:
-                return False
-        return True
-
-    def _update(self, page_id: str, body: dict[str, Any]) -> tuple[int, Any]:
-        page = self.pages.get(page_id)
-        if not page:
-            return 404, {"message": "page not found"}
-        schema = {}
-        database = page["parent"].get("database_id", "")
-        if database in self.databases:
-            schema = self.databases[database]["properties"]
-        if "archived" in body:
-            # The trash: the page leaves every query and is still read by its ID.
-            page["archived"] = bool(body["archived"])
-        for slot in ("cover", "icon"):
-            if slot not in body:
-                continue
-            value = body[slot]
-            if value and value.get("type") == "file_upload":
-                upload = self.uploads.get(value["file_upload"]["id"], {})
-                if upload.get("status") != "uploaded":
-                    return 400, {"message": "that file upload has not been sent"}
-                name = _ident()
-                self.files[name] = (upload["data"], upload.get("content_type", ""))
-                value = self.hosted(name, upload.get("filename", "file"))
-            page[slot] = value
-        for name, value in body.get("properties", {}).items():
-            if schema and name not in schema:
-                # Notion refuses a property the database does not declare, and
-                # the runner leans on that: `update` skips those before writing.
-                return 400, {"message": f"{name} is not a property that exists"}
-            page["properties"][name] = _stored(value)
-        page["last_edited_time"] = _now()
-        return 200, self._signed(page)
-
-    def _create(self, body: dict[str, Any]) -> tuple[int, Any]:
-        """A page made in a database — what the mirror does for a ticket born in `ponos.db`."""
-        database = str((body.get("parent") or {}).get("database_id") or "").replace("-", "")
-        if database not in self.databases:
-            return 404, {"message": "database not found"}
-        schema = self.databases[database]["properties"]
-        properties: dict[str, Any] = {}
-        for name, value in (body.get("properties") or {}).items():
-            if name not in schema:
-                return 400, {"message": f"{name} is not a property that exists"}
-            properties[name] = _stored(value)
-        identifier = self.page(properties, database=database)
-        self._append(identifier, body.get("children") or [])
-        return 200, self._signed(self.pages[identifier])
-
-    def hosted(self, name: str, filename: str) -> dict[str, Any]:
-        """A file this Notion keeps, as a page's cover or icon points at it."""
-        return {
-            "type": "file",
-            "file": {"url": f"{self.address}/files/{name}/{filename}", "expiry_time": ""},
-        }
-
-    def _signed(self, page: dict[str, Any]) -> dict[str, Any]:
-        """The page as it is read: every hosted file under a fresh signature.
-
-        Which is what Notion does, and what the console must not mistake for a
-        new picture — the signature changes with each read, the file does not.
-        """
-        signed = dict(page)
-        for slot in ("cover", "icon"):
-            value = page.get(slot)
-            if value and value.get("type") == "file":
-                url = value["file"]["url"].split("?", 1)[0]
-                expires = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
-                signed[slot] = {
-                    "type": "file",
-                    "file": {"url": f"{url}?X-Amz-Signature={_ident()}", "expiry_time": expires},
-                }
-        return signed
-
-    def _receive(self, upload: str, raw: bytes) -> tuple[int, Any]:
-        """The second half of an upload: the file, as a multipart form."""
-        if upload not in self.uploads:
-            return 404, {"message": "no such file upload"}
-        head, _, rest = raw.partition(b"\r\n\r\n")
-        if b'name="file"' not in head:
-            return 400, {"message": "the upload carries no part named file"}
-        boundary = raw.split(b"\r\n", 1)[0]
-        data = rest[: rest.rindex(b"\r\n" + boundary)]
-        self.uploads[upload].update(status="uploaded", data=data)
-        return 200, {"object": "file_upload", "id": upload, "status": "uploaded"}
-
-    def _append(self, block_id: str, children: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        created = []
-        for child in children:
-            block = {"object": "block", "id": _ident(), "has_children": False, **child}
-            payload = block.get(block.get("type", ""))
-            if isinstance(payload, dict) and isinstance(payload.get("rich_text"), list):
-                # Written without `plain_text`, read with it — see `_stored`.
-                payload["rich_text"] = [
-                    {**part, "plain_text": part.get("text", {}).get("content", "")}
-                    for part in payload["rich_text"]
-                ]
-            self.blocks.setdefault(block_id, []).append(block)
-            created.append(block)
-        # Appended under a block — the live report's toggle — rather than a page:
-        # that block now says it has children, as Notion's would.
-        for held in self.blocks.values():
-            for block in held:
-                if block["id"] == block_id and children:
-                    block["has_children"] = True
-        return created
-
-    def _retitle(self, block_id: str, body: dict[str, Any]) -> dict[str, Any]:
-        """A block's text rewritten in place — the live report's title moving on."""
-        for held in self.blocks.values():
-            for block in held:
-                if block["id"] != block_id:
-                    continue
-                for kind, payload in body.items():
-                    if kind == block.get("type") and isinstance(payload.get("rich_text"), list):
-                        block[kind]["rich_text"] = [
-                            {**part, "plain_text": part.get("text", {}).get("content", "")}
-                            for part in payload["rich_text"]
-                        ]
-                return block
-        return {"object": "block", "id": block_id}
-
-    def _comment(self, body: dict[str, Any]) -> tuple[int, Any]:
-        discussion = body.get("discussion_id", "")
-        page = (body.get("parent") or {}).get("page_id", "").replace("-", "")
-        if discussion and not page:
-            page = next(
-                (one["page"] for one in self.comments if one["discussion_id"] == discussion), ""
-            )
-        if not page:
-            return 400, {"message": "a comment needs a parent page or a discussion"}
-        comment = {
-            "object": "comment",
-            "id": _ident(),
-            "page": page,
-            "discussion_id": discussion or _ident(),
-            "created_time": _now(),
-            "created_by": {"object": "user", "id": self.me["id"]},
-            "rich_text": [
-                {**part, "plain_text": part.get("text", {}).get("content", "")}
-                for part in body.get("rich_text", [])
-            ],
-        }
-        self.comments.append(comment)
-        return 200, comment
-
-
-class _Handler(BaseHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-
-    def do_GET(self) -> None:
-        self._answer("GET")
-
-    def do_POST(self) -> None:
-        self._answer("POST")
-
-    def do_PATCH(self) -> None:
-        self._answer("PATCH")
-
-    def do_DELETE(self) -> None:
-        self._answer("DELETE")
-
-    def log_message(self, *args: object) -> None:
-        """A test suite that narrates every request is a test suite nobody reads."""
-
-    def _answer(self, method: str) -> None:
-        length = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(length) if length else b""
-        parsed = urlparse(self.path)
-        if parsed.path.startswith("/files/"):
-            # Where a hosted file is fetched: storage, not the API — no token
-            # asked, and the bytes rather than JSON.
-            name = parsed.path.split("/")[2]
-            data, kind = self.server.board.files.get(name, (b"", ""))  # type: ignore[attr-defined]
-            self.send_response(200 if data else 404)
-            self.send_header("Content-Type", kind or "application/octet-stream")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
-            return
-        try:
-            body = json.loads(raw or b"{}")
-        except ValueError:
-            body = {}  # a file sent as a form, which `_receive` reads raw
-        try:
-            status, payload = self.server.board.handle(  # type: ignore[attr-defined]
-                method,
-                parsed.path,
-                parse_qs(parsed.query),
-                body,
-                self.headers.get("Authorization", ""),
-                raw,
-            )
-        except Exception as error:  # noqa: BLE001 — a fake that raises must still answer
-            # 400 rather than 500: the client retries a 500 four times, a minute
-            # apart, and a broken double would spend that minute before saying
-            # anything. This one is our fault and says so at once.
-            self.server.board.refused.append(f"{method} {parsed.path}: {error}")  # type: ignore[attr-defined]
-            status, payload = 400, {"message": f"{type(error).__name__}: {error}"}
-        encoded = json.dumps(payload).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(encoded)))
-        self.end_headers()
-        self.wfile.write(encoded)
-
-
-@contextmanager
-def _notion_server() -> Iterator[tuple[str, Board]]:
-    """A Notion answering on a loopback port nobody chose in advance."""
-    board = Board()
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
-    server.board = board  # type: ignore[attr-defined]
-    board.address = f"http://127.0.0.1:{server.server_port}"
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/v1", board
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=5)
+    def tickets(self) -> list[tickets.Record]:
+        return tickets.listing()
 
 
 # -- the machine the runner thinks it is on ----------------------------------
@@ -1313,36 +907,6 @@ def _lines(path: Path) -> list[dict[str, Any]]:
 # -- the board, the configuration, the run -----------------------------------
 
 
-TICKETS = {
-    "Name": {"type": "title", "title": {}},
-    "statut": {
-        "type": "status",
-        "status": {
-            "options": [
-                {"name": name}
-                for name in (
-                    "ready",
-                    "progress",
-                    "review",
-                    "validated",
-                    "done",
-                    "blocked",
-                    "blocked",
-                )
-            ]
-        },
-    },
-    "Project": {"type": "relation", "relation": {}},
-    "Agent": {"type": "rich_text", "rich_text": {}},
-    "Pull Request": {"type": "url", "url": {}},
-    "Session": {"type": "rich_text", "rich_text": {}},
-    "Priorité": {"type": "number", "number": {}},
-    "Model": {"type": "select", "select": {"options": [{"name": "opus"}]}},
-    "Scheduled": {"type": "date", "date": {}},
-    "Duration": {"type": "number", "number": {}},
-    "Cost": {"type": "number", "number": {}},
-}
-
 # The installation every scenario runs on. The road under test is on — fetch,
 # push, pull request — and what is off is not cheating: each of those is a road
 # of its own, already covered in `tests/run.py`, or one that reaches outside the
@@ -1376,14 +940,15 @@ class Bench:
         self,
         root: Path,
         board: Board,
-        database: str,
         logs: dict[str, Path],
         settings: dict[str, object],
     ) -> None:
         self.root = root
         self.settings = settings
         self.board = board
-        self.database = database
+        # Whether the scenario has asked for the runner to work out the types
+        # of its tickets — see `typed`.
+        self._typed = False
         self.logs = logs
         self.config = root / "config.toml"
 
@@ -1406,69 +971,42 @@ class Bench:
 
     def project(self, name: str, repository: Path | None = None, brief: str = "") -> str:
         """A project page: a title, and the path its tickets are worked on."""
-        properties = {"Name": _stored({"title": _rich(name)})}
-        if repository is not None:
-            properties["Path"] = _stored({"rich_text": _rich(str(repository))})
-        return self.board.page(properties, body=brief)
+        board = pages.Pages()
+        values = {"Path": str(repository)} if repository is not None else {}
+        identifier = board.create_row("projects", name, values)
+        if brief:
+            board.replace_markdown(identifier, brief)
+        return identifier
 
-    def ticket(self, title: str, body: str, project: str = "", status: str = "ready") -> str:
-        properties = {
-            "Name": _stored({"title": _rich(title)}),
-            "statut": _stored({"status": {"name": status}}),
-        }
-        if project:
-            properties["Project"] = _stored({"relation": [{"id": project}]})
-        return self.board.page(properties, database=self.database, body=body)
+    def ticket(
+        self,
+        title: str,
+        body: str,
+        project: str = "",
+        status: str = "ready",
+        kind: str = "",
+        subtype: str = "",
+    ) -> str:
+        """A ticket, untyped unless `kind` says it — a daemon of its own classifies the others.
+
+        `subtype` is the option a code ticket's « Sous-type » holds, `Bug`.
+        """
+        return tickets.create(
+            title, status=status, project=project, mission=body, kind=kind, subtype=subtype
+        ).id
 
     def typed(self) -> None:
-        """The board given its Type column, as `init` gives it to an older one."""
-        # A copy: the schema every scenario starts from is shared, and must stay
-        # the board of the scenarios that never heard of a type.
-        database = self.board.databases[self.database]
-        database["properties"] = {
-            **database["properties"],
-            "Type": {
-                "type": "select",
-                "select": {
-                    "options": [
-                        {"name": name}
-                        for name in (
-                            "Code",
-                            "Rédaction",
-                            "Action externe",
-                            "Publication",
-                            "Diagnostic",
-                        )
-                    ]
-                },
-            },
-        }
+        """The runner asked to work out the type of a ticket that has none.
+
+        Every other scenario runs its untyped tickets by what their project
+        holds, the road a ticket took before there were types: the
+        classification is a session of its own, counted where it runs.
+        """
+        self._typed = True
 
     def subtyped(self) -> None:
-        """The board given its Type and Sous-type columns, as `init` gives them now."""
+        """The same, for the sub-type of a code ticket."""
         self.typed()
-        database = self.board.databases[self.database]
-        database["properties"] = {
-            **database["properties"],
-            "Sous-type": {
-                "type": "select",
-                "select": {
-                    "options": [
-                        {"name": name}
-                        for name in (
-                            "Bug",
-                            "Feature",
-                            "Amélioration",
-                            "Chore",
-                            "Refactor",
-                            "Perf",
-                            "Docs",
-                            "Sécurité",
-                        )
-                    ]
-                },
-            },
-        }
 
     def with_ci(self, repository: Path) -> None:
         """A workflow on `main`: the runner now waits for the checks of its pull requests."""
@@ -1480,8 +1018,8 @@ class Bench:
         _git(["push", "origin", "main"], repository)
 
     def move(self, ticket: str, column: str) -> None:
-        """A ticket dragged from one column to the next, as you would in Notion."""
-        self.board.pages[ticket]["properties"]["statut"] = _stored({"status": {"name": column}})
+        """A ticket dragged from one column to the next, as you would in the console."""
+        self.board.set(ticket, "statut", column)
 
     def land(self, repository: Path, filename: str, text: str = "un autre ticket\n") -> None:
         """Another ticket merged: one commit on `main`, pushed to the remote.
@@ -1514,8 +1052,8 @@ class Bench:
         )
         os.environ["FAKE_GH_REVIEWS"] = str(path)
         # A reviewer is asked about once a minute: let the next pass ask again.
-        for page_id in self.board.pages:
-            ticket_id = page_id.replace("-", "")
+        for record in self.board.tickets():
+            ticket_id = record.id
             if row := state.review_row(ticket_id):
                 state.keep_review(ticket_id, {**row, "asked": 0.0})
         return replies
@@ -1532,6 +1070,7 @@ class Bench:
         known: dict[str, Any] = {
             name: value for name, value in self.settings.items() if hasattr(config.runner, name)
         }
+        known.setdefault("classify", self._typed)
         return replace(config, runner=replace(config.runner, **known))
 
     def run(self) -> list[dict[str, Any]]:
@@ -1539,7 +1078,6 @@ class Bench:
         for path in self.logs.values():
             path.write_text("", encoding="utf-8")
         results = Runner(self.load(), quiet=True).tick()
-        assert not self.board.refused, f"the fake Notion could not answer {self.board.refused}"
         return results
 
     # -- reading back --------------------------------------------------------
@@ -1614,9 +1152,6 @@ class Bench:
 
 
 CONFIGURATION = """# Written by tests/functional.py — a whole installation, in a temporary directory.
-[notion]
-tickets_database = "{database}"
-
 [runner]
 workspace_root = "{workspace}"
 {settings}
@@ -1625,7 +1160,7 @@ workspace_root = "{workspace}"
 
 @contextmanager
 def bench(**overrides: object) -> Iterator[Bench]:
-    """A machine with a Notion, a workspace and a PATH of its own.
+    """A machine with a board, a workspace and a PATH of its own.
 
     Everything it changes is put back on the way out, the temporary directory
     included — so two scenarios never share a board, a state directory or a
@@ -1639,72 +1174,64 @@ def bench(**overrides: object) -> Iterator[Bench]:
     with tempfile.TemporaryDirectory(prefix="ponos-functional-") as directory:
         root = Path(directory)
         _binaries(root / "bin")
-        with _notion_server() as (api, board):
-            logs = {
-                name: root / "logs" / f"{name.lower()}.jsonl"
-                for name in ("FAKE_GIT_LOG", "FAKE_GH_LOG", "FAKE_CLAUDE_LOG")
-            }
-            for path in logs.values():
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("", encoding="utf-8")
-            environment = {
-                notion.API_ENV: api,
-                # What GitHub would still know next week, unlike the logs, which
-                # are emptied before each pass — see the fake `gh`.
-                "FAKE_GH_STATE": str(root / "logs" / "github.jsonl"),
-                "XDG_STATE_HOME": str(root / "state"),
-                "XDG_CONFIG_HOME": str(root / "config"),
-                "PATH": f"{root / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}",
-                "FAKE_CLAUDE_FAIL": "",
-                "FAKE_CLAUDE_KIND": "",
-                "FAKE_CLAUDE_SAY": "",
-                "FAKE_CLAUDE_RESOLVE": "",
-                "FAKE_CLAUDE_PUSHES_OVER": "",
-                "FAKE_CLAUDE_COST": "",
-                "FAKE_CLAUDE_BLOCK": "",
-                "FAKE_CLAUDE_OVER_BUDGET": "",
-                "FAKE_CLAUDE_KILL": "",
-                "FAKE_CLAUDE_SILENT": "",
-                "FAKE_CLAUDE_ELSEWHERE": "",
-                "FAKE_CLAUDE_DIRTY": "",
-                "FAKE_CLAUDE_SUBTYPE": "",
-                "FAKE_CLAUDE_DETACH": "",
-                "FAKE_CLAUDE_REVIEW": "",
-                "FAKE_CLAUDE_REVIEW_COST": "",
-                "FAKE_GH_REFUSE": "",
-                "FAKE_GH_CHECKS": "",
-                "FAKE_GH_ANNOTATION": "",
-                "FAKE_GH_GREEN_WITH": "",
-                "FAKE_GH_REVIEWS": "",
-                "FAKE_CLAUDE_REVIEW_NOTHING": "",
-                "FAKE_CLAUDE_BROWSE": "",
-                "FAKE_CLAUDE_DIAGNOSE": "",
-                **{name: str(path) for name, path in logs.items()},
-            }
-            with _environ(environment):
-                database = board.database("Tickets", TICKETS)
-                settings = {**SETTINGS, **overrides}
-                (root / "config.toml").write_text(
-                    CONFIGURATION.format(
-                        database=database,
-                        workspace=root / "workspace",
-                        settings="\n".join(
-                            f"{key} = {json.dumps(value)}" for key, value in settings.items()
-                        ),
+        logs = {
+            name: root / "logs" / f"{name.lower()}.jsonl"
+            for name in ("FAKE_GIT_LOG", "FAKE_GH_LOG", "FAKE_CLAUDE_LOG")
+        }
+        for path in logs.values():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("", encoding="utf-8")
+        environment = {
+            # What GitHub would still know next week, unlike the logs, which
+            # are emptied before each pass — see the fake `gh`.
+            "FAKE_GH_STATE": str(root / "logs" / "github.jsonl"),
+            "XDG_STATE_HOME": str(root / "state"),
+            "XDG_CONFIG_HOME": str(root / "config"),
+            "PATH": f"{root / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}",
+            "FAKE_CLAUDE_FAIL": "",
+            "FAKE_CLAUDE_KIND": "",
+            "FAKE_CLAUDE_SAY": "",
+            "FAKE_CLAUDE_RESOLVE": "",
+            "FAKE_CLAUDE_PUSHES_OVER": "",
+            "FAKE_CLAUDE_COST": "",
+            "FAKE_CLAUDE_BLOCK": "",
+            "FAKE_CLAUDE_OVER_BUDGET": "",
+            "FAKE_CLAUDE_KILL": "",
+            "FAKE_CLAUDE_SILENT": "",
+            "FAKE_CLAUDE_ELSEWHERE": "",
+            "FAKE_CLAUDE_DIRTY": "",
+            "FAKE_CLAUDE_SUBTYPE": "",
+            "FAKE_CLAUDE_DETACH": "",
+            "FAKE_CLAUDE_REVIEW": "",
+            "FAKE_CLAUDE_REVIEW_COST": "",
+            "FAKE_GH_REFUSE": "",
+            "FAKE_GH_CHECKS": "",
+            "FAKE_GH_ANNOTATION": "",
+            "FAKE_GH_GREEN_WITH": "",
+            "FAKE_GH_REVIEWS": "",
+            "FAKE_CLAUDE_REVIEW_NOTHING": "",
+            "FAKE_CLAUDE_BROWSE": "",
+            "FAKE_CLAUDE_DIAGNOSE": "",
+            **{name: str(path) for name, path in logs.items()},
+        }
+        with _environ(environment):
+            settings = {**SETTINGS, **overrides}
+            (root / "config.toml").write_text(
+                CONFIGURATION.format(
+                    workspace=root / "workspace",
+                    settings="\n".join(
+                        f"{key} = {json.dumps(value)}" for key, value in settings.items()
                     ),
-                    encoding="utf-8",
-                )
-                # Beside the file, where secrets live: config.toml holds none.
-                (root / "secrets.env").write_text(
-                    "PONOS_NOTION_TOKEN=ntn_functional_tests\n", encoding="utf-8"
-                )
-                (root / "secrets.env").chmod(0o600)
-                settle = github_checks.RERUN_SETTLE_SECONDS
-                github_checks.RERUN_SETTLE_SECONDS = 0
-                try:
-                    yield Bench(root, board, database, logs, settings)
-                finally:
-                    github_checks.RERUN_SETTLE_SECONDS = settle
+                ),
+                encoding="utf-8",
+            )
+            settle = github_checks.RERUN_SETTLE_SECONDS
+            github_checks.RERUN_SETTLE_SECONDS = 0
+            try:
+                yield Bench(root, Board(root / "config.toml"), logs, settings)
+            finally:
+                github_checks.RERUN_SETTLE_SECONDS = settle
+                db.close()
 
 
 @contextmanager
@@ -1746,7 +1273,7 @@ def machine(case: Callable[..., None]) -> Iterator[Bench]:
 def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(machine: Bench) -> None:
     """Every four hours, two projects of three ticked: ideas for them at each pass.
 
-    The whole road of the pass, on the doubles: the fake Notion's project index,
+    The whole road of the pass, on the doubles: the board's project index,
     the fake `claude` answering ten at a time, the console's own `Api` reading
     the configuration the machine wrote. A project that turns itself off from its
     page is left out of the next pass; one added after the schedule was set is
@@ -1760,8 +1287,7 @@ def a_scheduled_pass_finds_ideas_for_the_projects_ticked_and_for_those_only(mach
     gamma = machine.project("Gamma").replace("-", "")
     C.edit(machine.config, [("runner", "ideas_projects", f"{alpha}, {gamma}")])
     api = web_api.Api(machine.load())
-    # The fake Notion has no workspace page to find the projects database under,
-    # so the console is given the index it would have read from it.
+    # The console is given the index it would have read from the board.
     api._projects = {
         identifier: {
             "id": identifier,
@@ -1855,13 +1381,13 @@ def a_code_ticket_comes_back_as_a_pull_request(machine: Bench) -> None:
     assert len(opened) == 1, opened
     assert opened[0]["base"] == "main", opened[0]
     assert opened[0]["title"] == "Corriger l'entête", opened[0]
-    page = machine.board.pages[ticket]["url"]
+    page = machine.board.url(ticket)
     assert page in opened[0]["body"], "the pull request does not link back to the ticket"
     assert machine.board.value(ticket, "Pull Request") == opened[0]["url"]
 
     assert str(machine.board.value(ticket, "Agent") or "").startswith("ponos@")
     assert machine.board.value(ticket, "Session"), "the session was not written onto the ticket"
-    assert machine.board.value(ticket, "Duration") is not None
+    assert tickets.get(ticket).duration >= 0  # type: ignore[union-attr]
 
     said = machine.board.said(ticket)
     assert said, "the ticket came back without a word"
@@ -1937,13 +1463,8 @@ def a_ticket_planned_first_commits_nothing_until_its_plan_is_approved(machine: B
     """
     repository = machine.repository("site")
     project = machine.project("Site", repository)
-    database = machine.board.databases[machine.database]
-    database["properties"] = {
-        **database["properties"],
-        "Plan d'abord": {"type": "checkbox", "checkbox": {}},
-    }
     ticket = machine.ticket("Refondre l'entête", "Tout l'entête est à revoir.", project)
-    machine.board.pages[ticket]["properties"]["Plan d'abord"] = _stored({"checkbox": True})
+    machine.board.set(ticket, "Plan d'abord", True)
 
     results = machine.run()
 
@@ -1963,17 +1484,7 @@ def a_ticket_planned_first_commits_nothing_until_its_plan_is_approved(machine: B
     assert asked is not None and asked.mode == "yes-no", asked
 
     def answer(text: str) -> None:
-        machine.board.comments.append(
-            {
-                "object": "comment",
-                "id": _ident(),
-                "page": ticket,
-                "discussion_id": _ident(),
-                "created_time": _now(),
-                "created_by": {"object": "user", "id": _ident()},
-                "rich_text": [{"type": "text", "text": {"content": text}, "plain_text": text}],
-            }
-        )
+        machine.board.comment(ticket, text)
 
     # A sentence amends the plan: planned again, the plan answered in the prompt.
     answer("Ajoute une étape de test.")
@@ -2013,8 +1524,8 @@ def a_project_rule_plans_its_high_tickets_first_once_even_on_a_board_without_the
     project_settings.set_plan(project, "Site", planning.Rule(priority=70))
     ticket = machine.ticket("Revoir le cache", "Le cache est lent.", project)
     low = machine.ticket("Corriger une coquille", "Une lettre de trop.", project)
-    machine.board.pages[ticket]["properties"]["Priorité"] = _stored({"number": 80})
-    machine.board.pages[low]["properties"]["Priorité"] = _stored({"number": 20})
+    machine.board.set(ticket, "Priorité", 80)
+    machine.board.set(low, "Priorité", 20)
 
     results = {result["id"]: result for result in machine.run()}
 
@@ -2023,66 +1534,11 @@ def a_project_rule_plans_its_high_tickets_first_once_even_on_a_board_without_the
     planned = [one for one in machine.sessions() if one["permission_mode"] == "plan"]
     assert len(planned) == 1 and "Le cache est lent." in planned[0]["prompt"], planned
 
-    machine.board.comments.append(
-        {
-            "object": "comment",
-            "id": _ident(),
-            "page": ticket,
-            "discussion_id": _ident(),
-            "created_time": _now(),
-            "created_by": {"object": "user", "id": _ident()},
-            "rich_text": [{"type": "text", "text": {"content": "ok"}, "plain_text": "ok"}],
-        }
-    )
+    machine.board.comment(ticket, "ok")
     results = {result["id"]: result for result in machine.run()}
 
     assert results[ticket.replace("-", "")]["status"] == "done", results
     assert machine.sessions()[-1]["permission_mode"] != "plan", machine.sessions()[-1]
-    db.close()
-
-
-@case
-def a_ready_ticket_runs_with_notion_cut_and_the_mirror_catches_up_on_its_return(
-    machine: Bench,
-) -> None:
-    """The database is the source: a refused token stops no ticket, and Notion hears of it later.
-
-    Imported once, as `ponos import notion` does; then the board answers 401
-    to everything and a pass still claims the ticket, runs it and opens its
-    pull request — all of it in `ponos.db`. The page in Notion is the old one
-    until a pass can reach it, and then it says what the database said.
-    """
-    repository = machine.repository("site")
-    project = machine.project("Site", repository)
-    ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
-    machine.subtyped()
-    properties = machine.board.pages[ticket]["properties"]
-    properties["Type"] = _stored({"select": {"name": "Code"}})
-    properties["Sous-type"] = _stored({"select": {"name": "Bug"}})
-    configuration = machine.load()
-    client = store.open(configuration, notion_only=True)
-    seen = ledger.Ledger(client, configuration.notion)
-    space = seen.workspace(configuration.notion)
-    seen.page(project)
-    imported = notion_import.run(client, configuration, space)
-    assert imported.created == 1, imported
-
-    machine.board.down = True
-    results = machine.run()
-
-    assert len(results) == 1 and results[0]["status"] == "done", results
-    record = tickets.get(ticket)
-    assert record is not None and record.status == "review", record
-    assert record.pull_request == machine.pull_requests()[0]["url"]
-    assert machine.status(ticket) == "ready", "Notion was cut: its page cannot have moved"
-    assert tickets.pending(), "what Notion has not heard is waiting in the queue"
-
-    machine.board.down = False
-    machine.run()
-
-    assert machine.status(ticket) == "review", machine.status(ticket)
-    assert machine.board.value(ticket, "Pull Request") == record.pull_request
-    assert not tickets.pending()
     db.close()
 
 
@@ -2097,17 +1553,10 @@ def a_ticket_after_another_is_not_claimed_until_that_one_is_done(machine: Bench)
     """
     repository = machine.repository("site")
     project = machine.project("Site", repository)
-    database = machine.board.databases[machine.database]
-    database["properties"] = {
-        **database["properties"],
-        "Après": {"type": "relation", "relation": {}},
-    }
     first = machine.ticket("Migration 1", "Déplace le dépôt.", project, status="progress")
-    machine.board.pages[first]["properties"]["Agent"] = _stored(
-        {"rich_text": _rich("ponos@elsewhere")}
-    )
+    machine.board.set(first, "Agent", "ponos@elsewhere")
     second = machine.ticket("Migration 2", "Suis le dépôt déplacé.", project)
-    machine.board.pages[second]["properties"]["Après"] = _stored({"relation": [{"id": first}]})
+    machine.board.set(second, "Après", [first])
 
     assert machine.run() == []
     assert machine.status(second) == "ready", machine.status(second)
@@ -2251,7 +1700,6 @@ def the_page_keeps_the_report_and_the_journal_every_step(machine: Bench) -> None
     assert "un fichier écrit et commité" in done, page
     assert "J'écris FAKE.md puis je le commite." not in page, page
     assert "git commit" not in page and "Bash" not in page, "a command was written onto the ticket"
-    assert not [block for block in machine.board.blocks[ticket] if block["type"] == "toggle"]
     (run,) = journal.runs(ticket)
     kinds = [step["kind"] for step in journal.steps(run["id"])["steps"]]
     assert kinds == ["said", "tool", "said"], kinds
@@ -2260,7 +1708,7 @@ def the_page_keeps_the_report_and_the_journal_every_step(machine: Bench) -> None
 
 @case
 def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: Bench) -> None:
-    """A project with no repository: the deliverable is the Notion page.
+    """A project with no repository: the deliverable is the ticket's page.
 
     And nothing else. A document ticket that quietly made a worktree, or ran one
     git command anywhere, would be a writing task turned into a commit on
@@ -2292,11 +1740,6 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: 
 def _diagnosed_repository(machine: Bench) -> tuple[Path, str]:
     """A repository with a known bug on `main`, its project, and a board that can link tickets."""
     machine.typed()
-    database = machine.board.databases[machine.database]
-    database["properties"] = {
-        **database["properties"],
-        "Après": {"type": "relation", "relation": {}},
-    }
     repository = machine.repository("calcul")
     machine.land(repository, "calc.py", "def total(a, b):\n    return a - b\n")
     return repository, machine.project("Calcul", repository)
@@ -2304,18 +1747,14 @@ def _diagnosed_repository(machine: Bench) -> tuple[Path, str]:
 
 def _diagnostic(machine: Bench, project: str) -> str:
     ticket = machine.ticket("Le total est faux", "La somme de 2 et 3 donne -1.", project)
-    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Diagnostic"}})
+    machine.board.set(ticket, "Type", "Diagnostic")
     return ticket
 
 
-def _other_tickets(machine: Bench, *known: str) -> list[tuple[str, dict[str, Any]]]:
-    """The pages of the tickets database that the scenario did not write itself."""
+def _other_tickets(machine: Bench, *known: str) -> list[tuple[str, str]]:
+    """The tickets the scenario did not write itself: their id and their title."""
     return [
-        (page_id, page)
-        for page_id, page in machine.board.pages.items()
-        if page_id not in known
-        and page.get("parent", {}).get("database_id", "").replace("-", "")
-        == machine.database.replace("-", "")
+        (record.id, record.title) for record in machine.board.tickets() if record.id not in known
     ]
 
 
@@ -2350,12 +1789,7 @@ def a_diagnostic_finds_the_cause_on_its_line_and_creates_the_fix_tickets_linked_
     assert not any("worktree" in call["args"] for call in machine.git_calls()), "it got a worktree"
 
     created = _other_tickets(machine, ticket)
-    by_title = {
-        notion.read(
-            notion.Page(id=page_id, url="", title="", properties=page["properties"]), "Name"
-        ): page_id
-        for page_id, page in created
-    }
+    by_title = {title: page_id for page_id, title in created}
     assert sorted(by_title) == ["Additionner dans total", "Tester le total"], by_title
     first, second = by_title["Additionner dans total"], by_title["Tester le total"]
     for fix in (first, second):
@@ -2444,17 +1878,14 @@ def a_ticket_run_again_is_not_briefed_on_its_previous_run(machine: Bench) -> Non
         results = machine.run()
         assert results[0]["status"] == "done", results
 
-    blocks = machine.board.blocks[ticket]
-    headings = [
-        "".join(part["plain_text"] for part in block["heading_2"]["rich_text"])
-        for block in blocks
-        if block["type"] == "heading_2"
+    page = machine.board.body(ticket)
+    headings = [line for line in page.splitlines() if line.startswith("## ")]
+    assert headings.count("## What was done") == 1, headings
+    history = [
+        line for line in page.split("## What was done")[1].splitlines() if line.startswith("- ")
     ]
-    assert headings == ["What was done"], headings
-    history = [block for block in blocks if block["type"] == "bulleted_list_item"]
-    assert len(history) == 3, machine.board.body(ticket)
-    assert machine.board.body(ticket).count("La réponse.") == 1, machine.board.body(ticket)
-    assert not [block for block in blocks if block["type"] == "toggle"], blocks
+    assert len(history) == 3, page
+    assert page.count("La réponse.") == 1, page
     assert "la charte éditoriale" not in machine.board.body(ticket), "a step reached the page"
 
     for later in machine.sessions()[1:]:
@@ -2788,10 +2219,6 @@ def a_forced_merge_github_refuses_leaves_the_ticket_in_review_with_the_reason(
     machine: Bench,
 ) -> None:
     """Checks red, rights missing: not done, and the refusal on the card."""
-    machine.board.databases[machine.database]["properties"] = {
-        **machine.board.databases[machine.database]["properties"],
-        "Progress": {"type": "rich_text", "rich_text": {}},
-    }
     repository = machine.repository("site")
     project = machine.project("Site", repository)
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
@@ -2844,11 +2271,9 @@ def a_code_ticket_is_merged_once_its_ci_is_green_whatever_its_sub_type(machine: 
         repository = machine.repository(name)
         machine.with_ci(repository)
         ticket = machine.ticket(title, "Une phrase.", machine.project(name, repository))
-        machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Code"}})
+        machine.board.set(ticket, "Type", "Code")
         if subtype:
-            machine.board.pages[ticket]["properties"]["Sous-type"] = _stored(
-                {"select": {"name": subtype}}
-            )
+            machine.board.set(ticket, "Sous-type", subtype)
         repositories.append(repository)
         tickets.append(ticket)
     written, prefixed, deduced = tickets
@@ -2891,7 +2316,7 @@ def a_ticket_blocked_on_its_type_is_merged_once_somebody_gives_it(machine: Bench
     assert "Type" in machine.board.said(ticket)[-1], machine.board.said(ticket)[-1]
     assert not machine.pull_requests()
 
-    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Code"}})
+    machine.board.set(ticket, "Type", "Code")
     machine.move(ticket, "ready")
     machine.run()
 
@@ -2904,10 +2329,6 @@ def _stopped_by_its_ci(
     machine: Bench, verdicts: tuple[str, str], annotation: str, expected: str
 ) -> None:
     """A forced merge whose checks are red: left in review, the cause on its card."""
-    machine.board.databases[machine.database]["properties"] = {
-        **machine.board.databases[machine.database]["properties"],
-        "Progress": {"type": "rich_text", "rich_text": {}},
-    }
     repository = machine.repository("site")
     machine.with_ci(repository)
     project = machine.project("Site", repository)
@@ -2955,10 +2376,6 @@ def a_forced_merge_github_refuses_for_the_billing_waits_validated_until_it_is_pa
     """
     from ponos import health
 
-    machine.board.databases[machine.database]["properties"] = {
-        **machine.board.databases[machine.database]["properties"],
-        "Blocage": {"type": "select", "select": {"options": []}},
-    }
     repository = machine.repository("site")
     machine.with_ci(repository)
     project = machine.project("Site", repository)
@@ -3008,10 +2425,6 @@ def a_forced_merge_refused_for_being_behind_waits_in_validated_and_lands_next_pa
     review — and the next pass, which reads that column as it always does,
     replays the branch onto what `main` holds and merges it. Nobody moved it.
     """
-    machine.board.databases[machine.database]["properties"] = {
-        **machine.board.databases[machine.database]["properties"],
-        "Progress": {"type": "rich_text", "rich_text": {}},
-    }
     repository = machine.repository("site")
     project = machine.project("Site", repository)
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
@@ -3062,31 +2475,6 @@ def a_forced_merge_in_conflict_waits_in_validated_and_its_conflict_is_resolved(
 
 @case
 @runner_settings(force_validated_code=True)
-def a_forced_merge_with_no_validated_column_still_waits_in_review(machine: Bench) -> None:
-    """The column is opt-in: a board without it keeps the refusal in review."""
-    # A copy, as `typed` makes one: the schema every scenario starts from is shared.
-    database = machine.board.databases[machine.database]
-    options = database["properties"]["statut"]["status"]["options"]
-    database["properties"] = {
-        **database["properties"],
-        "statut": {
-            "type": "status",
-            "status": {"options": [one for one in options if one["name"] != "validated"]},
-        },
-    }
-    repository = machine.repository("site")
-    project = machine.project("Site", repository)
-    ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
-    with _environ({"FAKE_GH_REFUSE": "Head branch is out of date with the base branch"}):
-        machine.run()
-
-    assert machine.status(ticket) == "review", machine.status(ticket)
-    said = machine.board.said(ticket)[-1]
-    assert "Not merged, left in review" in said, said
-
-
-@case
-@runner_settings(force_validated_code=True)
 def force_validated_never_touches_a_failed_session_nor_a_ticket_already_in_review(
     machine: Bench,
 ) -> None:
@@ -3094,9 +2482,7 @@ def force_validated_never_touches_a_failed_session_nor_a_ticket_already_in_revie
     repository = machine.repository("site")
     project = machine.project("Site", repository)
     waiting = machine.ticket("Déjà relu à moitié", "Rien.", project, status="review")
-    machine.board.pages[waiting]["properties"]["Pull Request"] = _stored(
-        {"url": "https://github.com/fake/repo/pull/99"}
-    )
+    machine.board.set(waiting, "Pull Request", "https://github.com/fake/repo/pull/99")
     broken = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
     os.environ["FAKE_CLAUDE_FAIL"] = "la session a planté"
 
@@ -3114,7 +2500,7 @@ def a_publication_whose_validation_is_forced_goes_out_without_waiting(machine: B
     machine.typed()
     project = machine.project("Lettre d'information", None)
     ticket = machine.ticket("Annoncer la version 2", "Un post LinkedIn pour la v2.", project)
-    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Publication"}})
+    machine.board.set(ticket, "Type", "Publication")
 
     results = machine.run()
 
@@ -3138,7 +2524,7 @@ def a_publication_whose_validation_is_forced_costs_its_two_sessions(machine: Ben
     machine.typed()
     project = machine.project("Lettre d'information", None)
     ticket = machine.ticket("Annoncer la version 2", "Un post LinkedIn pour la v2.", project)
-    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Publication"}})
+    machine.board.set(ticket, "Type", "Publication")
 
     with _environ({"FAKE_CLAUDE_COST": ""}):
         results = machine.run()
@@ -3159,7 +2545,7 @@ def a_ticket_with_no_model_runs_on_the_one_chosen_for_it_and_a_model_written_as_
     )
     heavy = machine.ticket("Audit complet", "Audit de sécurité et de performance du site.", project)
     forced = machine.ticket("Retirer une ligne", "La dernière du pied de page.", project)
-    machine.board.pages[forced]["properties"]["Model"] = _stored({"select": {"name": "opus"}})
+    machine.board.set(forced, "Model", "opus")
 
     machine.run()
 
@@ -3190,9 +2576,7 @@ def a_ticket_on_an_openrouter_model_runs_on_openrouter_and_is_blocked_without_it
 ) -> None:
     project = machine.project("Notes", None)
     routed = machine.ticket("Écrire l'annonce", "Trois lignes.", project)
-    machine.board.pages[routed]["properties"]["Model"] = _stored(
-        {"select": {"name": "openai/gpt-5"}}
-    )
+    machine.board.set(routed, "Model", "openai/gpt-5")
 
     # Without the key, the slug means nothing to the CLI: said as what it is.
     machine.run()
@@ -3218,7 +2602,7 @@ def a_ticket_the_runner_hesitates_over_is_blocked_and_nothing_runs(machine: Benc
     project = machine.project("Lettre d'information", None)
     unsure = machine.ticket("La newsletter", "La newsletter d'octobre.", project)
     chosen = machine.ticket("L'édito", "Deux paragraphes.", project)
-    machine.board.pages[chosen]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    machine.board.set(chosen, "Type", "Rédaction")
     os.environ["FAKE_CLAUDE_KIND"] = json.dumps(
         {
             "type": "writing",
@@ -3247,10 +2631,10 @@ def a_ticket_the_runner_hesitates_over_is_blocked_and_nothing_runs(machine: Benc
 
 @case
 def a_deleted_project_and_its_tickets_cost_no_session(machine: Bench) -> None:
-    """In the Notion trash, a project is out of every query — and a ticket still
+    """In the trash, a project is out of every query — and a ticket still
     pointing at it is put back, not worked on with whatever the page held.
 
-    The trash keeps a page readable by its ID, which is the thing to guard: the
+    The trash keeps a page in `ponos.db`, flagged, which is the thing to guard: the
     ready ticket below still names it, and without the check the runner would
     find the repository through the trashed page and spend a session on it.
     """
@@ -3260,14 +2644,15 @@ def a_deleted_project_and_its_tickets_cost_no_session(machine: Bench) -> None:
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
     kept = machine.ticket("Un autre travail", "Ailleurs.", other)
 
-    notion.Client("ntn_functional_tests").trash(project)
-    assert machine.board.pages[project]["archived"] is True
+    machine.board.trash(project)
 
     results = machine.run()
 
     assert [(result["id"], result["status"]) for result in results] == [(kept, "done")], results
     assert machine.status(ticket) == "blocked", machine.status(ticket)
-    assert "deleted" in machine.board.said(ticket)[-1], machine.board.said(ticket)
+    assert "could not find its project" in machine.board.said(ticket)[-1], machine.board.said(
+        ticket
+    )
     assert all("Corriger l'entête" not in one["prompt"] for one in machine.sessions())
     assert not machine.worktrees(repository), "a deleted project got a worktree"
     assert repository.is_dir(), "the clone on the machine is never ours to remove"
@@ -3335,7 +2720,7 @@ def an_external_action_that_commits_nothing_is_done_with_its_report(machine: Ben
 
     # Typed as code by somebody, and done in Dokploy all the same.
     coded = machine.ticket("Ajouter la variable en prod", "SMTP_HOST manque.", project)
-    machine.board.pages[coded]["properties"]["Type"] = _stored({"select": {"name": "Code"}})
+    machine.board.set(coded, "Type", "Code")
     report = "J'ai ajouté SMTP_HOST dans Dokploy et redéployé l'application."
     with _environ({"FAKE_CLAUDE_ELSEWHERE": report}):
         results = machine.run()
@@ -3435,13 +2820,9 @@ def a_writing_ticket_blocked_on_a_question_is_not_said_to_have_written_nothing(
     the counts by cause, could not tell a question from a silence.
     """
     machine.typed()
-    machine.board.databases[machine.database]["properties"] = {
-        **machine.board.databases[machine.database]["properties"],
-        "Blocage": {"type": "select", "select": {"options": []}},
-    }
     project = machine.project("Lettre d'information", None)
     asking = machine.ticket("L'édito", "Deux paragraphes.", project)
-    machine.board.pages[asking]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    machine.board.set(asking, "Type", "Rédaction")
     asked = "Ton ou vous ?\nCATEGORY: question\nQUESTION: Tutoyer ou vouvoyer ?\nMODE: free"
     with _environ({"FAKE_CLAUDE_BLOCK": asked}):
         results = machine.run()
@@ -3449,7 +2830,7 @@ def a_writing_ticket_blocked_on_a_question_is_not_said_to_have_written_nothing(
     assert machine.board.value(asking, "Blocage") == "session.question"
 
     silent = machine.ticket("Le sommaire", "Trois titres.", project)
-    machine.board.pages[silent]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    machine.board.set(silent, "Type", "Rédaction")
     with _environ({"FAKE_CLAUDE_SILENT": "always"}):
         results = machine.run()
     assert results[0]["status"] == "blocked", results
@@ -3469,7 +2850,7 @@ def a_writing_ticket_its_session_says_is_code_is_made_code_and_run_again_once(
     repository = machine.repository("site")
     project = machine.project("Site", repository)
     ticket = machine.ticket("Rattraper le concurrent", "Une PR qui ajoute l'export.", project)
-    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    machine.board.set(ticket, "Type", "Rédaction")
     wrong = {"FAKE_CLAUDE_WRONG_KIND": "c'est un ticket de code"}
 
     with _environ(wrong):
@@ -3491,7 +2872,7 @@ def a_writing_ticket_its_session_says_is_code_is_made_code_and_run_again_once(
     assert len(machine.pull_requests()) == 1, machine.pull_requests()
 
     # Typed back as a text and run again: the claim is not believed twice.
-    machine.board.pages[ticket]["properties"]["Type"] = _stored({"select": {"name": "Rédaction"}})
+    machine.board.set(ticket, "Type", "Rédaction")
     machine.move(ticket, "ready")
     with _environ(wrong):
         results = machine.run()
@@ -3567,7 +2948,8 @@ def past_the_daily_limit_nothing_new_is_started_and_the_ready_tickets_wait(machi
     results = machine.run()
     assert machine.sessions() == [], "a session was started past the daily limit"
     assert machine.status(second) == "ready", machine.status(second)
-    assert results == [], results
+    assert [result["status"] for result in results] == ["waiting"], results
+    assert machine.board.value(second, "Waiting for credit") is True
     assert credits.held(what="budget") > time.time(), "the wait is written down for the runs after"
 
 
@@ -3776,10 +3158,6 @@ def _validated_red(machine: Bench) -> tuple[Path, str, str]:
     on the pull request and nothing is red on `main`. The board has its
     « Blocage » column. The repository, the ticket, and its branch.
     """
-    machine.board.databases[machine.database]["properties"] = {
-        **machine.board.databases[machine.database]["properties"],
-        "Blocage": {"type": "select", "select": {"options": []}},
-    }
     repository = machine.repository("site")
     machine.with_ci(repository)
     project = machine.project("Site", repository)
@@ -3855,10 +3233,6 @@ def _in_conflict(machine: Bench) -> tuple[Path, str, str]:
     The board has its « Blocage » column, for the cases below to read the cause
     a resolution stopped on. The repository, the ticket, and its branch.
     """
-    machine.board.databases[machine.database]["properties"] = {
-        **machine.board.databases[machine.database]["properties"],
-        "Blocage": {"type": "select", "select": {"options": []}},
-    }
     repository = machine.repository("site")
     project = machine.project("Site", repository)
     ticket = machine.ticket("Corriger l'entête", "Le titre est faux.", project)
@@ -4292,62 +3666,6 @@ def a_ticket_runs_in_the_repository_its_project_names(machine: Bench) -> None:
 
 
 @case
-def a_picture_chosen_in_the_console_is_the_cover_in_notion_and_the_other_way_round() -> None:
-    """Both directions, over HTTP, against a Notion that signs its URLs.
-
-    The console's picture is uploaded and set as the page's cover; read back
-    under a new signature, it is recognised rather than downloaded again or
-    sent a second time. Then somebody changes the cover in Notion, and the
-    next reading brings their picture — fetched from Notion's storage, not
-    from the API, and without the token.
-    """
-    png = b"\x89PNG\r\n\x1a\n" + b"console" * 8
-    theirs = b"\xff\xd8\xff\xe0" + b"notion" * 8
-    directory = Path(tempfile.mkdtemp())
-    try:
-        with _notion_server() as (url, board), _environ({notion.API_ENV: url}):
-            project = board.page({"Name": {"type": "title", "title": _rich("Opoil")}})
-            client = notion.Client("ntn_functional")
-            cache = images.Cache(directory, database=directory / "ponos.db")
-
-            def push(slot: str, picture: store.Picture) -> notion.Page:
-                return client.set_picture(project, slot, picture)
-
-            cache.observe(client.page(project), push)
-            cache.change(
-                project, "cover", store.Picture(data=png, type="image/png", name="opoil.png"), push
-            )
-            cover = board.pages[project]["cover"]
-            assert cover["type"] == "file", cover
-            assert list(board.files.values()) == [(png, "image/png")]
-
-            sent = len(board.requests)
-            cache.observe(client.page(project), push)
-            assert not any(
-                "file_uploads" in line or line.startswith("PATCH") for line in board.requests[sent:]
-            ), board.requests[sent:]
-            assert cache.picture(project, "cover", lambda: client.page(project)) == (
-                png,
-                "image/png",
-            )
-
-            # Changed in Notion, by hand: another file, and an emoji for the icon.
-            board.files["theirs"] = (theirs, "image/jpeg")
-            board.pages[project]["cover"] = board.hosted("theirs", "theirs.jpg")
-            board.pages[project]["icon"] = {"type": "emoji", "emoji": "🛢️"}
-            time.sleep(1.1)  # the fake's clock is to the second, like Notion's
-            board.pages[project]["last_edited_time"] = _now()
-
-            cache.observe(client.page(project), push)
-            assert cache.shown(project, "icon") == {"kind": "emoji", "emoji": "🛢️"}
-            data = cache.picture(project, "cover", lambda: client.page(project))
-            assert data == (theirs, "image/jpeg"), data
-            assert not board.refused, board.refused
-    finally:
-        shutil.rmtree(directory, ignore_errors=True)
-
-
-@case
 def a_new_version_restarts_the_daemon_which_takes_its_session_back_and_runs_the_next_on_it(
     machine: Bench,
 ) -> None:
@@ -4430,7 +3748,7 @@ def a_new_version_restarts_the_daemon_which_takes_its_session_back_and_runs_the_
         )
 
     project = machine.project("Lettre d'information")
-    ticket = machine.ticket("Rédiger l'édito", "Deux paragraphes.", project)
+    ticket = machine.ticket("Rédiger l'édito", "Deux paragraphes.", project, kind="writing")
     said = machine.root / "daemon.out"
     with _environ(environment):
         daemon = started("daemon", out=said)
@@ -4491,7 +3809,9 @@ def a_new_version_restarts_the_daemon_which_takes_its_session_back_and_runs_the_
             assert len(machine.sessions()) == 1, "the held session was carried on, not redone"
 
             # The next ticket: the new version runs it.
-            after = machine.ticket("Relire l'édito", "Une passe de relecture.", project)
+            after = machine.ticket(
+                "Relire l'édito", "Une passe de relecture.", project, kind="writing"
+            )
             nudged = started("run")
             assert nudged.communicate(timeout=120)[0]
             assert _waited(lambda: machine.status(after) == "done", 60), said.read_text()
@@ -4527,7 +3847,7 @@ def a_ticket_made_ready_beside_a_long_session_starts_in_the_free_place_within_se
     hold = machine.root / "hold"
     first_project = machine.project("Lettre d'information")
     second_project = machine.project("Blog")
-    long = machine.ticket("Rédiger l'édito", "Deux paragraphes.", first_project)
+    long = machine.ticket("Rédiger l'édito", "Deux paragraphes.", first_project, kind="writing")
     runner = Runner(C.load(machine.config), quiet=True)
     signals = scheduler.Signals()
     ended: list[str] = []
@@ -4540,7 +3860,9 @@ def a_ticket_made_ready_beside_a_long_session_starts_in_the_free_place_within_se
             assert _waited(lambda: len(machine.sessions()) == 1, 30), machine.sessions()
             assert machine.status(long) == "progress"
             began = time.monotonic()
-            later = machine.ticket("Annoncer l'édito", "Un billet court.", second_project)
+            later = machine.ticket(
+                "Annoncer l'édito", "Un billet court.", second_project, kind="writing"
+            )
             # What the console, the MCP and `ponos run` do on a ticket made ready
             # (`daemon.nudge`, a SIGUSR1 that `daemon.listen` turns into this).
             signals.nudge()
@@ -4557,7 +3879,6 @@ def a_ticket_made_ready_beside_a_long_session_starts_in_the_free_place_within_se
             signals.stop.set()
             serving.join(120)
     assert ended == ["stop"], ended
-    assert not machine.board.refused, machine.board.refused
 
 
 @case
@@ -4574,7 +3895,9 @@ def a_daemon_killed_under_a_session_is_started_again_and_the_session_is_carried_
     hold = machine.root / "hold"
     repository = machine.repository("site")
     project = machine.project("Site", repository)
-    ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
+    ticket = machine.ticket(
+        "Corriger l'entête", "Le titre est faux, corrige-le.", project, kind="code", subtype="Bug"
+    )
     environment = {
         "PONOS_CONFIG": str(machine.config),
         "FAKE_CLAUDE_HOLD": str(hold),
@@ -4599,7 +3922,7 @@ def a_daemon_killed_under_a_session_is_started_again_and_the_session_is_carried_
         finally:
             first.send_signal(signal.SIGKILL)
             first.wait(timeout=30)
-        assert machine.status(ticket) == "progress"
+        assert machine.status(ticket) == "progress", outputs[0].read_text()
         os.kill(tether, 0)  # the session outlived its daemon
         second = daemon(outputs[1])
         try:
@@ -4714,9 +4037,7 @@ def a_ticket_renamed_between_two_attempts_carries_on_on_its_own_branch(machine: 
     _git(["add", "menu.txt"], worktree)
     _git(["commit", "-m", "le menu"], worktree)
 
-    machine.board.pages[ticket]["properties"]["Name"] = _stored(
-        {"title": _rich("Corriger le menu du site, sur mobile aussi")}
-    )
+    machine.board.set(ticket, "Name", "Corriger le menu du site, sur mobile aussi")
     machine.move(ticket, "ready")
     results = machine.run()
 
@@ -4754,48 +4075,9 @@ def a_session_killed_is_resumed_once_and_blocked_as_killed_if_it_dies_again(mach
     assert not machine.worktrees(repository), "no worktree left behind"
 
 
-@case
-def a_board_that_cannot_be_reached_marks_no_ticket_failed_and_the_run_does_not_fail(
-    machine: Bench,
-) -> None:
-    import argparse
-
-    from ponos import __main__ as command
-
-    repository = machine.repository("site")
-    ticket = machine.ticket("Pendant la coupure", "Fais-le.", machine.project("Site", repository))
-    patched, http_module.sleep = http_module.sleep, lambda seconds: None
-    try:
-        with _environ(
-            {
-                notion.API_ENV: "http://ponos-offline.invalid",
-                "PONOS_CONFIG": str(machine.config),
-            }
-        ):
-            code = command.command_run(
-                argparse.Namespace(every=None, dry_run=False, limit=None, ticket="")
-            )
-    finally:
-        http_module.sleep = patched
-    assert code == 0, "the service must not fail while the network is away"
-    assert machine.status(ticket) == "ready", machine.status(ticket)
-    assert not [
-        page
-        for page in machine.board.pages.values()
-        if "blocked" in str(page["properties"].get("statut"))
-    ]
-    assert not machine.sessions(), "nothing runs without a board"
-    assert machine.run()[0]["status"] == "done", "and the next pass, with the network back, runs it"
-
-
 def _with_an_on_prompt(machine: Bench, ticket: str, prompt: str) -> None:
-    """The board given its « On » column, and a ticket the prompt written in it."""
-    database = machine.board.databases[machine.database]
-    database["properties"] = {
-        **database["properties"],
-        "On": {"type": "rich_text", "rich_text": {}},
-    }
-    machine.board.pages[ticket]["properties"]["On"] = _stored({"rich_text": _rich(prompt)})
+    """A ticket given the prompt of its « On » column."""
+    machine.board.set(ticket, "On", prompt)
 
 
 @case
@@ -5195,9 +4477,7 @@ def an_external_ticket_signs_in_with_the_vault_and_never_sees_the_password(machi
         _login_entry("SITE", site + "/login")
         project = machine.project("Brevo")
         ticket = machine.ticket("Lire la liste des projets", "Ouvre le tableau de bord.", project)
-        machine.board.pages[ticket]["properties"]["Type"] = _stored(
-            {"select": {"name": "Action externe"}}
-        )
+        machine.board.set(ticket, "Type", "Action externe")
         steps = [
             ["browser_login", {"entry": "SITE"}],
             ["browser_read", {"what": "text"}],

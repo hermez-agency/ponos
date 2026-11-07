@@ -38,11 +38,8 @@ be the expensive mistake — what was hit is the *end* of one, and it may be a m
 the top of *Live*, because a daemon that runs above a board that does not move has only one
 honest reading otherwise: it is broken.
 
-The `Waiting for credit` checkbox is optional, like every property past the first few.
-Being a property is what lets it reach a board that predates it at all: `ponos
-init` adds it to a database it did not build, where an option on a real `status` cannot be
-widened from outside Notion. Without it nothing breaks — the ticket goes back to *ready*
-and the credit is waited out exactly as before, only with nothing on the board to say so.
+The `Waiting for credit` checkbox is a tick and not a status for a reason: what waits is
+still *ready*, and the tick is the note saying why nobody has got to it yet.
 
 A sign-in that expired is waited out the same way. When a session dies on *Failed to
 authenticate: OAuth session expired and could not be refreshed*, the ticket goes back to

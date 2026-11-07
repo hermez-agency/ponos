@@ -14,7 +14,7 @@ when the session ran. The two differ only for a ticket moved to another
 project since, or deleted.
 
 The board is also where the type, the sub-type and the link come from; without
-it they are empty, except the link, which Notion resolves from the bare id.
+it they are empty, except the link, which the board resolves from the bare id.
 
 Dates are this machine's days and hours, as the statistics count them. The
 file is the `csv` module's, quoting what needs it, so an accent or a comma in a

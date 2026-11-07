@@ -20,7 +20,6 @@ export const STEPS = [
   "language",
   "access",
   "provider",
-  "notion",
   "github",
   "project",
   "channels",
@@ -82,7 +81,6 @@ export function stepFrom(
  * but the channels and the environment, the summary is every line. */
 const STEP_ROWS: Partial<Record<StepKey, string[]>> = {
   provider: ["provider"],
-  notion: ["board"],
   github: ["github"],
   project: ["projects"],
   channels: ["channels"],
@@ -136,20 +134,6 @@ function withCount(said: Counted, params: Record<string, string>): Pick<Row, "va
   return { value: said.key, params: { ...params, ...said.params } }
 }
 
-/** A Notion board by its name — never by its ID, which says nothing and leads nowhere. */
-function notionBoard(name: string, tickets: number | null): Pick<Row, "value" | "params"> {
-  if (tickets === null)
-    return name
-      ? { value: "Notion workspace “{{workspace}}”", params: { workspace: name } }
-      : { value: "A Notion workspace", params: {} }
-  return name
-    ? withCount(
-        count(tickets, "Notion workspace “{{workspace}}” — {{count}} ticket", "Notion workspace “{{workspace}}” — {{count}} tickets"),
-        { workspace: name }
-      )
-    : withCount(count(tickets, "Notion workspace — {{count}} ticket", "Notion workspace — {{count}} tickets"), {})
-}
-
 /** What a line says of itself, if anything. */
 function noted(said: string): Explained[] {
   return said ? [explain(said)] : []
@@ -174,9 +158,9 @@ export function rows(summary: Summary): Row[] {
         : { value: "{{name}} — {{key}}", params: { name, key: provider.key || "—" } }
 
   const boardValue: Pick<Row, "value" | "params"> =
-    board.workspace
-      ? notionBoard(board.name, board.tickets)
-      : { value: "Board kept by Ponos, without Notion", params: {} }
+    board.tickets === null
+      ? { value: "Board kept by Ponos", params: {} }
+      : withCount(count(board.tickets, "Board kept by Ponos — {{count}} ticket", "Board kept by Ponos — {{count}} tickets"), {})
 
   const lacking = machine.needs.filter((need) => !need.ok)
   return [
@@ -225,12 +209,8 @@ export function rows(summary: Summary): Row[] {
       state: board.state,
       said: board.said,
       notes: noted(board.said),
-      step: "notion",
-      section: "notion",
-      link:
-        board.name && board.url
-          ? { param: "workspace", url: board.url, title: board.workspace }
-          : undefined,
+      step: "demo",
+      section: "update",
     },
     {
       key: "github",

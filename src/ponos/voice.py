@@ -16,8 +16,8 @@ Two decisions hold it together.
   unrecognised is English rather than a failure — a typo in a language name is
   not a reason for a ticket to come back unreported. An empty setting is the
   runner as it always was, and that is the point of it being empty.
-- **The first line of a comment is a notification.** Notion pushes a comment to
-  the phone as it stands, cut after two or three lines, so the first line is all
+- **The first line of a comment is a notification.** A comment reaches the
+  phone as it stands, cut after two or three lines, so the first line is all
   there is: it gets a mark, the verdict as an action — *to review*, *stuck* —
   and the figures that place it, and nothing else. One sentence follows, cut at
   `BRIEF` characters, then a link if there is one. What used to be under that —
@@ -31,7 +31,7 @@ had, not the answer it relays from your phone. `git.py` hands back facts and the
 run says them here, so that a module about git never has to learn that there is
 such a thing as a language. What stays English is the journal and the CLI, and
 what a session is told: those are read in front of the machine, or by a model.
-And an error is quoted as it came — git's, Notion's, or the diagnosis of a
+And an error is quoted as it came — git's, GitHub's, or the diagnosis of a
 project nobody could find, which `ponos projects` prints word for word:
 the sentence around it is translated, the evidence is not.
 
@@ -90,10 +90,10 @@ MARKS = {
 def is_report(text: str) -> bool:
     """Was this comment written by a run, rather than by a person?
 
-    The honest answer is `conversation.ours`, which asks Notion who wrote it.
-    This is the fallback for the boards where Notion will not say — an
-    integration without *Read user information* — and it reads the only thing a
-    report has that an answer does not: the mark it opens with.
+    The honest answer is `conversation.ours`, which compares who wrote it with
+    the runner's own identity. This is the fallback for when that identity is
+    not known, and it reads the only thing a report has that an answer does
+    not: the mark it opens with.
     """
     said = str(text or "").lstrip()
     return said.startswith(tuple(MARKS.values()))
@@ -1223,8 +1223,8 @@ _SAID: dict[str, dict[str, str]] = {
     },
     # -- what reaches a phone -------------------------------------------------
     # The title of a desktop or Telegram notification, where the ticket has to
-    # be named — Notion puts the page's own name above the comment, and these
-    # two have nothing but what they are handed. The words are the verdicts'.
+    # be named — the console shows the ticket above the comment, and these two
+    # have nothing but what they are handed. The words are the verdicts'.
     "headline": {"en": "{verdict} · {title}", "fr": "{verdict} · {title}"},
     # The push a phone is sent from Settings › Communication, to see that it arrives.
     "push-test-title": {"en": "Ponos · test", "fr": "Ponos · essai"},
@@ -1478,9 +1478,9 @@ _SAID: dict[str, dict[str, str]] = {
             "ou nommer le ticket."
         ),
     },
-    "notion-refused": {
-        "en": "Notion refused that answer: {error}",
-        "fr": "Notion a refusé cette réponse : {error}",
+    "answer-refused": {
+        "en": "The board refused that answer: {error}",
+        "fr": "Le board a refusé cette réponse : {error}",
     },
     # -- an idea kept, as the draft it becomes ---------------------------------
     # The four headings a ticket is written under, so that a kept idea reads
@@ -1672,7 +1672,7 @@ class Voice:
     def headline(self, name: str, title: str) -> str:
         """A notification's title: the same verdict, and what it is about.
 
-        Notion writes the page's name above the comment it pushes; a desktop
+        The console writes the ticket's name above the comment; a desktop
         notification and a Telegram message have only what they are handed, so
         the ticket is named here — and named with the verdict the comment opens
         on, so that the two read as one thing said twice.
@@ -1689,8 +1689,8 @@ class Voice:
     ) -> tuple[str, str]:
         """A desktop notification's title and body, which are not the comment's.
 
-        The comment is read in Notion, where a link is a link and Markdown is
-        drawn; a desktop shows a few lines of plain text, and a click on any of
+        The comment is read in the console, where a link is a link and Markdown
+        is drawn; a desktop shows a few lines of plain text, and a click on any of
         it opens the ticket. So nothing goes here that only makes sense in a
         comment — no address, no price, no duration, no backticks — and what is
         said is, in order: the event and its project (the title, which is all a

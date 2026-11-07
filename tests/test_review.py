@@ -110,7 +110,7 @@ def _job() -> ticket_module.Job:
     page = _reviewed("p-ticket", "In progress", None)
     job = ticket_module.Job(
         ticket_module.Ticket(page),
-        projects.Project(name="Northwind", path=root / "repository", notion_id="proj-1"),
+        projects.Project(name="Northwind", path=root / "repository", page_id="proj-1"),
         branch="ticket/x",
         base="main",
         workdir=root / "work",

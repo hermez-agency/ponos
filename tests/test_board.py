@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from support import _board_runner, _BoardClient, _in_progress, _ready, _reviewed, case
 
-from ponos import conversation, db, journal, notion, priority, projects, state, store, voice
+from ponos import conversation, db, journal, priority, projects, state, store, voice
 from ponos.board import InHand
 from ponos.config import state_dir
 from ponos.runner import Runner
@@ -20,8 +20,8 @@ from ponos.ticket import Ticket
 STATUS = {"ready": "ready", "running": "progress", "review": "review", "done": "done"}
 
 
-def _page(page_id: str, status: str = "ready", **properties: dict[str, Any]) -> notion.Page:
-    return notion.Page(
+def _page(page_id: str, status: str = "ready", **properties: dict[str, Any]) -> store.Page:
+    return store.Page(
         id=page_id,
         url="",
         title=page_id,
@@ -52,7 +52,7 @@ def _client(runner: Runner) -> _BoardClient:
 
 
 class _Refusing(_BoardClient):
-    """A board whose schema, options and identity Notion will not hand over."""
+    """A board that will not hand over its schema, options and identity."""
 
     def schema(self, database_id: str) -> dict[str, str]:
         raise store.StoreError("GET /databases/db: 403 restricted")
@@ -71,7 +71,7 @@ class _Refusing(_BoardClient):
 
 
 @case
-def a_ticket_left_by_the_pass_is_held_out_only_while_notion_settles() -> None:
+def a_ticket_left_by_the_pass_is_held_out_only_while_the_board_settles() -> None:
     hand = InHand(settle=60)
     hand.take("t1", "northwind")
     hand.take("t2", "northwind")
@@ -258,14 +258,14 @@ def a_type_is_written_the_way_the_board_already_spells_it() -> None:
 class _Discussed(_BoardClient):
     def __init__(
         self,
-        pages: list[notion.Page],
-        said: list[notion.Comment] | None = None,
+        pages: list[store.Page],
+        said: list[store.Comment] | None = None,
         broken: bool = False,
     ) -> None:
         super().__init__(pages)
         self.said, self.broken, self.asked = said or [], broken, 0
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         self.asked += 1
         if self.broken:
             raise store.StoreError("GET /comments: 403 missing capability")
@@ -276,7 +276,7 @@ class _Discussed(_BoardClient):
 
 
 def _answered(
-    said: list[notion.Comment],
+    said: list[store.Comment],
     *,
     agent: str = "ponos@laptop",
     broken: bool = False,
@@ -290,12 +290,12 @@ def _answered(
     return runner._answered(Ticket(page)), client
 
 
-REPORT = notion.Comment(f"{voice.MARKS['blocked']} Bloqué — quelle base ?", created_by="u-bot")
+REPORT = store.Comment(f"{voice.MARKS['blocked']} Bloqué — quelle base ?", created_by="u-bot")
 
 
 @case
 def a_human_word_under_a_report_wakes_the_ticket() -> None:
-    woke, _ = _answered([REPORT, notion.Comment("La base staging.", created_by="u-human")])
+    woke, _ = _answered([REPORT, store.Comment("La base staging.", created_by="u-human")])
     assert woke
 
 
@@ -303,21 +303,21 @@ def a_human_word_under_a_report_wakes_the_ticket() -> None:
 def what_is_not_an_answer_under_a_report_wakes_nothing() -> None:
     asleep, _ = _answered([REPORT])
     assert not asleep, "nobody spoke since"
-    asleep, _ = _answered([notion.Comment("Une remarque.", created_by="u-human")])
+    asleep, _ = _answered([store.Comment("Une remarque.", created_by="u-human")])
     assert not asleep, "no report to answer"
-    named, _ = _answered([REPORT, notion.Comment("@ponos pourquoi ?", created_by="u-human")])
+    named, _ = _answered([REPORT, store.Comment("@ponos pourquoi ?", created_by="u-human")])
     assert not named, "naming it asks it to speak, not to work"
-    integration, _ = _answered([REPORT, notion.Comment("ponos bot, tu relis ?", created_by="h")])
+    integration, _ = _answered([REPORT, store.Comment("ponos bot, tu relis ?", created_by="h")])
     assert not integration, "the integration's own name names it too"
-    ours, _ = _answered([REPORT, notion.Comment("Je regarde.", created_by="u-bot")], me="u-bot")
+    ours, _ = _answered([REPORT, store.Comment("Je regarde.", created_by="u-bot")], me="u-bot")
     assert not ours, "what the runner said since is not an answer to it"
 
 
 @case
 def a_ticket_of_another_host_or_of_nobody_is_not_asked_about() -> None:
-    other, client = _answered([REPORT, notion.Comment("Oui.")], agent="ponos@desktop")
+    other, client = _answered([REPORT, store.Comment("Oui.")], agent="ponos@desktop")
     assert not other and client.asked == 0, "another host's ticket costs no request"
-    unknown, client = _answered([REPORT, notion.Comment("Oui.")], agent="")
+    unknown, client = _answered([REPORT, store.Comment("Oui.")], agent="")
     assert not unknown and client.asked == 0, "an unclaimed ticket the ledger never spoke on"
 
 
@@ -328,13 +328,13 @@ def comments_the_integration_cannot_read_never_wake_a_ticket() -> None:
 
 
 @case
-def a_notion_that_will_not_say_who_the_runner_is_fails_nothing() -> None:
+def a_board_that_will_not_say_who_the_runner_is_fails_nothing() -> None:
     runner = _board_runner([], STATUS)
     runner.client = _Refusing([])  # type: ignore[assignment]  # a fake: a board that refuses
     runner._me, runner._spellings = None, None
     assert runner.myself() == ""
     assert "403" in runner._identity_error
-    assert runner.spellings() == conversation.names(runner.config.notion.mention, "")
+    assert runner.spellings() == conversation.names("", "")
     runner.client = _BoardClient([])  # type: ignore[assignment]  # a fake: a board that answers
     assert runner.myself() == "", "asked once per run, not again"
 
@@ -343,10 +343,10 @@ def a_notion_that_will_not_say_who_the_runner_is_fails_nothing() -> None:
 
 
 @case
-def a_requested_ticket_is_found_from_its_notion_link() -> None:
+def a_requested_ticket_is_found_from_its_console_link() -> None:
     page = _page("abc123")
     runner = _board_runner([page], STATUS)
-    found = runner.requested("https://www.notion.so/team/Retirer-le-shader-abc123?pvs=4 ")
+    found = runner.requested("https://board.invalid/team/Retirer-le-shader-abc123?pvs=4 ")
     assert [ticket.id for ticket in found] == ["abc123"]
     assert [ticket.id for ticket in runner.requested("abc-123")] == ["abc123"]
 
@@ -372,7 +372,7 @@ def a_board_that_refuses_the_in_progress_query_sweeps_nothing(state_home: Path) 
 
     class _Gone(_Refusing):
         def schema(self, database_id: str) -> dict[str, str]:
-            raise store.Unreachable("api.notion.com: network unreachable")
+            raise store.Unreachable("the board: network unreachable")
 
     runner.client = _Gone([])  # type: ignore[assignment]  # a fake: a board out of reach
     try:
@@ -380,7 +380,7 @@ def a_board_that_refuses_the_in_progress_query_sweeps_nothing(state_home: Path) 
     except store.Unreachable:
         pass
     else:
-        raise AssertionError("an unreachable Notion stops the pass, it is not a refusal")
+        raise AssertionError("an unreachable board stops the pass, it is not a refusal")
 
 
 @case

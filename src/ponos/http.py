@@ -1,11 +1,11 @@
 """Every request the runner sends, and what it does when one goes unanswered.
 
-Until October 2026 there were nine `urlopen` in seven modules, and only the
-Notion client asked again: four attempts, the pause a 429 asks for, and a
-write replayed only when it cannot have been carried out. GitHub, OpenRouter,
-the channels, the pictures and the MCP probe gave up on the first silence —
-and a 429 from Telegram was a notification lost. That policy is this module's
-now, word for word, and every service goes through it.
+Until October 2026 there were nine `urlopen` in seven modules, and only one
+client asked again: four attempts, the pause a 429 asks for, and a write
+replayed only when it cannot have been carried out. GitHub, OpenRouter, the
+channels, the pictures and the MCP probe gave up on the first silence — and a
+429 from Telegram was a notification lost. That policy is this module's now,
+and every service goes through it.
 
 **What may be sent again.** A request refused before anything was done — a
 429, a connection that never opened, a body that never left — is always worth
@@ -13,12 +13,12 @@ another try. A request that may have been carried out — a 5xx, an answer cut
 while it was read — only when doing it twice is doing it once: a read, or a
 write that sets a value. What *adds* something is not replayed, because the
 second copy is a duplicate somebody has to delete by hand. The method says
-which by default; a service whose reads are spelt as POST (Notion's query and
-search) says so itself, by `replayable`.
+which by default; a service whose reads are spelt as POST says so itself, by
+`replayable`.
 
 **One `httpx.Client` per service**, made on first use and kept: its
-connections are reused from one call to the next, which the console's
-polling of Notion notices. Each has its timeout, `ponos` as User-Agent, and
+connections are reused from one call to the next, which a service asked often
+notices. Each has its timeout, `ponos` as User-Agent, and
 the machine's certificates — those `urllib` trusted, not `certifi`'s, so that
 a company's authority installed on the machine still opens the same doors.
 Redirects are followed, as `urlopen` did.

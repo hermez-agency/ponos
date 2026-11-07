@@ -22,9 +22,10 @@ sur une page et un titre qui existent.
 
 ## Le projet, en deux phrases
 
-`ponos` exécute des tickets Notion avec Claude Code : un ticket passé
+`ponos` exécute des tickets avec Claude Code : un ticket passé
 en *Ready* devient une session Claude, sur un `git worktree` jetable propre à
-ce ticket, et revient en pull request ou en page Notion publiée. Le cœur tourne
+ce ticket, et revient en pull request ou en page du ticket rédigée. Le board —
+la console et `ponos.db` — est la source de vérité. Le cœur tourne
 en continu sur la machine de l'utilisateur ; un console web optionnelle et des
 canaux (Telegram, Slack) permettent de suivre le travail ou d'y répondre.
 
@@ -54,7 +55,7 @@ Cœur Python — pas de build :
 
 ```sh
 uv sync                      # httpx et l'outillage, aux versions de uv.lock, dans .venv
-uv run python tests/run.py         # la partie pure : ne touche ni Notion, ni git, ni le réseau (-j 1 : en série)
+uv run python tests/run.py         # la partie pure : ne touche ni git, ni le réseau (-j 1 : en série)
 uv run python tests/functional.py  # le parcours complet, sur des doublures locales
 uv run pytest                # les deux suites sous pytest, un worker par cœur (-n 0 : en série ; -m "not functional" : la partie pure)
 uv run pytest tests/test_update.py  # les cas d'un seul module
@@ -87,7 +88,7 @@ npm run test:e2e:ci  # le même, avec les deux workers de la CI : c’est lui qu
 npm test        # node --test src/lib/*.test.ts — la logique de la barre de message, sans navigateur
 npm run test:components  # Vitest + Testing Library dans jsdom : src/**/*.test.tsx, un composant à la fois
 npm run dev     # serveur de dev avec hot reload, proxy /api vers un console déjà lancé
-npm run dev:demo  # le même, sur la console de démo (ci-dessous) : fausses données, ni Notion ni réseau
+npm run dev:demo  # le même, sur la console de démo (ci-dessous) : fausses données, sans réseau
 ```
 
 Travailler la console sans rien de réel, en trois lignes : `python3 scripts/demo.py`
@@ -138,17 +139,17 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   atteint ton téléphone), `ticket.py` (`Ticket` et `Job`, sans dépendance).
 - `src/ponos/` — autour du run : `config.py` (et `schema.py`, ce que chaque table de
   `config.toml` peut dire, en modèles pydantic ; `project_settings.py`, ce qu'un
-  projet décide pour lui-même par-dessus, gardé dans `ponos.db`), `store.py` (la couture
-  vers un tableau, quel qu'il soit) et ce qui la remplit —
-  `notion.py` (Notion, devenu le miroir), `pages.py` (les pages des projets, agents, objectifs,
-  récurrences et contexte, dans `ponos.db` quand il n'y a pas de jeton Notion) —, `health/` (les vérifications, une section par module, que le dashboard et `ponos doctor` partagent, et les corrections qu'il propose), `git.py`, `github_checks.py` (ce que GitHub dit des checks d'une PR, et la fusion qui les attend), `github_app.py` (la GitHub App créée depuis la console,
+  projet décide pour lui-même par-dessus, gardé dans `ponos.db`), `store.py` (le vocabulaire
+  du board, sa forme et son ouverture), `ledger.py` (les tickets de `ponos.db` vus comme
+  des pages) et `pages.py` (les pages des projets, agents, objectifs, récurrences et
+  contexte, dans `ponos.db`), `health/` (les vérifications, une section par module, que le dashboard et `ponos doctor` partagent, et les corrections qu'il propose), `git.py`, `github_checks.py` (ce que GitHub dit des checks d'une PR, et la fusion qui les attend), `github_app.py` (la GitHub App créée depuis la console,
   ses jetons d'installation, devant `gh`), `session.py`, `provider.py` (qui répond aux sessions :
   le CLI connecté, une clé Anthropic ou OpenRouter), `voice.py` (les mots et la langue),
   `vault.py` (les clés que `[vault]` donne aux sessions d'un projet, et leur masquage partout où le runner écrit),
   `vault_store.py` (le coffre de Ponos, Réglages → Coffre-fort : `vault.db` chiffré entrée par entrée, sa clé maîtresse, son journal),
   `passwords.py` (le mot de passe de la console, gardé en digest scrypt),
   `http.py` (le seul client HTTP : un `httpx.Client` par service et la
-  politique de réessai de Notion pour tous — les tests y branchent un
+  politique de réessai pour tous — les tests y branchent un
   `httpx.MockTransport`),
   `log.py` (le journal `ponos.log` : un logger par module, la trace de chaque
   erreur rattrapée, le masquage des secrets avant l'écriture),
@@ -180,9 +181,8 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   framework ; `tests/support.py` porte ce que plusieurs fichiers partagent
   (doublures, fixtures, `@case`) et `tests/run.py` les lance tous.
 - `tests/functional.py` — les tests du parcours complet, avec leurs doublures :
-  un faux Notion en local (`http.server`), un dépôt git et son remote bare, un
-  `claude` et un `gh` en tête du `PATH`. Le seul point d'injection côté cœur est
-  `PONOS_NOTION_API` (voir `notion.endpoint`).
+  un état jetable (son propre `ponos.db`), un dépôt git et son remote bare, un
+  `claude` et un `gh` en tête du `PATH`.
 - `Dockerfile`, `docker-compose.yml`, `docker/entrypoint.sh` — l'image : une
   autre façon d'installer, pas un autre programme. `PONOS_CONTAINER` y dit au
   cœur qu'il n'y a ni systemd ni mise à jour automatique (`config.in_container`).
@@ -247,7 +247,7 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   `web/app.py`, que `serve` importe au moment de servir.
 - **`docs/` est le site public, pas une documentation interne.** `docs/CNAME` en
   fait la racine GitHub Pages de the-ponos.app : tout fichier posé là est servi,
-  lié ou non. Audits, notes et plans vont dans `notes/` (ou dans Notion) ; un
+  lié ou non. Audits, notes et plans vont dans `notes/` ; un
   test de `tests/test_release.py` refuse un `.md` sous `docs/` et toute entrée
   de sa racine qui n'est pas dans la liste du site.
 - **`diagrams/architecture.html` ne s'édite jamais directement.** Il est

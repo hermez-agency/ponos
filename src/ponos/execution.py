@@ -15,7 +15,7 @@ the project itself, ever: the worktree is the isolation, and it is removed on
 the way out — kept only when a run failed and the configuration asked for it.
 
 **A ticket with no repository** works in an empty scratch directory and comes
-back as `ANSWER.md`, appended to the Notion page it came from. Same session,
+back as `ANSWER.md`, appended to the ticket's page. Same session,
 same prompt machinery, same reports; what differs is where the deliverable
 lands, and that is the whole of the difference. Three of the four types of
 ticket take this road whatever their project holds — see kinds.py — and one of
@@ -85,7 +85,7 @@ def _both(
     """One listener for the session's events, out of the journal and the page.
 
     Each is kept from the other's failures: `session.run` drops a listener
-    that raises, and a Notion page refusing a write must not cost the journal
+    that raises, and a board refusing a write must not cost the journal
     the rest of the run — nor the other way round.
     """
 
@@ -118,7 +118,7 @@ def _added(first: session.Outcome, then: session.Outcome) -> session.Outcome:
 # that did not do its work — see `_done_elsewhere`.
 _ELSEWHERE = re.compile(
     r"\b(?:dokploy|coolify|vercel|netlify|cloudflare|hostinger|ovh|registrar|dns|"
-    r"notion|master tickets|slack|telegram|linkedin|google|search console|"
+    r"slack|telegram|linkedin|google|search console|"
     r"browser|navigateur|chrome|dashboard|"
     r"tableau de bord|traefik|en prod(?:uction)?|in production|prod|"
     r"(?:re)?deploy(?:ed|ment)?|(?:re)?d[ée]ploy[ée]e?s?|(?:re)?d[ée]ploiement|"
@@ -253,7 +253,7 @@ class Execution(Base):
         """What a ticket answered after a stop says it learned, put to the project as a proposal."""
         if not (outcome.ok and outcome.lesson and job.comments) or self.dry_run:
             return
-        if notes.propose(job.project.notion_id, job.project.name, outcome.lesson):
+        if notes.propose(job.project.page_id, job.project.name, outcome.lesson):
             self.say(f"    · lesson proposed for {job.project.name}: {outcome.lesson}")
 
     def _propose_memories(self, job: Job, outcome: session.Outcome) -> None:
@@ -265,7 +265,7 @@ class Execution(Base):
             if read is None:
                 continue
             kind, where, fact = read
-            project = job.project.notion_id if where == "project" and job.project.notion_id else ""
+            project = job.project.page_id if where == "project" and job.project.page_id else ""
             if memory.propose(fact, kind, project, "ticket", job.ticket.id):
                 self.say(f"    · memory proposed: {fact}")
 
@@ -283,9 +283,9 @@ class Execution(Base):
                 base=job.base,
                 url=job.ticket.url,
                 brief=job.project.brief,
-                notes=notes.kept(job.project.notion_id),
-                memories=memory.for_prompt(job.project.notion_id),
-                library=library.for_prompt(job.project.notion_id),
+                notes=notes.kept(job.project.page_id),
+                memories=memory.for_prompt(job.project.page_id),
+                library=library.for_prompt(job.project.page_id),
                 context=self.workspace.context,
                 agent_name=job.agent.name,
                 agent_brief=job.agent.brief,
@@ -341,7 +341,7 @@ class Execution(Base):
 
     def _diagnostic_access(self, job: Job) -> tuple[diagnostic.Access, dict[str, list[str]]]:
         """What the project lets its diagnostics reach, and the variables its hosts' entries become."""
-        access = project_settings.diagnostic(job.project.notion_id)
+        access = project_settings.diagnostic(job.project.page_id)
         if not access.entries:
             return access, {}
         try:
@@ -361,7 +361,7 @@ class Execution(Base):
         job.browser = ""
         if job.kind != "external" or self.dry_run:
             return ""
-        if browser.chosen(self.config, job.project.notion_id, job.body) != browser.PONOS:
+        if browser.chosen(self.config, job.project.page_id, job.body) != browser.PONOS:
             return ""
         if why := browser.missing():
             self.say(f"    ! Ponos's browser: {why} — Claude in Chrome instead (ponos doctor)")
@@ -535,12 +535,12 @@ class Execution(Base):
         that cannot be read is relaunched as before — the session was the
         run's, and nothing says otherwise.
         """
-        status = self.config.notion.prop("status")
+        status = self.config.board.prop("status")
         try:
             found = store.read(self.client.page(job.ticket.page.id), status)
         except store.StoreError:
             return ""
-        running = self.config.notion.state("running")
+        running = self.config.board.state("running")
         return "" if found == running else str(found or "no status")
 
     def _session(
@@ -771,10 +771,10 @@ class Execution(Base):
             self.client,
             job.ticket.page.id,
             database=self.database,
-            property_name=self.config.notion.prop("progress"),
+            property_name=self.config.board.prop("progress"),
             interval=self.config.runner.progress_interval_seconds,
             say=self.say,
-            # Never on the loop that reads the session: a Notion answering 429
+            # Never on the loop that reads the session: a board slow to answer
             # would stop that loop, and the CLI behind a full pipe — progress.py.
             background=True,
         )
@@ -839,7 +839,7 @@ class Execution(Base):
             # it away would make the wait cost the work that came before it.
             return self._requeue(
                 ticket,
-                self.config.notion.state("ready"),
+                self.config.board.state("ready"),
                 outcome,
                 said.say("credit-spent-kept", branch=job.branch)
                 if git.commits_ahead(job.workdir, job.base)
@@ -933,7 +933,7 @@ class Execution(Base):
         worktree_setup.py.
         """
         ticket, project = job.ticket, job.project
-        chosen = worktree_setup.plan(project_settings.setup(project.notion_id), job.workdir)
+        chosen = worktree_setup.plan(project_settings.setup(project.page_id), job.workdir)
         if not chosen or self.dry_run:
             return None
         minutes = self.config.runner.setup_timeout_minutes
@@ -978,7 +978,7 @@ class Execution(Base):
         to review without pictures. See preview.py.
         """
         ticket, project = job.ticket, job.project
-        setting = project_settings.preview(project.notion_id)
+        setting = project_settings.preview(project.page_id)
         if not setting or self.dry_run or project.path is None:
             return False
         destination = preview.folder(ticket.id)
@@ -996,7 +996,7 @@ class Execution(Base):
             if not taken.skipped:
                 taken.skipped = git.add_base_worktree(project.path, base_dir, job.base)
             if not taken.skipped:
-                chosen = worktree_setup.plan(project_settings.setup(project.notion_id), base_dir)
+                chosen = worktree_setup.plan(project_settings.setup(project.page_id), base_dir)
                 if chosen:
                     ran = worktree_setup.run(
                         chosen,
@@ -1065,7 +1065,7 @@ class Execution(Base):
         goes on exactly as it did before: see local_ci.py.
         """
         project = job.project
-        own = project_settings.local_ci(project.notion_id)
+        own = project_settings.local_ci(project.page_id)
         enabled = own["enabled"] if own["enabled"] is not None else self.config.runner.local_ci
         if not enabled:
             return outcome, None
@@ -1482,11 +1482,11 @@ class Execution(Base):
         # postponed waits in validated, with the reason on its card.
         column = "validated" if later else "review" if pull_request and not merged else "done"
         values: dict[str, object] = {
-            self.config.notion.prop("status"): self.config.notion.state(column),
-            self.config.notion.prop("agent"): self.agent_label,
+            self.config.board.prop("status"): self.config.board.state(column),
+            self.config.board.prop("agent"): self.agent_label,
         }
         if pull_request:
-            values[self.config.notion.prop("pull_request")] = pull_request
+            values[self.config.board.prop("pull_request")] = pull_request
         if refused:
             # The card's line outlives the column it was written in: you
             # validate from review, and a line saying "left in review" would
@@ -1496,8 +1496,8 @@ class Execution(Base):
                 if later
                 else said.say("forced-merge-refused-card", error=refused)
             )
-            values[self.config.notion.prop("progress")] = said.brief(card)
-        values[self.config.notion.prop("session")] = self._session_value(
+            values[self.config.board.prop("progress")] = said.brief(card)
+        values[self.config.board.prop("session")] = self._session_value(
             outcome.session_id, job.session_home or job.project.path
         )
         values.update(self._measures(outcome))
@@ -1590,7 +1590,7 @@ class Execution(Base):
             # attempt opens on.
             return self._requeue(
                 ticket,
-                self.config.notion.state("ready"),
+                self.config.board.state("ready"),
                 outcome,
                 home=job.session_home,
             )
@@ -1665,7 +1665,7 @@ class Execution(Base):
         self._set(
             ticket,
             **{
-                self.config.notion.prop("status"): self.config.notion.state("ready"),
+                self.config.board.prop("status"): self.config.board.state("ready"),
                 **self._measures(outcome),
             },
         )
@@ -1780,7 +1780,7 @@ class Execution(Base):
                 ticket,
                 said.say("answer-not-written"),
                 voice_module.line(error),
-                code="notion.write-failed",
+                code="board.write-failed",
                 note=self._filed(
                     job, outcome, said.say("answer-on-disk", path=kept) if kept else ""
                 ),
@@ -1807,7 +1807,7 @@ class Execution(Base):
                 return self._publish(ticket, job.project, forced=following, prepared=outcome)
             following = said.paragraphs(following, said.say("forced-postponed"))
         elif prepared and self.validated_column():
-            following = said.say("prepared-next", validated=self.config.notion.state("validated"))
+            following = said.say("prepared-next", validated=self.config.board.state("validated"))
         else:
             following = ""
         verdict = (
@@ -1855,16 +1855,16 @@ class Execution(Base):
     ) -> None:
         """The ticket's properties once its text is written — and its column, unless ''."""
         values: dict[str, object] = {
-            self.config.notion.prop("agent"): self.agent_label,
-            self.config.notion.prop("session"): self._session_value(
+            self.config.board.prop("agent"): self.agent_label,
+            self.config.board.prop("session"): self._session_value(
                 outcome.session_id, job.session_home or job.project.path
             ),
             **self._measures(outcome),
         }
         if pull_request:
-            values[self.config.notion.prop("pull_request")] = pull_request
+            values[self.config.board.prop("pull_request")] = pull_request
         if column:
-            values[self.config.notion.prop("status")] = self.config.notion.state(column)
+            values[self.config.board.prop("status")] = self.config.board.state(column)
         self._set(job.ticket, **values)
 
     def _text_told(

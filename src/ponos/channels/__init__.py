@@ -5,7 +5,7 @@ moments that need you are the two the board is worst at delivering: the agent
 asked a question, and a pull request is waiting. A desktop notification only
 works if you are in front of that desktop. So the runner also talks to a
 messaging app, and **a message you answer is an answer to the ticket**: the
-reply comes back as a Notion comment, and the comment is already how a blocked
+reply comes back as a comment, and the comment is already how a blocked
 ticket wakes up (see `runner.woken`). Nothing new on the board, no second
 mechanism — one word in Telegram and the ticket runs again on the next pass.
 
@@ -26,7 +26,7 @@ it is one file.
 
 Everything fails quietly, for the reason desktop notifications do: a token that
 expired, a channel the bot was removed from, a network that is down — none of
-that is a reason for a ticket to fail. The Notion comment stays the record.
+that is a reason for a ticket to fail. The comment stays the record.
 """
 
 from __future__ import annotations
@@ -139,7 +139,7 @@ def decide(text: str) -> str:
     """ "yes", "no", or "" for anything that is not one of those two.
 
     Read where every answer is read — see `question.decide` — since a reply
-    typed on a phone and one typed under the question in Notion are the same
+    typed on a phone and one typed under the question on the board are the same
     reply.
     """
     return question.decide(text)

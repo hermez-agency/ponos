@@ -9,11 +9,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import httpx
-from support import _bare_runner, _config, _http_answering, _tools, case
+from support import _bare_runner, _config, _tools, case
 
 from ponos import config as C
-from ponos import ledger, notion, pages, prompt, session, tickets, vault
+from ponos import ledger, pages, prompt, session, tickets, vault
 
 # -- the vault ---------------------------------------------------------------
 
@@ -25,7 +24,7 @@ def the_vault_is_read_project_by_project_and_checked() -> None:
         '[vault]\nprovider = "pass"\n'
         '[vault.projects]\nLeadz = ["LEADZ_DOKPLOY_TOKEN"]\n'
         '[vault.projects.Ponos]\nNPM_TOKEN = "hermez-npm"\nGH_TOKEN = "keyring:service=gh"\n'
-        'ANTHROPIC_API_KEY = "stolen"\nPONOS_NOTION_TOKEN = "stolen"\n"not a name" = "x"\n'
+        'ANTHROPIC_API_KEY = "stolen"\nPONOS_WEB_TOKEN = "stolen"\n"not a name" = "x"\n'
     ).vault
     assert settings.provider == "pass"
     assert settings.granted("leadz") == {"LEADZ_DOKPLOY_TOKEN": "LEADZ_DOKPLOY_TOKEN"}
@@ -36,7 +35,7 @@ def the_vault_is_read_project_by_project_and_checked() -> None:
     assert settings.granted("Opoil") == {}, "a project the table does not name is given nothing"
     joined = "\n".join(settings.problems)
     assert "ANTHROPIC_API_KEY is the runner's own" in joined, joined
-    assert "PONOS_NOTION_TOKEN is the runner's own" in joined, joined
+    assert "PONOS_WEB_TOKEN is the runner's own" in joined, joined
     assert "'not a name' is not an environment variable name" in joined, joined
     assert C.Config.__dataclass_fields__["vault"]  # and an empty file has a vault too
     empty = _config("").vault
@@ -136,7 +135,7 @@ def a_secret_read_is_masked_wherever_it_would_be_written() -> None:
             vault.scrub(stderr)
             assert stderr.read_text() == "auth failed for ***\n"
             # The database.
-            settings = _config("").notion
+            settings = _config("").board
             board = ledger.Ledger(pages.Pages(settings), settings)
             board.workspace(settings)
             database = board.resolve_database("Tickets")
@@ -151,16 +150,6 @@ def a_secret_read_is_masked_wherever_it_would_be_written() -> None:
                 ]
             )
             assert "npm_0123456789" not in written and "***" in written, written
-        # Notion: what is sent, whatever the call.
-        sent: list[bytes] = []
-
-        def answer(request: httpx.Request) -> httpx.Response:
-            sent.append(request.content)
-            return httpx.Response(200, json={})
-
-        with _http_answering(answer):
-            notion.Client("ntn_test").comment("p", "the key is npm_0123456789")
-        assert sent and b"npm_0123456789" not in sent[0] and b"***" in sent[0], sent
     finally:
         vault.forget()
 

@@ -7,13 +7,12 @@ import type { Goal } from "@/lib/types"
 
 import { GoalCards, GoalPage, NoGoal } from "./goal-cards"
 
-/* A goal's page and the empty list, with or without a Notion behind the board:
- * without one a goal has no Notion page to open, and its words do not send
- * anyone to Notion. */
+/* A goal's page and the empty list: what deleting one says, and what an empty
+ * list offers. */
 
 const world = vi.hoisted(() => ({
   goal: {} as Record<string, unknown>,
-  read: { goals: [] as unknown[], configured: true, notion: true, problem: "" },
+  read: { goals: [] as unknown[], configured: true, problem: "" },
 }))
 
 vi.mock("react-resource-view", async (original) => ({
@@ -55,45 +54,32 @@ const goal = (url: string): Goal =>
   ({ id: "g1", name: "Launch v1", url, projects: [], tickets: {}, linked: [], priority: null }) as unknown as Goal
 
 beforeEach(() => {
-  world.read = { goals: [], configured: true, notion: true, problem: "" }
+  world.read = { goals: [], configured: true, problem: "" }
 })
 
 describe("a goal's page", () => {
-  test("opens a Notion goal in Notion", () => {
-    world.goal = goal("https://www.notion.so/g1")
+  test("offers no link out of the console for a goal", () => {
+    world.goal = goal("ponos://page/g1")
     render(<GoalPage />)
-    expect(screen.getByRole("link", { name: "Open in Notion" }).getAttribute("href")).toBe("https://www.notion.so/g1")
+    expect(screen.queryByRole("link", { name: /^Open in/ })).toBeNull()
   })
 
-  test("offers no Notion link for a goal on a board without Notion", () => {
-    world.read.notion = false
-    world.goal = goal("")
-    render(<GoalPage />)
-    expect(screen.queryByRole("link", { name: "Open in Notion" })).toBeNull()
-  })
-
-  test("says a goal without Notion is not sent to Notion's trash", async () => {
-    world.read.notion = false
+  test("says what deleting a goal does, and that its tickets stay", async () => {
     world.goal = goal("")
     render(<GoalPage />)
     await userEvent.click(screen.getByRole("button", { name: "Delete" }))
     const dialog = await screen.findByRole("alertdialog")
     expect(dialog.textContent).toContain("The goal is deleted.")
-    expect(dialog.textContent).not.toContain("Notion")
+    expect(dialog.textContent).toContain("Its tickets stay where they are")
   })
 })
 
 describe("the empty list of goals", () => {
-  test("does not send a board without Notion to Notion", () => {
-    world.read = { goals: [], configured: false, notion: false, problem: "" }
+  test("says there is no goal, and sends nobody elsewhere", () => {
+    world.read = { goals: [], configured: false, problem: "" }
     const { container } = render(<NoGoal />)
-    expect(container.textContent).not.toContain("Notion")
-  })
-
-  test("sends a Notion board to its Goals database", () => {
-    world.read = { goals: [], configured: false, notion: true, problem: "" }
-    const { container } = render(<NoGoal />)
-    expect(container.textContent).toContain("Goals database")
+    expect(container.textContent).toContain("No goal.")
+    expect(container.querySelector("a")).toBeNull()
   })
 })
 

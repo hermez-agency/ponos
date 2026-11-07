@@ -119,13 +119,13 @@ export const TICKETS = "tickets"
 
 /* The page under a ticket, read once per opening.
  *
- * Reading it is the slow part of opening a ticket — the server asks Notion for
- * every block — and the package asks for the record again every time the
+ * Reading it is the slow part of opening a ticket — the server reads its whole
+ * page — and the package asks for the record again every time the
  * stream moves the board, so one opening sent the same request two or three
  * times. The read is kept, promise and all, for as long as the page is open:
  * asked again for the same ticket it is the same read, unless the board says
  * the ticket was edited since. Leaving the page lets go of it, so the next
- * opening reads a brief changed in Notion. A ticket the board does not have
+ * opening reads a brief changed since. A ticket the board does not have
  * stays not had: asking again would only fetch the same 404. */
 let held: { id: string; edited: string; read: Promise<TicketDetail> } | null = null
 let letGo: ReturnType<typeof setTimeout> | undefined
@@ -702,7 +702,7 @@ function useLongPress(id: string) {
  *
  * Until the first board arrives, it is the page: the package covers the screen
  * with three bouncing dots while the list loads, and the first thing a console
- * shows is that wait — as long as Notion takes to answer. The robot, thinking,
+ * shows is that wait — as long as the board takes to answer. The robot, thinking,
  * over the dots, says the same thing with the runner's own face.
  */
 function BoardTop() {
@@ -1443,9 +1443,7 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
     title: "Board",
     // The resource's name and the line under it are what the list's own header
     // says, next to its icon: the board opens on its own words. What the board
-    // is, without naming where it is kept: the same console
-    // draws a board with a Notion behind it and one without, and a
-    // sentence that names one of them is wrong half the time.
+    // is, without naming where it is kept.
     description: "Your board, live. Drop a card in another column and the runner is told.",
     form,
     /* The two tabs over the list. Their labels go through the dictionary as
@@ -1495,14 +1493,14 @@ const options: ResourceDefinition<TicketItem, TicketWrite> = {
   name: "Dashboard",
   path: "/api/board",
   icon: LayoutGrid,
-  // Nothing is deleted — Notion keeps it. `update` stays allowed: the package
+  // Nothing is deleted from here. `update` stays allowed: the package
   // makes a card draggable, and writes its drop, only where a ticket may be
   // updated. There is no form to edit one with (no `update` view): moving a
   // card is the only update the board makes (see `updateItem`).
   permissions: { delete: false, export: false, ...readOnly() },
 
   repository: {
-    // The rows are the stream's; asking Notion again here would be asking it
+    // The rows are the stream's; reading the board again here would be asking
     // for what every open tab already holds.
     getCollection: async (filter) => {
       const board = await boardOnce()
@@ -1515,7 +1513,7 @@ const options: ResourceDefinition<TicketItem, TicketWrite> = {
     },
     // What the board already knows, at once: the title, the column, the
     // project and the cost are on the card, and the page draws them without
-    // waiting for Notion. The brief is the page's to read (see `readTicket`).
+    // waiting for the server. The brief is the page's to read (see `readTicket`).
     // A ticket the board does not hold — an address typed before the board
     // arrived — is read whole, and that read is the one the page uses; what
     // the server said when it fails is the page's to say (`loadError`).
@@ -1538,7 +1536,7 @@ const options: ResourceDefinition<TicketItem, TicketWrite> = {
     },
     createItem: async (fresh) => ({ data: await createTicket(fresh) }),
     removeItem: async () => {
-      throw new Error("a ticket is not deleted from the console; Notion keeps it")
+      throw new Error("a ticket is not deleted from the console")
     },
   },
 

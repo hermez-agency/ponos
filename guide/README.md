@@ -14,11 +14,8 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
 ## [Configuring Ponos](configuration.md)
 
 - [Configuration](configuration.md#configuration)
-  - [1. Create a Notion integration](configuration.md#1-create-a-notion-integration)
-  - [2. Share one page with it](configuration.md#2-share-one-page-with-it)
-  - [3. Let the runner build the rest](configuration.md#3-let-the-runner-build-the-rest)
-  - [The step everyone forgets](configuration.md#the-step-everyone-forgets)
-  - [4. The rest of the file](configuration.md#4-the-rest-of-the-file)
+  - [Checking it: `ponos doctor`](configuration.md#checking-it-ponos-doctor)
+  - [The rest of the file](configuration.md#the-rest-of-the-file)
   - [Who answers the sessions](configuration.md#who-answers-the-sessions)
   - [Every other model](configuration.md#every-other-model)
   - [Connect GitHub in one click](configuration.md#connect-github-in-one-click)
@@ -29,8 +26,9 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
 
 ## [The board](board.md)
 
-- [Without Notion](board.md#without-notion)
-- [The Notion side](board.md#the-notion-side)
+- [Where the tickets live](board.md#where-the-tickets-live)
+- [Coming from Notion](board.md#coming-from-notion)
+- [What a ticket carries](board.md#what-a-ticket-carries)
   - [The tickets database](board.md#the-tickets-database)
   - [The type of a ticket](board.md#the-type-of-a-ticket)
   - [The sub-type of a code ticket](board.md#the-sub-type-of-a-code-ticket)

@@ -23,7 +23,7 @@ def the_prompt_reads_from_the_widest_frame_to_the_narrowest() -> None:
         repo="/home/x/northwind",
         branch="ticket/x",
         base="main",
-        url="https://notion.so/x",
+        url="https://board.invalid/x",
         brief="Ton: direct, pas d'emoji.",
         context="Je suis Camille Martin, développeur web.",
     )
@@ -251,7 +251,7 @@ def a_conversation_puts_the_thread_nearest_the_message() -> None:
         title="Le header",
         body="",
         where="/home/x/northwind",
-        url="https://notion.so/x",
+        url="https://board.invalid/x",
         message="  Et pour le mobile ?  ",
         thread=["Camille: trop haut", "you: je regarde"],
         comments=["Camille: ouvert lundi"],

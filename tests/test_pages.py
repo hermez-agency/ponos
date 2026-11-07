@@ -1,4 +1,4 @@
-"""`pages.py`: the projects, agents, goals and schedules of a board that has no Notion."""
+"""`pages.py`: the projects, agents, goals and schedules of a board kept in `ponos.db`."""
 
 from __future__ import annotations
 
@@ -77,8 +77,8 @@ def a_date_is_written_as_the_iso_text_it_is_read_back_from() -> None:
 
 
 @case
-def a_relation_to_a_ticket_is_kept_as_it_is_without_a_notion() -> None:
-    """A schedule's last ticket is the ticket's own id: there is no page of Notion to name instead."""
+def a_relation_to_a_ticket_is_kept_as_it_is() -> None:
+    """A schedule's last ticket is the ticket's own id: there is no page of the board to name instead."""
     with _board() as board:
         ticket = board.create_row("tickets", "Un ticket", {"statut": "ready"})
         schedule = board.create_row("schedules", "Weekly", {"Last ticket": [ticket]})

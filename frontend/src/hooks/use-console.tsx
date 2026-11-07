@@ -75,7 +75,7 @@ interface StatusValue {
 const Context = React.createContext<ConsoleValue | null>(null)
 const StatusContext = React.createContext<StatusValue | null>(null)
 const StepsContext = React.createContext<StepsValue | null>(null)
-/* When the board last agreed with Notion. Its own context: it changes on every
+/* When the board was last read. Its own context: it changes on every
  * read, and nothing but the line that says it has to redraw for it. */
 const SyncContext = React.createContext<SyncEvent | null>(null)
 
@@ -216,9 +216,9 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     // The stream is already open by the time this runs, and only then the three
-    // reads: two of them ask Notion, and a console that opened its live
+    // reads: two of them read the board, and a console that opened its live
     // connection *after* a slow board sat there saying "connecting…" for as long
-    // as Notion took to answer.
+    // as the board took to answer.
     void reloadState()
     greetUpdate()
     readProjects()

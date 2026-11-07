@@ -25,7 +25,7 @@ const check = (code: string, state: HealthCheck["state"], extra: Partial<HealthC
 })
 
 test("a board with nothing red draws no band", () => {
-  assert.equal(shown([check("notion.token", "ok"), check("machine.disk", "ok")]), false)
+  assert.equal(shown([check("board.tickets", "ok"), check("machine.disk", "ok")]), false)
   assert.equal(shown([check("machine.update", "info"), check("settings.reply", "info")]), false, "a setting said, not a fault")
   assert.equal(shown([]), false)
   assert.equal(shown([check("machine.disk", "warn")]), true)
@@ -34,8 +34,8 @@ test("a board with nothing red draws no band", () => {
 test("what fails is listed by group, errors before warnings", () => {
   const found = [
     check("machine.disk", "error"),
-    check("notion.statuses", "warn"),
-    check("notion.columns", "error"),
+    check("projects.branch", "warn"),
+    check("board.tickets", "error"),
     check("claude.login", "ok"),
     check("github.access", "error"),
     check("settings.secrets", "error"),
@@ -43,18 +43,18 @@ test("what fails is listed by group, errors before warnings", () => {
   ]
   assert.deepEqual(
     failing(found).map((one) => one.code),
-    ["notion.columns", "notion.statuses", "github.access", "machine.disk", "settings.secrets"]
+    ["board.tickets", "github.access", "projects.branch", "machine.disk", "settings.secrets"]
   )
   assert.deepEqual(
     byGroup(found).map((entry) => entry.group),
-    ["notion", "github", "machine", "settings"]
+    ["board", "github", "projects", "machine", "settings"]
   )
 })
 
 test("a fix's sentences are filled with the check's params and what the fix would add", () => {
-  const one = check("notion.columns", "error", {
+  const one = check("projects.branch", "error", {
     params: { project: "Ponos" },
-    fix: { action: "notion_columns", label: "Configure", confirm: "", missing: "“Runner”", target: "" },
+    fix: { action: "project_branch", label: "Configure", confirm: "", missing: "“Runner”", target: "" },
   })
   assert.deepEqual(fixParams(one), { project: "Ponos", missing: "“Runner”" })
   assert.deepEqual(fixParams(check("machine.disk", "error", { params: { free: "1" } })), { free: "1" })
@@ -64,10 +64,10 @@ test("only an error that stops the runner is said to stop tickets; a channel's i
   const slack = check("machine.notify", "error", { params: { channel: "Slack" } })
   assert.equal(blocking(slack), false, "the tickets still run")
   assert.deepEqual(silent([slack, check("machine.disk", "warn")]), ["Slack"])
-  for (const code of ["notion.token", "claude.login", "github.access", "projects.repository"]) {
+  for (const code of ["board.tickets", "claude.login", "github.access", "projects.repository"]) {
     assert.equal(blocking(check(code, "error")), true, code)
   }
-  assert.equal(blocking(check("notion.token", "warn")), false)
+  assert.equal(blocking(check("board.tickets", "warn")), false)
   assert.deepEqual(silent([check("machine.notify", "ok", { params: { channel: "Telegram" } })]), [])
 })
 

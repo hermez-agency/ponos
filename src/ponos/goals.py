@@ -38,7 +38,7 @@ def pointed(page: store.Page, relation_property: str) -> str:
 
     Anything but a relation reads as none: a column of another type under that
     name is a column that was never meant for this, and its first character is
-    not a page to ask Notion for.
+    not a page to ask the board for.
     """
     goals = store.read(page, relation_property)
     if not isinstance(goals, list) or not goals:
@@ -46,7 +46,7 @@ def pointed(page: store.Page, relation_property: str) -> str:
     return str(goals[0] or "")
 
 
-# A goal's row, written by hand in Notion as a project's is: each column by the
+# A goal's row, written by hand on the board as a project's is: each column by the
 # names it is found under, the French first — the database is `Objectifs`. The
 # runner, the ideas and the console all read it through this one table, so a
 # column the console shows is one the prompt receives.

@@ -72,11 +72,11 @@ export function BoardCount() {
 
 /* -- the end of the bar --------------------------------------------------- */
 
-/* When the board last agreed with Notion, and whether anything does not.
+/* When the console last read the board, and whether anything is out of step.
  *
  * Green is "read a moment ago, and nothing is out of step". Amber is anything
- * worth a look: a move still waiting for Notion, one Notion refused or one it
- * had been changed under, an écart the last full read found, or a read that
+ * worth a look: a move still waiting to be written, one the board refused or
+ * one it had been changed under, an écart the last full read found, or a read that
  * failed. What exactly is under the pointer; the button beside it is the one
  * that does something about it. */
 function useSyncSummary() {
@@ -99,13 +99,13 @@ function useSyncSummary() {
     Boolean(synced.error) || synced.drift + synced.pending + synced.failed + synced.conflicts > 0
   const clock = (at: string) => (at ? new Date(at).toLocaleTimeString() : "—")
   const said = [
-    t("last read of Notion: {{at}}", { at: clock(synced.synced_at) }),
+    t("last read of the board: {{at}}", { at: clock(synced.synced_at) }),
     t("whole board compared: {{at}}", { at: clock(synced.reconciled_at) }),
     synced.drift ? counted(synced.drift, "{{count}} gap found and corrected", "{{count}} gaps found and corrected") : "",
-    synced.pending ? counted(synced.pending, "{{count}} move waiting for Notion", "{{count}} moves waiting for Notion") : "",
-    synced.failed ? counted(synced.failed, "{{count}} move Notion refused", "{{count}} moves Notion refused") : "",
+    synced.pending ? counted(synced.pending, "{{count}} move waiting to be written", "{{count}} moves waiting to be written") : "",
+    synced.failed ? counted(synced.failed, "{{count}} move the board refused", "{{count}} moves the board refused") : "",
     synced.conflicts
-      ? counted(synced.conflicts, "{{count}} ticket changed in Notion meanwhile", "{{count}} tickets changed in Notion meanwhile")
+      ? counted(synced.conflicts, "{{count}} ticket changed on the board meanwhile", "{{count}} tickets changed on the board meanwhile")
       : "",
     synced.error ? t("the last read failed: {{why}}", { why: synced.error }) : "",
   ].filter(Boolean)
@@ -232,7 +232,7 @@ export function TopBarEnd() {
 /* The machine's own state, and the two gestures about the board as a whole
  * rather than about a page: reread it, change the light. The version — and,
  * the day a newer one is waiting, the button that installs it — and when the
- * board last agreed with Notion, over the two buttons. */
+ * board was last read, over the two buttons. */
 export function SidebarFooter() {
   const { refresh } = useConsole()
   const { theme, toggle } = useTheme()

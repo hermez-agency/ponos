@@ -15,8 +15,7 @@ import { settingsHref } from "@/resources/settings"
  * same thing the chat does, so they draw the same list (`ModelList`): the Claude
  * models, OpenRouter's catalogue with a search when a key is set, the recent
  * ones, a price and a "no tools" badge. Nothing here is written to the board
- * except the value: Notion adds a slug to its Model column the first time a
- * ticket carries it, and only the ones chosen get there.
+ * except the value: only the ones chosen get there.
  */
 
 /** The control itself: what is chosen, and what to do when another is. */

@@ -1,8 +1,8 @@
 /* Markdown, read rather than shown — what `components/console/markdown.tsx`
  * draws, decided without a DOM.
  *
- * It is not a markdown engine: it knows the shapes `notion.blocks_text` writes,
- * the same shapes a ticket body holds as typed Markdown, and the few more a session
+ * It is not a markdown engine: it knows the shapes a ticket body holds as
+ * typed Markdown, those its imported pages kept, and the few more a session
  * reaches for — a nested list, a table, a word behind a link, an emphasis — and
  * nothing else. It returns plain data, never markup: the page hands every
  * string to React, which escapes it.
@@ -13,8 +13,8 @@
  * code its asterisks.
  */
 
-// Notion names a language with spaces in it ("plain text"), so everything
-// after the fence is the language.
+// A language may have spaces in its name ("plain text"), so everything after
+// the fence is the language.
 const FENCE = /^```(.*)$/
 
 export type Align = "left" | "center" | "right" | null
@@ -35,13 +35,14 @@ function depth(line: string): number {
   return Math.min(3, indent.replace(/\t/g, "  ").length >> 1)
 }
 
-/* An image, a file or a PDF on a Notion page, as `markdown.attached` names it.
+/* An image, a file or a PDF a page carried when it was imported, as its line
+ * names it: « [image attached to the ticket: capture.png (… block <id>)] ».
  *
- * The line carries no address — a Notion file's is signed for an hour, and
- * cut off its signature it is a 403 — but the block holding the file, which
- * `/api/files/<block>` turns into a fresh address each time it is asked. */
+ * The line carries no address but the block holding the file, which
+ * `/api/files/<block>` serves from the files kept beside `ponos.db`. The word
+ * before « block » names where the page came from, and is not read. */
 const ATTACHED =
-  /^\[(image|file|pdf) attached to the ticket(?:: (.*))? \(Notion block ([0-9a-f]{32})\)\]$/
+  /^\[(image|file|pdf) attached to the ticket(?:: (.*))? \((?:\S+ )?block ([0-9a-f]{32})\)\]$/
 
 /** A table row's cells: split on the pipes not written `\|`, the outer ones dropped. */
 function cells(line: string): string[] {
@@ -78,8 +79,8 @@ export function blocks(text: string): Block[] {
   let ended = true
   /* The number the next item of the numbered list open at each depth gets.
    *
-   * `notion.blocks_text` cannot say where an item stands — Notion does not tell
-   * — so it writes every one `1.`, and a session often does the same. The list
+   * An imported page cannot say where an item stands, so it writes every one
+   * `1.`, and a session often does the same. The list
    * is counted here instead: its first item gives the start, as in CommonMark,
    * so a list a session began at 3 still begins at 3, and each item after it
    * is one more. A list ends at anything that is not one of its items, deeper
@@ -179,7 +180,7 @@ export function blocks(text: string): Block[] {
     }
     /* A line under a line is the same paragraph.
      *
-     * Two shapes arrive here. `notion.blocks_text` writes one line per block,
+     * Two shapes arrive here. An imported page holds one line per block,
      * so two lines in a row are two paragraphs; a body typed by hand
      * has a paragraph wrapped at the width of the editor
      * and a blank line is what ends it. Drawn as separate blocks, the second

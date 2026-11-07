@@ -6,31 +6,31 @@ from typing import Any
 
 from support import case
 
-from ponos import agents, notion
+from ponos import agents, store
 
 # -- the role a ticket is handled by -----------------------------------------
 
 
 class _AgentClient:
-    def __init__(self, page: notion.Page | None, brief: str = "", broken: bool = False):
+    def __init__(self, page: store.Page | None, brief: str = "", broken: bool = False):
         self._page, self._brief, self._broken = page, brief, broken
 
-    def page(self, page_id: str) -> notion.Page:
+    def page(self, page_id: str) -> store.Page:
         if self._page is None:
-            raise notion.NotionError("object not found")
+            raise store.StoreError("object not found")
         return self._page
 
     def blocks_text(self, page_id: str, depth: int = 0, *, live: bool = True) -> str:
         if self._broken:
-            raise notion.NotionError("object not found")
+            raise store.StoreError("object not found")
         return self._brief
 
 
-def _agent_page(title: str, model: str = "") -> notion.Page:
+def _agent_page(title: str, model: str = "") -> store.Page:
     properties: dict[str, Any] = {"Name": {"type": "title", "title": [{"plain_text": title}]}}
     if model:
         properties["Model"] = {"type": "select", "select": {"name": model}}
-    return notion.Page(id="p-agent", url="", title=title, properties=properties)
+    return store.Page(id="p-agent", url="", title=title, properties=properties)
 
 
 def _resolve(client: _AgentClient, page_id: str) -> agents.Agent:

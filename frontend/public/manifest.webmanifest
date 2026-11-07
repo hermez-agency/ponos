@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Ponos",
   "short_name": "Ponos",
-  "description": "Notion tickets, run by Claude Code — the console.",
+  "description": "Tickets run by Claude Code — the console.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -208,8 +208,8 @@ class Delivery(Base):
         once at the top of a pass. So is a merge whose conflicts need resolving,
         which is a session too — both go out through `_carry_out`.
 
-        `taken` is what this pass has already carried out. Notion may still be
-        serving the status a publication in flight has just overwritten, and
+        `taken` is what this pass has already carried out. A reading taken
+        before may still be serving the status a publication in flight has just overwritten, and
         publishing twice is the one mistake this must not make — so a ticket the
         caller has already taken off the column is skipped rather than trusted
         to have moved.
@@ -218,7 +218,7 @@ class Delivery(Base):
         look asks again, and neither a pass in flight nor the sessions in it
         have any business failing over a reading of a column they are not in.
         """
-        settings = self.config.notion
+        settings = self.config.board
         taken = taken or set()
         results: list[dict[str, Any]] = []
         publishing: list[tuple[Ticket, Project]] = []
@@ -320,7 +320,7 @@ class Delivery(Base):
         """
         if not self.validated_column():
             return []
-        settings = self.config.notion
+        settings = self.config.board
         validated = settings.state("validated")
         status_property = settings.prop("status")
         kind = self.client.schema(self.database).get(status_property, "status")
@@ -335,7 +335,7 @@ class Delivery(Base):
         says “move it to validated”: on a board without the column that would be
         an instruction nobody can follow.
         """
-        settings = self.config.notion
+        settings = self.config.board
         validated = settings.state("validated")
         if validated in (settings.state("review"), settings.state("done")):
             return False
@@ -460,7 +460,7 @@ class Delivery(Base):
         self.say(f"  ✓ {ticket.title} — pull request merged, moved to done")
         self._set(
             ticket,
-            **{self.config.notion.prop("status"): self.config.notion.state("done")},
+            **{self.config.board.prop("status"): self.config.board.state("done")},
             **self._refusal_cleared(ticket),
         )
         self._comment(
@@ -481,7 +481,7 @@ class Delivery(Base):
         left in review for a person is how #331 stayed open, green, while the
         rest stood still. `_force_merge` still waits for its CI to be green.
         """
-        source = project_settings.forced_validation(self.config, kind, project.notion_id)
+        source = project_settings.forced_validation(self.config, kind, project.page_id)
         if not source and ticket and kind == "code" and state.is_repair(ticket.id):
             source = "repair"
         if not source:
@@ -746,7 +746,7 @@ class Delivery(Base):
         silence. Under a lock, because two pull requests of one repository can
         be put aside by two threads of the same pass.
         """
-        settings = self.config.notion
+        settings = self.config.board
         repository = _repository(url)
         said = self.voice
         with self._landed_lock:
@@ -875,7 +875,7 @@ class Delivery(Base):
             return True
         state.lift_billing(account)
         state.forget_billing_wait(ticket.id)
-        block = self.config.notion.prop("block")
+        block = self.config.board.prop("block")
         if store.read(ticket.page, block):
             self._set(ticket, **{block: ""})
         self._comment(ticket, self.voice.say("billing-settled", account=name))
@@ -1082,7 +1082,7 @@ class Delivery(Base):
         stopped on a conflict or on its own red checks (`_to_mend`) — every
         other one was settled by `_merge`.
         """
-        url = str(store.read(ticket.page, self.config.notion.prop("pull_request")) or "")
+        url = str(store.read(ticket.page, self.config.board.prop("pull_request")) or "")
         if url.startswith("http"):
             return self._resolve(ticket, project, url)
         return self._publish(ticket, project)
@@ -1105,7 +1105,7 @@ class Delivery(Base):
         GitHub's refusal — with whatever resolution was reached pushed to a
         branch of its own for you to look at.
         """
-        settings = self.config.notion
+        settings = self.config.board
         branch, base = git.pull_request_branches(url, self.config.github)
         if not branch:
             self._red.discard(ticket.id)
@@ -1203,7 +1203,7 @@ class Delivery(Base):
         """
         ticket, said = job.ticket, self.voice
         if self._out_of_credit(outcome):
-            return self._requeue(ticket, self.config.notion.state("validated"), outcome)
+            return self._requeue(ticket, self.config.board.state("validated"), outcome)
         if not outcome.ok:
             question = outcome.summary or said.say("conflict-open", base=job.base)
             return self._fail(
@@ -1267,7 +1267,7 @@ class Delivery(Base):
         if checks == "failed":
             checks, checked, repair = self._mend(job, url, checked)
             if repair and self._out_of_credit(repair):
-                return self._requeue(ticket, self.config.notion.state("validated"), repair)
+                return self._requeue(ticket, self.config.board.state("validated"), repair)
         held = self._resolved_checks(job, url, checks, record, checked)
         if held:
             return held
@@ -1305,7 +1305,7 @@ class Delivery(Base):
             self._set(
                 ticket,
                 **{
-                    self.config.notion.prop("status"): self.config.notion.state("validated"),
+                    self.config.board.prop("status"): self.config.board.state("validated"),
                     **self._blocked_by("ci.billing"),
                 },
             )
@@ -1339,7 +1339,7 @@ class Delivery(Base):
             self.say(f"    · {job.base} moved again — left validated for the next pass")
             self._set(
                 ticket,
-                **{self.config.notion.prop("status"): self.config.notion.state("validated")},
+                **{self.config.board.prop("status"): self.config.board.state("validated")},
             )
             self._comment(ticket, said.report(record, checked, said.say("base-moved-again")))
             return {"ticket": ticket.title, "id": ticket.id, "status": "validated"}
@@ -1364,8 +1364,8 @@ class Delivery(Base):
         self._set(
             ticket,
             **{
-                self.config.notion.prop("status"): self.config.notion.state("validated"),
-                self.config.notion.prop("progress"): said.brief(line),
+                self.config.board.prop("status"): self.config.board.state("validated"),
+                self.config.board.prop("progress"): said.brief(line),
             },
         )
         self._comment(
@@ -1434,7 +1434,7 @@ class Delivery(Base):
         """A resolution's price, added to what the ticket had already cost."""
         if not outcome.cost_usd or self.dry_run:
             return
-        column = self.config.notion.prop("cost")
+        column = self.config.board.prop("cost")
         before = store.read(ticket.page, column)
         spent = (before if isinstance(before, (int, float)) else 0.0) + outcome.cost_usd
         try:
@@ -1512,13 +1512,13 @@ class Delivery(Base):
             return failed
         # Every road from here writes a status that is not "in progress", and
         # the note about where it came from is let go once that write is in —
-        # not before: a write Notion never received leaves the ticket in
+        # not before: a write the board never received leaves the ticket in
         # progress, and without the note `sweep` would put a post that is
         # already out back to ready, to be published a second time.
         if self._out_of_credit(outcome):
             # Back to validated, not to ready: the decision to publish it has
             # already been taken, and the wait does not take it back.
-            requeued = self._requeue(ticket, self.config.notion.state("validated"), outcome)
+            requeued = self._requeue(ticket, self.config.board.state("validated"), outcome)
             state.release(ticket.id)
             return requeued
         if not outcome.ok:
@@ -1541,7 +1541,7 @@ class Delivery(Base):
             body=self._body(ticket, done=True),
             session_id=session.new_id(),
             log=state.log_file(short),
-            model=str(store.read(ticket.page, self.config.notion.prop("model")) or ""),
+            model=str(store.read(ticket.page, self.config.board.prop("model")) or ""),
             agent=self._agent(ticket),
             comments=self.discussion(ticket),
         )
@@ -1552,17 +1552,17 @@ class Delivery(Base):
         # A comment on a ticket being published is a conversation about the
         # work, not an instruction: the same rule as a ticket about to be run.
         self._claimed.add(ticket.id)
-        state.claim(ticket.id, self.config.notion.state("validated"))
+        state.claim(ticket.id, self.config.board.state("validated"))
         self._set(
             ticket,
             **{
-                self.config.notion.prop("status"): self.config.notion.state("running"),
-                self.config.notion.prop("agent"): self.agent_label,
+                self.config.board.prop("status"): self.config.board.state("running"),
+                self.config.board.prop("agent"): self.agent_label,
                 # Unticked by the same write that claims it: the wait is over
                 # the moment something is started, and a tick left behind would
                 # have the next pass resume a session that is running.
-                self.config.notion.prop("waiting"): False,
-                self.config.notion.prop("session"): self._session_value(
+                self.config.board.prop("waiting"): False,
+                self.config.board.prop("session"): self._session_value(
                     job.session_id, job.project.path
                 ),
             },
@@ -1611,9 +1611,9 @@ class Delivery(Base):
         self._set(
             ticket,
             **{
-                self.config.notion.prop("status"): self.config.notion.state("done"),
-                self.config.notion.prop("agent"): self.agent_label,
-                self.config.notion.prop("session"): self._session_value(
+                self.config.board.prop("status"): self.config.board.state("done"),
+                self.config.board.prop("agent"): self.agent_label,
+                self.config.board.prop("session"): self._session_value(
                     outcome.session_id, job.session_home
                 ),
                 **self._measures(outcome),

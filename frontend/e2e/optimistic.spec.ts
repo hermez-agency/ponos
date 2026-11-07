@@ -5,7 +5,7 @@ import { expect, test, type Page, type Route } from "@playwright/test"
  *
  * Every write here is caught on its way out and held until the test lets it
  * go, so the page is looked at while the server is still "thinking" — which is
- * all of a second or two on a real Notion. Nothing reaches the board the other
+ * all of a second or two on a busy machine. Nothing reaches the board the other
  * files read: the answers are the test's.
  */
 
@@ -59,9 +59,9 @@ test("a new ticket the server refuses is taken off again, and the reason is said
   const dialog = await newTicket(page, "Refused one")
   await expect(dialog).toBeHidden()
   await expect(page.getByText("Refused one").filter({ visible: true }).first()).toBeVisible()
-  write.release({ status: 500, json: { error: "Notion said no" } })
+  write.release({ status: 500, json: { error: "The board said no" } })
   await expect(page.getByText("The ticket could not be created")).toBeVisible()
-  await expect(page.getByText("Notion said no")).toBeVisible()
+  await expect(page.getByText("The board said no")).toBeVisible()
   await expect(page.getByText("Refused one").filter({ visible: true })).toHaveCount(0)
 })
 
@@ -72,7 +72,7 @@ test("a status change is said and drawn before the server answers, and put back 
   await card.getByRole("button", { name: "Set aside" }).click()
   await expect(page.getByText("“A long ticket” moved to Blocked")).toBeVisible()
   await expect(card.getByRole("button", { name: "Set aside" })).toHaveCount(0)
-  write.release({ status: 500, json: { error: "Notion said no" } })
+  write.release({ status: 500, json: { error: "The board said no" } })
   await expect(page.getByText("could not move “A long ticket”")).toBeVisible()
   await expect(card.getByRole("button", { name: "Set aside" })).toBeVisible()
 })
@@ -86,7 +86,7 @@ test("a message to a ticket is drawn before the server answers, and taken off wh
   await field.press("Enter")
   await expect(page.getByText("Optimistic words")).toBeVisible()
   await expect(field).toHaveValue("")
-  write.release({ status: 500, json: { error: "Notion said no" } })
+  write.release({ status: 500, json: { error: "The board said no" } })
   await expect(page.getByText("not written")).toBeVisible()
   await expect(page.getByText("Optimistic words")).toHaveCount(0)
 })

@@ -38,8 +38,6 @@ if TYPE_CHECKING:
     # Imported by `load`, not here: see schema.py.
     from . import schema
 
-PLACEHOLDER = "ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
 # Where the console's sign-in may be written instead of in the file.
 WEB_EMAIL_ENV = "PONOS_WEB_EMAIL"
 WEB_PASSWORD_ENV = "PONOS_WEB_PASSWORD"
@@ -53,7 +51,6 @@ GITHUB_TOKEN_ENV = "PONOS_GITHUB_TOKEN"
 # Every secret the configuration knows: where `config.toml` used to hold it, and
 # the variable that holds it now — in the environment, or in `secrets.env`.
 SECRETS: dict[tuple[str, str], str] = {
-    ("notion", "token"): "PONOS_NOTION_TOKEN",
     ("web", "token"): "PONOS_WEB_TOKEN",
     ("web", "password"): WEB_PASSWORD_ENV,
     ("notify.telegram", "token"): "PONOS_TELEGRAM_TOKEN",
@@ -190,16 +187,7 @@ class ConfigError(Exception):
 
 
 @dataclass
-class Notion:
-    token: str = ""
-    workspace: str = ""
-    tickets_database: str = ""
-    # How you call it when you want it to answer rather than to work. Its own
-    # name, as Notion writes it when you @-mention the integration, is always
-    # understood too — this is for the word you would actually type.
-    mention: str = ""
-    pages: dict[str, str] = field(default_factory=dict)
-
+class BoardNames:
     # The names of the board — its columns, its statuses, its types — are not
     # the file's to choose: see `PROPERTIES`. These read them, and nothing else.
 
@@ -228,10 +216,6 @@ class Notion:
             if wanted in (name.strip().casefold() for name in self.kind_names(key)):
                 return key
         return ""
-
-    def page(self, key: str) -> str:
-        """The title of the workspace row holding that database or page."""
-        return self.pages.get(key, _DEFAULT_PAGES[key])
 
     def state(self, key: str) -> str:
         return STATUS[key]
@@ -622,9 +606,8 @@ class Web:
     # are also read from the environment, see the module's docstring.
     email: str = ""
     password: str = ""
-    # How often the console asks Notion what the board looks like — and only
-    # while a browser is actually watching. Nobody is watching most of the time,
-    # and a poll nobody reads spends the integration's rate limit for nothing.
+    # How often the console asks what the board looks like — and only while a
+    # browser is actually watching. Nobody is watching most of the time.
     poll_seconds: int = 15
     # A chat turn is a Claude session like any other, and wants the same kind of
     # ceiling. Shorter than a ticket's: somebody is sitting in front of it.
@@ -845,7 +828,6 @@ class Vault:
 
 @dataclass
 class Config:
-    notion: Notion
     runner: Runner
     projects: dict[str, str]
     path: Path
@@ -859,6 +841,8 @@ class Config:
     review: Review = field(default_factory=Review)
     permissions: Permissions = field(default_factory=Permissions)
     vault: Vault = field(default_factory=Vault)
+    # The board's vocabulary — its columns, statuses and types: see `PROPERTIES`.
+    board: BoardNames = field(default_factory=BoardNames)
     # `[github]`: which of your GitHub accounts each owner is worked under, as
     # `owner = "the gh account"`. Empty is a machine with one account, which is
     # every machine until it is not — see `git.token_for`.
@@ -882,64 +866,14 @@ class Config:
         host = "127.0.0.1" if self.web.host in ("", "0.0.0.0", "::") else self.web.host  # noqa: S104
         return f"http://{host}:{self.web.port}"
 
-    @property
-    def standalone(self) -> bool:
-        """Is there no Notion behind this installation?
 
-        The tickets are `ponos.db`'s whoever answers; Notion is a mirror of
-        them and the home of the projects, the agents, the goals and the
-        schedules. A configuration that names no Notion at all — no token, no
-        workspace, no database — has none, and those pages are `ponos.db`'s too
-        (see pages.py). One that names a part of it is a Notion installation
-        that is not finished, and `require_usable` says what is missing rather
-        than quietly running without.
-        """
-        token = self.notion.token
-        return (
-            (not token or token == PLACEHOLDER)
-            and not self.notion.workspace
-            and not self.notion.tickets_database
-        )
-
-    def require_usable(self) -> None:
-        """Raise ConfigError if the file is not complete enough to run."""
-        if self.standalone:
-            # Nothing named and nothing shared: a board without Notion is made
-            # of the first thing written into it.
-            return
-        missing = []
-        if not self.notion.token or self.notion.token == PLACEHOLDER:
-            # Named twice: the key everybody knows it by, and where it goes now.
-            missing.append(
-                f"notion.token ({SECRETS[('notion', 'token')]}, "
-                f"in {secrets_path(self.path)} or the environment)"
-            )
-        # Either way of naming the tickets database will do: the workspace page
-        # that holds it, or the database itself.
-        if not self.notion.workspace and not self.notion.tickets_database:
-            missing.append(f"notion.workspace (or notion.tickets_database) in {self.path}")
-        if missing:
-            raise ConfigError(
-                f"{', '.join(missing)} must be set\n"
-                "  ponos init <page-url>   builds the databases and fills this in\n"
-                "  ponos config            opens the file in your editor"
-            )
-
-
-# The board's columns, as `ponos init` creates them and every pass reads them.
+# The board's columns, as `ponos.db` keeps them and every pass reads them.
 #
-# Fixed, and not a setting any more: they used to be `[notion.properties]`,
-# `[notion.status]` and `[notion.types]`, so that a board built by hand could
-# keep its own words — and the one board Ponos runs on is the one these are
-# taken from. A name somebody could change was a name every check, every
-# fallback and every test had to read through a setting: three tables of forty
-# keys for one spelling. `doctor` names each column, status or option a board
-# has otherwise, and `init` creates them.
-#
-# The options of the selects are French where they are words — Rédaction,
-# Amélioration, réussi — because that is the language the board is written
-# in; the statuses are the board's short lowercase keywords, which its
-# formulas and views filter on.
+# Fixed, and not a setting: a name somebody could change was a name every
+# check, every fallback and every test had to read through a setting, for one
+# spelling. The options of the selects are French where they are words —
+# Rédaction, Amélioration, réussi — because that is the language the board is
+# written in; the statuses are the board's short lowercase keywords.
 PROPERTIES = {
     "status": "statut",
     "project": "Project",
@@ -964,8 +898,7 @@ PROPERTIES = {
     # and not an eighth column: what happened to that ticket is that *nothing*
     # happened to it, which is not a moment of its life — it is still ready, or
     # still validated, with a note saying why nobody has got to it yet. A column
-    # would have said it left the board, and would have had to be typed into
-    # Notion by hand on top of that, since the API cannot widen a `status`.
+    # would have said it left the board.
     "waiting": "Waiting for credit",  # checkbox: ticked while the credit is out
     # Ticked, the ticket's first session only plans, and the work waits for a
     # yes — see planning.py. An attribute too, for the same reason: the ticket
@@ -982,8 +915,8 @@ PROPERTIES = {
     # A prompt run at every change of the ticket's status, whoever made it. Text,
     # optional, and empty means nothing happens: see transitions.py.
     "on": "On",
-    # Why a blocked ticket stopped: a code of blocks.py, as a select a Notion
-    # view filters on. Written when it stops, emptied when it leaves.
+    # Why a blocked ticket stopped: a code of blocks.py, as a select the
+    # console filters on. Written when it stops, emptied when it leaves.
     "block": "Blocage",
     # The state of the pull request's checks while the ticket is in review: a
     # select with three options (see ci.py), emptied for a repository without CI.
@@ -1008,19 +941,6 @@ PROPERTIES = {
     "next_run": "Next",  # date: when the next ticket is born
     "last_run": "Last",  # date: when the last one was
     "last_ticket": "Last ticket",  # relation → the tickets database
-}
-
-# The rows the runner looks for in the workspace database, by their title.
-# Only `tickets` is required; the others change nothing by their absence.
-_DEFAULT_PAGES = {
-    "tickets": "Tickets",
-    "projects": "Projects",
-    "agents": "Agents",
-    "context": "Context",
-    "schedules": "Schedules",
-    # The goals a ticket may serve. Named in French because the board it was
-    # built for says so: there is no older English row to stay compatible with.
-    "goals": "Objectifs",
 }
 
 # The five types of ticket, told apart by the road they take rather than by what
@@ -1092,38 +1012,6 @@ STATUS = {
 }
 
 
-def _database_id(raw: str) -> str:
-    """Normalise whatever the user pasted into something resolvable.
-
-    A bare ID, a dashed ID and a full Notion URL all reduce to the 32-character
-    identifier. Anything else is handed back untouched — it is most likely the
-    database's name, which the client can look up by search.
-    """
-    raw = raw.strip()
-    if not raw:
-        return ""
-    candidate = raw
-    if "://" in candidate:
-        candidate = candidate.split("?")[0].rstrip("/").rsplit("/", 1)[-1]
-        candidate = candidate.rsplit("-", 1)[-1]
-    candidate = candidate.replace("-", "")
-    return candidate if is_identifier(candidate) else raw
-
-
-def identifier(raw: str) -> str:
-    """The 32-character ID inside whatever was pasted — a URL, or an ID.
-
-    Named for what the caller has in hand rather than for what it points at:
-    `init` is given the link of a page, not of a database.
-    """
-    return _database_id(raw)
-
-
-def write_notion_value(path: Path, key: str, value: str) -> bool:
-    """Set one key of the [notion] table. See `write_value`."""
-    return write_value(path, "notion", key, value)
-
-
 # A TOML key that needs no quotes. Anything else — a project called "Site
 # vitrine", a status column with an accent — is written quoted, and looked up
 # under both spellings: the file may have been typed by hand.
@@ -1155,7 +1043,7 @@ def _literal(value: object) -> str:
 def write_value(path: Path, table: str, key: str, value: object) -> bool:
     """Set — or, with `value=None`, remove — one key of one table of the file.
 
-    The CLI's way in (`ponos init`, `ponos notify pair`), and the console's
+    The CLI's way in (`ponos notify pair`), and the console's
     one: through `edit`, so that the real file is only ever replaced whole and
     under its lock — written in place, a process killed between the truncation
     and the write left a configuration that no longer parsed. See `_write_line`
@@ -1267,11 +1155,6 @@ def _locked(path: Path) -> Iterator[None]:
 def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
     """`edit`, once the lock is held."""
     original = path.read_text(encoding="utf-8")
-    try:
-        load(path).require_usable()
-        was_usable = True
-    except ConfigError:
-        was_usable = False
 
     secrets_file = secrets_path(path)
     try:
@@ -1316,11 +1199,7 @@ def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
         if pending != secrets_text:
             disk.write_private(secrets_scratch, pending)
         try:
-            fresh = load(
-                scratch, secrets=secrets_scratch if pending != secrets_text else secrets_file
-            )
-            if was_usable:
-                fresh.require_usable()
+            load(scratch, secrets=secrets_scratch if pending != secrets_text else secrets_file)
         # Broad on purpose: the loader coerces as it reads, and anything it
         # refuses to read — a port that is not a number, a path that is not one
         # — has to come back as "not saved" rather than as a traceback and half
@@ -1382,7 +1261,7 @@ def exposed(raw: dict[str, Any]) -> list[tuple[str, str]]:
     return [
         (table, key)
         for table, key in SECRETS
-        if (value := str(_section(raw, table).get(key, "") or "").strip()) and value != PLACEHOLDER
+        if str(_section(raw, table).get(key, "") or "").strip()
     ]
 
 
@@ -1499,7 +1378,7 @@ def move_secrets(path: Path) -> list[str]:
     """Take every secret out of `config.toml` and into `secrets.env`.
 
     What a launch does before anything else (see `__main__`), because the file
-    was where the installer, `ponos init` and the console used to write them,
+    was where the installer and the console used to write them,
     and an installation that updates itself must not wake up without its token.
     Moved rather than copied: a secret left in the file is the very thing this
     is about. A variable `secrets.env` already holds is not overwritten — it was
@@ -1587,21 +1466,6 @@ def secret(stored: dict[str, str], table: str, key: str) -> str:
     return written or environment
 
 
-def page_titles() -> dict[str, str]:
-    """The titles the runner looks for in the workspace, unless `[notion.pages]` names others.
-
-    Public because the console draws a field per key, and a key it did not know
-    about would be a setting nobody can reach.
-    """
-    return dict(_DEFAULT_PAGES)
-
-
-def is_identifier(value: str) -> bool:
-    """A Notion ID is 32 hexadecimal characters, once the dashes are gone."""
-    stripped = value.replace("-", "")
-    return len(stripped) == 32 and all(char in "0123456789abcdefABCDEF" for char in stripped)
-
-
 def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     """The runner's reading of the file — and of its secrets, which are elsewhere.
 
@@ -1615,7 +1479,6 @@ def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
     stored = read_secrets(secrets or secrets_path(target))
     runner = _runner(file.runner, _section(raw, "runner"))
     return Config(
-        notion=_notion(file.notion, stored),
         runner=runner,
         projects={name: os.path.expanduser(value) for name, value in file.projects.items()},
         path=target,
@@ -1694,16 +1557,6 @@ def _validated(
         schema.read(raw, text, target),
         tuple(schema.unknown(raw, text)),
         tuple(schema.retired(raw, text)),
-    )
-
-
-def _notion(table: schema.NotionTable, stored: dict[str, str]) -> Notion:
-    return Notion(
-        token=secret(stored, "notion", "token"),
-        workspace=table.workspace,
-        mention=table.mention,
-        tickets_database=table.tickets_database,
-        pages=dict(table.pages),
     )
 
 

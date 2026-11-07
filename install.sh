@@ -287,7 +287,7 @@ else
     cp "$APP_DIR/config.example.toml" "$CONFIG"
     chmod 600 "$CONFIG"
     ok "configuration created: $CONFIG"
-    # Nothing more is asked here: the Notion token, the board, GitHub and the
+    # Nothing more is asked here: who answers the sessions, GitHub and the
     # first project are the console's first connection, opened at the end —
     # a form with a check behind each field says more than a terminal prompt.
 fi
@@ -571,7 +571,7 @@ fi
 
 printf '\n%sPonos is installed.%s\n\n' "$BOLD" "$RESET"
 if [ "${CONSOLE_UP:-0}" = "1" ]; then
-    printf '  Everything else happens in the console — Notion, GitHub, a first project\n'
+    printf '  Everything else happens in the console — GitHub, a first project\n'
     printf '  and a first ticket, step by step:\n\n    %s%s%s\n\n' "$BOLD" "$OPEN" "$RESET"
     if [ "${TR_NO_OPEN:-0}" != "1" ]; then
         if [ "$OS" = Darwin ] && have open; then

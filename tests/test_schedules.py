@@ -10,7 +10,7 @@ from datetime import datetime
 
 from support import case
 
-from ponos import notion, schedules, store
+from ponos import schedules, store
 
 # -- scheduling --------------------------------------------------------------
 
@@ -50,7 +50,7 @@ def an_unreadable_date_never_holds_a_ticket_back() -> None:
 
 
 @case
-def notion_truncates_a_datetime_to_the_minute() -> None:
+def the_board_truncates_a_datetime_to_the_minute() -> None:
     """Not our doing, but it decides how precise scheduling can be.
 
     Sending 14:48:27 stores 14:48:00, so a ticket fires at the top of the minute
@@ -119,7 +119,7 @@ def a_schedule_keeps_its_wall_clock_hour_across_the_change_to_winter_time() -> N
 
 @case
 def the_same_moment_in_any_offset_gives_the_same_occurrence() -> None:
-    """A Last run from Notion comes in UTC, an offset may predate the change of time: same instant, same answer."""
+    """A Last run from the board comes in UTC, an offset may predate the change of time: same instant, same answer."""
     with _paris():
         here = datetime.fromisoformat("2026-10-26T07:30:00+01:00")
         for after in (
@@ -187,8 +187,8 @@ def a_paused_or_unreadable_schedule_has_no_upcoming_moment() -> None:
 
 @case
 def a_date_range_schedules_on_its_end() -> None:
-    """Notion dates may be ranges; the runner reads the moment work is due."""
-    page = notion.Page(
+    """A date may be a range; the runner reads the moment work is due."""
+    page = store.Page(
         id="x",
         url="u",
         title="t",
@@ -198,6 +198,6 @@ def a_date_range_schedules_on_its_end() -> None:
             "Empty": {"type": "date", "date": None},
         },
     )
-    assert notion.read(page, "Due") == "2026-09-02"
-    assert notion.read(page, "Single") == "2026-08-30"
-    assert notion.read(page, "Empty") is None
+    assert store.read(page, "Due") == "2026-09-02"
+    assert store.read(page, "Single") == "2026-08-30"
+    assert store.read(page, "Empty") is None

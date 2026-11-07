@@ -160,13 +160,13 @@ class Checks(Base):
         Called with the pages `close_merged` has just read, so it asks the board
         nothing of its own. Returns how many cards changed state.
         """
-        column = self.config.notion.prop("ci")
+        column = self.config.board.prop("ci")
         rows = state.ci_rows()
         following: set[str] = set()
         changed = 0
         for page in pages:
             ticket = Ticket(page)
-            url = str(store.read(page, self.config.notion.prop("pull_request")) or "")
+            url = str(store.read(page, self.config.board.prop("pull_request")) or "")
             if not url.startswith("http"):
                 continue
             following.add(ticket.id)
@@ -273,7 +273,7 @@ class Checks(Base):
                 ),
             )
             self._set(
-                ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")}
+                ticket, **{self.config.board.prop("status"): self.config.board.state("ready")}
             )
         except store.Unreachable:
             raise

@@ -2,7 +2,7 @@
   "id": "ponos",
   "name": "Ponos",
   "version": "0.2.0",
-  "description": "A harness around Claude Code that runs your tasks — code or not — from Notion or its own board: a ticket comes back as a pull request on GitHub, a text, an action carried out or a post, and nothing ships until you say yes. Web console, Telegram and Slack.",
+  "description": "A harness around Claude Code that runs your tasks — code or not — from its own board: a ticket comes back as a pull request on GitHub, a text, an action carried out or a post, and nothing ships until you say yes. Web console, Telegram and Slack.",
   "logo": "ponos.svg",
   "links": {
     "github": "https://github.com/hermez-agency/ponos",
@@ -15,7 +15,6 @@
     "automation",
     "claude",
     "developer-tools",
-    "notion",
     "github"
   ]
 }

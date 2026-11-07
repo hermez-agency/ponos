@@ -93,7 +93,7 @@ class Unblocking(Base):
             return []
 
     def _unblock(self) -> list[dict[str, Any]]:
-        settings = self.config.notion
+        settings = self.config.board
         status = settings.prop("status")
         kind = self.client.schema(self.database).get(status, "status")
         blocked = self.client.query(
@@ -141,7 +141,7 @@ class Unblocking(Base):
 
     def _overview(self) -> str:
         """Every ticket of the board, a line each: the dependencies are in there."""
-        status = self.config.notion.prop("status")
+        status = self.config.board.prop("status")
         pages = self.client.query(self.database)
         lines = [
             f"- [{store.read(page, status) or '?'}] {Ticket(page).title} ({short_id(Ticket(page).id)})"
@@ -185,7 +185,7 @@ class Unblocking(Base):
             cwd=workdir,
             log=state.log_file(f"{short}-unblock"),
             model=self.config.runner.allowed(
-                str(store.read(ticket.page, self.config.notion.prop("model")) or "")
+                str(store.read(ticket.page, self.config.board.prop("model")) or "")
                 or agent.model
                 or self.config.runner.model
             ),
@@ -208,7 +208,7 @@ class Unblocking(Base):
         said = self.voice
         if verdict == "unblock":
             self._set(
-                ticket, **{self.config.notion.prop("status"): self.config.notion.state("ready")}
+                ticket, **{self.config.board.prop("status"): self.config.board.state("ready")}
             )
             self._comment(
                 ticket,

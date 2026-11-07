@@ -302,9 +302,9 @@ class Cleanup(Base):
             return tidied
         cutoff = time.time() - days * DAY
         stale_cutoff = time.time() - stale * DAY
-        closed = {self.config.notion.state("done"), self.config.notion.state("cancelled")}
-        running = self.config.notion.state("running")
-        status = self.config.notion.prop("status")
+        closed = {self.config.board.state("done"), self.config.board.state("cancelled")}
+        running = self.config.board.state("running")
+        status = self.config.board.prop("status")
         old = {
             short_id(page.id)
             for page in pages

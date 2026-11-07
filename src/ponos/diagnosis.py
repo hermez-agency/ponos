@@ -39,7 +39,7 @@ class Diagnosis(Base):
         titles = ", ".join(title for _, title in made[:LISTED])
         if len(made) > LISTED:
             titles += ", …"
-        column = self.config.notion.state("ready" if self._fixes_ready(job) else "draft")
+        column = self.config.board.state("ready" if self._fixes_ready(job) else "draft")
         note = said.paragraphs(
             said.say("diagnostic-fixes", count=len(made), column=column, titles=titles)
             if made
@@ -51,7 +51,7 @@ class Diagnosis(Base):
         return self._deliver_text(job, outcome, content, kept=job.workdir / "ANSWER.md", note=note)
 
     def _fixes_ready(self, job: Job) -> bool:
-        return project_settings.diagnostic(job.project.notion_id).ready
+        return project_settings.diagnostic(job.project.page_id).ready
 
     def _open_fixes(
         self, job: Job, fixes: list[diagnostic.Fix]
@@ -66,7 +66,7 @@ class Diagnosis(Base):
         if not fixes:
             return [], ""
         ticket, said = job.ticket, self.voice
-        settings = self.config.notion
+        settings = self.config.board
         status = settings.state("ready" if self._fixes_ready(job) else "draft")
         project = store.read(ticket.page, settings.prop("project"))
         headings = {

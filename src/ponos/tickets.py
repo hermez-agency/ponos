@@ -1,34 +1,20 @@
-"""The ticket as `ponos.db` keeps it: a row, its comments, and what Notion is yet to be told.
+"""The ticket as `ponos.db` keeps it: a row, and its comments.
 
-`ticket.py` is a Notion page read the way a run reads it; this is the ticket
-itself, for the day the database is the source and the board only a mirror.
+`ticket.py` is a page read the way a run reads it; this is the ticket itself.
 The runner, the console, the MCP and the CLI reach it through `ledger.py`, a
-`store.Store` that serves the tickets from these tables; Notion is told by the
-mirror alone.
+`store.Store` that serves the tickets from these tables.
 
 **The two parts of the page are two columns.** `mission` is what you write and
 `report` is what Ponos rewrites when it is done; they are not one Markdown
-body cut at a heading, because the mirror writes the second without ever
-having to read the first back, and the first is one of the few things that
-still comes up from Notion.
+body cut at a heading, because the report is rewritten without ever having to
+read the mission back.
 
-**The id is the board's, dashes removed.** Every other table of this file names
-a ticket that way (`runs.ticket`, `history.ticket`…); a new id of our own would
-have meant translating at each join. A ticket born here, before any page
-exists, draws a UUID of the same shape, and `notion` holds the page that
-mirrors it once there is one — empty until then.
-
-**Every change is also a row in `mirror_queue`.** Written in the same
-transaction as the change, so a ticket changed while Notion is down is not
-lost and a ticket that was not changed is not queued. The queue says *what*
-changed (`created`, `status`, `fields`, `comment`…), not the new value: the
-mirror reads the ticket when it sends, so five edits in a row are one write
-to Notion with the last word.
+**The id is a UUID, dashes removed.** Every other table of this file names a
+ticket that way (`runs.ticket`, `history.ticket`…).
 """
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
@@ -40,8 +26,8 @@ from .config import STATUS
 
 STATUSES = tuple(STATUS.values())
 
-# The columns `update` may set, and the kind each one holds. `id`, `notion` and
-# the two dates are the table's own.
+# The columns `update` may set, and the kind each one holds. `id` and the two
+# dates are the table's own.
 _TEXT = (
     "title",
     "project",
@@ -97,7 +83,6 @@ class Record:
     plan_first: bool = False
     attempts: int = 1
     twin: str = ""
-    notion: str = ""
     created_at: str = ""
     edited_at: str = ""
     after: list[str] = field(default_factory=list)
@@ -113,19 +98,6 @@ class Remark:
     at: str = ""
     author: str = ""
     discussion: str = ""
-
-
-@dataclass
-class Change:
-    """One thing the mirror has still to tell Notion."""
-
-    id: int
-    ticket: str
-    what: str
-    payload: dict[str, Any]
-    at: str
-    tries: int = 0
-    error: str = ""
 
 
 def _now() -> str:
@@ -153,19 +125,12 @@ def _record(connection: sqlite3.Connection, row: sqlite3.Row | tuple[Any, ...]) 
     return record
 
 
-def _queue(connection: sqlite3.Connection, ticket: str, what: str, **payload: Any) -> None:
-    connection.execute(
-        "INSERT INTO mirror_queue (ticket, what, payload, at) VALUES (?, ?, ?, ?)",
-        (ticket, what, json.dumps(payload, sort_keys=True), _now()),
-    )
-
-
 def create(title: str, *, id: str = "", after: list[str] | None = None, **values: Any) -> Record:
-    """Write a new ticket and queue its creation for the mirror.
+    """Write a new ticket.
 
-    `id` is given when a page already exists (an import, a ticket made in
-    Notion); without one the ticket is born here. Raises `ValueError` on a
-    status or a column that does not exist, and on an id already taken.
+    `id` is given when the ticket already has one somewhere else; without one,
+    a new one is drawn. Raises `ValueError` on a status or a column that does
+    not exist, and on an id already taken.
     """
     ticket = _key(id) or uuid.uuid4().hex
     row = {"id": ticket, "title": title, **values}
@@ -190,15 +155,13 @@ def create(title: str, *, id: str = "", after: list[str] | None = None, **values
                 "INSERT OR IGNORE INTO ticket_after (ticket, after) VALUES (?, ?)",
                 (ticket, _key(earlier)),
             )
-        if not row.get("notion"):
-            _queue(connection, ticket, "created")
     found = get(ticket)
     assert found is not None
     return found
 
 
 def _check(values: dict[str, Any]) -> None:
-    allowed = {*_TEXT, *_NUMBERS, *_FLAGS, "id", "notion", "created_at", "edited_at"}
+    allowed = {*_TEXT, *_NUMBERS, *_FLAGS, "id", "created_at", "edited_at"}
     unknown = sorted(set(values) - allowed)
     if unknown:
         raise ValueError(f"no such ticket column: {', '.join(unknown)}")
@@ -213,14 +176,8 @@ def get(ticket: str) -> Record | None:
 
 
 def of_page(page: str) -> Record | None:
-    """The ticket a Notion page is, whether the page made it or it made the page."""
-    page = _key(page)
-    with db.transaction(immediate=False) as connection:
-        row = connection.execute(
-            "SELECT * FROM tickets WHERE notion = ? OR id = ? ORDER BY notion = ? DESC",
-            (page, page, page),
-        ).fetchone()
-        return _record(connection, row) if row else None
+    """The ticket a page id names, or None for a page that is not a ticket."""
+    return get(page)
 
 
 def listing(*, status: str = "", project: str = "") -> list[Record]:
@@ -241,11 +198,9 @@ def listing(*, status: str = "", project: str = "") -> list[Record]:
 
 
 def update(ticket: str, **values: Any) -> Record | None:
-    """Change columns of a ticket and queue the change; None when the ticket does not exist.
+    """Change columns of a ticket; None when the ticket does not exist.
 
-    A change that sets nothing new is not queued: the mirror has nothing to
-    tell Notion. The kind of change the queue holds is `status` when the
-    status is the only column that moved, `fields` otherwise.
+    A change that sets nothing new leaves `edited_at` as it was.
     """
     ticket = _key(ticket)
     after = values.pop("after", None)
@@ -283,30 +238,17 @@ def update(ticket: str, **values: Any) -> Record | None:
                 connection.execute(
                     "UPDATE tickets SET edited_at = ? WHERE id = ?", (_now(), ticket)
                 )
-            _queue(
-                connection,
-                ticket,
-                "status" if list(moved) == ["status"] else "fields",
-                fields=sorted(moved),
-            )
     return get(ticket)
 
 
 def delete(ticket: str) -> bool:
     ticket = _key(ticket)
     with db.transaction() as connection:
-        row = connection.execute("SELECT notion FROM tickets WHERE id = ?", (ticket,)).fetchone()
-        if row is None:
-            return False
-        connection.execute("DELETE FROM tickets WHERE id = ?", (ticket,))
-        # The page goes with the row, so the queue keeps the page's address:
-        # the ticket will not be there to be asked when the mirror trashes it.
-        _queue(connection, ticket, "deleted", notion=row[0])
-    return True
+        return connection.execute("DELETE FROM tickets WHERE id = ?", (ticket,)).rowcount > 0
 
 
 def comment(ticket: str, text: str, *, author: str = "", discussion: str = "") -> Remark:
-    """Add a comment to a ticket and queue it; raises `ValueError` on a ticket that is not here."""
+    """Add a comment to a ticket; raises `ValueError` on a ticket that is not here."""
     ticket = _key(ticket)
     at = _now()
     with db.transaction() as connection:
@@ -317,7 +259,6 @@ def comment(ticket: str, text: str, *, author: str = "", discussion: str = "") -
             (ticket, discussion, author, text, at),
         ).lastrowid
         assert number is not None
-        _queue(connection, ticket, "comment", comment=number)
     return Remark(number, ticket, text, at, author, discussion)
 
 
@@ -331,136 +272,3 @@ def comments(ticket: str) -> list[Remark]:
                 (_key(ticket),),
             )
         ]
-
-
-def pending(limit: int = 100) -> list[Change]:
-    """What the mirror has still to tell Notion, oldest first."""
-    with db.transaction(immediate=False) as connection:
-        return [
-            Change(row[0], row[1], row[2], json.loads(row[3]), row[4], row[5], row[6])
-            for row in connection.execute(
-                "SELECT id, ticket, what, payload, at, tries, error FROM mirror_queue "
-                "ORDER BY id LIMIT ?",
-                (limit,),
-            )
-        ]
-
-
-def sent(change: int) -> None:
-    """Notion took it: the change leaves the queue."""
-    with db.transaction() as connection:
-        connection.execute("DELETE FROM mirror_queue WHERE id = ?", (change,))
-
-
-def failed(change: int, error: str) -> None:
-    """Notion refused or did not answer: the change stays, with the count and the reason."""
-    with db.transaction() as connection:
-        connection.execute(
-            "UPDATE mirror_queue SET tries = tries + 1, error = ? WHERE id = ?", (error, change)
-        )
-
-
-def received(ticket: str, **values: Any) -> Record | None:
-    """Write what Notion said about a ticket — and queue nothing.
-
-    What comes up from the board is already there: queueing it would send it
-    straight back. `edited_at` may be given, for the day of the page's own edit;
-    without it, now. None when the ticket does not exist.
-    """
-    ticket = _key(ticket)
-    values.setdefault("edited_at", _now())
-    _check(values)
-    for flag in _FLAGS:
-        if flag in values:
-            values[flag] = int(bool(values[flag]))
-    sets = ", ".join(f"{name} = ?" for name in values)
-    with db.transaction() as connection:
-        found = connection.execute(
-            f"UPDATE tickets SET {sets} WHERE id = ?", (*values.values(), ticket)
-        ).rowcount
-    return get(ticket) if found else None
-
-
-def link(ticket: str, after: list[str]) -> int:
-    """Add the « after » links a ticket does not have yet, queueing nothing; how many were new.
-
-    The import's: the links Notion holds, put back on a ticket it created
-    before it read them. See `received` for why nothing is queued.
-    """
-    ticket, added = _key(ticket), 0
-    with db.transaction() as connection:
-        for earlier in after:
-            added += connection.execute(
-                "INSERT OR IGNORE INTO ticket_after (ticket, after) VALUES (?, ?)",
-                (ticket, _key(earlier)),
-            ).rowcount
-    return added
-
-
-def heard(
-    ticket: str, text: str, *, at: str, author: str = "", discussion: str = "", echo: bool = False
-) -> bool:
-    """Keep a comment Notion holds, unless the ticket has it already; True when it was new.
-
-    Never queued, for the reason `received` gives. Told apart by the moment
-    Notion dated it and its words — so that an import run twice, or a pass that
-    reads the same page again, adds nothing. `echo` is a comment Ponos wrote
-    itself: the mirror sent it from a row dated a few seconds earlier, so the
-    words alone say it is that one.
-    """
-    ticket = _key(ticket)
-    with db.transaction() as connection:
-        if not connection.execute("SELECT 1 FROM tickets WHERE id = ?", (ticket,)).fetchone():
-            return False
-        seen = (
-            connection.execute(
-                "SELECT 1 FROM ticket_comments WHERE ticket = ? AND text = ?"
-                + ("" if echo else " AND at = ?"),
-                (ticket, text) if echo else (ticket, text, at),
-            ).fetchone()
-            is not None
-        )
-        if not seen:
-            connection.execute(
-                "INSERT INTO ticket_comments (ticket, discussion, author, text, at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (ticket, discussion, author, text, at),
-            )
-    return not seen
-
-
-def empty() -> bool:
-    """Whether no ticket was ever imported or written here — the state before the import."""
-    with db.transaction(immediate=False) as connection:
-        return connection.execute("SELECT 1 FROM tickets LIMIT 1").fetchone() is None
-
-
-def adopted() -> bool:
-    """Whether the database is the source of the tickets: it has held one, and holds them still.
-
-    `empty` says nothing once every ticket has been deleted, and a board whose
-    last ticket was trashed must not fall back on Notion — the page the mirror
-    is yet to trash would come back as a ticket. So the first time a ticket is
-    seen here, a marker is written beside the file, and it is never taken down.
-    """
-    marker = db.path().with_name("tickets-adopted")
-    if marker.exists():
-        return True
-    if empty():
-        return False
-    try:
-        marker.write_text(_now(), encoding="utf-8")
-    except OSError:
-        pass  # the tickets are there; only the memory of it is lost
-    return True
-
-
-def waiting(ticket: str) -> bool:
-    """Whether a change of this ticket is still in the queue."""
-    with db.transaction(immediate=False) as connection:
-        return (
-            connection.execute(
-                "SELECT 1 FROM mirror_queue WHERE ticket = ? LIMIT 1", (_key(ticket),)
-            ).fetchone()
-            is not None
-        )

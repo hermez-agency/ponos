@@ -216,7 +216,7 @@ def token_for(reference: str, accounts: Accounts | None) -> str:
     return account_token(account) if account else ""
 
 
-# What a repository named on a Notion page may look like before it reaches a
+# What a repository named on a page may look like before it reaches a
 # command line: GitHub's own shape, `owner/name`, and nothing `gh` or `git`
 # could read as an option, a path or a URL of somebody else's. A project page
 # is anybody's to edit who can edit the board.

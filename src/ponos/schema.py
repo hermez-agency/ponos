@@ -60,7 +60,6 @@ from .config import (
     Permissions,
     Runner,
     Web,
-    identifier,
 )
 
 # -- how a value is read ------------------------------------------------------
@@ -184,16 +183,6 @@ class Table(BaseModel):
 
 
 # -- the tables -----------------------------------------------------------------
-
-
-class NotionTable(Table):
-    # A bare ID, a dashed ID or a full URL: see `config.identifier`.
-    workspace: Annotated[str, AfterValidator(identifier)] = ""
-    tickets_database: Annotated[str, AfterValidator(identifier)] = ""
-    mention: Text = ""
-    # As the file writes them, and only those: `config.Notion` needs to know
-    # which names the file gives to tell them from the ones it falls back on.
-    pages: dict[str, str] = Field(default_factory=dict)
 
 
 def _forced(value: object) -> tuple[str, ...]:
@@ -359,7 +348,6 @@ def _owners(table: dict[str, str]) -> dict[str, str]:
 class File(Table):
     """The whole of `config.toml`."""
 
-    notion: NotionTable = Field(default_factory=NotionTable)
     runner: RunnerTable = Field(default_factory=RunnerTable)
     projects: dict[str, str] = Field(default_factory=dict)
     web: WebTable = Field(default_factory=WebTable)
@@ -381,6 +369,13 @@ def read(raw: dict[str, Any], text: str, path: Path) -> File:
     The first line is the one the console shows when a save is refused; the
     others are indented under it, as `ponos doctor` prints them.
     """
+    if "notion" in raw:
+        line = line_of(text, ("notion",))
+        at = f"{path}, line {line}" if line else str(path)
+        raise ConfigError(
+            f"{at}: [notion] — Ponos no longer works with Notion: the board is ponos.db. "
+            "Remove this table and every [notion.…] one from the file"
+        )
     try:
         return File.model_validate(raw)
     except ValidationError as error:
@@ -436,17 +431,6 @@ def line_of(text: str, where: tuple[str, ...]) -> int:
 
 
 # -- what is written and read by nobody -----------------------------------------
-
-# Keys an older version read and this one does not, as their paths: a file that
-# still holds one is not wrong for it. The secrets `config.py` moves to
-# `secrets.env` are exempt beside them, read from `SECRETS`.
-# The names of the board's columns, statuses and types were settings until they
-# were fixed in `config.PROPERTIES`: a file that still names them is read
-# without them, and `doctor` says what the board itself is missing.
-RETIRED: frozenset[tuple[str, ...]] = frozenset(
-    {("notion", "properties"), ("notion", "status"), ("notion", "types")}
-)
-
 
 # The keys this version stopped reading when `config.toml` came down to what
 # somebody actually changes: each is now a constant of `config.py` (the default
@@ -592,12 +576,11 @@ def unknown(raw: dict[str, Any], text: str) -> list[tuple[int, str, str]]:
     """Each key no table reads: its line, its dotted name, and the known one it is closest to.
 
     `read` ignores them; this is what says so. A table whose keys are the
-    file's to choose — `[projects]`, `[github]`, `[notion.pages]` — has none,
+    file's to choose — `[projects]`, `[github]` — has none,
     and a table nobody knows is one key, its contents left unread.
     """
     exempt = (
-        RETIRED
-        | {(*table.split("."), key) for table, key in SECRETS}
+        {(*table.split("."), key) for table, key in SECRETS}
         | {(*table.split("."), key) for table, keys in REMOVED.items() for key in keys}
         # A table that has no model any more: its keys are said by `retired`.
         | {(table,) for table in REMOVED if table not in File.model_fields}

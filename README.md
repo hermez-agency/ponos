@@ -34,8 +34,8 @@ your machine — code, writing, actions, posts.**
 
 Write the ticket on **Ponos**'s own board — the console. He
 brings back a pull request, a text, an action carried out or a post ready to go. You answer
-in a word, even from your phone, and nothing ships until you say yes. Notion, GitHub,
-Telegram, Slack and OpenRouter plug in when you want them; none of them is required.
+in a word, even from your phone, and nothing ships until you say yes. GitHub, Telegram,
+Slack and OpenRouter plug in when you want them; none of them is required.
 
 The name is a robot's, after the Greek god of toil: he does the tedious part of a ticket in
 your place, and you keep the decisions. The repository, the `ponos` command, the Python
@@ -97,7 +97,7 @@ console's chat is a Claude Code session in your workspace — and several conver
 
 Ponos needs nobody else's board. The [console](guide/console.md#the-web-console), on `127.0.0.1`, is where
 you write a ticket, drag it to *Ready* and watch its session live. Under it, the tickets are
-in `ponos.db`, on your machine ([without Notion](guide/board.md#without-notion), nothing else is needed).
+in `ponos.db`, on your machine — the [board](guide/board.md#where-the-tickets-live) needs nothing else.
 
 <p align="center">
   <picture>
@@ -114,7 +114,7 @@ Everything runs on your machine; the board, GitHub and your channel are the only
 reaches — see [Architecture](CONTRIBUTING.md#architecture).
 
 <p align="center">
-  <a href="CONTRIBUTING.md#architecture"><img src="docs/architecture.webp" width="720" alt="The pieces of Ponos and how they fit together: the daemon, the runner, the Claude Code session, the git worktrees, the console and the local state on your machine; the Notion board, GitHub and Telegram or Slack outside it."></a>
+  <a href="CONTRIBUTING.md#architecture"><img src="docs/architecture.webp" width="720" alt="The pieces of Ponos and how they fit together: the daemon, the runner, the Claude Code session, the git worktrees, the console and the local state and the board on your machine; Claude, GitHub and Telegram or Slack outside it."></a>
 </p>
 
 ## Plugs in where you already work. If you want.
@@ -124,7 +124,6 @@ and none of them is a requirement.
 
 | | Optional | |
 | --- | --- | --- |
-| <a href="guide/board.md#the-notion-side"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/notion/made-for-notion-black.svg"><img src="docs/media/notion/made-for-notion-white.svg" height="48" alt="Made for Notion"></picture></a> | **Your board in Notion.** | Tickets, projects and schedules become Notion databases, and every report is written back on the ticket's page. [The Notion side](guide/board.md#the-notion-side) |
 | **GitHub** | **Pull requests.** | A code ticket comes back as one, through a GitHub App, an access token or `gh`, and is merged on your yes. Writing, actions and posts need none of it. [Several GitHub accounts](guide/configuration.md#several-github-accounts) |
 | **Telegram · Slack** | **Your phone.** | A question or a result reaches you there, and your answer — *oui* will do — lands on the ticket. [Telegram and Slack](guide/channels.md#being-told-and-answering-with-one-word) |
 | **OpenRouter** | **Every other model.** | One key: a GPT writes the copy, a model transcribes a voice note — or the sessions themselves run on the model you name. [Every other model](guide/configuration.md#every-other-model) |
@@ -146,10 +145,9 @@ It installs the newest release (`vX.Y.Z`), and keeps it on the newest one as the
 Everything after that happens in the console, on `http://127.0.0.1:8787` — never on the
 Internet: a [first connection](guide/console.md#the-first-connection) in steps, each one checked against the
 real thing before the next. The language; the password that opens the console; who answers
-the sessions; Notion — paste the integration's token, add it to one page, and the board is
-built under that page, found on its own as soon as it is shared; GitHub in one click; a first
-project; and a demonstration ticket, played there and then, which is the proof that every
-step holds. No Notion? [Skip it](guide/board.md#without-notion): the tickets are in `ponos.db`.
+the sessions; GitHub in one click; a first project; and a demonstration ticket, played there
+and then, which is the proof that every step holds. The board needs no step: the tickets are
+in `ponos.db`.
 
 It needs Linux or macOS (WSL works too, without systemd: [the daemon then runs in the background until the machine restarts](guide/installation.md)), `python3` ≥ 3.11 — what it imports, httpx and pydantic for the
 runner, cryptography for the pushes to your phone and FastAPI and uvicorn for the console, goes into an environment of its own, made by the installer —,
@@ -168,8 +166,8 @@ click: [Install with Dokploy](guide/server.md#install-with-dokploy).
 ## How a ticket travels
 
 ```
-Notion                    Ponos                               what you get
-──────                    ─────────────                       ────────────
+the board                 Ponos                               what you get
+─────────                 ─────────────                       ────────────
 
 Ready         ──────▶     a place frees: claims it, writes the session link
                           │
@@ -179,7 +177,7 @@ In progress   ◀───────────┤
                           │                        push + gh pr create      ──▶  a pull request
                           │
                           └─ has none ──────────▶  scratch dir, ANSWER.md
-                                                   published as Notion blocks ──▶  the page itself
+                                                   written into the ticket    ──▶  the page itself
 In review     ◀───────────  a pull request is waiting for you
 Validated     ──────▶     merges that pull request — or publishes what the
                           ticket holds: the post, the mail, the announcement
@@ -197,8 +195,7 @@ Which of the two you get is decided by the ticket's **Type** when it has one —
 names a repository produces code, a project that names none — or a ticket with no project
 at all — produces a document. A ticket that reaches *Ready* with no type is classified
 first, and a doubt stops it before anything runs. See [The type of a ticket](guide/board.md#the-type-of-a-ticket).
-The board's columns, statuses and options have fixed names — `ponos init` creates them,
-`ponos doctor` names what a board lacks: [The tickets database](guide/board.md#the-tickets-database).
+The board's columns, statuses and options have fixed names: [The tickets database](guide/board.md#the-tickets-database).
 
 A ticket that needs a key — an npm token, a Dokploy login — never carries it. **Context →
 Vault** keeps it encrypted (AES-256-GCM, entry by entry, under a key kept apart from the
@@ -222,8 +219,8 @@ The guide, one page per subject — [its contents](guide/README.md):
 | Page | What it covers |
 | --- | --- |
 | [Installation](guide/installation.md) | what the installer arms, updating, the install variables, uninstalling |
-| [Configuration](guide/configuration.md) | Notion, `config.toml`, who answers the sessions, OpenRouter, GitHub, the vault |
-| [The board](guide/board.md) | where the tickets live, with or without Notion, the Notion databases, the type, sub-type and model of a ticket |
+| [Configuration](guide/configuration.md) | `config.toml`, who answers the sessions, OpenRouter, GitHub, the vault |
+| [The board](guide/board.md) | where the tickets live, what a ticket carries, the type, sub-type and model of a ticket |
 | [A ticket's life](guide/tickets.md) | the comments, the statuses, ten tickets on one repository, *Validated*, the tickets that come back |
 | [Telegram and Slack](guide/channels.md) | being told, and answering with one word |
 | [The web console](guide/console.md) | the console, its first connection, signing in, connecting Ponos to Claude |

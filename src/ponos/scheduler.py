@@ -46,7 +46,6 @@ from datetime import datetime
 from typing import Any
 
 from . import adoption, board, launches, state, store
-from . import tickets as tickets_module
 from . import update as update_module
 from . import voice as voice_module
 from .projects import Project
@@ -326,14 +325,7 @@ class Scheduler(adoption.Adoption):
             self.say(f"↺ {len(new)} ticket(s) ready — {len(fresh)} in the queue")
 
     def _ready_changed(self) -> bool:
-        """Whether the ready column of `ponos.db` holds other tickets than at the last count.
-
-        Only where the tickets are `ponos.db`'s: before `ponos import notion` they
-        are still Notion's, and counting them every two seconds would be thirty
-        requests a minute to an API that has a rate limit.
-        """
-        if not (self.config.standalone or tickets_module.adopted()):
-            return False
+        """Whether the ready column of `ponos.db` holds other tickets than at the last count."""
         try:
             pages = self.client.query(self.database, self._ready_filter())
         except store.StoreError:
@@ -414,7 +406,7 @@ class Scheduler(adoption.Adoption):
                     self.say(f"offline — the board is looked at again later ({error})")
                 except Exception:
                     logger.exception("the upkeep round stopped")
-            # What the round brought up — a ticket made ready in Notion, born of
+            # What the round brought up — a ticket made ready elsewhere, born of
             # a schedule, put back by the sweep — is looked at straight away.
             signals.wake.set()
             signals.upkeep.wait(self.config.runner.interval_seconds)
@@ -422,14 +414,11 @@ class Scheduler(adoption.Adoption):
 
     def _upkeep_once(self) -> None:
         self._comments.clear()
-        self._unwritten = set()
-        self.mirror()
         self.answers()
         self.digest()
         results = self.transitions()
         if not self.dry_run:
             self.sweep()
-            self.reshape()
             self.close_merged()
             self.tidy()
         results += self.born()

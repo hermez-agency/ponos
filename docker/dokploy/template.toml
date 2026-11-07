@@ -34,11 +34,6 @@ env = [
   # Settings › GitHub › Connect GitHub. Writing tickets need neither.
   "GH_TOKEN=",
 
-  # -- The board, optional ---------------------------------------------------
-  # A Notion integration token. Without one the tickets stay in ponos.db
-  # on the ponos-data volume, and the console is all you need.
-  "PONOS_NOTION_TOKEN=",
-
   # -- Your phone, optional --------------------------------------------------
   # A Telegram bot token, from @BotFather (/newbot). Say anything to the bot,
   # then `ponos notify --pair` in Dokploy's Terminal finds your chat.

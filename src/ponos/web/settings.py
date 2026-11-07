@@ -152,11 +152,6 @@ GROUPS: tuple[Group, ...] = (
         "The runner itself: its languages, its updates, this console, and the room it takes.",
     ),
     Group(
-        "source",
-        "Ticket source",
-        "Where your tickets live, and how the runner finds its way in your Notion board.",
-    ),
-    Group(
         "execution",
         "Execution",
         "How tickets are picked up, what a session may do, and when your review is skipped.",
@@ -180,17 +175,9 @@ GROUPS: tuple[Group, ...] = (
     ),
 )
 
-# The folded blocks a group may end on. One today: the titles of the databases,
-# for a workspace whose rows were not named by `init`. The board's columns,
-# statuses and types have no such block: their names are fixed (see
-# `config.PROPERTIES`).
-FOLDS: dict[str, tuple[str, str]] = {
-    "mapping": (
-        "Advanced mapping",
-        "Only for a workspace whose rows differ from the ones `ponos init` creates: the "
-        "titles of its databases.",
-    ),
-}
+# The folded blocks a group may end on, as `key: (title, blurb)`. None today:
+# the board's names are fixed (see `config.PROPERTIES`).
+FOLDS: dict[str, tuple[str, str]] = {}
 
 # Keys the file still reads but the page no longer draws, and the field that
 # says the same thing now. Saving that field removes the old line, so a file
@@ -201,28 +188,6 @@ LEGACY: dict[str, str] = {
     # `notify.desktop` falls back on it, and is the one the page shows.
     "runner.notify": "notify.desktop",
 }
-
-
-def _naming(
-    table: str, words: dict[str, tuple[str, str]], advanced: bool = False
-) -> tuple[Field, ...]:
-    """A field per title of `[notion.pages]`.
-
-    Generated from the defaults rather than listed again: a database the runner
-    learns to read is a field the console offers the same day — under its key,
-    until somebody gives it a label of its own here.
-    """
-    return tuple(
-        Field(
-            table=f"notion.{table}",
-            key=key,
-            kind="text",
-            label=words.get(key, (key.replace("_", " "), ""))[0],
-            help=words.get(key, ("", ""))[1],
-            advanced=advanced,
-        )
-        for key in config_module.page_titles()
-    )
 
 
 # Within a group, the order is the order of need: the card somebody setting up
@@ -366,68 +331,6 @@ SECTIONS: tuple[Section, ...] = (
             ),
         ),
     ),
-    # -- source --------------------------------------------------------------
-    Section(
-        key="notion",
-        group="source",
-        title="Notion",
-        blurb=(
-            "The integration that reads and writes your board. `ponos init <page-url>` "
-            "fills this in for you."
-        ),
-        fields=(
-            Field(
-                "notion",
-                "token",
-                "secret",
-                "Integration token",
-                "The secret starting with `ntn_`, from notion.so/profile/integrations. "
-                "Share your workspace page with the integration too: a token alone sees "
-                "nothing.",
-            ),
-            Field(
-                "notion",
-                "workspace",
-                "text",
-                "Workspace page",
-                "The Notion page that holds the Tickets, Projects, Agents and Context "
-                "databases. Paste its URL: only the identifier is kept.",
-                placeholder="https://www.notion.so/…",
-            ),
-            Field(
-                "notion",
-                "tickets_database",
-                "text",
-                "Tickets database (without a workspace page)",
-                "Only if the workspace page is empty: the tickets database on its own, by "
-                "URL or identifier.",
-                placeholder="its URL or its identifier",
-                advanced=True,
-            ),
-        ),
-    ),
-    Section(
-        key="pages",
-        group="source",
-        fold="mapping",
-        title="Names of the Notion databases",
-        blurb=(
-            "The titles the runner looks for under your workspace page. Only Tickets is "
-            "required; the others change nothing by their absence."
-        ),
-        fields=_naming(
-            "pages",
-            {
-                "tickets": ("Tickets database", "Required."),
-                "projects": ("Projects database", "Where a ticket's repository is found."),
-                "agents": ("Agents database", "The roles a ticket can be handled by."),
-                "context": ("Context page", "Who the work is for, read by every session."),
-                "schedules": ("Schedules database", "Recurring tickets; absent, nothing recurs."),
-                "goals": ("Goals database", "What a ticket is for, read into its prompt."),
-            },
-        ),
-    ),
-    # -- execution -----------------------------------------------------------
     Section(
         key="pace",
         group="execution",
@@ -762,7 +665,7 @@ SECTIONS: tuple[Section, ...] = (
         group="code",
         title="Project folders",
         blurb=(
-            "Which folder on this machine holds a Notion project's repository. Only needed "
+            "Which folder on this machine holds a project's repository. Only needed "
             "when it is not found on its own: a `path` or `github` property on the project "
             "page does the same, for every machine."
         ),
@@ -991,15 +894,6 @@ SECTIONS: tuple[Section, ...] = (
         ),
         fields=(
             Field(
-                "notion",
-                "mention",
-                "text",
-                "Word that asks for an answer",
-                "Write it in a ticket's comment — `@claude what is blocking?` — and the "
-                "runner answers in the thread instead of working. The integration's own "
-                "name works too.",
-            ),
-            Field(
                 "runner",
                 "unblock",
                 "bool",
@@ -1073,10 +967,7 @@ def _fallback(config: Config, entry: Field) -> object:
         from .. import provider
 
         return provider.chosen(config)
-    if entry.table == "notion.pages":
-        return config_module.page_titles()[entry.key]
     holder = {
-        "notion": config.notion,
         "runner": config.runner,
         "notify": config.notify,
         "web": config.web,
@@ -1100,12 +991,10 @@ def _fallback(config: Config, entry: Field) -> object:
 def _preview(secret: str) -> str:
     """Enough of a token to recognise it by, and not enough to use it.
 
-    The example value `config.example.toml` ships with is no token at all: it
-    is where one goes. Saying "set · ends …xxxx" about it told somebody with a
-    fresh file that Notion was configured, which `doctor` would then deny.
+    An example value — `xxxx` — is no token at all: it is where one goes.
     """
     secret = secret.strip()
-    if not secret or secret == config_module.PLACEHOLDER or "xxxx" in secret:
+    if not secret or "xxxx" in secret:
         return ""
     return f"…{secret[-4:]}" if len(secret) > 8 else "set"
 
@@ -1209,11 +1098,9 @@ def describe(config: Config) -> dict[str, Any]:
             drawn["fields"].append(shown)
         sections.append(drawn)
 
+    # The file was read, or there would be no page: nothing in it can leave
+    # the runner without a board any more.
     problem = ""
-    try:
-        config.require_usable()
-    except config_module.ConfigError as error:
-        problem = str(error).splitlines()[0]
 
     return {
         "path": str(config.path),
@@ -1327,7 +1214,7 @@ def _value(entry: Field, offered: object) -> object:
 def _pairs(raw: dict[str, Any], table: str, offered: object) -> list[tuple[str, str, object]]:
     """One `name = value` table as the browser now has it, against what is there.
 
-    The two the file holds: `[projects]`, a Notion name and a path, and
+    The two the file holds: `[projects]`, a project's name and a path, and
     `[github]`, an owner and the account it is worked under. Both are mappings
     you add rows to rather than lists of known keys, so both are saved by what
     the browser sends *in full* — a row that is no longer there is a line that

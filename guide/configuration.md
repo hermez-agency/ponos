@@ -2,7 +2,7 @@
 
 [The guide](README.md) · [Ponos](../README.md)
 
-Notion, the configuration file, who answers the sessions, GitHub and the vault.
+The configuration file, who answers the sessions, GitHub and the vault.
 
 ## Configuration
 
@@ -27,11 +27,10 @@ open, paste into a ticket, copy into an image or onto a shared volume — and a 
 wherever it goes. They live in the environment, or in **`~/.config/ponos/secrets.env`**,
 beside it (`PONOS_SECRETS` moves it): one `NAME=value` a line, the shape a shell's
 `source`, compose's `env_file` and systemd's `EnvironmentFile` all read, created `600`. It
-is the file the installer, `ponos init` and the console's Settings write a secret to.
+is the file the installer and the console's Settings write a secret to.
 
 | Variable | What it is | Where it used to be |
 |---|---|---|
-| `PONOS_NOTION_TOKEN` | the Notion integration token | `[notion] token` |
 | `PONOS_WEB_TOKEN` | the console's token | `[web] token` |
 | `PONOS_WEB_PASSWORD` | the console's sign-in password | `[web] password` |
 | `PONOS_TELEGRAM_TOKEN` | the Telegram bot token | `[notify.telegram] token` |
@@ -73,115 +72,21 @@ The secrets an older version wrote in the file are not among them: those are mov
 `config.example.toml` is read against these models by the tests, and documents every key
 they read — no more, no fewer.
 
-Steps 1 to 3 are for the Notion side. An installation without a Notion token needs none of
-them — see [Without Notion](board.md#without-notion) — and goes straight to step 4.
+### Checking it: `ponos doctor`
 
-### 1. Create a Notion integration
-
-The runner works alone, on your machine, at three in the morning. It needs an identity of
-its own: an **internal integration**, which is a robot account with its own token.
-
-On [notion.so/my-integrations](https://www.notion.so/my-integrations) → **New
-integration** → give it a name (`Ponos`), pick your workspace, type **Internal**.
-Copy the token it shows you; it starts with `ntn_`.
-
-### 2. Share one page with it
-
-Open any Notion page — an empty one will do — and share it: the `···` menu, top right →
-**Connections** → your integration. That click is the floor: an integration cannot grant
-itself access, so it is the one step no command can take for you.
-
-### 3. Let the runner build the rest
-
-```sh
-ponos init https://www.notion.so/your-page --token -
-```
-
-`--token -` asks for the token without showing it — or reads it from a pipe
-(`pass show notion | ponos init <url> --token -`) — so it stays out of the shell's
-history and of `ps`; a bare `ponos init <url>` asks too, in a terminal, when none is
-saved yet, and `PONOS_NOTION_TOKEN` in the environment is taken as given.
-`--token ntn_…` still works, history and all.
-
-It creates everything under that page and writes the result into your configuration —
-the token into `secrets.env`, the workspace into `config.toml`:
-
-```
-your page                 ← the one you shared
-└── ponos         ← the workspace: its rows are the master pages
-    ├── Tickets           ← the tickets database, 12 columns, 2 relations
-    ├── Projects          ← Name, Repository, Path
-    ├── Agents            ← the roles a ticket can be handled by
-    └── Context           ← a plain page: who you are
-```
-
-Plus a demonstration ticket, left unstarted, so the first thing you do is move something
-to *Ready* and watch it work.
-
-**Running it again is safe** — and is how you upgrade. Nothing is duplicated: what exists
-is kept, what a previous version did not know how to create is added, and a column you
-retyped on purpose is never overruled.
-
-> One Notion quirk shows through: the API cannot create a `status` property, so `statut`
-> is made a **select** with its nine options. The runner reads either — it looks at
-> the declared type and writes accordingly — so this changes nothing but the icon.
-
-You name the directory once; the runner finds the rest by the **title of a row**. Rename
-a row and tell the runner what it is now called, under `[notion.pages]`:
-
-```toml
-[notion.pages]
-tickets = "Tickets"     # required
-projects = "Projects"   # optional — only `doctor` uses it
-agents = "Agents"       # optional — see below
-context = "Context"     # optional — see below
-```
-
-A row is found under the title this table gives it, or under the default above, and
-under no other: a board whose rows still carry older titles (`Master Tickets`, `Soul`)
-names them here.
-
-If you would rather point at one database than share a whole workspace, `tickets_database`
-still works exactly as before, and wins over the workspace when both are set. The URL of
-the database is enough, and if it is inline inside a page, the page URL works too: the
-runner looks inside and finds the database on its own.
-
-Three ways to get them in, whichever you prefer — the console's
-[first connection](console.md#the-first-connection) (*Notion* → paste the token), or one
-of these two:
-
-```sh
-ponos config      # opens the TOML in your editor — the cleanest
-
-# or in one line — the token goes beside the file, never in it:
-echo 'PONOS_NOTION_TOKEN=ntn_…' >> ~/.config/ponos/secrets.env && chmod 600 ~/.config/ponos/secrets.env
-```
-
-### The step everyone forgets
-
-A valid token on a page that was never shared answers `object not found`, and nothing
-about it hints at why — which is why step 2 is the sharing. Everything created underneath
-inherits that access in one gesture, and that is also what makes the relations legal: a
-relation can only point at a database the same integration can reach.
-
-> **What you share is what the runner can read.** Anything under that page reaches the
-> prompts it writes, and prompts are kept on disk in `~/.local/state/ponos/`. Keep
-> credentials out of the workspace — a page of environment variables is exactly the kind
-> of thing that should live in a password manager instead.
-
-Then:
+After a change:
 
 ```sh
 ponos doctor
 ```
 
-which checks the token, the access to the database, the type of every column and the
-presence of each status — and names whichever of those was missed.
+which checks the board, who answers the sessions, GitHub, each project, the machine and the
+file itself — and names whichever of those is not in place.
 
 The console's dashboard says the same thing without a terminal: an "Installation status"
-band lists what is misconfigured — Notion, GitHub, Claude Code, each project, the machine —
-with its probable cause, and either a **Configure** button (a missing property or status
-on the Notion board, a project's default branch: Ponos changes it only after you confirm)
+band lists what is misconfigured — the board, GitHub, Claude Code, each project, the machine —
+with its probable cause, and either a **Configure** button (a project's default branch, the
+state directory's permissions: Ponos changes it only after you confirm)
 or the exact steps and the link to follow. The checks take a few seconds — `gh` asks
 GitHub, the board and every project are read — so the page shows what they found up to
 five minutes ago. Past that, the page still opens at once on the last answer, and the
@@ -194,7 +99,7 @@ grouped as the band groups them (*Board*, *GitHub*, *Claude*, *Projects*, *Machi
 thing the two do differently: `doctor` asks the remote for the newest version, the dashboard
 reads what the last check found.
 
-### 4. The rest of the file
+### The rest of the file
 
 The file holds about thirty keys — what somebody actually changes. Every other
 setting is a constant of the code, at the value it always had by default, and is not in
@@ -221,10 +126,6 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `runner.update_channel` | `"release"` | what "latest" means: the newest `vX.Y.Z` tag, or `"main"` for every commit. No tag, no update; anything unknown reads as `"release"` |
 | `runner.ideas_*` | off | the ideas schedule, written by the *Planned* page's dialog rather than by hand: `ideas_schedule`, `ideas_at`, `ideas_day`, `ideas_every_hours`, `ideas_cron`, `ideas_scope`, `ideas_projects`, `ideas_workspace`, `ideas_per_batch`, `ideas_skip_above`, `ideas_budget_usd`, `ideas_notify`, `ideas_model` |
 | `budget.daily_usd`, `budget.per_ticket_usd` | no limit | the day's and one session's ceilings — see [Stopping before the wall](credits.md#stopping-before-the-wall) |
-| `notion.workspace` | `""` | the database whose rows are your master pages |
-| `notion.tickets_database` | `""` | one database instead of a workspace; wins when both are set |
-| `notion.mention` | `"@claude"` | the word that asks for an answer rather than a run |
-| `[notion.pages]` | | which row of the workspace is the tickets database, the projects database, the agents database, the context page |
 | `notify.desktop` | `true` | one desktop notification per finished ticket — `[notify]` carries it to your phone |
 | `notify.events` | all three | which moments are sent: `blocked`, `failed`, `done` |
 | `notify.digest` | `"off"` | `"daily"` or `"weekly"`: the summary of the period, sent on its own (Monday at 9 for the weekly one) |
@@ -234,7 +135,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `claude.provider` | `""` | who answers the sessions — see *Who answers the sessions* below |
 | `permissions.allowed`, `permissions.ask` | | what a session does alone, and what always waits for your word |
 | `github_access.mode`, `github_access.token_item` | `""` | how GitHub is reached without `gh` — see *Connect GitHub* below |
-| `[projects]` | | `"Notion name" = "/path"` for repositories that cannot be guessed |
+| `[projects]` | | `"Project name" = "/path"` for repositories that cannot be guessed |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |
 | `[vault]` | | what each project's sessions are given — see *Keys a ticket may use* below |
 | `OPENROUTER_API_KEY` | | not a key of this file: the secret is in `secrets.env` or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
@@ -257,10 +158,8 @@ still names the proxies a container trusts. The sessions run on OpenRouter exact
 `claude.provider = "openrouter"`.
 
 The board's columns, its statuses and the options of its `Type` column have **fixed names**
-— they are not settings: `ponos init` creates them and `ponos doctor` names what a board lacks.
-The list is in [The tickets database](board.md#the-tickets-database). `[notion.properties]`,
-`[notion.status]` and `[notion.types]`, which renamed them, are gone: a file that still holds
-them is read without them.
+— they are not settings, and `ponos.db` holds every one of them.
+The list is in [The tickets database](board.md#the-tickets-database).
 
 One project (with a repository) holds at most two of those places (`max_concurrent_per_project`, a
 constant): pull requests written side by side on one repository touch the same files, and each
@@ -531,7 +430,7 @@ accounts*.
 ### Keys a ticket may use: the vault
 
 A ticket that publishes a package, redeploys a service or calls an API needs a token — and
-a ticket is the worst place to write one: it is a Notion page, a prompt, a transcript and
+a ticket is the worst place to write one: it is a page of the board, a prompt, a transcript and
 sometimes a pull request. So keys stay where they already live, and `[vault]` says two
 things: **where** they are read, and **which ones each project is given**.
 
@@ -539,7 +438,7 @@ things: **where** they are read, and **which ones each project is given**.
 [vault]
 provider = "pass"                 # env, keyring, pass or bitwarden
 
-[vault.projects.Ponos]            # the project's exact Notion name
+[vault.projects.Ponos]            # the project's exact name on the board
 NPM_TOKEN = "hermez-agency/npm"   # the variable the session sees = the item it is read from
 GH_DEPLOY_TOKEN = "keyring:ponos-deploy"   # one key that lives somewhere else
 
@@ -565,7 +464,7 @@ without it.
 
 And a value read is a value **masked**. A session may still print its key — an `env` to
 debug a deploy, a verbose `npm publish` — so every value read is replaced by `***` before
-anything goes out: the comments and pages written to Notion or to `ponos.db`, the
+anything goes out: the comments and pages written to `ponos.db`, the
 session's transcript and stderr, the runner's log, Telegram and Slack, the console's
 answers. By value, not by name: what leaks is never `$NPM_TOKEN`, it is what it expands
 to. A value under six characters is too short to mask without masking the code around it,
@@ -625,8 +524,8 @@ nothing more is needed in `config.toml`. A line of `[vault]` may still name one 
 console's chat, which is no ticket, is given none of them.
 
 **The site of an entry.** Any entry may say where it is used: the sign-in page of a login,
-the dashboard where a token is managed or renewed (OpenRouter's keys, Dokploy, Notion's
-integrations). It is typed when the entry is made, and changed later with *Site* on its
+the dashboard where a token is managed or renewed (OpenRouter's keys, Dokploy, a cloud
+console). It is typed when the entry is made, and changed later with *Site* on its
 row; only an `http://` or `https://` address is kept — a bare host is read as `https://`
 it, anything else (`javascript:`, `ftp:`, a space in it) is refused with a message under
 the field. The list shows it as a link, by its domain alone, that opens the whole address
@@ -678,7 +577,7 @@ granted to no project.
 
 **What it protects, and what it does not.** It protects a copy of `vault.db` on its own —
 a backup, a volume moved to another host — and every place the runner writes: a value a
-session is given is masked in its transcript, the ticket's comments in Notion or in
+session is given is masked in its transcript, the ticket's comments in
 `ponos.db`, the log, the console's answers and stream, Telegram, Slack and the push
 notifications. Each entry's journal (Context → Vault, the history of an entry) says when
 it was created, replaced, given other projects or another site, revoked, and given to which ticket's

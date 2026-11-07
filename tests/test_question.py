@@ -18,7 +18,7 @@ from support import (
     case,
 )
 
-from ponos import channels, conversation, notion, prompt, question, voice
+from ponos import channels, conversation, prompt, question, voice
 from ponos import config as C
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
@@ -131,29 +131,6 @@ def a_free_question_stands_alone_and_says_what_to_give() -> None:
     # detail still goes under it — after a blank line, out of the question.
     _, plain, _ = _asking("Quel en-tête ?")
     assert plain == "🙋 Bloqué\nQuel en-tête ?\n\nla session a résumé ça autrement", plain
-
-
-@case
-def a_blocked_comment_reaches_notion_with_real_line_breaks_and_a_link() -> None:
-
-    _, comment, _ = _asking(question.parse(PR_58))
-    pieces = notion._comment_text(comment)
-    drawn = "".join(piece["text"]["content"] for piece in pieces)
-    assert drawn.count("\n") == 3, "four lines, three breaks, none of them flattened"
-    assert "\\n" not in drawn, "a break, not its escape"
-    linked = [piece for piece in pieces if piece["text"].get("link")]
-    assert linked == [
-        {
-            "type": "text",
-            "text": {"content": "PR #58", "link": {"url": "https://github.com/salva/site/pull/58"}},
-        }
-    ], linked
-    # And read back as it was written, so the console and the next run see the link.
-    read = "".join(
-        notion._written({"plain_text": piece["text"]["content"], **piece}) for piece in pieces
-    )
-    assert read == comment
-    assert notion._comment_text("[x](javascript:alert(1))")[0]["text"].get("link") is None
 
 
 @case
@@ -296,9 +273,9 @@ def an_answer_is_understood_in_either_language_and_relayed_in_the_runners() -> N
 @case
 def what_the_runner_writes_on_github_and_on_a_schedules_ticket_follows_the_language() -> None:
     said = voice.Voice("fr")
-    body = said.pull_request_body("Le header est parti.", "https://notion.so/t", "abc", 3)
+    body = said.pull_request_body("Le header est parti.", "https://board.invalid/t", "abc", 3)
     assert body == (
-        "Le header est parti.\n\n---\nTicket : https://notion.so/t\n"
+        "Le header est parti.\n\n---\nTicket : https://board.invalid/t\n"
         "Session Claude Code : `abc`\nOuverte par ponos (3 commits)."
     ), body
     assert (

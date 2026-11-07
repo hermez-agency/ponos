@@ -358,7 +358,7 @@ function Figures({ figures, project }: { figures: Statistics; project?: string }
       // How the closings were dated, for whoever wonders: the page said it at
       // its foot, the band says it under the pointer rather than in a line more.
       more: t(
-        "A closing is dated by the runner's history when the runner closed the ticket ({{history}}), by the page's last edit in Notion otherwise ({{edited}}).",
+        "A closing is dated by the runner's history when the runner closed the ticket ({{history}}), by the page's last edit otherwise ({{edited}}).",
         { history: String(figures.dated.history), edited: String(figures.dated.edited) }
       ),
     },

@@ -29,7 +29,7 @@ from support import (
 )
 
 from ponos import config as C
-from ponos import credits, notion, projects, prompt, question, session, state
+from ponos import credits, projects, prompt, question, session, state, store
 from ponos import git as git_module
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
@@ -114,7 +114,7 @@ def _spent(seconds_away: float = 300) -> session.Outcome:
     )
 
 
-def _out_of_credit(page: notion.Page) -> Runner:
+def _out_of_credit(page: store.Page) -> Runner:
     """A board runner whose every session dies on the quota."""
     runner = _board_runner([page], {})
     runner.config.runner.auto_update = False
@@ -122,7 +122,7 @@ def _out_of_credit(page: notion.Page) -> Runner:
     return runner
 
 
-def _doc_job(page: notion.Page) -> ticket_module.Job:
+def _doc_job(page: store.Page) -> ticket_module.Job:
     return ticket_module.Job(
         ticket_module.Ticket(page),
         projects.Project(name="", path=None),
@@ -176,7 +176,7 @@ def a_board_without_the_attribute_puts_the_ticket_back_and_says_nothing() -> Non
     assert runner.waiting_flag() == "", "nothing to tick, and nothing pretends there is"
 
 
-def _that_failed(page: notion.Page) -> tuple[Runner, dict[str, Any]]:
+def _that_failed(page: store.Page) -> tuple[Runner, dict[str, Any]]:
     """A document ticket whose session stopped, run to its report."""
     runner = _board_runner([page], {})
     runner.config.runner.auto_update = False
@@ -573,7 +573,7 @@ def the_most_constraining_of_the_two_windows_is_the_one_that_counts() -> None:
         assert credits.used() is None
 
 
-def _reserving(pages: list[notion.Page], percent: int = 5) -> Runner:
+def _reserving(pages: list[store.Page], percent: int = 5) -> Runner:
     """A board runner with a reserve, whose sessions would all succeed."""
     runner = _board_runner(pages, {}, waiting=True)
     runner.config.runner.auto_update = False
@@ -827,7 +827,7 @@ def a_ticket_waiting_for_credit_goes_before_one_that_never_started(state_home: P
 def nothing_waiting_for_credit_is_ticked_twice_while_the_credit_is_still_short(
     state_home: Path,
 ) -> None:
-    """Re-ticking a ticket already ticked would be a Notion write per pass for
+    """Re-ticking a ticket already ticked would be a board write per pass for
     as long as the window lasts — four hours at a ten-second cadence."""
     with _usage(_windows(99)):
         runner = _reserving([_ticked(_ready("p-parked"))])
@@ -989,7 +989,7 @@ def the_credit_reserve_is_a_constant() -> None:
 # -- a merged pull request closes its ticket ---------------------------------
 
 
-def _ticked(page: notion.Page) -> notion.Page:
+def _ticked(page: store.Page) -> store.Page:
     """The same page, ticked as waiting for credit — where a pass left it."""
     page.properties["Waiting for credit"] = {"type": "checkbox", "checkbox": True}
     return page

@@ -491,8 +491,8 @@ const editForm: FormInterface = {
 
 /* The name, as the way into the schedule: the window over the list, as a
  * ticket's title opens its own over the board — and the page it is written on,
- * where its history is (the comments, the edits, what Notion draws that a form
- * does not), one icon further. The table's cell and the phone's card draw the
+ * where its history is (the comments, the edits, what a form does not draw),
+ * one icon further. The table's cell and the phone's card draw the
  * same one. */
 export function ScheduleName({ id, name, url }: { id: string; name: string; url: string }) {
   // Over a project's page, the window keeps the tab it was opened from in the address.
@@ -809,23 +809,13 @@ export function NoSchedule() {
         {t("Other words, another project or another state, and they will be back.")}
       </EmptyState>
     )
-  // Named rather than left blank: an empty parameter is not substituted, so the
-  // sentence would show the placeholder itself. See `react-mini-i18n`.
-  const page = drawn?.page || "Schedules"
-  // Without Notion there is no database to write a row in: the sentence that
-  // said "database" was Notion's.
-  const withoutNotion = drawn?.notion === false
   return drawn && !drawn.database ? (
     <EmptyState icon={CalendarOff} title={t("Nothing repeats here")}>
-      {t("This workspace has no “{{page}}” page.", { page })}{" "}
-      <code className="font-mono text-xs">ponos init &lt;page-url&gt;</code>{" "}
-      {t("builds it.")}
+      {t("This board keeps no schedules.")}
     </EmptyState>
   ) : (
     <EmptyState robot="sleep" title={t("Nothing repeats here yet")}>
-      {withoutNotion
-        ? t("A schedule written here is a ticket that comes back on its own.")
-        : t("A row in the “{{page}}” database is a ticket that comes back.", { page })}
+      {t("A schedule written here is a ticket that comes back on its own.")}
     </EmptyState>
   )
 }
@@ -1031,8 +1021,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         top: SchedulesTop,
         empty: NoSchedule,
       },
-      // What a schedule is, without naming where it is kept: the same console
-      // draws a board with a Notion behind it and one without.
+      // What a schedule is, without naming where it is kept.
       description: "A row says what to make and how often; when the moment comes the runner writes the ticket into the ready column and steps back.",
       // The switch in the row is one gesture, the name opening the form in a
       // window is the other: no button of the package's beside them.
@@ -1097,7 +1086,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
 export const schedules = createViewResource<ScheduleItem, ScheduleWrite>(SCHEDULES, options)
 
 /* The rows the server answered from were read again behind the page — a row
- * written in Notion, the ticket an occurrence just made — and something
+ * written elsewhere, the ticket an occurrence just made — and something
  * changed: the stream says `schedules`, and every list of them reads again,
  * said the way the package says it after a form. */
 window.addEventListener("ponos:schedules", () => {

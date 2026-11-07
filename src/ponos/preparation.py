@@ -11,7 +11,7 @@ repository index, and a ticket not claimed before it is worked on is a ticket
 the next tick of the timer would happily pick up as well.
 
 A ticket that cannot be used is failed here rather than carried further: no
-project anybody can find, a body Notion will not hand over, a page with neither
+project anybody can find, a body the board will not hand over, a page with neither
 title nor content. Each of them returns `None`, and the pass goes on to the
 next ticket. So does one moved out of ready while it was being prepared — the
 claim did not take, and the move is the answer. So does one whose type nobody wrote and the runner could not tell
@@ -84,7 +84,7 @@ class Preparation(Base):
 
     def _locate(self, ticket: Ticket) -> Project | None:
         """The project the ticket points at — None, failed, when nobody can find it."""
-        relation = store.read(ticket.page, self.config.notion.prop("project")) or []
+        relation = store.read(ticket.page, self.config.board.prop("project")) or []
         if not relation:
             # No project at all is not an error: it is the plainest possible
             # document ticket. "Draft me an email", "summarise this" — there is
@@ -113,7 +113,7 @@ class Preparation(Base):
             # Its mission: « What was done » is the runner's, and not a brief.
             body = ticket_page.mission(self.client.blocks_text(ticket.page.id, live=False))
         except store.StoreError as error:
-            self._fail(ticket, self.voice.say("unreadable"), str(error), code="notion.read-failed")
+            self._fail(ticket, self.voice.say("unreadable"), str(error), code="board.read-failed")
             return None
         if is_blank(body):
             if not ticket.page.title.strip():
@@ -174,7 +174,7 @@ class Preparation(Base):
             workdir = state_dir() / "worktrees" / stem
         else:
             # No repository: an empty scratch directory, and the answer goes
-            # back into the Notion page instead of into a pull request.
+            # back into the ticket's page instead of into a pull request.
             base, branch = "", ""
             workdir = state_dir() / "scratch" / stem
 
@@ -183,7 +183,7 @@ class Preparation(Base):
         agent = self._agent(ticket)
         # The same for the goal it serves, a relation too: no Objectif column,
         # an empty one or an unreadable page all read as no goal.
-        pointed = goals.pointed(ticket.page, self.config.notion.prop("goal"))
+        pointed = goals.pointed(ticket.page, self.config.board.prop("goal"))
         goal = goals.resolve(self.client, pointed) if pointed else goals.Goal()
 
         # A ticket ticked as waiting for credit already has a session, stopped
@@ -248,8 +248,8 @@ class Preparation(Base):
             return
         if planning.reported(comments):
             return
-        rule = project_settings.plan(job.project.notion_id)
-        score = priority.score(store.read(ticket.page, self.config.notion.prop("priority")))
+        rule = project_settings.plan(job.project.page_id)
+        score = priority.score(store.read(ticket.page, self.config.board.prop("priority")))
         if rule and rule.applies(score, job.subtype):
             job.planning = "propose"
             job.notes.append(self.voice.say("plan-ticked"))
@@ -320,12 +320,12 @@ class Preparation(Base):
         claimed = self._claim(
             ticket,
             **{
-                self.config.notion.prop("status"): self.config.notion.state("running"),
-                self.config.notion.prop("agent"): self.agent_label,
+                self.config.board.prop("status"): self.config.board.state("running"),
+                self.config.board.prop("agent"): self.agent_label,
                 # The wait is over for this one: see the same line in
                 # `_publish`. Read before this write, by `_carried_session`.
-                self.config.notion.prop("waiting"): False,
-                self.config.notion.prop("session"): self._session_value(
+                self.config.board.prop("waiting"): False,
+                self.config.board.prop("session"): self._session_value(
                     job.session_id, job.project.path
                 ),
                 **self._plan_box(ticket, job),
@@ -357,7 +357,7 @@ class Preparation(Base):
         reads as no model at all, or a run that failed could never climb. A
         model that differs from the last pick is somebody's, and stays theirs.
         """
-        written = str(store.read(ticket.page, self.config.notion.prop("model")) or "")
+        written = str(store.read(ticket.page, self.config.board.prop("model")) or "")
         earlier = journal.chosen(ticket.id)
         return "" if written and earlier and earlier["model"] == written else written
 
@@ -378,7 +378,7 @@ class Preparation(Base):
             job.body,
             kind=job.kind,
             code=job.project.is_code,
-            priority=priority.score(store.read(ticket.page, self.config.notion.prop("priority"))),
+            priority=priority.score(store.read(ticket.page, self.config.board.prop("priority"))),
             grid=settings.model_grid(),
             # A run begun on Fable before it was turned off carries on, or
             # stays, on what is allowed now.
@@ -404,10 +404,10 @@ class Preparation(Base):
             parts.append(said.say(key, **values))
         reason = ", ".join(parts)
         self.say(f"    · model {choice.model} ({choice.level}) — {reason}")
-        # Commentary, like the cost: a column Notion refuses is a line in the
+        # Commentary, like the cost: a column the board refuses is a line in the
         # log and the run carries on; a board without one is left out by the store.
         try:
-            self._set(ticket, **{self.config.notion.prop("model"): choice.model})
+            self._set(ticket, **{self.config.board.prop("model"): choice.model})
         except store.StoreError as error:
             self.say(f"    ! the model could not be written on the ticket ({error})")
         if choice.signals and choice.signals[0][0] == "model-resumed":
@@ -421,15 +421,15 @@ class Preparation(Base):
     def _name(self, ticket: Ticket, body: str, short: str) -> None:
         """Give a nameless ticket a title, and write it on the page.
 
-        Into Notion rather than into this run's memory alone: the board has to
+        Onto the board rather than into this run's memory alone: the board has to
         show it too, or the page stays anonymous for whoever reads it back. And
         the page is what the runner then works from, so the branch, the report
         and the pull request all carry the same name.
 
         Never a reason to fail a ticket. A session that will not start, an
-        answer that says nothing, a Notion that refuses the write: each of them
+        answer that says nothing, a board that refuses the write: each of them
         is one line in the journal, and the ticket runs under the default
-        label as it did before. The title is only kept once Notion has taken
+        label as it did before. The title is only kept once the board has taken
         it — a branch named after something the board does not show would be a
         worse outcome than a ticket with no name.
         """
@@ -468,7 +468,7 @@ class Preparation(Base):
                 {self.client.title_property(self.database): title},
             )
         except store.StoreError as error:
-            self.say(f"  ! the title could not be written to Notion: {voice_module.line(error)}")
+            self.say(f"  ! the title could not be written on the board: {voice_module.line(error)}")
             return
         ticket.page.title = title
         self.say(f"  · named “{title}” — the ticket had none of its own")
@@ -490,7 +490,7 @@ class Preparation(Base):
             return "", ""
         written = str(store.read(ticket.page, column) or "").strip()
         if written:
-            kind = self.config.notion.kind_of(written)
+            kind = self.config.board.kind_of(written)
             if not kind:
                 self.say(
                     f"    · type “{written}” is none of the four — run by what its project holds"
@@ -541,7 +541,7 @@ class Preparation(Base):
         if blocks.classify(report.split("\n\n", 1)[0]) != "ticket.kind-unsure":
             return ""
         asked = question_module.found(report)
-        settings = self.config.notion
+        settings = self.config.board
         names = {kind: settings.kind_names(kind) for kind in kinds.KINDS}
         me = self.myself()
         for comment in reversed(comments[last + 1 :]):
@@ -656,7 +656,7 @@ class Preparation(Base):
         if answer is None:
             return None, ""
         guess = kinds.settle(kinds.parse(answer))
-        column = self.config.notion.prop("type")
+        column = self.config.board.prop("type")
         said = self.voice
         why = kinds.doubt(guess, self.config.runner.classify_confidence)
         if why:

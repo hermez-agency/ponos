@@ -1,7 +1,7 @@
 """How many tickets came in, how many went out, and when — for the console's statistics.
 
 The board says where every ticket is now; it does not say when it got there.
-Notion keeps a page's `created_time` and its `last_edited_time`, and nothing in
+The board keeps a page's `created_time` and its `last_edited_time`, and nothing in
 between — a status change is not dated anywhere the API reaches. So the day a
 ticket closed is read from two places, the better one first:
 
@@ -123,7 +123,7 @@ def figures(
     `tickets` are the board's, as `Api.board` builds them, with `edited`.
     With a `project` (its name, "" for the tickets that have none) only its
     tickets are counted, and only what its sessions spent. `kind_of` says
-    which of the four types a board's Type option is (`Notion.kind_of`).
+    which of the four types a board's Type option is (`BoardNames.kind_of`).
     A ticket is open on a day if it was created by the end of it and not yet
     closed: that is every status but done and validated (`CLOSED`), failed and
     blocked included — they are still somebody's to deal with. A validated

@@ -1,129 +1,52 @@
-"""Where the board lives, whoever holds it.
+"""Where the board lives, and the words every part of the runner reads it with.
 
-The runner was written against Notion, and against nothing else: `notion.Client`
-was passed around as *the* way to read a ticket, to write a status, to say
-something on a page. That was true for as long as there was one place a board
-could be — and it stopped being true the day the answer to "can this run without
-Notion?" had to be yes.
-
-So this module is the seam. Three things live here and nothing else:
+`ponos.db` holds the board: the tickets in `tickets.py`, served by
+`ledger.Ledger`, and everything else — projects, agents, goals, schedules, the
+standing context — in `pages.py`. This module is what the two have in common,
+and nothing else:
 
 - **the vocabulary.** `Page`, `Comment`, and `read` — a property reduced to a
-  plain Python value. Their shape is Notion's, deliberately: a `Page` carries
-  its properties the way the API writes them, and every backend produces that
-  same shape rather than a dialect of its own. Which is why `read` is here and
-  not in `notion.py` — it decodes what *any* store hands over, and a second
-  decoder per backend is the bug nobody would find;
+  plain Python value. A `Page` carries its properties as typed values,
+  `{"type": "select", "select": {"name": "ready"}}`, and every part of the
+  board hands over that same shape rather than a dialect of its own — which is
+  why `read` is here: a second decoder is the bug nobody would find;
 - **the interface.** `Store` says what the rest of the runner may ask of a
   board. It is a `Protocol` rather than a base class, because the fakes the test
   suite is made of are duck-typed and were never going to inherit from anything;
-- **the choice.** `open()` hands back the board `ponos.db` keeps: its tickets
-  from `ledger.py`, and the rest — projects, agents, goals, schedules — from
-  Notion when a token is set, and from `pages.py` when there is none. Nothing
-  above this module knows which it got.
-
-What is *not* here is provisioning: creating a database, widening a select,
-adding a property. That is Notion's own shape being built, it only ever happens
-through `ponos init`, and a board without Notion has none of it.
+- **the shape.** `shape` declares each collection's columns and the kind each
+  holds, `options` the values a select of the tickets offers — the board is the
+  code's own, there is nothing to discover;
+- **the choice.** `open()` hands back the board `ponos.db` keeps.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from .config import Config, Notion
+    from .config import BoardNames, Config
     from .workspace import Workspace
 
-# The kinds of property Notion computes itself: a value written to one is not
-# refused, it is dropped without a word (see `notion._encode`). A column the
-# runner has to write — `Next` above all, see `Recurrence.recur` — must be none
-# of these, or the write it counts on never lands.
-READ_ONLY = (
-    "formula",
-    "rollup",
-    "created_time",
-    "created_by",
-    "last_edited_time",
-    "last_edited_by",
-    "unique_id",
-    "button",
-    "verification",
-)
-
-# The columns of the tickets board the runner reads or writes: the kinds of
-# property each one works as, and what a board without it goes without. One
-# table for the two places that have to say it — `doctor`, before anything
-# runs, and a run, the first time a write lands on a column that is not there.
-# A missing column is never an error to Notion: it is a value quietly left
-# out, and a 1st of October spent with fourteen tickets in progress that
-# nothing was going to put back. So what it costs is spelled out.
-COLUMNS: dict[str, tuple[tuple[str, ...], str]] = {
-    "status": (("status", "select"), "no ticket can be claimed, moved or finished"),
-    "project": (("relation",), "no ticket is tied to a project, so none reaches a repository"),
-    "agent": (
-        ("rich_text",),
-        "which machine took a ticket is not written — fine on one machine, but a "
-        "second one on this board would put back the tickets the first is running",
-    ),
-    "pull_request": (
-        ("url",),
-        "the pull request is not linked from its ticket, so a validated one is not merged for you",
-    ),
-    "session": (("url", "rich_text"), "no link to the session behind a ticket"),
-    "model": (("select", "rich_text"), "no model per ticket — runner.model for every one"),
-    "priority": (("number", "select"), "no ready ticket goes before another"),
-    "cost": (("number",), "what a run cost is not written back"),
-    "duration": (("number",), "how long a run took is not written back"),
-    "progress": (("rich_text",), "nothing says what a session is doing while it runs"),
-    "due": (("date",), "no ticket can be held until a date"),
-    "waiting": (("checkbox",), "a ticket held back by the credit does not say so"),
-    "plan": (("checkbox",), "no ticket can ask for a plan before its code is written"),
-    "type": (("select",), "the kind a ticket was classified as is not kept on the board"),
-    "block": (
-        ("select",),
-        "why a ticket stopped is not on the board, so no Notion view can filter blocks by cause",
-    ),
-    "ci": (
-        ("select",),
-        "the state of a pull request's checks is not on the board, so no Notion view can filter on it",
-    ),
-    "subtype": (
-        ("select",),
-        "a code ticket's sub-type is not kept, so its commit, its pull request and its "
-        "CHANGELOG entry go by its title's prefix alone",
-    ),
-    "on": (
-        ("rich_text",),
-        "the prompt a ticket runs at each change of status is not read, so none runs",
-    ),
-}
-
-
-def lost(settings: Any, name: str) -> str:
-    """What the tickets board goes without when it has no column `name`."""
-    for key, (_, cost) in COLUMNS.items():
-        if settings.prop(key) == name:
-            return cost
-    return ""
+# What `claude --model` accepts. A select rather than free text: the whole point
+# of the column is to pick without remembering the spelling.
+MODELS = ("opus", "sonnet", "haiku", "fable")
 
 
 class StoreError(Exception):
     """The board could not be read or written.
 
-    One class for every backend: the callers that catch this are asking "did the
-    board answer?", and the answer is no whether that was a 502 from Notion or a
-    directory this user cannot write to.
+    One class for every part of the board: the callers that catch this are
+    asking "did the board answer?", and the answer is no whether that was a
+    locked database or a value the board refuses.
     """
 
 
 class Missing(StoreError):
     """The board answered, and the page asked for is not on it.
 
-    Deleted, in another workspace, or never shared with the integration: Notion
-    says the same 404 for all three. Told apart from a board that failed to
+    Deleted, or never there. Told apart from a board that failed to
     answer because asking again changes nothing — the console says "not there"
     rather than offering to try again.
     """
@@ -143,7 +66,7 @@ class Unreachable(StoreError):
 class Comment:
     """One comment, and what it takes to answer it where it was written.
 
-    `discussion_id` is the thread it belongs to: Notion groups comments into
+    `discussion_id` is the thread it belongs to: comments are grouped into
     discussions, and answering *into* one is the whole difference between a
     conversation and a page covered in unrelated remarks. `created_by` is who
     wrote it — which is how the runner tells its own words from yours without
@@ -167,8 +90,7 @@ class Page:
 
 
 # The two pictures a page carries beside its properties: a banner across its
-# top, and a small mark in front of its title. Notion's words, and its places —
-# neither is a column, and neither is read by `read`.
+# top, and a small mark in front of its title — neither is a column, and neither is read by `read`.
 SLOTS = ("cover", "icon")
 
 
@@ -176,8 +98,8 @@ SLOTS = ("cover", "icon")
 class Picture:
     """What a page's cover or icon is to become. At most one field is set.
 
-    `data` is an image to be kept by the board itself — uploaded to Notion,
-    written beside the file on disk; `url` is one somebody else keeps; `emoji`
+    `data` is an image to be kept by the board itself — written beside
+    `ponos.db`; `url` is one somebody else keeps; `emoji`
     is only ever an icon. None of them is the picture going away.
     """
 
@@ -215,7 +137,7 @@ def read(page: Page, name: str) -> Any:
     if kind == "number":
         return prop.get("number")
     if kind == "date":
-        # A Notion date may be a range. The deadline is where it ends.
+        # A date may be a range. The deadline is where it ends.
         value = prop.get("date") or {}
         return value.get("end") or value.get("start")
     if kind == "formula":
@@ -225,12 +147,7 @@ def read(page: Page, name: str) -> Any:
 
 
 def written(kind: str | None, value: Any) -> dict[str, Any] | None:
-    """One property, in the shape a `Page` carries it. The inverse of `read`.
-
-    Type tag included, which is what tells this apart from `notion._encode`:
-    that one builds the body of a `PATCH`, this one builds what `read` will be
-    handed back. A store that keeps its pages on disk needs the second.
-    """
+    """One property, in the shape a `Page` carries it. The inverse of `read`."""
     if kind is None or value is None:
         return None
     if kind in ("status", "select"):
@@ -255,11 +172,8 @@ def written(kind: str | None, value: Any) -> dict[str, Any] | None:
 class Store(Protocol):
     """Everything the runner and the console ask of a board.
 
-    Deliberately the surface `notion.Client` already had, rather than a smaller
-    ideal one: the runner is written against it, and an interface that forced
-    every call site to be rewritten would have been a rewrite pretending to be
-    an abstraction. What changed is that it is now *named*, and that two other
-    things implement it.
+    The surface the runner was written against, named: `ledger.Ledger` answers
+    for it, and the doubles the tests are made of do too.
     """
 
     # -- reading -------------------------------------------------------------
@@ -282,15 +196,6 @@ class Store(Protocol):
 
     def comments(self, page_id: str) -> list[Comment]: ...
 
-    def attachment(self, block_id: str) -> str:
-        """Where the file an image, file or PDF block holds can be fetched now.
-
-        Asked at the moment it is wanted, never kept: a file Notion hosts is
-        behind an address good for an hour. See `markdown.attached`. Raises
-        LookupError when that block holds no file.
-        """
-        ...
-
     # -- writing -------------------------------------------------------------
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None: ...
@@ -306,24 +211,17 @@ class Store(Protocol):
     def replace_section(self, page_id: str, titles: Sequence[str], markdown: str) -> int:
         """Make a page end on `markdown`, in place of its part headed by one of `titles`.
 
-        That heading and everything after it go, and so do the folded blocks
-        an older run's live report left on the page; what is above stays block
-        for block — the mission a person wrote, see ticket_page.py. A page
-        without such a heading gets `markdown` appended. Returns the count of
-        blocks written.
+        That heading and everything after it go; what is above stays as it
+        was — the mission a person wrote, see ticket_page.py. A page without
+        such a heading gets `markdown` appended. Returns the count of
+        paragraphs written.
         """
         ...
-
-    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]: ...
-
-    def update_block(self, block_id: str, payload: dict[str, Any]) -> None: ...
 
     def losses(self, block_id: str, depth: int = 0) -> dict[str, int]:
         """What `replace_markdown` would drop of this page, by kind and count.
 
-        Empty on a board that is Markdown already; on Notion, the blocks and
-        the bits of rich text a line of Markdown cannot hold. See
-        `markdown.lost`.
+        Empty: a page is its Markdown, and writing it back is writing it.
         """
         ...
 
@@ -332,10 +230,8 @@ class Store(Protocol):
     def trash(self, page_id: str) -> str:
         """Put a page in the board's trash — never delete it — and say where to take it back.
 
-        Notion keeps a trashed page for thirty days and `ponos.db` keeps the row
-        flagged: either way somebody can undo it. What
-        comes back is the address that does so (the page's own, in Notion), or
-        nothing where the board has none.
+        `ponos.db` keeps the row flagged, so somebody can undo it. What comes
+        back is the address that does so, or nothing where the board has none.
         """
         ...
 
@@ -356,36 +252,99 @@ class Store(Protocol):
 
     # -- the board's own shape -----------------------------------------------
 
-    def workspace(self, settings: Notion) -> Workspace:
-        """The databases and the standing context. See `workspace.Workspace`."""
+    def workspace(self, settings: BoardNames) -> Workspace:
+        """The collections and the standing context. See `workspace.Workspace`."""
         ...
 
 
-def shape(settings: Notion) -> dict[str, dict[str, str]]:
-    """{collection: {property: kind}}, from the one place the board is declared.
+def shape(settings: BoardNames) -> dict[str, dict[str, str]]:
+    """{collection: {property: kind}}, the one place the board is declared.
 
-    `provision.py` builds the Notion databases from these very shapes, so a
-    column added there is a column `ponos.db` reads the same day. The relation
-    targets are named after the collections rather than after database IDs,
-    since here that is what a relation points at.
+    The relation targets are named after the collections, since that is what a
+    relation points at.
     """
-    from . import provision
-
-    def kinds(schema: dict[str, Any]) -> dict[str, str]:
-        return {name: next(iter(kind)) for name, kind in schema.items()}
-
+    prop = settings.prop
     return {
-        # The goal a ticket serves is a column Notion boards add by hand, so
-        # `tickets_schema` does not declare it; `ponos.db` has it too.
         "tickets": {
-            **kinds(provision.tickets_schema(settings, "projects", "agents", "tickets")),
-            settings.prop("goal"): "relation",
+            "Name": "title",
+            prop("status"): "select",
+            prop("agent"): "rich_text",
+            # What the session is doing right now. Written every few seconds
+            # while the ticket runs, cleared when it ends.
+            prop("progress"): "rich_text",
+            prop("session"): "url",
+            prop("pull_request"): "url",
+            prop("model"): "select",
+            # A score from 0 to 100, highest first: see priority.py.
+            prop("priority"): "number",
+            prop("cost"): "number",
+            prop("duration"): "number",
+            prop("due"): "date",
+            prop("waiting"): "checkbox",
+            # Ticked, the first session proposes a plan and waits for a yes
+            # before writing any code: see planning.py.
+            prop("plan"): "checkbox",
+            prop("type"): "select",
+            prop("block"): "select",
+            prop("ci"): "select",
+            prop("subtype"): "select",
+            # The prompt run at every change of status — see transitions.py.
+            prop("on"): "rich_text",
+            prop("project"): "relation",
+            prop("role"): "relation",
+            prop("after"): "relation",
+            prop("goal"): "relation",
         },
-        "projects": kinds(provision.projects_schema()),
-        "agents": kinds(provision.agents_schema(settings)),
-        "schedules": kinds(provision.schedules_schema(settings, "tickets", "projects")),
-        "goals": kinds(provision.goals_schema("projects")),
+        "projects": {"Name": "title", "Repository": "rich_text", "Path": "rich_text"},
+        # An agent is a page — its body is the role. The columns are the exceptions.
+        "agents": {"Name": "title", prop("model"): "select"},
+        # A schedule is the recipe for a ticket, and how often it is born: the
+        # columns you fill in, then the three a pass writes back.
+        "schedules": {
+            "Name": "title",
+            prop("cadence"): "select",
+            prop("at"): "rich_text",
+            prop("day"): "rich_text",
+            prop("active"): "checkbox",
+            prop("next_run"): "date",
+            prop("last_run"): "date",
+            prop("model"): "select",
+            prop("priority"): "number",
+            prop("type"): "select",
+            prop("subtype"): "select",
+            prop("last_ticket"): "relation",
+            prop("project"): "relation",
+        },
+        # A goal is a name, what meets it and when. The tickets point at the
+        # goal, never the other way round: `Api.goals` counts them.
+        "goals": {
+            "Name": "title",
+            "Description": "rich_text",
+            "Critère": "rich_text",
+            "Échéance": "date",
+            "Statut": "select",
+            "Priorité": "number",
+            "Projets": "relation",
+        },
     }
+
+
+def options(settings: BoardNames, name: str) -> list[str]:
+    """The values a select of the tickets offers, in the board's order; none for another column."""
+    from . import blocks, ci, subtypes
+
+    offered: dict[str, list[str]] = {
+        settings.prop("model"): list(MODELS),
+        # From the most harmless road to the most guarded one.
+        settings.prop("type"): [
+            settings.kind(key)
+            for key in ("writing", "diagnostic", "code", "external", "publication")
+        ],
+        settings.prop("block"): list(blocks.CODES),
+        settings.prop("ci"): list(ci.LABELS.values()),
+        settings.prop("subtype"): [subtype.option for subtype in subtypes.SUBTYPES],
+    }
+    return offered.get(name, [])
 
 
 def matches(page: Page, filter_: dict[str, Any] | None) -> bool:
@@ -415,35 +374,9 @@ def matches(page: Page, filter_: dict[str, Any] | None) -> bool:
     return True
 
 
-def open(  # noqa: A001
-    config: Config, *, dropped: Callable[[str, str], None] | None = None, notion_only: bool = False
-) -> Store:
-    """The store the configuration asks for.
-
-    The tickets are served by `ponos.db` (see ledger.py); what is not a ticket
-    is Notion's when the configuration holds a token, and the database's own
-    otherwise (see pages.py). `notion_only` asks for the Notion client itself:
-    the import and the checks of the board are about Notion, not about the
-    tickets.
-
-    `dropped` hears of every property a write leaves out because the database
-    has no such column — `(database, name)` — which only Notion ever does.
-
-    Imported here rather than at the top, so that an installation without
-    Notion never loads a module whose only job is to talk to an API it will
-    not use.
-    """
+def open(config: Config) -> Store:  # noqa: A001
+    """The board `ponos.db` keeps: its tickets from `ledger.py`, the rest from `pages.py`."""
     from .ledger import Ledger
+    from .pages import Pages
 
-    if config.standalone:
-        from .pages import Pages
-
-        return Ledger(
-            Pages(config.notion), config.notion, config.runner.language, config.console_url
-        )
-    from .notion import Client
-
-    client = Client(config.notion.token, dropped=dropped)
-    if notion_only:
-        return client
-    return Ledger(client, config.notion, config.runner.language, config.console_url)
+    return Ledger(Pages(config.board), config.board, config.runner.language, config.console_url)

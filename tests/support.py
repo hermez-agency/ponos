@@ -3,7 +3,7 @@
 The suite is cut into one file per module — `test_update.py` for `update.py`,
 `test_web_server.py` for `web/server.py` — so that two tickets touching two
 modules touch two files. What more than one of those files needs lives here:
-the doubles of Notion, of a session, of a board, and the fixtures.
+the doubles of a session, of a board, and the fixtures.
 
 A fixture is written once, as a generator that receives the case it serves,
 and both runners use it: `conftest.py` hands it to pytest under its name, and
@@ -29,7 +29,7 @@ import tempfile
 import threading
 import time
 import traceback
-from collections.abc import Callable, Collection, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -52,14 +52,11 @@ from ponos import (
     ledger,
     leftovers,
     log,
-    markdown,
-    notion,
     pages,
     projects,
     provider,
     session,
     store,
-    ticket_page,
     workspace,
 )
 from ponos import config as C
@@ -293,133 +290,29 @@ def _config(
 
 def _file_config(body: str) -> C.Config:
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n' + body)
+    path.write_text(body)
     # Written the way a file used to be, and read the way a launch leaves it:
     # its secrets moved into secrets.env.
     C.move_secrets(path)
     return C.load(path)
 
 
-class _FakeClient:
-    """Just enough Notion to resolve a workspace, and nothing that reaches out."""
-
-    def __init__(
-        self, rows: dict[str, str], text: str = "", broken: Collection[str] = frozenset()
-    ) -> None:
-        self._rows = rows
-        self._text = text
-        self._broken = broken
-
-    def resolve_database(self, identifier: str) -> str:
-        if identifier in self._broken:
-            raise notion.NotionError(f"{identifier}: object not found")
-        return f"db-of-{identifier}"
-
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
-        return [notion.Page(id=page, url="", title=title) for title, page in self._rows.items()]
-
-    def blocks_text(self, page_id: str, depth: int = 0, *, live: bool = True) -> str:
-        if page_id in self._broken:
-            raise notion.NotionError(f"{page_id}: object not found")
-        return self._text
-
-
-def _settings(**overrides: Any) -> C.Notion:
-    values: dict[str, Any] = {"token": "ntn_real", "workspace": "space", "pages": {}}
-    values.update(overrides)
-    return C.Notion(**values)
-
-
-class _Board:
-    """A Notion that remembers what was created, without a network in sight."""
-
-    def __init__(
-        self,
-        databases: dict[str, dict[str, str]] | None = None,
-        rows: dict[str, dict[str, str]] | None = None,
-        schemas: dict[str, dict[str, dict[str, Any]]] | None = None,
-        text: str = "",
-    ) -> None:
-        self._databases = databases or {}  # page id -> {title: db id}
-        self._rows = rows or {}  # db id -> {title: page id}
-        self._schemas = schemas or {}  # db id -> {name: {shape}}
-        self._text = text
-        self.created: list[str] = []
-        self.patched: list[tuple[str, list[str]]] = []
-        self.appended: list[str] = []
-
-    # reading
-    def child_databases(self, page_id: str) -> dict[str, str]:
-        return dict(self._databases.get(page_id, {}))
-
-    def schema(self, database_id: str) -> dict[str, str]:
-        return {
-            name: next(iter(shape)) for name, shape in self._schemas.get(database_id, {}).items()
-        }
-
-    def database(self, database_id: str) -> dict[str, Any]:
-        return {
-            "properties": {
-                name: {"type": next(iter(shape)), **shape}
-                for name, shape in self._schemas.get(database_id, {}).items()
-            }
-        }
-
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
-        return [
-            notion.Page(id=page, url="", title=title)
-            for title, page in self._rows.get(database_id, {}).items()
-        ]
-
-    def blocks_text(self, page_id: str, depth: int = 0, *, live: bool = True) -> str:
-        return self._text
-
-    # writing
-    def create_database(
-        self,
-        parent_page_id: str,
-        title: str,
-        properties: dict[str, dict[str, Any]],
-        *,
-        inline: bool = True,
-    ) -> str:
-        identifier = f"db-{title.lower().replace(' ', '-')}"
-        self._databases.setdefault(parent_page_id, {})[title] = identifier
-        self._schemas[identifier] = dict(properties)
-        self._rows.setdefault(identifier, {})
-        self.created.append(identifier)
-        return identifier
-
-    def add_properties(self, database_id: str, properties: dict[str, dict[str, Any]]) -> None:
-        self._schemas.setdefault(database_id, {}).update(properties)
-        self.patched.append((database_id, sorted(properties)))
-
-    def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
-        page = f"page-{title.lower().replace(' ', '-')}"
-        self._rows.setdefault(database_id, {})[title] = page
-        self.created.append(page)
-        return page
-
-    def append_markdown(self, page_id: str, markdown: str) -> int:
-        # A page that has just been written to is no longer empty — which is
-        # what stops the second `init` from seeding the context page again.
-        self.appended.append(page_id)
-        self._text = markdown
-        return 1
+def _settings(**overrides: Any) -> C.BoardNames:
+    return C.BoardNames(**overrides)
 
 
 class _CommentClient:
     def __init__(self, texts: list[str], error: str = "") -> None:
         self._texts, self._error = texts, error
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         if self._error:
-            raise notion.NotionError(self._error)
-        return [notion.Comment(text) for text in self._texts]
+            raise store.StoreError(self._error)
+        return [store.Comment(text) for text in self._texts]
 
 
 def _bare_runner(client: Any) -> Runner:
-    """A Runner with its Notion replaced, and nothing else touched."""
+    """A Runner with its board replaced, and nothing else touched."""
     runner = Runner.__new__(Runner)
     runner._journals = {}
     runner.client = client
@@ -429,22 +322,22 @@ def _bare_runner(client: Any) -> Runner:
     runner._comments = {}
     runner._usage_warned = False
     runner._spellings = conversation.names()
-    runner._me = ""  # Notion never said; the signature is all there is
+    runner._me = ""  # the board never said; the signature is all there is
     runner._identity_error = ""
     return runner
 
 
 def _runner_reading(texts: list[str], error: str = "") -> tuple[Runner, list[str]]:
     runner = _bare_runner(_CommentClient(texts, error))
-    ticket = type("T", (), {"page": notion.Page(id="p-ticket", url="", title="t")})()
+    ticket = type("T", (), {"page": store.Page(id="p-ticket", url="", title="t")})()
     return runner, runner.discussion(ticket)
 
 
 ME = "bot-user-id"
 
 
-def _said(text: str, *, by: str = "human", thread: str = "d1", ident: str = "") -> notion.Comment:
-    return notion.Comment(
+def _said(text: str, *, by: str = "human", thread: str = "d1", ident: str = "") -> store.Comment:
+    return store.Comment(
         text,
         id=ident or f"c-{abs(hash((text, thread))) % 10**6}",
         discussion_id=thread,
@@ -473,8 +366,8 @@ class _Unblocking(Runner):
     def _comment(self, ticket: ticket_module.Ticket, text: str, discussion: str = "") -> None:
         self.comments_written.append(text)
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
-        return [notion.Comment(text) for text in self.comments_written[-1:]]
+    def comments(self, page_id: str) -> list[store.Comment]:
+        return [store.Comment(text) for text in self.comments_written[-1:]]
 
     def _hold_credits(self, outcome: session.Outcome) -> None:
         pass
@@ -526,12 +419,12 @@ def _no_session(
         session.run = original
 
 
-def _schedule_page(page_id: str, **values: Any) -> notion.Page:
-    """One row of the Schedules database, as Notion hands it over."""
+def _schedule_page(page_id: str, **values: Any) -> store.Page:
+    """One row of the Schedules collection, as the board hands it over."""
     last_ticket = values.get("last_ticket", "")
-    return notion.Page(
+    return store.Page(
         id=page_id,
-        url=f"https://notion.so/{page_id}",
+        url=f"https://board.invalid/{page_id}",
         title=values.get("name", "Revue des dépendances"),
         properties={
             "Cadence": {"type": "select", "select": {"name": values.get("cadence", "Daily")}},
@@ -573,8 +466,8 @@ class _ScheduleClient:
 
     def __init__(
         self,
-        pages: list[notion.Page],
-        tickets: dict[str, notion.Page] | None = None,
+        pages: list[store.Page],
+        tickets: dict[str, store.Page] | None = None,
         refuses: str = "",
         marks: str = "",
         columns: dict[str, str] | None = None,
@@ -599,24 +492,24 @@ class _ScheduleClient:
     def trash(self, page_id: str) -> str:
         self.trashed.append(page_id)
         self._pages = [page for page in self._pages if page.id != page_id]
-        return f"https://notion.so/{page_id}"
+        return f"https://board.invalid/{page_id}"
 
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         return list(self._pages)
 
-    def page(self, page_id: str) -> notion.Page:
+    def page(self, page_id: str) -> store.Page:
         if page_id in self._tickets:
             return self._tickets[page_id]
-        raise notion.NotionError(f"{page_id}: object not found")
+        raise store.StoreError(f"{page_id}: object not found")
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if self._marks and database_id == "db-schedules":
-            raise notion.NotionError(self._marks)
+            raise store.StoreError(self._marks)
         self.written.append((page_id, dict(values)))
 
     def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
         if self._refuses:
-            raise notion.NotionError(self._refuses)
+            raise store.StoreError(self._refuses)
         self.created.append((title, dict(values or {})))
         return f"t-{len(self.created)}"
 
@@ -629,9 +522,9 @@ class _ScheduleClient:
 
 
 def _recurring(
-    pages: list[notion.Page],
+    pages: list[store.Page],
     *,
-    tickets: dict[str, notion.Page] | None = None,
+    tickets: dict[str, store.Page] | None = None,
     refuses: str = "",
     marks: str = "",
     columns: dict[str, str] | None = None,
@@ -643,7 +536,6 @@ def _recurring(
     runner._journals = {}
     runner.client = _ScheduleClient(pages, tickets, refuses, marks, columns)  # type: ignore[assignment]  # a fake: only the schedules
     runner.config = C.Config(
-        notion=C.Notion(),
         runner=C.Runner(schedule=schedule, max_load_per_core=0),
         projects={},
         path=Path("/nowhere"),
@@ -766,7 +658,7 @@ class _BoardClient:
     """A tickets database that answers queries and remembers what was written."""
 
     def __init__(
-        self, pages: list[notion.Page], options: list[str] | None = None, waiting: bool = False
+        self, pages: list[store.Page], options: list[str] | None = None, waiting: bool = False
     ):
         self._pages = pages
         self._options = options if options is not None else ["review", "validated", "done"]
@@ -794,24 +686,24 @@ class _BoardClient:
     def me(self) -> str:
         return "u-runner"
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         return []
 
     def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
         return "Le post d'annonce, écrit la semaine dernière et relu depuis."
 
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         self.queried.append(filter_)
         wanted = (filter_ or {}).get("status", {}).get("equals")
-        return [page for page in self._pages if notion.read(page, "statut") == wanted]
+        return [page for page in self._pages if store.read(page, "statut") == wanted]
 
-    def page(self, page_id: str) -> notion.Page:
-        # The very page the pass read: what a run holds is what Notion says,
+    def page(self, page_id: str) -> store.Page:
+        # The very page the pass read: what a run holds is what the board says,
         # unless a test moves it underneath.
         for page in self._pages:
             if page.id.replace("-", "") == page_id.replace("-", ""):
                 return page
-        raise notion.NotionError(f"GET /pages/{page_id}: 404 not found")
+        raise store.StoreError(f"GET /pages/{page_id}: 404 not found")
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         self.written.append((page_id, values))
@@ -824,7 +716,7 @@ class _BoardClient:
         self.created.append((title, values or {}))
         status = (values or {}).get("statut", "")
         self._pages.append(
-            notion.Page(
+            store.Page(
                 id=page_id,
                 url="",
                 title=title,
@@ -842,15 +734,15 @@ class _BoardClient:
         return 1
 
 
-def _reviewed(page_id: str, status: str, pull_request: str | None) -> notion.Page:
+def _reviewed(page_id: str, status: str, pull_request: str | None) -> store.Page:
     properties: dict[str, Any] = {"statut": {"type": "status", "status": {"name": status}}}
     if pull_request is not None:
         properties["Pull Request"] = {"type": "url", "url": pull_request}
-    return notion.Page(id=page_id, url="", title=page_id, properties=properties)
+    return store.Page(id=page_id, url="", title=page_id, properties=properties)
 
 
 def _board_runner(
-    pages: list[notion.Page],
+    pages: list[store.Page],
     status: dict[str, str],
     options: list[str] | None = None,
     waiting: bool = False,
@@ -860,7 +752,6 @@ def _board_runner(
     runner._journals = {}
     runner.client = _BoardClient(pages, options, waiting)  # type: ignore[assignment]  # a fake: only the board
     runner.config = C.Config(
-        notion=C.Notion(),
         # No update looked for mid-pass: that is a `git fetch` of this checkout.
         # Nor the load of whatever else this machine runs: a test case asks for it.
         runner=C.Runner(auto_update=False, max_load_per_core=0),
@@ -926,7 +817,7 @@ def _github(
 
 
 def _closing(
-    pages: list[notion.Page], states: dict[str, str], status: dict[str, str]
+    pages: list[store.Page], states: dict[str, str], status: dict[str, str]
 ) -> tuple[Any, int]:
     """Run `close_merged` against a fake board and a fake GitHub."""
     runner = _board_runner(pages, status)
@@ -934,12 +825,12 @@ def _closing(
         return runner.client, runner.close_merged()
 
 
-def _in_progress(page_id: str, runner_label: str | None) -> notion.Page:
+def _in_progress(page_id: str, runner_label: str | None) -> store.Page:
     """A ticket left in progress long ago, signed by `runner_label` if given."""
     properties: dict[str, Any] = {"statut": {"type": "status", "status": {"name": "progress"}}}
     if runner_label is not None:
         properties["Agent"] = {"type": "rich_text", "rich_text": [{"plain_text": runner_label}]}
-    return notion.Page(
+    return store.Page(
         id=page_id,
         url="",
         title=page_id,
@@ -948,8 +839,8 @@ def _in_progress(page_id: str, runner_label: str | None) -> notion.Page:
     )
 
 
-def _ready(page_id: str) -> notion.Page:
-    return notion.Page(
+def _ready(page_id: str) -> store.Page:
+    return store.Page(
         id=page_id,
         url="",
         title=page_id,
@@ -966,26 +857,27 @@ class _NamelessClient:
         self.written: list[dict[str, Any]] = []
 
     def schema(self, database_id: str) -> dict[str, str]:
-        # Not "Name": the title column is called whatever Notion was told.
+        # Not "Name": the title column is called whatever the board says.
         return {"Titre": "title", "statut": "status"}
 
     def title_property(self, database_id: str) -> str:
-        return notion.Client.title_property(self, database_id)  # type: ignore[arg-type]  # the real lookup
+        schema = self.schema(database_id)
+        return next((name for name, kind in schema.items() if kind == "title"), "Name")
 
     def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
         return self._body
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         return []
 
-    def page(self, page_id: str) -> notion.Page:
+    def page(self, page_id: str) -> store.Page:
         # The ticket is held by the test, not here: a page this cannot read is
         # a status written as it always was — see `Reports._still`.
-        raise notion.NotionError(f"GET /pages/{page_id}: 404 not held by this fake")
+        raise store.StoreError(f"GET /pages/{page_id}: 404 not held by this fake")
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if self._refuse and "Titre" in values:
-            raise notion.NotionError("PATCH /pages/x: 403 insufficient permissions")
+            raise store.StoreError("PATCH /pages/x: 403 insufficient permissions")
         self.written.append(values)
 
     def comment(self, page_id: str, text: str, discussion_id: str = "") -> None:
@@ -1000,10 +892,10 @@ class _OneRepository:
 
 
 def _nameless(title: str, body: str, refuse: bool = False) -> tuple[Runner, ticket_module.Ticket]:
-    """A Runner about to prepare one ticket, with Notion replaced."""
-    page = notion.Page(
+    """A Runner about to prepare one ticket, with its board replaced."""
+    page = store.Page(
         id="3ce451680af481bc9b66f4d875f74ff5",
-        url="https://notion.so/t",
+        url="https://board.invalid/t",
         title=title,
         properties={
             "Titre": {"type": "title", "title": [{"plain_text": title}]},
@@ -1068,34 +960,6 @@ class _Clock:
 
     def __call__(self) -> float:
         return self.now
-
-
-def _run_on(
-    page: store.Store, words: str, said: str, *, ok: bool = True, page_id: str = "page"
-) -> None:
-    """One session's live report, as a run left it on the page before it came in two parts.
-
-    No run writes one any more (ticket_page.py), but the pages written before
-    still hold them: the brief skips them, and putting the page in its two
-    parts takes them away.
-    """
-    steps = "2 étapes" if words == "fr" else "2 steps"
-    title = f"✓ {steps} · 2 minutes" if ok else f"⚠️ Trace — {steps} · 2 minutes · stopped"
-    toggle = page.append_blocks(
-        page_id,
-        [
-            {
-                "object": "block",
-                "type": "toggle",
-                "toggle": {
-                    "rich_text": [
-                        {"type": "text", "text": {"content": title}, "annotations": {"bold": True}}
-                    ]
-                },
-            }
-        ],
-    )[0]
-    page.append_blocks(toggle, markdown.to_blocks(said))
 
 
 class _Fresh:
@@ -1172,11 +1036,11 @@ def _http_answering(
 class _TalkClient:
     """A page with a discussion on it, and whatever gets written back."""
 
-    def __init__(self, comments: list[notion.Comment]) -> None:
+    def __init__(self, comments: list[store.Comment]) -> None:
         self._comments = comments
         self.written: list[tuple[str, str, str]] = []
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         return list(self._comments)
 
     def comment(self, page_id: str, text: str, discussion_id: str = "") -> None:
@@ -1184,13 +1048,12 @@ class _TalkClient:
 
 
 def _bare_api(client: Any, me: str = "runner-id") -> web_api.Api:
-    """An Api with its Notion replaced, and nothing else built."""
+    """An Api with its board replaced, and nothing else built."""
     api = web_api.Api.__new__(web_api.Api)
     api._runner = _bare_runner(client)
     api._runner._me = me
     api.hub = web_live.Hub()
     api._config = C.Config(
-        notion=C.Notion(token="ntn_x", tickets_database="a" * 32),
         runner=C.Runner(),
         projects={},
         path=Path("/nowhere/config.toml"),
@@ -1199,7 +1062,6 @@ def _bare_api(client: Any, me: str = "runner-id") -> web_api.Api:
     api._stamp = (0.0, 0.0)
     api._projects = {}
     api._projects_at = 0.0
-    api._briefs = {}
     # The pictures kept in a directory of the test's own: the real one is under
     # the state directory of whoever runs the suite.
     pictures = Path(tempfile.mkdtemp())
@@ -1217,9 +1079,9 @@ class _ColumnsClient(_TalkClient):
     def forget_database(self, database: str) -> None:
         pass
 
-    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[store.Page]:
         return [
-            notion.Page(
+            store.Page(
                 id=f"{index:08d}-0000-0000-0000-000000000000",
                 url="",
                 title=f"ticket {index}",
@@ -1238,18 +1100,10 @@ class _ColumnsClient(_TalkClient):
         return ["ready", "progress", "review", "blocked", "done"]
 
 
-def _saved(body: str = "", *, notion: bool = True) -> tuple[Path, C.Config]:
-    """A configuration file on disk, and the runner's reading of it.
-
-    `notion=False` names none: the board it is read for is the database's own.
-    """
+def _saved(body: str = "") -> tuple[Path, C.Config]:
+    """A configuration file on disk, and the runner's reading of it."""
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text(
-        "# a file somebody wrote by hand\n"
-        + ('[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n' if notion else "")
-        + body,
-        encoding="utf-8",
-    )
+    path.write_text("# a file somebody wrote by hand\n" + body, encoding="utf-8")
     C.move_secrets(path)  # as a launch leaves it, see `_config`
     return path, C.load(path)
 
@@ -1273,19 +1127,19 @@ TICKET = "3ca451680af480ae9443de0b65d9abf8"
 
 
 class _AnsweringClient:
-    """A Notion that only has to remember what was written on which page."""
+    """A board that only has to remember what was written on which page."""
 
     def __init__(self, error: str = "", asked: list[str] | None = None):
         self.written: list[tuple[str, str]] = []
         self._error = error
         self._asked = asked or []
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
-        return [notion.Comment(text, "") for text in self._asked]
+    def comments(self, page_id: str) -> list[store.Comment]:
+        return [store.Comment(text, "") for text in self._asked]
 
     def comment(self, page_id: str, text: str) -> None:
         if self._error:
-            raise notion.NotionError(self._error)
+            raise store.StoreError(self._error)
         self.written.append((page_id, text))
 
 
@@ -1368,7 +1222,7 @@ def _board(language: str = "", **settings_overrides: Any) -> Iterator[ledger.Led
     that two boards of one case still share it.
     """
     with db.transaction() as connection:
-        for table in ("tickets", "ticket_comments", "ticket_after", "mirror_queue"):
+        for table in ("tickets", "ticket_comments", "ticket_after"):
             connection.execute(f"DELETE FROM {table}")
         for table in ("board_pages", "board_comments"):
             connection.execute(f"DELETE FROM {table}")
@@ -1378,165 +1232,23 @@ def _board(language: str = "", **settings_overrides: Any) -> Iterator[ledger.Led
     yield board
 
 
-class _NotionBoard:
-    """Notion reduced to a dictionary, with the surface the mirror uses.
-
-    Not a mock: it keeps pages, bodies and `last_edited_time`, because the whole
-    of the reconciliation is about which side moved and when. What it does not
-    have is a network, which is the point.
-    """
-
-    def __init__(self, context: str = "") -> None:
-        self.pages: dict[str, store.Page] = {}
-        self.bodies: dict[str, str] = {}
-        self.where: dict[str, str] = {}  # page id -> database
-        self.context = context
-        self.said: list[tuple[str, str]] = []
-        self._counter = 0
-
-    # -- the shape -----------------------------------------------------------
-
-    def resolve_database(self, identifier: str) -> str:
-        return identifier
-
-    def forget_database(self, database_id: str) -> None:
-        pass
-
-    def schema(self, database_id: str) -> dict[str, str]:
-        return store.shape(_settings())[database_id]
-
-    def options(self, database_id: str, name: str) -> list[str]:
-        return []
-
-    def title_property(self, database_id: str) -> str:
-        return "Name"
-
-    def workspace(self, settings: C.Notion) -> workspace.Workspace:
-        space = workspace.Workspace(
-            tickets="tickets",
-            projects="projects",
-            agents="agents",
-            schedules="schedules",
-            rows={"Context": "ctx"},
-            context_page="ctx",
-        )
-        space.context = self.context
-        return space
-
-    # -- reading -------------------------------------------------------------
-
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
-        return [page for page_id, page in self.pages.items() if self.where[page_id] == database_id]
-
-    def page(self, page_id: str) -> store.Page:
-        if page_id not in self.pages:
-            raise store.StoreError(f"no such page: {page_id}")
-        return self.pages[page_id]
-
-    def blocks_text(self, block_id: str, depth: int = 0, *, live: bool = True) -> str:
-        if block_id == "ctx":
-            return self.context
-        return self.bodies.get(block_id, "")
-
-    def comments(self, page_id: str) -> list[store.Comment]:
-        return []
-
-    def me(self) -> str:
-        return "notion-user"
-
-    def my_name(self) -> str:
-        return "Ponos"
-
-    # -- writing -------------------------------------------------------------
-
-    def _touch(self, page_id: str, at: str = "") -> None:
-        page = self.pages[page_id]
-        page.raw["last_edited_time"] = at or _stamp()
-
-    def create_row(
-        self, database_id: str, title: str, values: dict[str, Any] | None = None, at: str = ""
-    ) -> str:
-        self._counter += 1
-        page_id = f"{self._counter:032x}"
-        self.pages[page_id] = store.Page(
-            id=page_id,
-            url=f"https://notion.so/{page_id}",
-            title=title,
-            properties={"Name": store.written("title", title)},
-            raw={"created_time": at or _stamp(), "last_edited_time": at or _stamp()},
-        )
-        self.where[page_id] = database_id
-        self.update(database_id, page_id, values or {}, at=at)
-        return page_id
-
-    def update(self, database_id: str, page_id: str, values: dict[str, Any], at: str = "") -> None:
-        page = self.pages[page_id]
-        schema = self.schema(database_id)
-        for name, value in values.items():
-            if name == "Name":
-                page.title = str(value)
-            shape = store.written(schema.get(name, "rich_text"), value)
-            if shape is not None:
-                page.properties[name] = shape
-        self._touch(page_id, at)
-
-    def append_markdown(self, page_id: str, markdown: str, at: str = "") -> int:
-        if page_id == "ctx":
-            self.context = f"{self.context}\n\n{markdown}".strip()
-            return 1
-        self.bodies[page_id] = f"{self.bodies.get(page_id, '')}\n\n{markdown}".strip()
-        self._touch(page_id, at)
-        return 1
-
-    def replace_markdown(self, page_id: str, markdown: str, at: str = "") -> int:
-        if page_id == "ctx":
-            self.context = markdown.strip()
-            return 1
-        self.bodies[page_id] = markdown.strip()
-        self._touch(page_id, at)
-        return 1
-
-    def replace_section(
-        self, page_id: str, titles: Sequence[str], markdown: str, at: str = ""
-    ) -> int:
-        lines = self.bodies.get(page_id, "").splitlines()
-        cut = next(
-            (at for at, line in enumerate(lines) if ticket_page.is_heading(line, titles)),
-            len(lines),
-        )
-        above = "\n".join(lines[:cut]).strip()
-        return self.replace_markdown(page_id, f"{above}\n\n{markdown}".strip(), at)
-
-    def comment(self, page_id: str, text: str, discussion_id: str = "") -> None:
-        self.said.append((page_id, text))
-
-    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
-        return []
-
-    def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
-        pass
-
-
 def _stamp() -> str:
-    """The fake Notion's clock: the real one, to the microsecond.
+    """The doubles' clock: the real one, to the microsecond.
 
-    To the microsecond because that is the resolution the reconciliation reads
-    both sides at — two writes in the same second would otherwise be one write
-    as far as it could tell, and a conflict test would pass by accident.
+    To the microsecond because two writes in the same second would otherwise be
+    one write as far as a reader could tell, and a conflict test would pass by
+    accident.
     """
     return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
 def _local_api(board: ledger.Ledger) -> web_api.Api:
-    """An Api reading a board without Notion, and nothing else built.
+    """An Api reading a board in `ponos.db`, and nothing else built.
 
-    The same shape `_bare_api` builds, with the store swapped: these panes
-    exist to be usable on an installation where there is no integration to ask
-    anything of.
+    The same shape `_bare_api` builds, with the store swapped for the real one.
     """
     api = _bare_api(board, me=board.me())
     api._config = C.Config(
-        notion=C.Notion(),
         runner=C.Runner(),
         projects={},
         path=Path("/nowhere/config.toml"),
@@ -1545,7 +1257,7 @@ def _local_api(board: ledger.Ledger) -> web_api.Api:
     runner = api._runner
     assert runner is not None  # `_bare_api` built it
     runner.config = api._config
-    runner._workspace = board.workspace(api._config.notion)
+    runner._workspace = board.workspace(api._config.board)
     # Where a project's clone is looked for, for the page that says it.
     runner.resolver = projects.Resolver(api._config.runner.workspace_root, {})
     # What `state()` folds in and nothing here exercises: the chat and the
@@ -1556,7 +1268,7 @@ def _local_api(board: ledger.Ledger) -> web_api.Api:
 
 
 def _ideas_api(board: ledger.Ledger) -> web_api.Api:
-    """A console on a board without Notion, ready to find and keep ideas."""
+    """A console on a board in `ponos.db`, ready to find and keep ideas."""
     api = _local_api(board)
     api._schema_at = time.time()
     api._reader = web_board.Reader(journal=lambda report: None)

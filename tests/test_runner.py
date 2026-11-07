@@ -23,7 +23,7 @@ from support import (
 )
 
 from ponos import config as C
-from ponos import credits, github_checks, notion, projects, scheduler, state, store, workspace
+from ponos import credits, github_checks, projects, scheduler, state, store, workspace
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
 from ponos.web import board as web_board
@@ -38,7 +38,7 @@ def _client(runner: Runner) -> _BoardClient:
 
 @case
 def a_template_only_body_counts_as_blank() -> None:
-    """A Notion template fills a new page with empty headings.
+    """A template fills a new page with empty headings.
 
     They are not blank text, so without this they would travel into the prompt
     as noise and stop the "everything is in the title" fallback from firing.
@@ -526,7 +526,7 @@ def a_pass_stops_filling_places_once_the_credits_run_out(state_home: Path) -> No
     assert len(results) == 1
 
 
-def _moved(page: notion.Page, status: str) -> None:
+def _moved(page: store.Page, status: str) -> None:
     """The page's status, changed the way a person or a run changes it."""
     page.properties["statut"] = {"type": "status", "status": {"name": status}}
 
@@ -609,7 +609,7 @@ def a_ticket_played_by_this_pass_then_made_ready_again_is_played_again(state_hom
 @case
 def a_ticket_still_in_a_session_of_this_pass_is_not_run_beside_it(state_home: Path) -> None:
     """A live claim. Moved back to ready while its session runs — or served as
-    ready by a Notion that has not caught up — the ticket waits for that
+    ready by a board that has not caught up — the ticket waits for that
     session, says why on its card, and is played again once it is over."""
     runs: list[str] = []
     flying = peak = 0
@@ -691,9 +691,9 @@ def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home:
     )
     read = runner.client.query
 
-    def query(database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         if database_id == "db-schedules":
-            raise notion.NotionError("POST /databases/db-schedules/query: 404 object_not_found")
+            raise store.StoreError("POST /databases/db-schedules/query: 404 object_not_found")
         return read(database_id, filter_)
 
     runner.client.query = query  # type: ignore[method-assign]  # a double: the schedules answer 404
@@ -706,7 +706,7 @@ def a_schedules_database_that_answers_404_does_not_hold_the_queue_up(state_home:
     assert any("404" in line for line in said), said
 
     # A network that is down is still the pass's own business: it stops.
-    def unreachable(database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def unreachable(database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         raise store.Unreachable("POST /databases/db-schedules/query: no DNS answer")
 
     runner.client.query = unreachable  # type: ignore[method-assign]  # a double: no network
@@ -751,7 +751,7 @@ def a_pass_on_overloaded_cores_claims_no_ticket_and_says_so_once(state_home: Pat
 
 @case
 def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_home: Path) -> None:
-    """One page Notion will not write leaves the others to be put right."""
+    """One page the board will not write leaves the others to be put right."""
     stale = "2020-01-01T00:00:00+00:00"
     first, second = _in_progress("p-a", None), _in_progress("p-b", None)
     first.raw["last_edited_time"] = second.raw["last_edited_time"] = stale
@@ -760,7 +760,7 @@ def a_ticket_that_refuses_a_write_does_not_stop_the_sweep_or_the_closing(state_h
 
     def update(database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if page_id == "p-a":
-            raise notion.NotionError(f"PATCH /pages/{page_id}: 403 restricted_resource")
+            raise store.StoreError(f"PATCH /pages/{page_id}: 403 restricted_resource")
         written(database_id, page_id, values)
 
     runner.client.update = update  # type: ignore[method-assign]  # a double: one page refused
@@ -813,7 +813,7 @@ def a_ready_card_always_says_what_it_is_waiting_for() -> None:
 # -- a validated ticket never waits for a session ----------------------------
 
 
-def _long_runner(pages: list[notion.Page]) -> Runner:
+def _long_runner(pages: list[store.Page]) -> Runner:
     """A runner whose tickets are prepared for free and run for as long as asked."""
     runner = _board_runner(pages, {})
     # The cadence the pass looks at the board on, made a test's length.

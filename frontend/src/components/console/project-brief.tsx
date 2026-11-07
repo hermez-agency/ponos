@@ -180,7 +180,7 @@ function BriefEditor({
     <div className="flex flex-col gap-3" data-slot="project-brief-editor">
       {conflict ? (
         <Alert variant="destructive">
-          <AlertTitle>{t("This brief changed in Notion since you opened it.")}</AlertTitle>
+          <AlertTitle>{t("This brief changed on the board since you opened it.")}</AlertTitle>
           <AlertDescription>
             <p>{t("Saving would overwrite that. Reload it to see the new version — what you typed here is dropped.")}</p>
             <Button variant="outline" size="sm" className="mt-2" onClick={() => void reload()}>
@@ -237,7 +237,7 @@ function BriefEditor({
   )
 }
 
-/** What a kind of loss is called, as the page would say it. A block type nobody named is shown as Notion spells it. */
+/** What a kind of loss is called, as the page would say it. A kind nobody named is shown as the server spells it. */
 function lostName(kind: string, t: (key: string) => string): string {
   const names: Record<string, string> = {
     formatting: t("bold, italic and colours"),

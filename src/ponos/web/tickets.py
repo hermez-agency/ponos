@@ -1,12 +1,12 @@
 """The board and its tickets: reading them, opening one, writing one, moving one.
 
 The chapter the console is mostly made of, and the one that holds the board to
-Notion's word: a card is a row of the tickets database read as the runner reads
+the board's word: a card is a row of the tickets database read as the runner reads
 it, a ticket opened is its page flattened as a session would be given it, and
 a move is a write queued for the same page — `board.py` says why it waits in a
 queue rather than in the browser. Which columns are drawn, which choices a new
 ticket is offered and which gestures a card offers are all read off the board
-itself: a button for a column Notion does not have is a button that fails.
+itself: a button for a column the board does not have is a button that fails.
 """
 
 from __future__ import annotations
@@ -33,7 +33,6 @@ from .. import (
     journal,
     models,
     preview,
-    provision,
     session,
     state,
     stopping,
@@ -49,16 +48,16 @@ from .. import kinds as kinds_module
 from .. import priority as priority_module
 from .. import tickets as tickets_module
 from .. import transitions as transitions_module
-from ..config import Notion, state_dir
+from ..config import BoardNames, state_dir
 from ..schedules import scheduled_for
 from ..ticket import short_id
 from . import board as board_module
 from . import live
 from .base import Base
 
-# And the board's own shape on the same cadence, for the same reason: the Notion
+# And the board's own shape on the same cadence, for the same reason: the board
 # client caches a database for its lifetime, which for the console is days. A
-# column added in Notion — the validated one, most of all — has to appear
+# column added on the board — the validated one, most of all — has to appear
 # without anyone restarting anything.
 SCHEMA_TTL = 600
 
@@ -69,13 +68,6 @@ logger = logging.getLogger(__name__)
 # taken down: a minute covers a slow one, and a run that is not there costs
 # nothing because it is not waited for.
 STOP_WAIT_SECONDS = 60
-
-
-# How many ticket pages are kept, read, while their `last_edited_time` holds.
-# A ticket's page is a dozen block requests away — one to three seconds — and
-# opening a ticket read it again every time. Enough for every ticket somebody
-# opens in a day; the oldest goes first.
-BRIEFS = 200
 
 
 # The columns, in the order they are meant to be read. Anything the board
@@ -157,7 +149,7 @@ class Tickets(Base):
 
         With a `max_age`, the board last drawn is handed out again while it is
         younger than that and no write from the console came after it. The
-        watcher reads Notion every `poll_seconds` anyway; a page asking for the
+        watcher reads the board every `poll_seconds` anyway; a page asking for the
         board, its goals and its statistics meanwhile was three more queries of
         the same database, and every run, the whole history and the sync
         journal read again to dress the same cards. And one reader at a time:
@@ -185,7 +177,7 @@ class Tickets(Base):
         """The board `/api/board` answers: the one the console holds, at once.
 
         Measured on a board of 2 110 tickets: fourteen seconds to read it whole
-        from Notion, at the start and whenever nobody had a page open for the
+        from the board, at the start and whenever nobody had a page open for the
         watcher's period — the board drawn last was then read again under the
         request. So the one held is answered whatever its age, and read again
         behind the answer once older than the watcher's period; a console that
@@ -253,9 +245,8 @@ class Tickets(Base):
             logger.warning("board: could not keep the board for the next start: %s", error)
 
     def _board_of(self) -> list[str]:
-        """Which board this is, as the configuration names it: nothing to ask Notion at the start."""
-        notion = self.config.notion
-        return [str(self.config.standalone), notion.workspace, notion.tickets_database]
+        """Which board this is: `ponos.db`, whatever the configuration says."""
+        return ["ponos.db"]
 
     def _kept_board(self) -> dict[str, Any] | None:
         """The board kept by the last `_keep`, when it is this version's, of this board."""
@@ -274,7 +265,7 @@ class Tickets(Base):
         return board
 
     def _draw(self) -> dict[str, Any]:
-        settings = self.config.notion
+        settings = self.config.board
         try:
             if time.time() - self._schema_at > SCHEMA_TTL:
                 self.runner.client.forget_database(self.runner.database)
@@ -315,7 +306,7 @@ class Tickets(Base):
 
         # Whether this board has a validated column at all. The console offers
         # the gesture only where the runner would honour it: a button that
-        # writes a status Notion does not know is a button that fails.
+        # writes a status the board does not know is a button that fails.
         validated = settings.state("validated")
         try:
             offers = validated not in (
@@ -377,7 +368,7 @@ class Tickets(Base):
     def _choices(self) -> dict[str, list[dict[str, Any]]]:
         """What a new ticket may be given beside its title: type, sub-type, model.
 
-        Only the columns this board has. A select offered for a column Notion
+        Only the columns this board has. A select offered for a column the board
         does not carry is a value silently dropped on the way in — the form
         would be promising what the board cannot keep. The runner's own words
         come first, because they are the ones it acts on (`MODELS` is what
@@ -385,7 +376,7 @@ class Tickets(Base):
         is one of the four, written as the board spells it. The priority is not
         a choice but a score: see `_scored`.
         """
-        settings = self.config.notion
+        settings = self.config.board
         client, database = self.runner.client, self.runner.database
         try:
             schema = client.schema(database)
@@ -398,9 +389,7 @@ class Tickets(Base):
                 offered = client.options(database, name)
             except store.StoreError:
                 offered = []
-            values = list(
-                dict.fromkeys([*provision.MODELS, *(value for value in offered if value)])
-            )
+            values = list(dict.fromkeys([*store.MODELS, *(value for value in offered if value)]))
             choices["model"] = [{"value": value, "label": value} for value in values]
         if settings.prop("type") in schema:
             choices["type"] = [
@@ -434,7 +423,7 @@ class Tickets(Base):
             schema = self.runner.client.schema(self.runner.database)
         except store.StoreError:
             return False
-        return self.config.notion.prop("priority") in schema
+        return self.config.board.prop("priority") in schema
 
     def estimate(
         self, project_id: str, kind: str, subtype: str = "", model: str = ""
@@ -464,12 +453,12 @@ class Tickets(Base):
         The timer is asked of systemd only when a card needs it: three
         `systemctl` calls at every reading of the board would be most of it.
         What a ticket comes after is read off the board just read, as the
-        runner reads it (see dependencies.py): no page asked of Notion.
+        runner reads it (see dependencies.py): no page asked of the board.
         """
         ready = [ticket for ticket in tickets if ticket.get("column") == "ready"]
         if not ready:
             return
-        settings = self.config.notion
+        settings = self.config.board
         known = {ids.bare(page.id): page for page in pages}
         after = {
             key: dependencies.said(
@@ -513,7 +502,7 @@ class Tickets(Base):
         goals: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """One page of the tickets database, as a card reads it."""
-        settings = self.config.notion
+        settings = self.config.board
         status = str(store.read(page, settings.prop("status")) or "")
         relation = store.read(page, settings.prop("project")) or []
         project = projects.get(relation[0]) if relation else None
@@ -527,7 +516,7 @@ class Tickets(Base):
         return {
             "id": page.id.replace("-", ""),
             "short": short_id(page.id),
-            # Empty when Notion has none: "(untitled ticket)" is the console's to
+            # Empty when the board has none: "(untitled ticket)" is the console's to
             # say, in the language it is read in.
             "title": page.title,
             "url": page.url,
@@ -579,12 +568,11 @@ class Tickets(Base):
         the same page the ticket's discussion hangs off, so a console showing
         both is showing one thing.
         """
-        settings = self.config.notion
+        settings = self.config.board
         names = _columns(settings)
-        started = time.time()
         try:
             page = self.runner.client.page(page_id)
-            content = self._brief(page_id, page, started)
+            content = self.runner.client.blocks_text(page_id, live=False)
         except store.Missing as error:
             # Deleted, or never shared with the integration: the board's own
             # words name both, in English, and belong in the journal.
@@ -642,48 +630,6 @@ class Tickets(Base):
             "previews": preview.listing(page_id),
         }
 
-    def attachment(self, block_id: str) -> str:
-        """Where a picture or a file on a page is, asked when it is opened.
-
-        A page's text names its files by block (`markdown.attached`) and the
-        console draws each one from `/api/files/<block>`, which sends the
-        browser on to this. Read again at every opening rather than kept like a
-        project's cover: a brief's capture is looked at once, and a fresh
-        address is one call — where an address kept an hour is a 403.
-        """
-        return self.runner.client.attachment(block_id.replace("-", ""))
-
-    def _brief(self, page_id: str, page: store.Page, started: float) -> str:
-        """What a ticket's page says, read again only once Notion says it changed.
-
-        The row costs one request and says when the page was last touched; the
-        blocks cost one per block that has children. So the row is read every
-        time, and the blocks only when its `last_edited_time` moved — an edit
-        anywhere in the page moves it.
-
-        Notion gives that time to the minute. A page read during the minute it
-        was edited in could be edited again in the same minute without its time
-        moving, so what is read then is not kept: only a read begun after the
-        edit's minute is over is. A board without Notion is not kept at all — its
-        page is a local read.
-        """
-        key = page_id.replace("-", "")
-        edited = str(page.raw.get("last_edited_time") or "")
-        held = self._briefs.get(key)
-        if held and held[0] == edited:
-            return held[1]
-        content = self.runner.client.blocks_text(page_id, live=False)
-        moment = timestamps.parse(edited)
-        stamp = None if moment is None else moment.timestamp()
-        if not self.config.standalone and stamp is not None and started >= stamp + 60:
-            self._briefs.pop(key, None)
-            self._briefs[key] = (edited, content)
-            while len(self._briefs) > BRIEFS:
-                self._briefs.pop(next(iter(self._briefs)))
-        return content
-
-    # -- writing --------------------------------------------------------------
-
     def create_ticket(
         self,
         title: str,
@@ -709,7 +655,7 @@ class Tickets(Base):
         subtype = subtype.strip()
         if subtype and subtype not in subtypes.KEYS:
             raise ValueError(f"unknown sub-type “{subtype}”")
-        settings = self.config.notion
+        settings = self.config.board
         values: dict[str, Any] = {}
         # Ready means "start it now"; anything else means the ticket is being
         # written, and goes to the drafts, which the runner never picks up.
@@ -725,7 +671,7 @@ class Tickets(Base):
         if self._scored():
             values[settings.prop("priority")] = self.runner.priority_cell(score)
         # Each one left out when it is not said: an empty type is the runner's
-        # to classify before the ticket runs, as on a ticket written in Notion.
+        # to classify before the ticket runs, as on a ticket written on the board.
         if kind:
             values[settings.prop("type")] = self.runner.kind_name(kind)
         # Ignored on a ticket of another type, as on the board — but written:
@@ -758,7 +704,7 @@ class Tickets(Base):
         status moving under a card, and a prompt is a value nobody else is
         writing at the same time.
         """
-        settings = self.config.notion
+        settings = self.config.board
         name = settings.prop("on")
         if name not in self.runner.client.schema(self.runner.database):
             raise ValueError(f"this board has no “{name}” column: run `ponos init` to add it")
@@ -775,13 +721,13 @@ class Tickets(Base):
         """
         score = priority_module.given(priority)
         if not self._scored():
-            name = self.config.notion.prop("priority")
+            name = self.config.board.prop("priority")
             raise ValueError(f"this board has no “{name}” column to write a priority in")
         client = self.runner.client
         client.update(
             self.runner.database,
             page_id,
-            {self.config.notion.prop("priority"): self.runner.priority_cell(score)},
+            {self.config.board.prop("priority"): self.runner.priority_cell(score)},
         )
         self.reader.hold(client.page(page_id))
         self.watch.nudge()
@@ -830,16 +776,16 @@ class Tickets(Base):
         return {"status": "started", "message": "no daemon — run by a process of its own"}
 
     def set_status(self, page_id: str, key: str, seen: str | None = None) -> dict[str, Any]:
-        """Move a ticket: queued now, in Notion as soon as Notion takes it.
+        """Move a ticket: queued now, on the board as soon as it takes it.
 
         `seen` is the status the card showed when it was moved. A page that says
-        anything else by the time the write goes out was moved in Notion
+        anything else by the time the write goes out was moved on the board
         meanwhile, and is left as it is — see `board.send`. A caller that does
         not say is taken to mean the status the console last read.
         """
-        if key not in _keys(self.config.notion):
+        if key not in _keys(self.config.board):
             raise ValueError(f"unknown column “{key}”")
-        settings = self.config.notion
+        settings = self.config.board
         # A ticket in progress has a session: moving it to paused or cancelled
         # ends that session first, and the worktree is kept or removed with it.
         # Writing the status alone would leave the session going on.
@@ -851,7 +797,7 @@ class Tickets(Base):
 
     def _move(self, page_id: str, key: str, seen: str | None) -> dict[str, Any]:
         """The write of `set_status`, queued: once the board is known to take it."""
-        settings = self.config.notion
+        settings = self.config.board
         if key == "paused" and not self._pauses():
             raise ValueError(
                 f"this board has no “{settings.state('paused')}” option to pause a ticket into"
@@ -885,7 +831,7 @@ class Tickets(Base):
         not going, answers nothing: nobody is waited for, and the worktree is
         dealt with all the same — which is why this is not left to the run.
         """
-        settings = self.config.notion
+        settings = self.config.board
         key = "paused" if action == "pause" else "cancelled"
         if key == "paused" and not self._pauses():
             raise ValueError(
@@ -926,12 +872,12 @@ class Tickets(Base):
     def _status_of(self, page_id: str) -> str:
         """The status the console last read a ticket in, or "" when it holds none."""
         held = self.reader.get(page_id)
-        return str(store.read(held, self.config.notion.prop("status")) or "") if held else ""
+        return str(store.read(held, self.config.board.prop("status")) or "") if held else ""
 
     def _send(self, write: board_module.Write) -> store.Page:
         """One attempt at one queued move, and the page it left, held."""
         page = board_module.send(
-            self.runner.client, self.runner.database, self.config.notion.prop("status"), write
+            self.runner.client, self.runner.database, self.config.board.prop("status"), write
         )
         self.reader.hold(page)
         return page
@@ -962,7 +908,7 @@ class Tickets(Base):
     def _has(self, key: str) -> bool:
         """Whether the board has the column a setting names."""
         try:
-            return self.config.notion.prop(key) in self.runner.client.schema(self.runner.database)
+            return self.config.board.prop(key) in self.runner.client.schema(self.runner.database)
         except store.StoreError:
             return False
 
@@ -1007,7 +953,7 @@ def _session_id(value: str) -> str:
     return value
 
 
-def _columns(settings: Notion) -> dict[str, str]:
+def _columns(settings: BoardNames) -> dict[str, str]:
     """Which column each status is drawn in.
 
     A status none of them names — or none at all — is a draft as well: the
@@ -1019,7 +965,7 @@ def _columns(settings: Notion) -> dict[str, str]:
     return names
 
 
-def _keys(settings: Notion) -> tuple[str, ...]:
+def _keys(settings: BoardNames) -> tuple[str, ...]:
     """The columns this board draws: the drafts, then the runner's.
 
     A ticket with no status is a draft, so the drafts are always the first
@@ -1053,7 +999,7 @@ def _notes(tickets: list[dict[str, Any]]) -> None:
 
     The « Progress » cell says what the last pass made of the ticket — a merge
     refused, put off, a base that is red — and nothing empties it when you move
-    the ticket back to ready, in Notion or here. A ready or draft card waits
+    the ticket back to ready, on the board or here. A ready or draft card waits
     for a run nobody has started: the line is the last one's, and drawn there
     it says two states at once. The ticket's page still shows it, as history.
     """
@@ -1075,7 +1021,7 @@ def _times(tickets: list[dict[str, Any]]) -> None:
         )
 
 
-def _estimates(tickets: list[dict[str, Any]], settings: Notion) -> None:
+def _estimates(tickets: list[dict[str, Any]], settings: BoardNames) -> None:
     """What every ready card is likely to cost and take, from the journal in one read.
 
     On a draft too where one card is read — the ticket's page, opened before
@@ -1096,7 +1042,7 @@ def _estimates(tickets: list[dict[str, Any]], settings: Notion) -> None:
         )
 
 
-def _subtype(page: store.Page, settings: Notion) -> str:
+def _subtype(page: store.Page, settings: BoardNames) -> str:
     """A ticket's sub-type, from its column — or, on a code ticket, its title's prefix.
 
     The prefix is what the runner would have written, and what an old ticket
@@ -1139,6 +1085,6 @@ def _phases(tickets: list[dict[str, Any]]) -> None:
         ticket["phase"] = {"key": row[0], "detail": row[1], "since": row[2]} if row else None
 
 
-def _status(settings: Notion, key: str) -> str:
+def _status(settings: BoardNames, key: str) -> str:
     """What a column writes: the board's word for it."""
     return settings.state(key)

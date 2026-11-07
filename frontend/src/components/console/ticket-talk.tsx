@@ -65,7 +65,7 @@ const REREAD = 20_000
  * answered: a reply under the question a run asked puts the ticket back in the
  * queue, and one that names the runner asks it for words instead. So there is
  * nothing new to learn here, and nothing kept on the side: the discussion is
- * Notion's, and the same words typed into Notion do the same.
+ * the ticket's own comments.
  *
  * It used to be behind the bubble, which changed role on a ticket's page and
  * said so nowhere: a question waiting on you was a question you had to guess

@@ -4,8 +4,8 @@ import { expect, test, type Page } from "@playwright/test"
  * from the dialog — two columns, the brief on the left and the settings on the
  * right — and is either launched or kept as a draft.
  *
- * The three used to be set in Notion afterwards, by hand. The board here is
- * Markdown, which has every column: all three are offered. What is sent is
+ * The three used to be set afterwards, by hand. The board here has every
+ * column: all three are offered. What is sent is
  * caught on its way out rather than written, so the board the other tests read
  * keeps the tickets it was made with.
  */

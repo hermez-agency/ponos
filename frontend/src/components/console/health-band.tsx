@@ -39,11 +39,11 @@ import { ConfirmDialog } from "./confirm-dialog"
  * kept with the browser, the band's like the CI block's of a ticket.
  *
  * Each failing check says what is wrong, why it likely is, and then one of two
- * things. Where Ponos can mend it itself (a property missing on the Notion
- * board) a "Configure" button opens a window naming what will change, and
- * nothing is changed until it is confirmed. Where it cannot (the integration
- * has to be shared from Notion's own menu), the exact steps come with the link
- * to do them from.
+ * things. Where Ponos can mend it itself (a clone whose default branch is not
+ * known) a "Configure" button opens a window naming what will change, and
+ * nothing is changed until it is confirmed. Where it cannot (the GitHub App
+ * has to be installed from GitHub's own pages), the exact steps come with the
+ * link to do them from.
  */
 
 const OPEN_KEY = "ponos-health-open"

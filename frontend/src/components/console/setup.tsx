@@ -8,7 +8,6 @@ import { Diagnosis as DiagnosisCard, ServiceLog as ServiceLogCard } from "@/comp
 import { GithubStep } from "@/components/console/setup/github-step"
 import { KnownContext, type Known } from "@/components/console/setup/known"
 import { LanguageStep } from "@/components/console/setup/language-step"
-import { NotionStep } from "@/components/console/setup/notion-step"
 import { ProjectStep } from "@/components/console/setup/project-step"
 import { ProviderStep } from "@/components/console/setup/provider-step"
 import { Stepper } from "@/components/console/setup/stepper"
@@ -190,8 +189,6 @@ function Steps() {
             />
           ) : step === "provider" ? (
             <ProviderStep container={state.container} onNext={forward} />
-          ) : step === "notion" ? (
-            <NotionStep onNext={forward} />
           ) : step === "github" ? (
             <GithubStep container={state.container} onNext={forward} />
           ) : step === "project" ? (

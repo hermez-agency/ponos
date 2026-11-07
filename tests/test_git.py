@@ -26,7 +26,7 @@ from support import (
     case,
 )
 
-from ponos import db, github_checks, journal, notion, projects, state, voice, workspace
+from ponos import db, github_checks, journal, projects, state, store, voice, workspace
 from ponos import git as git_module
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
@@ -108,9 +108,9 @@ def _one(commands: list[list[str]], prefix: list[str]) -> list[str]:
     return found[0]
 
 
-def _aged_page(page_id: str, status: str, edited_days_ago: float) -> notion.Page:
+def _aged_page(page_id: str, status: str, edited_days_ago: float) -> store.Page:
     edited = datetime.now(UTC) - timedelta(days=edited_days_ago)
-    return notion.Page(
+    return store.Page(
         id=page_id,
         url="",
         title=page_id,
@@ -122,17 +122,17 @@ def _aged_page(page_id: str, status: str, edited_days_ago: float) -> notion.Page
 class _BoardOf:
     """A board that answers one query — every ticket — and nothing else."""
 
-    def __init__(self, pages: list[notion.Page], error: str = "") -> None:
+    def __init__(self, pages: list[store.Page], error: str = "") -> None:
         self._pages = pages
         self._error = error
 
-    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(self, database_id: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         if self._error:
-            raise notion.NotionError(self._error)
+            raise store.StoreError(self._error)
         return self._pages
 
 
-def _tidying(pages: list[notion.Page], body: str = "", error: str = "", **constants: Any) -> Runner:
+def _tidying(pages: list[store.Page], body: str = "", error: str = "", **constants: Any) -> Runner:
     runner = _bare_runner(_BoardOf(pages, error))
     runner.config = _config(body, **constants)
     runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
@@ -1503,7 +1503,7 @@ def _red_base(*, names: tuple[str, ...] = ("frontend",)) -> AbstractContextManag
 
 
 def _forced_on_red_base(
-    runner: Runner, page: notion.Page, url: str
+    runner: Runner, page: store.Page, url: str
 ) -> tuple[tuple[str, bool], list[str]]:
     from types import SimpleNamespace
 

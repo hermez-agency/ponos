@@ -9,8 +9,8 @@
  *
  * Everything is done on the board the console already holds: the stream sends
  * every ticket, so a search is a filter over what is on the page, as fast as a
- * key. The brief is the one thing the board does not carry — it is a page of
- * blocks Notion sends one request at a time — so it is not searched; the
+ * key. The brief is the one thing the board does not carry — it is read one
+ * page at a time — so it is not searched; the
  * runner's line on the card (`progress`, the RESULT a run ended with) is, and
  * says what the brief came to.
  */
@@ -122,7 +122,7 @@ export function terms(text: string): string[] {
 }
 
 /* A ticket named by what identifies it: the 32 characters of its page, which a
- * pasted Notion address ends with, or the eight of its short id, which a
+ * pasted console address ends with, or the eight of its short id, which a
  * branch (`ticket/…-d05cddf6`), a worktree and a card all end with. Pasted
  * whole, these find the one ticket rather than every title with "ticket" in it. */
 function identifier(text: string): { id?: string; short?: string } {

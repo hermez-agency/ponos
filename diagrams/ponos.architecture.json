@@ -3,13 +3,13 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "ponos",
-    "subtitle": "Your Notion tickets, played by Claude Code",
+    "subtitle": "Your tickets, played by Claude Code",
     "locale": "en",
     "output": "../diagrams/architecture.html",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/hermez-agency/ponos",
-      "revision": "6e118c6fb03db6ec52b005c1b7a188bf736d3b14"
+      "revision": "0a429a2642d5032a992bb8dbbd58e5e144851b0e"
     },
     "views": [
       {
@@ -17,7 +17,7 @@
         "label": "One pass",
         "focus": [
           "timer",
-          "notion",
+          "board",
           "runner",
           "state"
         ],
@@ -42,7 +42,7 @@
           "runner",
           "prompt",
           "session",
-          "notion"
+          "board"
         ],
         "note": "No repository: the session writes ANSWER.md and the runner publishes it into the page itself."
       },
@@ -50,7 +50,7 @@
         "id": "validated",
         "label": "Validated",
         "focus": [
-          "notion",
+          "board",
           "runner",
           "github",
           "session"
@@ -64,7 +64,7 @@
           "runner",
           "channels",
           "console",
-          "notion"
+          "board"
         ],
         "note": "A question on your phone, a console on loopback, and both answer back onto the ticket."
       }
@@ -139,11 +139,10 @@
       ]
     },
     {
-      "id": "notion",
-      "type": "external",
-      "label": "Notion board",
-      "sublabel": "the whole board",
-      "brand": "notion",
+      "id": "board",
+      "type": "database",
+      "label": "Board",
+      "sublabel": "ponos.db",
       "row": 1,
       "col": 0,
       "size": [
@@ -152,8 +151,8 @@
       ],
       "sources": [
         {
-          "path": "src/ponos/notion.py",
-          "label": "the API client"
+          "path": "src/ponos/store.py",
+          "label": "the board's shape"
         }
       ]
     },
@@ -172,7 +171,7 @@
       "sources": [
         {
           "path": "src/ponos/runner.py",
-          "line": 1664,
+          "line": 84,
           "label": "tick()"
         }
       ]
@@ -313,7 +312,7 @@
     },
     {
       "id": "board-to-runner",
-      "from": "notion",
+      "from": "board",
       "to": "runner",
       "label": "Ready tickets",
       "variant": "emphasis"
@@ -321,7 +320,7 @@
     {
       "id": "runner-to-board",
       "from": "runner",
-      "to": "notion",
+      "to": "board",
       "label": "claims, narrates, reports back",
       "fromSide": "top",
       "toSide": "top",
@@ -386,7 +385,7 @@
     {
       "id": "answer-back",
       "from": "channels",
-      "to": "notion",
+      "to": "board",
       "label": "your one word, as a comment",
       "variant": "emphasis"
     },
@@ -432,7 +431,7 @@
       "items": [
         "Sessions, logs and the run lock live under ~/.local/state",
         "The console binds to loopback unless a token says otherwise",
-        "Only Notion, GitHub and your chosen channel are reached outward"
+        "Only Claude, GitHub and your chosen channel are reached outward"
       ]
     }
   ]

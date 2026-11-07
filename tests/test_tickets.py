@@ -1,4 +1,4 @@
-"""`tickets.py`: the ticket as `ponos.db` keeps it, and the queue the mirror reads."""
+"""`tickets.py`: the ticket as `ponos.db` keeps it."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def a_ticket_is_written_and_read_back_with_its_two_parts(state_home: Path) -> No
 @case
 def a_given_id_is_kept_without_dashes_and_not_taken_twice(state_home: Path) -> None:
     page = "41045168-0af4-81b9-9f5b-fda109a9e5f9"
-    made = tickets.create("T", id=page, notion="https://notion/x")
+    made = tickets.create("T", id=page)
     assert made.id == page.replace("-", "")
     try:
         tickets.create("T", id=page)
@@ -47,34 +47,13 @@ def an_unknown_status_or_column_is_refused(state_home: Path) -> None:
 
 
 @case
-def every_change_is_queued_once_and_only_when_it_changes(state_home: Path) -> None:
-    ticket = tickets.create("T", status="ready")
-    assert [c.what for c in tickets.pending()] == ["created"]
-    tickets.update(ticket.id, status="progress")
-    tickets.update(ticket.id, status="progress")
-    tickets.update(ticket.id, cost=0.5, progress="écrit")
-    queue = tickets.pending()
-    assert [c.what for c in queue] == ["created", "status", "fields"]
-    assert queue[2].payload == {"fields": ["cost", "progress"]}
+def a_change_moves_the_edit_date_only_when_it_changes_something(state_home: Path) -> None:
+    ticket = tickets.create("T", status="ready", edited_at="2026-01-01T00:00:00+00:00")
+    same = tickets.update(ticket.id, status="ready")
+    assert same is not None and same.edited_at == ticket.edited_at
+    moved = tickets.update(ticket.id, status="progress", cost=0.5)
+    assert moved is not None and moved.edited_at != ticket.edited_at and moved.cost == 0.5
     assert tickets.update("0" * 32, title="x") is None
-
-
-@case
-def a_ticket_born_from_a_page_is_not_queued_as_created(state_home: Path) -> None:
-    tickets.create("T", id="a" * 32, notion="https://notion/a")
-    assert tickets.pending() == []
-
-
-@case
-def the_queue_keeps_what_notion_did_not_take(state_home: Path) -> None:
-    ticket = tickets.create("T")
-    (first,) = tickets.pending()
-    tickets.failed(first.id, "502")
-    (again,) = tickets.pending()
-    assert (again.tries, again.error) == (1, "502")
-    tickets.sent(first.id)
-    assert tickets.pending() == []
-    assert tickets.get(ticket.id) is not None, "the ticket does not depend on Notion"
 
 
 @case
@@ -100,7 +79,7 @@ def comments_follow_their_ticket_and_leave_with_it(state_home: Path) -> None:
     ticket = tickets.create("T")
     note = tickets.comment(ticket.id, "oui", author="Léa")
     assert [(c.text, c.author) for c in tickets.comments(ticket.id)] == [("oui", "Léa")]
-    assert note.id and tickets.pending()[-1].what == "comment"
+    assert note.id
     assert tickets.delete(ticket.id) is True
     assert tickets.comments(ticket.id) == [] and tickets.delete(ticket.id) is False
     try:

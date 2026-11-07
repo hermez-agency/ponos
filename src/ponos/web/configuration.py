@@ -370,8 +370,6 @@ class Configuration(Base):
         return {
             "text": space.context,
             "page": space.context_page,
-            "where": self.config.notion.page("context"),
-            "notion": not self.config.standalone,
             # No page to write to is not an error, it is a workspace without a
             # context row — the pane says so rather than offering a save button
             # that could only fail.
@@ -387,9 +385,7 @@ class Configuration(Base):
         """
         space = self.runner.workspace
         if not space.context_page:
-            raise ValueError(
-                f"this workspace has no “{self.config.notion.page('context')}” page to write to"
-            )
+            raise ValueError("this board has no context page to write to")
         self.runner.client.replace_markdown(space.context_page, text)
         # The workspace was resolved with the old text in it.
         self.forget()

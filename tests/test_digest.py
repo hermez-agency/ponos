@@ -10,7 +10,7 @@ from typing import Any
 
 from support import _config, case
 
-from ponos import channels, digest, notion, state
+from ponos import channels, digest, state, store
 from ponos.config import Notify
 from ponos.projects import Project
 from ponos.runner import Runner
@@ -113,7 +113,7 @@ def the_message_names_the_numbers_and_the_tickets_waiting(state_home: Path) -> N
     text = digest.compose(
         Voice("en"),
         digest.count(state.between(start, end)),
-        [("Ponos", "Le header", "https://notion.so/h")],
+        [("Ponos", "Le header", "https://board.invalid/h")],
         start,
         end,
         True,
@@ -124,7 +124,7 @@ def the_message_names_the_numbers_and_the_tickets_waiting(state_home: Path) -> N
     assert "Merge rate: 33% (1/3 pull requests)" in text
     assert "Stops: 1" in text
     assert "Waiting for a decision (1):" in text
-    assert "Ponos — Le header" in text and "https://notion.so/h" in text
+    assert "Ponos — Le header" in text and "https://board.invalid/h" in text
     french = digest.compose(Voice("fr"), digest.Figures(), [], start, end, True)
     assert "Bilan de la semaine" in french and "Rien n'a tourné" in french
 
@@ -146,12 +146,12 @@ class _Board:
     def schema(self, database: str) -> dict[str, str]:
         return {"statut": "status"}
 
-    def query(self, database: str, filter_: dict[str, Any] | None = None) -> list[notion.Page]:
+    def query(self, database: str, filter_: dict[str, Any] | None = None) -> list[store.Page]:
         assert filter_ is not None
         column = filter_["status"]["equals"]
         if column != "review":
             return []
-        return [notion.Page(id="p1", url="https://notion.so/p1", title="Le header")]
+        return [store.Page(id="p1", url="https://board.invalid/p1", title="Le header")]
 
 
 class _Runner(Runner):

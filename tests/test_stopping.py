@@ -12,7 +12,7 @@ from typing import Any
 from support import _bare_api, _bare_runner, _ColumnsClient, case
 
 from ponos import git as git_module
-from ponos import notion, session, state, stopping
+from ponos import session, state, stopping, store
 from ponos import ticket as ticket_module
 from ponos.config import state_dir
 from ponos.projects import Project
@@ -105,8 +105,8 @@ class _Running(_ColumnsClient):
     def options(self, database: str, prop: str) -> list[str]:
         return [*super().options(database, prop), *self.extra]
 
-    def page(self, page_id: str, **rest: Any) -> notion.Page:
-        return notion.Page(
+    def page(self, page_id: str, **rest: Any) -> store.Page:
+        return store.Page(
             id=page_id,
             url="",
             title="ticket",
@@ -245,7 +245,7 @@ def a_session_the_console_asked_to_end_is_ended_and_left_to_the_console(state_ho
 
     runner = _bare_runner(None)
     job = ticket_module.Job(
-        ticket_module.Ticket(notion.Page(id="1" * 32, url="", title="ticket")),
+        ticket_module.Ticket(store.Page(id="1" * 32, url="", title="ticket")),
         Project(name="p", path=None),
         "",
         "",

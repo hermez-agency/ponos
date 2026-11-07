@@ -3,7 +3,7 @@ import * as React from "react"
 /* An address in a line of text becomes a link, and nothing else does.
  *
  * Answers, command output and the steps of a session all carry them — a pull
- * request, a Notion page, a preview — and reading one out loud into another tab
+ * request, a page, a preview — and reading one out loud into another tab
  * is not a gesture anybody should have to make.
  *
  * React escapes text for us, so the old rule ("nothing is ever built from a

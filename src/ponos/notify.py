@@ -5,7 +5,7 @@ finishes in the background is worth one line on screen — otherwise you discove
 your pull request tomorrow.
 
 And a line naming a ticket is worth clicking: the click opens that ticket's
-Notion page, rather than leaving you to find the title again on the board.
+page, rather than leaving you to find the title again on the board.
 `notify-send` cannot do that — it posts and forgets, never handing back the
 identifier the desktop answers a click with, and more than one machine refuses
 its `--action` outright while the desktop behind it supports actions perfectly

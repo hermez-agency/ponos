@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import contextlib
-import io
 import shutil
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -24,7 +23,7 @@ from support import (
     case,
 )
 
-from ponos import channels, github_checks, notion, projects, session, state, voice
+from ponos import channels, github_checks, projects, session, state, store, voice
 from ponos import git as git_module
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
@@ -164,7 +163,7 @@ def a_ticket_in_progress_carries_the_phase_it_is_in_and_drops_it_when_it_leaves(
     url = "https://github.com/x/y/pull/371"
     runner = _board_runner([], {"review": "review", "done": "done"})
     ticket = ticket_module.Ticket(_reviewed("p-wait", "ready", ""))
-    settings = runner.config.notion
+    settings = runner.config.board
     runner._write(ticket, {settings.prop("status"): settings.state("running")})
     assert state.phases()["pwait"][0] == "starting", state.phases()
 
@@ -244,7 +243,7 @@ def a_stuck_ticket_in_french_is_stuck_in_french_from_the_first_line_to_the_phone
 
 
 def _validating(
-    pages: list[notion.Page],
+    pages: list[store.Page],
     states: dict[str, str],
     status: dict[str, str],
     *,
@@ -402,14 +401,14 @@ def _never_merged(url: str, method: str = "squash") -> str:
     raise AssertionError("a dry run never merges anything")
 
 
-def _dated(page: notion.Page, when: str) -> notion.Page:
+def _dated(page: store.Page, when: str) -> store.Page:
     """The same ticket, with a date on it."""
     page.properties["Scheduled"] = {"type": "date", "date": {"start": when}}
     return page
 
 
 def _in(**delta: float) -> str:
-    """A Notion date this far from now, as the board would store it."""
+    """A date this far from now, as the board would store it."""
 
     return (datetime.now().astimezone() + timedelta(**delta)).isoformat(timespec="minutes")
 
@@ -490,7 +489,7 @@ def what_the_validated_column_is_holding_back_is_listed() -> None:
 @case
 def a_publication_a_crash_interrupted_comes_back_as_a_question(state_home: Path) -> None:
     """Put back in ready it would be redone; the post may already be out."""
-    claimed = notion.Page(
+    claimed = store.Page(
         id="ppost",  # `Ticket.id` drops the dashes, and a claim is filed under it
         url="",
         title="Le post",
@@ -515,7 +514,7 @@ def a_publication_a_crash_interrupted_comes_back_as_a_question(state_home: Path)
 
 @case
 def a_ticket_claimed_from_ready_is_still_put_back_in_the_queue(state_home: Path) -> None:
-    claimed = notion.Page(
+    claimed = store.Page(
         id="p-work",
         url="",
         title="Le header",
@@ -752,53 +751,6 @@ def a_publication_interrupted_on_a_board_without_a_runner_column_still_asks(
     ]
 
 
-class _SchemaOnly(notion.Client):
-    """A Notion client whose database has these columns, and whose PATCHes stay here."""
-
-    def __init__(
-        self, columns: dict[str, str], dropped: Callable[[str, str], None] | None = None
-    ) -> None:
-        super().__init__("secret", dropped=dropped)
-        self._columns = columns
-        self.patched: list[dict[str, Any]] = []
-
-    def schema(self, database_id: str) -> dict[str, str]:
-        return dict(self._columns)
-
-    def _request(
-        self, method: str, path: str, body: dict[str, Any] | None = None, **kwargs: Any
-    ) -> dict[str, Any]:
-        self.patched.append(body or {})
-        return {}
-
-
-@case
-def a_write_to_a_column_the_board_lacks_is_said_once_a_run() -> None:
-    runner = _board_runner([], {})
-    runner.quiet = False
-    runner._unwritten = set()
-    client = _SchemaOnly({"statut": "status"}, dropped=runner._dropped)
-    runner.client = client
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out):
-        for page in ("p1", "p2", "p3"):
-            client.update("db", page, {"statut": "progress", "Agent": "ponos@laptop"})
-            client.update("db", page, {"Progress": "reading the code"})
-    said = out.getvalue().splitlines()
-    assert len(said) == 2, said
-    assert "“Agent” is not a column of the board" in said[0]
-    assert "a second one on this board would put back" in said[0], "with what it costs"
-    assert "“Progress”" in said[1] and "while it runs" in said[1]
-    assert all(
-        body == {"properties": {"statut": {"status": {"name": "progress"}}}}
-        for body in client.patched[::2]
-    ), "the status still goes through"
-    runner._unwritten = set()  # what `tick` does: the next run says it again
-    with contextlib.redirect_stdout(out):
-        client.update("db", "p4", {"Agent": "ponos@laptop"})
-    assert out.getvalue().count("“Agent”") == 2
-
-
 @case
 def publishing_hands_the_page_as_it_stands_to_a_session_and_then_closes_it() -> None:
     """The whole road for a ticket with no branch: claim, publish, done."""
@@ -881,7 +833,7 @@ def a_publication_whose_session_does_not_start_fails_and_lets_its_claim_go(
 
 
 @case
-def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready(
+def a_publication_whose_closing_write_found_the_board_down_is_not_put_back_to_ready(
     state_home: Path,
 ) -> None:
     """The post is out; only "done" could not be written. Ready would post it twice."""
@@ -894,7 +846,7 @@ def a_publication_whose_closing_write_found_notion_down_is_not_put_back_to_ready
 
     def update(database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if values.get("statut") == "done":
-            raise notion.Offline("PATCH /pages: connection refused")
+            raise store.Unreachable("the board did not answer")
         written(database_id, page_id, values)
 
     runner.client.update = update  # type: ignore[method-assign]  # a double: the closing write fails

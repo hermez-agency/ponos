@@ -29,7 +29,6 @@ services:
       # Every other secret is a variable too, and never a line of config.toml:
       # the runner does not read one from there. One the console is given is
       # written to secrets.env on the data volume, and wins over these.
-      PONOS_NOTION_TOKEN: ${PONOS_NOTION_TOKEN:-}
       PONOS_TELEGRAM_TOKEN: ${PONOS_TELEGRAM_TOKEN:-}
       PONOS_SLACK_TOKEN: ${PONOS_SLACK_TOKEN:-}
       PONOS_WEB_TOKEN: ${PONOS_WEB_TOKEN:-}

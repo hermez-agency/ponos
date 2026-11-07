@@ -1,4 +1,4 @@
-"""`store.py`: the board a configuration chooses, and the screens that work without Notion."""
+"""`store.py`: the board `ponos.db` keeps, and the screens of the console that read it."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from support import (
 )
 
 from ponos import config as C
-from ponos import db, ideas, ledger, markdown, notion, pages, projects, state, store
+from ponos import db, ideas, ledger, pages, projects, state, store
 from ponos import ticket as ticket_module
 from ponos.web import api as web_api
 from ponos.web import board as web_board
@@ -35,43 +35,12 @@ from ponos.web import live as web_live
 
 
 @case
-def the_token_decides_which_store_is_opened() -> None:
-    configuration = _config("")
-    assert not configuration.standalone
-    # Notion's tickets are served from `ponos.db` (ledger.py); Notion itself is
-    # what the ledger holds, and what the import and the checks ask for.
-    served = store.open(configuration)
-    assert isinstance(served, ledger.Ledger) and isinstance(served.notion, notion.Client)
-    assert isinstance(store.open(configuration, notion_only=True), notion.Client)
-
-    # Without a token there is no Notion to hold the pages: they are the database's.
-    path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text("[notion]\n", encoding="utf-8")
-    alone = C.load(path)
-    assert alone.standalone
-    held = store.open(alone)
-    assert isinstance(held, ledger.Ledger) and isinstance(held.notion, pages.Pages)
+def the_board_is_ponos_db() -> None:
+    served = store.open(_config(""))
+    assert isinstance(served, ledger.Ledger) and isinstance(served.backend, pages.Pages)
 
 
-@case
-def an_installation_without_a_token_needs_neither_token_nor_workspace() -> None:
-    empty = Path(tempfile.mkdtemp()) / "config.toml"
-    empty.write_text("[notion]\n", encoding="utf-8")
-    C.load(empty).require_usable()  # must not raise
-
-    # And a Notion one still says exactly what it is missing.
-    half = Path(tempfile.mkdtemp()) / "config.toml"
-    half.write_text('[notion]\ntoken = "ntn_real"\n', encoding="utf-8")
-    C.move_secrets(half)
-    try:
-        C.load(half).require_usable()
-    except C.ConfigError as error:
-        assert "notion.workspace" in str(error)
-    else:
-        raise AssertionError("a Notion installation with no workspace must not be usable")
-
-
-# -- the three screens that must work without Notion --------------------------
+# -- the screens of the console ----------------------------------------------
 
 
 @case
@@ -112,7 +81,6 @@ def the_console_lists_every_project_it_knows_of() -> None:
     assert rows["Site vitrine"]["kind"] == "document"
     assert rows["Jeu d'usine"]["source"] == "config"
     assert rows["Jeu d'usine"]["path"] == "/home/salva/workspace/usine"
-    assert drawn["notion"] is False
 
 
 @case
@@ -195,7 +163,7 @@ def the_console_opens_a_project_and_writes_it_back() -> None:
 
 
 def _creatable(board: ledger.Ledger, language: str = "fr") -> web_api.Api:
-    """An Api without Notion that creates projects, speaking `language`."""
+    """An Api on `ponos.db` that creates projects, speaking `language`."""
     api = _local_api(board)
     api._config.runner = C.Runner(language=language)
     api.runner.config = api._config
@@ -439,7 +407,7 @@ def the_console_server_creates_a_project_and_says_which_field_it_refuses() -> No
 
 
 def _deletable(board: ledger.Ledger) -> tuple[web_api.Api, str, dict[str, str]]:
-    """An Api without Notion with a project of three tickets, and one elsewhere."""
+    """An Api on `ponos.db` with a project of three tickets, and one elsewhere."""
     settings = board.settings
     code = board.create_row("projects", "ponos", {"Repository": "user/repo"})
     elsewhere = board.create_row("projects", "Site vitrine", {})
@@ -454,7 +422,7 @@ def _deletable(board: ledger.Ledger) -> tuple[web_api.Api, str, dict[str, str]]:
         board.update("tickets", ticket, {settings.prop("project"): [project]})
         tickets[title] = ticket
     api = _local_api(board)
-    api._config.notion = settings
+    api._config.board = settings
     api.runner.config = api._config
     api._reader = web_board.Reader(journal=lambda report: None)
     api.watch = type("Watch", (), {"nudge": lambda self: None})()
@@ -561,7 +529,7 @@ def a_project_with_a_session_running_is_not_deleted() -> None:
 
 
 @case
-def a_project_in_the_notion_trash_does_not_resolve() -> None:
+def a_project_in_the_trash_does_not_resolve() -> None:
     """The trash keeps a page readable by its ID; that is what must not be worked on."""
 
     class Backend:
@@ -581,7 +549,7 @@ def a_brief_is_saved_only_from_the_version_it_was_opened_at() -> None:
     """Edited in the console, the brief is never written over a newer one.
 
     The editor opens at a `version` and saves against it: a brief somebody
-    wrote to meanwhile — in Notion, from another tab — is a conflict to read
+    wrote to meanwhile — from another tab — is a conflict to read
     again, not a text to overwrite. And what is saved is what the runner reads
     at the next ticket, with nothing kept from the one it replaced.
     """
@@ -624,85 +592,7 @@ def a_brief_is_saved_only_from_the_version_it_was_opened_at() -> None:
 
 @case
 def a_brief_that_markdown_cannot_hold_is_not_rewritten_unannounced() -> None:
-    """Notion holds more than a line of text does; the console says what that costs.
-
-    `markdown.lost` names, block by block, what `plain` would flatten and
-    `to_blocks` would not give back — and a save that knows about it refuses
-    until the caller says it has been told.
-    """
-
-    def text(content: str, **notes: Any) -> dict[str, Any]:
-        part = {
-            "type": "text",
-            "plain_text": content,
-            "href": notes.pop("href", None),
-            "annotations": notes,
-        }
-        return {"rich_text": [part]}
-
-    assert markdown.lost({"type": "paragraph", "paragraph": text("Rien à perdre.")}) == []
-    assert (
-        markdown.lost(
-            {"type": "heading_2", "heading_2": text("Titre", color="default", bold=False)}
-        )
-        == []
-    )
-    assert markdown.lost({"type": "paragraph", "paragraph": text("gras", bold=True)}) == [
-        "formatting"
-    ]
-    assert markdown.lost({"type": "paragraph", "paragraph": text("lien", href="https://x.y")}) == [
-        "link"
-    ]
-    assert markdown.lost(
-        {
-            "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "mention", "plain_text": "@Salva"}]},
-        }
-    ) == ["mention"]
-    assert markdown.lost({"type": "toggle", "toggle": text("Plié")}) == ["toggle"]
-    assert markdown.lost({"type": "child_database", "child_database": {"title": "Notes"}}) == [
-        "child_database"
-    ]
-    # A row is lost with its table, which is said once.
-    assert markdown.lost({"type": "table_row"}) == []
-
-    blocks = {
-        "page": [
-            {"id": "a", "type": "paragraph", "paragraph": text("Net.")},
-            {"id": "b", "type": "toggle", "toggle": text("Plié"), "has_children": True},
-            {"id": "c", "type": "child_database", "child_database": {"title": "Notes"}},
-        ],
-        "b": [
-            {"id": "d", "type": "paragraph", "paragraph": text("gras", bold=True)},
-            {"id": "e", "type": "callout", "callout": text("Attention"), "has_children": True},
-        ],
-        "e": [{"id": "f", "type": "toggle", "toggle": text("Encore"), "has_children": True}],
-        "f": [
-            {
-                "id": "g",
-                "type": "bookmark",
-                "bookmark": {"url": "https://x.y"},
-                "has_children": True,
-            }
-        ],
-        "g": [{"id": "h", "type": "image", "image": {}}],
-    }
-    client = notion.Client("ntn_x")
-
-    def request(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-        return {"results": blocks.get(path.split("/")[2], []), "has_more": False}
-
-    client._request = request  # type: ignore[method-assign, assignment]  # a double: the blocks above
-    found = client.losses("page")
-    assert found == {
-        "toggle": 2,
-        "child_database": 1,
-        "formatting": 1,
-        "callout": 1,
-        "bookmark": 1,
-        "nested": 1,
-    }, found
-
+    """A save that knows the page would lose something refuses until told so."""
     with _board() as board:
         page = board.create_row("projects", "ponos", {})
         board.replace_markdown(page, "Texte.")
@@ -749,7 +639,7 @@ def the_console_reads_and_rewrites_the_standing_context() -> None:
         try:
             blind.save_context("x")
         except ValueError as error:
-            assert "Context" in str(error)
+            assert "no context page" in str(error)
         else:
             raise AssertionError("a context with no page must not pretend to save")
 
@@ -758,7 +648,7 @@ def the_console_reads_and_rewrites_the_standing_context() -> None:
 def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> None:
     """A score and two selects in the form, written as the board takes them.
 
-    They used to be set in Notion afterwards, by hand. Offered only for the
+    They used to be set afterwards, by hand. Offered only for the
     columns the board has — a value for a missing one would be dropped on the
     way in — and a type left empty stays empty, for the runner to classify.
     The priority is a score from 0 to 100, 50 when none is said, refused
@@ -787,7 +677,7 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> N
             "Écrire l'annonce", ready=False, priority=80, kind="writing", model="haiku"
         )
         page = board.page(made["id"])
-        settings = api.config.notion
+        settings = api.config.board
         assert store.read(page, settings.prop("priority")) == 80
         assert store.read(page, settings.prop("type")) == "Rédaction"
         assert store.read(page, settings.prop("model")) == "haiku"
@@ -828,7 +718,7 @@ def a_ticket_is_given_another_priority_from_the_board() -> None:
         nudged = _Nudged()
         api.watch = nudged  # type: ignore[assignment]  # a fake: only counts its nudges
         made = api.create_ticket("Trier les brouillons", ready=False)["id"]
-        settings = api.config.notion
+        settings = api.config.board
 
         assert api.set_priority(made, "85") == {"id": made, "priority": 85}
         assert store.read(board.page(made), settings.prop("priority")) == 85

@@ -3,7 +3,7 @@
 A session does the work; this is everything said *about* it. The columns a
 finished ticket fills in, the comment under it, the same words pushed to
 Telegram or Slack, and the answer you type back there written onto the page as
-an ordinary Notion comment — one road in, one road out, nothing kept in sync on
+an ordinary comment — one road in, one road out, nothing kept in sync on
 the side.
 
 The two ways a run ends without a result live here too, and for the same
@@ -84,13 +84,13 @@ class Reports(Base):
 
         The status is what the board runs on: it says whether a ticket is taken,
         finished or waiting for someone. The others — who ran it, the session
-        link, the cost — are commentary. So a write that Notion rejects is tried
+        link, the cost — are commentary. So a write the board rejects is tried
         again with the status alone, rather than leaving a finished ticket stuck
         in "in progress" because an optional column disagreed about its type.
         """
         if self.dry_run:
             return
-        status = self.config.notion.prop("status")
+        status = self.config.board.prop("status")
         if status in values and not self._still(ticket, str(values[status])):
             values = {name: value for name, value in values.items() if name != status}
             if not values:
@@ -110,14 +110,14 @@ class Reports(Base):
         """
         if self.dry_run:
             return True
-        if not self._still(ticket, str(values[self.config.notion.prop("status")])):
+        if not self._still(ticket, str(values[self.config.board.prop("status")])):
             return False
         self._write(ticket, values)
         return True
 
     def _write(self, ticket: Ticket, values: dict[str, object]) -> None:
         """The write itself, once the status in it is known to be the run's to write."""
-        status = self.config.notion.prop("status")
+        status = self.config.board.prop("status")
         if status in values:
             values = {**self._block_cleared(ticket, str(values[status])), **values}
         try:
@@ -125,20 +125,22 @@ class Reports(Base):
         except store.StoreError as error:
             if status not in values:
                 raise
-            self.say(f"    ! Notion refused some properties ({error}) — writing the status alone")
+            self.say(
+                f"    ! the board refused some properties ({error}) — writing the status alone"
+            )
             self.client.update(self.database, ticket.page.id, {status: values[status]})
         if status in values:
             self._remember(ticket, str(values[status]))
             # Taken: it starts. Moved anywhere else: whatever it was going
             # through is over — see `state.enter`.
-            if values[status] == self.config.notion.state("running"):
+            if values[status] == self.config.board.state("running"):
                 state.enter(ticket.id, "starting")
             else:
                 state.leave(ticket.id)
 
     def _blocked_by(self, code: str) -> dict[str, object]:
         """The board's « Blocage » column, saying which cause a ticket stopped on."""
-        return {self.config.notion.prop("block"): code}
+        return {self.config.board.prop("block"): code}
 
     def _block_cleared(self, ticket: Ticket, target: str) -> dict[str, object]:
         """The « Blocage » cell emptied, when a ticket that stopped leaves for anywhere else.
@@ -147,7 +149,7 @@ class Reports(Base):
         back in ready — so that no road out of blocked has to remember it. Only
         on a card that says something, as for the refusal below.
         """
-        settings = self.config.notion
+        settings = self.config.board
         if target == settings.state("blocked"):
             return {}
         block = settings.prop("block")
@@ -160,7 +162,7 @@ class Reports(Base):
         Only on a card that says something: a board without the column, or a
         ticket whose card is already blank, is not written to for nothing.
         """
-        progress = self.config.notion.prop("progress")
+        progress = self.config.board.prop("progress")
         return {progress: ""} if store.read(ticket.page, progress) else {}
 
     def _still(self, ticket: Ticket, target: str) -> bool:
@@ -177,9 +179,9 @@ class Reports(Base):
         the work was done.
 
         A page that cannot be read is written as before: the write that follows
-        would meet the same Notion, and a refusal there is already handled.
+        would meet the same board, and a refusal there is already handled.
         """
-        status = self.config.notion.prop("status")
+        status = self.config.board.prop("status")
         known = store.read(ticket.page, status)
         try:
             fresh = self.client.page(ticket.page.id)
@@ -191,7 +193,7 @@ class Reports(Base):
         if status in fresh.properties:
             ticket.page.properties[status] = fresh.properties[status]
         self.say(
-            f"    ! {ticket.title} — moved to {found or 'no status'} in Notion during the run; "
+            f"    ! {ticket.title} — moved to {found or 'no status'} on the board during the run; "
             f"{target} is not written over it"
         )
         report = board_journal.Report()
@@ -209,7 +211,7 @@ class Reports(Base):
     def _remember(self, ticket: Ticket, value: str) -> None:
         """What this run just wrote, as the page it holds now says it — so the
         next write compares against the column the ticket is really in."""
-        status = self.config.notion.prop("status")
+        status = self.config.board.prop("status")
         kind = (ticket.page.properties.get(status) or {}).get("type") or self.client.schema(
             self.database
         ).get(status, "status")
@@ -225,10 +227,10 @@ class Reports(Base):
         written when there is something to write.
         """
         values: dict[str, object] = {
-            self.config.notion.prop("duration"): round(outcome.seconds / 60, 1)
+            self.config.board.prop("duration"): round(outcome.seconds / 60, 1)
         }
         if outcome.cost_usd:
-            values[self.config.notion.prop("cost")] = round(outcome.cost_usd, 3)
+            values[self.config.board.prop("cost")] = round(outcome.cost_usd, 3)
         return values
 
     def _session_value(self, session_id: str, home: Path | None) -> str:
@@ -236,9 +238,9 @@ class Reports(Base):
 
         The property's declared type decides: a URL column gets something
         clickable, a text column gets the identifier. Nobody has to configure
-        which — changing the column type in Notion is the switch.
+        which — the column's type is the switch.
         """
-        kind = self.client.schema(self.database).get(self.config.notion.prop("session"))
+        kind = self.client.schema(self.database).get(self.config.board.prop("session"))
         if kind == "url":
             return session.deep_link(
                 session_id,
@@ -266,7 +268,7 @@ class Reports(Base):
         flag = self.waiting_flag()
         if not flag or not store.read(ticket.page, flag):
             return ""
-        raw = str(store.read(ticket.page, self.config.notion.prop("session")) or "").strip()
+        raw = str(store.read(ticket.page, self.config.board.prop("session")) or "").strip()
         if "://" in raw:
             raw = raw.split("?")[0].rstrip("/").rsplit("/", 1)[-1]
         return raw if _SESSION_ID.fullmatch(raw) else ""
@@ -276,8 +278,8 @@ class Reports(Base):
     def _comment(self, ticket: Ticket, text: str, discussion: str = "") -> None:
         """Say something on a ticket, and remember that we said it.
 
-        Remembering matters: a comment does not change a page, so Notion offers
-        no way of asking which tickets have been commented on since. The pages
+        Remembering matters: a comment does not change a ticket's columns, so
+        there is no asking them which tickets have been commented on since. The pages
         the runner has spoken on are the only affordable place to look for an
         answer — see `conversation.Ledger`.
         """
@@ -286,14 +288,7 @@ class Reports(Base):
         try:
             self.client.comment(ticket.page.id, text, discussion)
         except store.StoreError as error:
-            hint = ""
-            if "403" in str(error):
-                hint = (
-                    "\n      the integration lacks comment capability: "
-                    "notion.so/my-integrations → your integration → Capabilities → "
-                    "Insert comments"
-                )
-            self.say(f"    ! Notion refused the comment: {error}{hint}")
+            self.say(f"    ! the board refused the comment: {error}")
             return
         self.forget_comments(ticket.page.id)
         with self._ledger_lock:
@@ -332,12 +327,7 @@ class Reports(Base):
         try:
             comments = self.comments(ticket.page.id)
         except store.StoreError as error:
-            hint = ""
-            if "403" in str(error):
-                hint = (
-                    " — notion.so/my-integrations → your integration → Capabilities → Read comments"
-                )
-            self.say(f"    ! comments not readable: {error}{hint}")
+            self.say(f"    ! comments not readable: {error}")
             return []
 
         me = self.myself()
@@ -414,7 +404,7 @@ class Reports(Base):
 
         The screen of the machine the runner sits on, and the messaging app you
         actually have on you. Same words as the comment — the same verdict, the
-        same sentence under it — because a Notion notification and a Telegram
+        same sentence under it — because the console's notification and a Telegram
         one are the same event reaching you twice, and telling it twice in two
         ways is how you end up reading both. A question is the same lines too —
         what is done, why it stops, what to answer — so a message you can
@@ -466,10 +456,10 @@ class Reports(Base):
     def answers(self) -> int:
         """What you replied in Telegram or Slack, written onto its ticket.
 
-        The bridge is deliberately one line long: an answer becomes a Notion
-        comment, and a comment is *already* how a blocked ticket wakes up. A
-        "yes" typed on a phone therefore travels the exact path a "yes" typed
-        into Notion does — same waking rules, same prompt, nothing kept in sync
+        The bridge is deliberately one line long: an answer becomes a comment,
+        and a comment is *already* how a blocked ticket wakes up. A "yes" typed
+        on a phone therefore travels the exact path a "yes" typed into the
+        console does — same waking rules, same prompt, nothing kept in sync
         on the side.
 
         First thing in a run, before the queue is read, so that a ticket
@@ -507,8 +497,8 @@ class Reports(Base):
                         reply.ticket, channels.answer(reply, self.voice, self.asked(reply.ticket))
                     )
                 except store.StoreError as error:
-                    self.say(f"    ! the answer could not be written to Notion: {error}")
-                    channel.acknowledge(reply, self.voice.say("notion-refused", error=error))
+                    self.say(f"    ! the answer could not be written to the board: {error}")
+                    channel.acknowledge(reply, self.voice.say("answer-refused", error=error))
                     continue
                 answered += 1
                 label = reply.title or reply.ticket
@@ -590,10 +580,10 @@ class Reports(Base):
         """The row for a ticket written from a channel, and its address.
 
         Type and sub-type are left empty: the classifier fills them in before
-        the ticket runs, as on a ticket written in Notion. A draft is written
+        the ticket runs, as on a ticket written in the console. A draft is written
         in the drafts' status — the same rule as the console's « New ticket ».
         """
-        settings = self.config.notion
+        settings = self.config.board
         values: dict[str, Any] = {}
         if ready:
             values[settings.prop("status")] = settings.state("ready")
@@ -701,7 +691,7 @@ class Reports(Base):
         self._tell("failed", ticket, "failed", said.brief(asked))
         self._set(
             ticket,
-            **{self.config.notion.prop("status"): self.config.notion.state("blocked"), **spent},
+            **{self.config.board.prop("status"): self.config.board.state("blocked"), **spent},
         )
         self._comment(
             ticket,
@@ -763,7 +753,7 @@ class Reports(Base):
         )
         self._set(
             ticket,
-            **{self.config.notion.prop("status"): self.config.notion.state("blocked"), **spent},
+            **{self.config.board.prop("status"): self.config.board.state("blocked"), **spent},
         )
         if under == said.brief(question.ask):
             under = ""
@@ -796,7 +786,7 @@ class Reports(Base):
         to fail the same way again. Here it fails *as a ticket*, on the board and
         in the history, with what it raised.
 
-        And if even that cannot be written — Notion is the thing that is down —
+        And if even that cannot be written — the board is the thing that is down —
         the pass is still not the one to pay: the result is recorded here, and
         the next run's sweep finds the ticket where it was left.
 
@@ -910,7 +900,6 @@ class Reports(Base):
                 raise
             self.say(f"    ! {ticket.title}: its part “what was done” was not written: {error}")
             return 0
-        state.shape(ticket.id)
         return count
 
     def _filed(self, job: Job, outcome: session.Outcome, *rest: object) -> str:
@@ -1019,9 +1008,9 @@ class Reports(Base):
         self._set(
             ticket,
             **{
-                self.config.notion.prop("status"): status,
-                self.config.notion.prop("waiting"): True,
-                self.config.notion.prop("session"): self._session_value(outcome.session_id, home),
+                self.config.board.prop("status"): status,
+                self.config.board.prop("waiting"): True,
+                self.config.board.prop("session"): self._session_value(outcome.session_id, home),
             },
         )
         self._comment(
@@ -1255,7 +1244,7 @@ class Reports(Base):
         still ready, which is exactly what they were a second ago, and a column
         they had disappeared into would have claimed otherwise. Ticked once: a
         ticket already ticked is left alone, which is what keeps a wait of four
-        hours from being four hours of Notion writes.
+        hours from being four hours of writes.
 
         Nothing here asks anything of anybody: no question, no phone. The
         notification for this went out once, when the line was reached.
@@ -1290,7 +1279,7 @@ class Reports(Base):
             # verdict. That is not a corner case here: a ticket woken by a
             # comment is queued from `failed`, and is ticked where it stands
             # like any other, so its old session is exactly what would be found.
-            self._set(ticket, **{flag: True, self.config.notion.prop("session"): ""})
+            self._set(ticket, **{flag: True, self.config.board.prop("session"): ""})
             self._comment(
                 ticket,
                 said.report(said.verdict("waiting", said.say(parked_for, when=when))),

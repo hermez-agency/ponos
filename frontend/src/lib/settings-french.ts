@@ -230,7 +230,6 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Look for new comments every": "Chercher de nouveaux commentaires toutes les",
   "Time limit per answer": "Durée maximale par réponse",
   "e.g. you@example.com": "p. ex. vous@exemple.fr",
-  "https://www.notion.so/…": "https://www.notion.so/…",
   "its URL or its identifier": "son URL ou son identifiant",
   "e.g. `sonnet`": "p. ex. `sonnet`",
   "Claude Code's own default": "le défaut de Claude Code",
@@ -241,11 +240,7 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "e.g. C0123456789": "p. ex. C0123456789",
   "this machine": "cette machine",
   "Integration token": "Jeton d'intégration",
-  "The secret starting with `ntn_`, from notion.so/profile/integrations. Share your workspace page with the integration too: a token alone sees nothing.":
-    "Le secret qui commence par `ntn_`, depuis notion.so/profile/integrations. Partagez aussi votre page d'espace de travail avec l'intégration : un jeton seul ne voit rien.",
   "Workspace page": "Page de l'espace de travail",
-  "The Notion page that holds the Tickets, Projects, Agents and Context databases. Paste its URL: only the identifier is kept.":
-    "La page Notion qui contient les bases Tickets, Projects, Agents et Context. Collez son URL : seul l'identifiant est gardé.",
   "Word that asks for an answer": "Mot pour demander une réponse",
   "Write it in a ticket's comment — `@claude what is blocking?` — and the runner answers in the thread instead of working. The integration's own name works too.":
     "Écrivez-le dans un commentaire de ticket — `@claude qu'est-ce qui bloque ?` — et le runner répond dans le fil au lieu de travailler. Le nom de l'intégration marche aussi.",
@@ -435,8 +430,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Its worktree stays as the session left it, for you to look at. `ponos clean --force` removes them.":
     "Son worktree reste tel que la session l'a laissé, pour que vous l'examiniez. `ponos clean --force` les supprime.",
   "Project folders": "Dossiers des projets",
-  "Which folder on this machine holds a Notion project's repository. Only needed when it is not found on its own: a `path` or `github` property on the project page does the same, for every machine.":
-    "Quel dossier de cette machine contient le dépôt d'un projet Notion. Utile seulement s'il n'est pas trouvé tout seul : une propriété `path` ou `github` sur la page du projet fait la même chose, pour toutes les machines.",
+  "Which folder on this machine holds a project's repository. Only needed when it is not found on its own: a `path` or `github` property on the project page does the same, for every machine.":
+    "Quel dossier de cette machine contient le dépôt d'un projet. Utile seulement s'il n'est pas trouvé tout seul : une propriété `path` ou `github` sur la page du projet fait la même chose, pour toutes les machines.",
   "GitHub accounts": "Comptes GitHub",
   "Which `gh` account works for each GitHub owner, when this machine uses several — yours and a client's. Left, the owner as in the repository's URL; right, the account as `gh auth status` lists it. Sign each one in once with `gh auth login`. An owner not listed here is worked under the active account.":
     "Quel compte `gh` travaille pour chaque propriétaire GitHub, quand cette machine en utilise plusieurs — le vôtre et celui d'un client. À gauche le propriétaire tel qu'il apparaît dans l'URL du dépôt ; à droite le compte tel que `gh auth status` le liste. Connectez chacun une fois avec `gh auth login`. Un propriétaire absent d'ici est traité sous le compte actif.",
@@ -523,8 +518,6 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "File sessions under their project": "Ranger les sessions dans leur projet",
   "A finished session is moved under the project's folder, so `claude --resume` there finds it. Off: it can only be resumed by its ID.":
     "Une session terminée est déplacée sous le dossier du projet, pour que `claude --resume` l'y retrouve. Désactivé : on ne peut la reprendre que par son identifiant.",
-  "10 reads as live. 5 at the least, so two tickets at once do not spend Notion's rate limit on it.":
-    "10 donne une impression de direct. 5 au minimum, pour que deux tickets à la fois n'épuisent pas la limite de requêtes de Notion.",
   "Machine the sessions run on (ssh)": "Machine où tournent les sessions (ssh)",
   "Only when the runner lives on a server, e.g. `me@server.example.com`: the ticket's Session link then opens the session over ssh.":
     "Seulement si le runner vit sur un serveur, par ex. `moi@serveur.example.com` : le lien Session du ticket ouvre alors la session par ssh.",
@@ -685,8 +678,6 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Optional: the option your board already has for tickets still being written. Never picked up. Empty: a draft has no status.":
     "Facultatif : l'option que votre tableau a déjà pour les tickets en cours d'écriture. Jamais pris en charge. Vide : un brouillon n'a pas de statut.",
   "Names of the ticket properties": "Noms des propriétés des tickets",
-  "Change these only if your Notion properties are named differently. An optional one may be missing: what it would hold is simply not written.":
-    "À changer seulement si vos propriétés Notion portent d'autres noms. Une propriété facultative peut manquer : ce qu'elle contiendrait n'est simplement pas écrit.",
   "Required.": "Obligatoire.",
   "Relation to the Projects database.": "Relation vers la base Projects.",
   "Written by the runner: which machine took the ticket.":
@@ -742,7 +733,6 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Schedule: last ticket": "Récurrence : dernier ticket",
   "Written by the runner: what the last occurrence created.":
     "Écrit par le runner : ce qu'a créé la dernière occurrence.",
-  "Names of the Notion databases": "Noms des bases Notion",
   "The titles the runner looks for under your workspace page. Only Tickets is required; the others change nothing by their absence.":
     "Les titres que le runner cherche sous votre page d'espace de travail. Seule Tickets est obligatoire ; les autres ne changent rien par leur absence.",
   "Where a ticket's repository is found.": "Là où l'on trouve le dépôt d'un ticket.",
@@ -1041,7 +1031,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Replace <name> and <address> with those the service gives. For a server that runs a command: claude mcp add <name> -- npx -y <package>. Then check again here.": "Remplacez <name> et <address> par ceux que le service donne. Pour un serveur qui lance une commande : claude mcp add <name> -- npx -y <package>. Puis revérifiez ici.",
   "What is an MCP?": "C'est quoi un MCP ?",
   "An MCP (Model Context Protocol) is a plug that lets Claude use a tool or a service: read a page, open an issue, drive a browser. Each service offers its own, and Claude uses the ones it is given.": "Un MCP (Model Context Protocol) est une prise qui permet à Claude d'utiliser un outil ou un service : lire une page, ouvrir une issue, piloter un navigateur. Chaque service propose le sien, et Claude utilise ceux qu'on lui branche.",
-  "For Ponos it works both ways. The sessions it starts use MCPs: it is thanks to the Notion one that a session reads a ticket and writes its report back.": "Pour Ponos, cela marche dans les deux sens. Les sessions qu'il lance utilisent des MCP : c'est grâce à celui de Notion qu'une session lit un ticket et y écrit son compte rendu.",
+  "For Ponos it works both ways. The sessions it starts use MCPs: a browser, GitHub, the services a project names.":
+    "Pour Ponos, cela marche dans les deux sens. Les sessions qu'il lance utilisent des MCP : un navigateur, GitHub, les services qu'un projet nomme.",
   "And Ponos has one of its own: plugged into Claude, it lets you list your tasks, create one or answer a blocked ticket from a conversation, without opening the console.": "Et Ponos a le sien : branché à Claude, il vous laisse lister vos tâches, en créer une ou répondre à un ticket bloqué depuis une conversation, sans ouvrir la console.",
   "Reading the addresses…": "Lecture des adresses…",
   "Docker detected": "Docker détecté",

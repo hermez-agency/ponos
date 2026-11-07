@@ -46,7 +46,7 @@ class Schedules(Base):
         database = self.runner.workspace.schedules
         if not database:
             raise ValueError("this workspace has no schedules database")
-        settings = self.config.notion
+        settings = self.config.board
         writable = {
             "cadence": settings.prop("cadence"),
             "at": settings.prop("at"),
@@ -111,7 +111,7 @@ class Schedules(Base):
         if not database:
             raise ValueError("this workspace has no schedules database")
         page_id = self.runner.client.create_row(
-            database, name, {self.config.notion.prop("active"): False}
+            database, name, {self.config.board.prop("active"): False}
         )
         self.save_schedule(page_id, {**values, "active": False})
         return {"id": page_id.replace("-", ""), "name": name}
@@ -160,10 +160,10 @@ class Schedules(Base):
 
         Read when the page is opened rather than watched like the board: a
         schedule moves four times a day at the very most, and a console polling
-        that database would be asking Notion a question whose answer has not
+        that database would be asking the board a question whose answer has not
         changed since breakfast.
 
-        And answered from the rows the console holds, never from Notion when it
+        And answered from the rows the console holds, never from the board when it
         holds some: the first opening of the page was measured at nineteen
         seconds — the workspace resolved again, the database and its schema
         read behind the board's 1 800 tickets — and every later one at 350 ms,
@@ -190,9 +190,6 @@ class Schedules(Base):
             # The zone the hours are said in, for the calendar to lay them out in.
             "timezone": schedules_module.timezone_name(),
             "database": database,
-            "page": self.config.notion.page("schedules"),
-            # "A row in the database" is Notion's sentence.
-            "notion": not self.config.standalone,
             "schedules": [self._schedule(row, projects) for row in rows],
             # The passes that find ideas, drawn on the same calendar and not
             # editable from it: they are set on the Ideas page.
@@ -219,7 +216,7 @@ class Schedules(Base):
 
     def _read_schedules(self, wanted: float) -> Held:
         """The Schedules database read — or the read another request finished
-        since `wanted`, which it waited for rather than asking Notion twice."""
+        since `wanted`, which it waited for rather than asking the board twice."""
         with _READING:
             held: Held | None = getattr(self, "_schedules_held", None)
             if held is not None and held[0] >= wanted:
@@ -291,7 +288,7 @@ class Schedules(Base):
             schema = self.runner.client.schema(database) if database else {}
         except store.StoreError:
             return {}
-        settings = self.config.notion
+        settings = self.config.board
         choices: dict[str, list[dict[str, str]]] = {}
         if settings.prop("type") in schema:
             choices["type"] = [
@@ -336,7 +333,7 @@ class Schedules(Base):
     ) -> dict[str, Any]:
         """One row of the Schedules database, as the pane reads it.
 
-        Left in the order Notion hands them over — that order is somebody's, and
+        Left in the order the board hands them over — that order is somebody's, and
         a console that sorted it would be rearranging their page for them.
         """
         next_at = schedules_module.upcoming(schedule, datetime.now().astimezone())
@@ -354,14 +351,14 @@ class Schedules(Base):
             "next": next_at.isoformat(timespec="minutes") if next_at else "",
             "last": schedule.last.isoformat(timespec="minutes") if schedule.last else "",
             # The ticket the last occurrence made, addressed the way the board
-            # addresses one: the console links to its page, not to Notion's.
+            # addresses one: the console links to its page, not to the board's.
             "ticket": schedule.last_ticket.replace("-", ""),
             "project": (projects.get(schedule.project) or {}).get("name", ""),
             "project_id": schedule.project.replace("-", ""),
             "model": schedule.model,
             "priority": schedule.priority,
             # By their keys, as the form sends them back: `code`, `bug`.
-            "type": self.config.notion.kind_of(schedule.kind),
+            "type": self.config.board.kind_of(schedule.kind),
             "subtype": subtypes.of(schedule.subtype),
             "problem": schedule.problem,
         }

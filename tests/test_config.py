@@ -22,41 +22,28 @@ from ponos.web import settings as web_settings
 
 
 @case
-def a_database_reference_is_normalised_but_a_name_is_not() -> None:
-    assert (
-        C._database_id(
-            "https://www.notion.so/w/Master-Tickets-3c3451680af480f5b1aad0785c0322b4?v=1"
-        )
-        == "3c3451680af480f5b1aad0785c0322b4"
-    )
-    assert (
-        C._database_id("3c345168-0af4-80f5-b1aa-d0785c0322b4") == "3c3451680af480f5b1aad0785c0322b4"
-    )
-    # Not an identifier: handed back untouched, to be looked up by name.
-    assert C._database_id("Master Tickets") == "Master Tickets"
-    assert C.is_identifier("3c3451680af480f5b1aad0785c0322b4")
-    assert not C.is_identifier("Master Tickets")
+def the_names_of_the_board_are_fixed() -> None:
+    names = _config("").board
+    assert names.prop("status") == "statut" and names.prop("agent") == "Agent"
+    assert names.state("ready") == "ready" and names.state("blocked") == "blocked"
+    assert names.kind("writing") == "Rédaction"
+    assert "failed" not in C.STATUS, "one status for a ticket that stopped"
+    assert names.state("draft") == "draft"
+    assert names.prop("role") == "Rôle", "the role is not the machine's « Agent »"
 
 
 @case
-def the_names_of_the_board_are_fixed_and_a_file_that_names_them_is_read_without_them() -> None:
-    """`[notion.properties]`, `[notion.status]` and `[notion.types]` are no settings any more.
-
-    A file written before still says them: it is read, they are not, and they
-    are not keys to warn about either — the board is what `doctor` checks.
-    """
-    old = _config(
-        '[notion.properties]\nstatus = "Status"\nagent = "Runner"\n'
-        '[notion.status]\nready = "Ready"\nfailed = "Failed"\n'
-        '[notion.types]\nwriting = "Writing"\n'
-    )
-    assert old.notion.prop("status") == "statut" and old.notion.prop("agent") == "Agent"
-    assert old.notion.state("ready") == "ready" and old.notion.state("blocked") == "blocked"
-    assert old.notion.kind("writing") == "Rédaction"
-    assert old.unknown == (), old.unknown
-    assert "failed" not in C.STATUS, "one status for a ticket that stopped"
-    assert old.notion.state("draft") == "draft"
-    assert old.notion.prop("role") == "Rôle", "the role is not the machine's « Agent »"
+def a_file_that_still_holds_the_old_board_table_is_refused_with_its_line() -> None:
+    """Written for the board Ponos used to be told about: say to take it out, read nothing."""
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text('# mine\n[notion]\ntoken = "x"\n[notion.pages]\ncontext = "Soul"\n')
+    try:
+        C.load(path)
+    except C.ConfigError as error:
+        said = str(error)
+        assert f"{path}, line 2: [notion]" in said and "Remove this table" in said, said
+    else:
+        raise AssertionError("the file must not be read")
 
 
 @case
@@ -265,44 +252,7 @@ def optional_properties_have_names_even_when_absent() -> None:
         "cost",
         "duration",
     ):
-        assert config.notion.prop(key), key
-
-
-@case
-def a_workspace_is_named_once_and_the_rest_is_found() -> None:
-    config = _config("")
-    assert config.notion.page("tickets") == "Tickets"
-    assert config.notion.page("context") == "Context"
-    renamed = _config('[notion.pages]\ncontext = "Qui je suis"\n')
-    assert renamed.notion.page("context") == "Qui je suis"
-    assert renamed.notion.page("tickets") == "Tickets", "defaults survive a partial block"
-
-
-@case
-def a_workspace_alone_is_enough_to_run() -> None:
-    path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text(
-        '[notion]\ntoken = "ntn_real"\n'
-        'workspace = "https://www.notion.so/w/3a8451680af480918afcf0eb9cf70e7b?v=1"\n'
-    )
-    C.move_secrets(path)
-    config = C.load(path)
-    assert config.notion.workspace == "3a8451680af480918afcf0eb9cf70e7b", "URL reduced to an ID"
-    assert not config.notion.tickets_database
-    config.require_usable()  # neither raises nor needs a tickets database
-
-
-@case
-def neither_a_workspace_nor_a_database_is_refused() -> None:
-    path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[notion]\ntoken = "ntn_real"\n')
-    C.move_secrets(path)
-    try:
-        C.load(path).require_usable()
-    except C.ConfigError as error:
-        assert "notion.workspace" in str(error)
-    else:
-        raise AssertionError("a configuration naming no tickets database must be refused")
+        assert config.board.prop(key), key
 
 
 # -- what a message to the workspace carries ----------------------------------
@@ -366,7 +316,6 @@ def a_run_beside_the_daemon_asks_it_to_look_rather_than_running_a_second_schedul
                 env={
                     **os.environ,
                     "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
-                    "PONOS_NOTION_TOKEN": "ntn_test",
                 },
             )
             assert woken.wait(10), "the daemon was not woken"
@@ -440,28 +389,21 @@ def a_secret_left_in_config_toml_is_never_read() -> None:
     """
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(
-        '[notion]\ntoken = "ntn_real"\nworkspace = "3a8451680af480918afcf0eb9cf70e7b"\n'
         '[web]\ntoken = "tok"\npassword = "pw"\n[claude]\napi_key = "sk-ant-x"\n'
         '[openrouter]\nkey = "sk-or-x"\n[github_access]\ntoken = "github_pat_x"\n'
         '[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n[notify.slack]\ntoken = "xoxb-1"\n'
     )
     config = C.load(path)
-    assert not config.notion.token and not config.web.token and not config.web.password
+    assert not config.web.token and not config.web.password
     assert (
         not config.claude.api_key and not config.openrouter.key and not config.github_access.token
     )
     assert "token" not in config.notify.telegram and config.notify.telegram["chat"] == "42"
     assert "token" not in config.notify.slack
     assert set(config.exposed) == {f"{table}.{key}" for table, key in C.SECRETS}
-    try:
-        config.require_usable()
-    except C.ConfigError as error:
-        assert "PONOS_NOTION_TOKEN" in str(error) and "secrets.env" in str(error), error
-    else:
-        raise AssertionError("a token only config.toml holds is no token")
 
-    # The example's placeholder is where a token went, not one.
-    path.write_text(f'[notion]\ntoken = "{C.PLACEHOLDER}"\n')
+    # An empty value is where a token went, not one.
+    path.write_text('[web]\ntoken = ""\n')
     assert C.load(path).exposed == ()
 
 
@@ -478,7 +420,7 @@ def a_launch_moves_the_secrets_out_of_config_toml_and_says_so() -> None:
     folder = Path(tempfile.mkdtemp())
     path = folder / "config.toml"
     text = (
-        '[notion]\n# the integration\ntoken = "ntn_real"\nworkspace = "w"\n'
+        '[web]\n# the console\ntoken = "tok_real"\nport = 8787\n'
         '[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n'
         '[openrouter]\nkey = "sk-or-old"\n'
     )
@@ -490,23 +432,23 @@ def a_launch_moves_the_secrets_out_of_config_toml_and_says_so() -> None:
     said: list[str] = []
     with _environ(PONOS_CONFIG=str(path)):
         cli.secrets_out_of_config(said.append)
-    assert len(said) == 1 and "notion.token" in said[0] and "secrets.env" in said[0], said
+    assert len(said) == 1 and "web.token" in said[0] and "secrets.env" in said[0], said
 
     stored = C.read_secrets(C.secrets_path(path))
     assert stored == {
-        "PONOS_NOTION_TOKEN": "ntn_real",
+        "PONOS_WEB_TOKEN": "tok_real",
         "PONOS_TELEGRAM_TOKEN": "123:abc",
         "OPENROUTER_API_KEY": "sk-or-new",
     }, stored
     assert (C.secrets_path(path).stat().st_mode & 0o777) == 0o600
     for left in (path, folder / "config.toml.bak"):
         written = left.read_text()
-        assert "ntn_real" not in written and "123:abc" not in written and "sk-or" not in written
-        assert "# the integration" in written and 'chat = "42"' in written
+        assert "tok_real" not in written and "123:abc" not in written and "sk-or" not in written
+        assert "# the console" in written and 'chat = "42"' in written
     assert (path.stat().st_mode & 0o777) == 0o640, "the file keeps its own mode"
 
     config = C.load(path)
-    assert config.notion.token == "ntn_real" and config.notify.telegram["token"] == "123:abc"
+    assert config.web.token == "tok_real" and config.notify.telegram["token"] == "123:abc"
     assert config.openrouter.key == "sk-or-new" and config.exposed == ()
 
     said.clear()
@@ -524,6 +466,7 @@ def a_launch_moves_the_secrets_out_of_config_toml_and_says_so() -> None:
 def the_console_writes_a_secret_beside_the_file_never_in_it() -> None:
     """The Settings tab and the first connection save through `config.edit`."""
     path, config = _saved('\n[claude]\nprovider = "api_key"\n')
+    C.write_secrets(C.secrets_path(path), {"PONOS_WEB_TOKEN": "tok_real"})
     saved = web_settings.save(
         config, {"settings": {"claude.api_key": "sk-ant-typed", "runner.max_concurrent": 3}}
     )
@@ -545,7 +488,7 @@ def the_console_writes_a_secret_beside_the_file_never_in_it() -> None:
 
     web_settings.save(fresh, {"settings": {"claude.api_key": None}})
     assert "ANTHROPIC_API_KEY" not in C.read_secrets(C.secrets_path(path))
-    assert C.read_secrets(C.secrets_path(path))["PONOS_NOTION_TOKEN"] == "ntn_real"
+    assert C.read_secrets(C.secrets_path(path))["PONOS_WEB_TOKEN"] == "tok_real"
 
 
 @case
@@ -575,15 +518,15 @@ def every_secret_the_runner_reads_is_masked() -> None:
     the same. See vault.py.
     """
     path, _ = _saved()
-    C.write_secrets(C.secrets_path(path), {"PONOS_NOTION_TOKEN": "ntn_written-in-the-file"})
+    C.write_secrets(C.secrets_path(path), {"PONOS_WEB_TOKEN": "tok_written-in-the-file"})
     try:
         with _environ(
-            PONOS_NOTION_TOKEN="ntn_set-by-compose",
+            PONOS_WEB_TOKEN="tok_set-by-compose",
             PONOS_WEB_PASSWORD="password-set-by-compose",
             PONOS_TELEGRAM_TOKEN="123456:telegram-token",
         ):
             C.load(path)
-        said = "ntn_written-in-the-file ntn_set-by-compose password-set-by-compose 123456:telegram-token"
+        said = "tok_written-in-the-file tok_set-by-compose password-set-by-compose 123456:telegram-token"
         assert vault.mask(said) == " ".join([vault.MASK] * 4), vault.mask(said)
     finally:
         vault.forget()

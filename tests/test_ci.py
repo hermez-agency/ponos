@@ -111,7 +111,7 @@ def a_ci_red_five_times_is_retried_five_times_then_the_ticket_is_blocked(
     _pass(runner, _checks("fail"), head="head-6")
     assert _statuses(runner) == ["ready"] * 5 + ["blocked"], runner.client.written
     assert any(
-        values.get(runner.config.notion.prop("block")) == "ci.rework-exhausted"
+        values.get(runner.config.board.prop("block")) == "ci.rework-exhausted"
         for _, values in runner.client.written
     ), runner.client.written
     # The counter starts again for whoever answers the question.

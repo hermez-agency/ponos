@@ -3,7 +3,7 @@
 Two different things are called MCP here, and the tab keeps them apart. The
 console *is* an MCP server (`mcp.py`): the tab hands its address to a client —
 Claude Code, Claude desktop — to paste. And the sessions Ponos starts *use* MCP
-servers (Notion, GitHub, a browser…) that Claude Code itself holds: those are
+servers (GitHub, a browser, a database…) that Claude Code itself holds: those are
 read from `claude mcp list`, the one command that says both what is configured
 and whether it answers, rather than from `~/.claude.json`, which would have
 this module re-implement the scopes of a tool that moves faster than it does.

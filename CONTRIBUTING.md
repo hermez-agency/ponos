@@ -16,9 +16,9 @@ tests, the mascot and the releases. Using it is in [the guide](guide/README.md).
 ![The pieces of Ponos and how they fit together](diagrams/ponos.png)
 
 Everything inside the dotted frame runs on your machine and nowhere else. Three things are
-outside it, and they are the only three the runner reaches: the Notion board it reads and
-writes, GitHub when a branch becomes a pull request, and the channel you chose to be asked
-questions on.
+outside it, and they are the only three the runner reaches: Claude, which answers the
+sessions, GitHub when a branch becomes a pull request, and the channel you chose to be asked
+questions on. The board itself — the console and `ponos.db` — is inside.
 
 The picture is a still of an interactive diagram. `diagrams/architecture.html` is a single
 self-contained file — open it in a browser and you can follow the five guided views (one
@@ -50,7 +50,7 @@ behind it. The rest is one chapter per module:
 | `ticket.py` | `Ticket` and `Job`, the two nouns everything else passes around |
 
 Around them sit the modules a run leans on rather than consists of: `store.py` and the
-board behind it (`notion.py`, the mirror, and `pages.py`, the pages kept in `ponos.db`), `git.py`, `github_checks.py` (a pull request's checks, and the merge that waits on them), `github_app.py` (the GitHub App and its tokens), `session.py` (and `tether.py`, what holds a session once its daemon is gone), `daemon.py` (the process around the scheduler: its lock, its signals, its `exec`), `launches.py` (« Run now »),
+board behind it (`ledger.py`, the tickets of `ponos.db`, and `pages.py`, the other pages kept there), `git.py`, `github_checks.py` (a pull request's checks, and the merge that waits on them), `github_app.py` (the GitHub App and its tokens), `session.py` (and `tether.py`, what holds a session once its daemon is gone), `daemon.py` (the process around the scheduler: its lock, its signals, its `exec`), `launches.py` (« Run now »),
 `voice.py`, `kinds.py` (the four types of ticket, and what counts as a doubt), `progress.py`, `conversation.py`, `schedules.py`, `credits.py`, `db.py` (the local SQLite
 memory, `ponos.db`, and its numbered migrations), `journal.py` (every run and its steps, in it), `channels/` and `web/`.
 
@@ -117,7 +117,7 @@ one load their scripts from a CDN, which the console's policy refuses.
 
 What the routes call is one object, `Api`, built the way a run is: one holder of the
 state — the configuration reread when its file changes, the project index, the tickets
-database ID, the tickets held between two readings, the moves queued for Notion — in
+database ID, the tickets held between two readings, the moves queued for the board — in
 `web/base.py`, and the work split into chapters that add their methods to it. `web/api.py`
 puts them together and says why:
 
@@ -212,7 +212,7 @@ cd frontend && npm run dev:demo    # the page, hot reloaded, proxying /api to it
 
 `scripts/demo.py` is a real `ponos service run` on a throwaway board in `ponos.db`, under a temporary
 `XDG_STATE_HOME` and `HOME`, with a stand-in `claude`, `gh` and `systemctl` first in the
-`PATH` — no Notion, no network, nothing of yours read or written, and the directory removed
+`PATH` — no network, nothing of yours read or written, and the directory removed
 when you press Ctrl-C. The board is drawn to be looked at: eight projects, sixty-odd tickets in
 every column, six weeks of sessions and costs, a stop of every family, recurrences, goals, ideas, a
 bell and conversations. It is deterministic (one seed, dates counted back from the start),
@@ -376,7 +376,7 @@ and per row of the board, in the mood of its column; and the face of every empty
 loading page, error and toast. Only a ticket in progress moves on the board — the others are
 `still` — and every robot follows the console's own light or dark theme and is hidden from
 screen readers, the words beside it carrying the state. The right end of the bar keeps words
-only — the stream, the version, the sync with Notion — and no face.
+only — the stream, the version, the sync with the board — and no face.
 
 ### Layers
 
@@ -471,11 +471,11 @@ console's cases start for real: `uv sync` once, and the command stays the same. 
 tests' `e2e/console.py` does the same.
 The requests the runner sends go through `ponos/http.py`, and the tests answer them with
 an `httpx.MockTransport` (`_http_answering` in `tests/support.py`); the functional suite keeps
-its own Notion, on a local port.
+its own `ponos.db`, in a temporary state directory.
 
 The pure part is written one file per module — `tests/test_update.py` for `update.py`,
 `tests/test_web_server.py` for `web/server.py` — so that two tickets touching two modules
-touch two files; what several of them share, the doubles of Notion, of a session or of a
+touch two files; what several of them share, the doubles of a session or of a
 board, is in `tests/support.py`. A case is a function registered with `@case`, and what it
 needs set up and taken down around it — a state directory of its own (`state_home`), an
 installation of this very runner (`installation`), a whole machine for the functional
@@ -537,9 +537,9 @@ is in `.git-blame-ignore-revs`, which GitHub reads and `git config blame.ignoreR
 [notes/audit-technique-2026-10.md](notes/audit-technique-2026-10.md).
 
 The first covers the pure part — identifier collisions, status mapping, the
-markdown-to-Notion conversion, deep links, property encoding, which message answers which
+ticket page in its two parts, deep links, property encoding, which message answers which
 ticket, who a comment is addressed to — which is to say what has already gone wrong
-once, or would go wrong silently. It touches neither Notion, nor git, nor the network.
+once, or would go wrong silently. It touches neither git nor the network.
 
 The second covers the road itself, which is the half that breaks quietly: ready ticket →
 worktree → session → branch → pull request, and the status written back onto the ticket.
@@ -549,14 +549,12 @@ leaving an orphan worktree, and a board with two projects where the ticket has t
 the repository its `Project` relation names. Two more follow a ticket with no `Type`: one
 classified *Publication*, prepared into *In review* without a worktree and published only
 once it was moved to *Validated*; one the classification hesitated over,
-blocked with the question while a ticket typed by hand runs beside it. Nothing is mocked: a **Notion of its own**
-answers on a loopback port and keeps a state the assertions read back, a repository and a
+blocked with the question while a ticket typed by hand runs beside it. Nothing is mocked: a **board of its own** —
+a `ponos.db` in a temporary state directory — keeps a state the assertions read back, a repository and a
 bare remote stand in for GitHub, and a `claude` and a `gh` at the head of `PATH` do what
 the real ones do minus the thinking and the network. Nothing leaves the machine, nothing
 is written outside a temporary directory — `XDG_STATE_HOME` moves with the test — and the
-four of them take a handful of seconds. The one thing the runner cannot guess is where
-Notion lives, so that is the one seam in the code: `PONOS_NOTION_API`, read at
-each request and unset in every installation.
+four of them take a handful of seconds.
 
 How fast the console goes from page to page is a browser's question, so it is
 not in either suite:
@@ -618,7 +616,7 @@ released —, so the installation, which takes the newest release, makes its rea
 `git clone --depth 1` of that commit and its real fetch of the tags, without the network
 but for PyPI. Then four checks, each said even when another failed: the installation ends
 and `ponos --version` says the release's number, the console answers `GET /api/setup` unclaimed, `ponos doctor` has no
-problem but Claude Code missing and the Notion token (both the first connection's), and
+problem but Claude Code missing (the first connection's), and
 `ponos update --check` answers and never offers a version older than the one installed.
 It runs on a pull request that touches `install.sh`, `update.py`, `environment.py`,
 `health/` or the job itself, every night on `main`, and by hand; locally, from a clone

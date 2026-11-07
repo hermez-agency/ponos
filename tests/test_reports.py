@@ -10,14 +10,14 @@ from typing import Any, cast
 
 from support import _board_runner, _BoardClient, _reviewed, case
 
-from ponos import board_journal, credits, notion, resources, session, state, store
+from ponos import board_journal, credits, resources, session, state, store
 from ponos import question as question_module
 from ponos.runner import Runner
 from ponos.ticket import Ticket
 
 
 def _runner(
-    pages: Iterable[notion.Page] | None = None,
+    pages: Iterable[store.Page] | None = None,
     client: _BoardClient | None = None,
     waiting: bool = False,
 ) -> tuple[Runner, list[str]]:
@@ -59,7 +59,7 @@ class _Refusing(_BoardClient):
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if len(values) > 1:
-            raise notion.NotionError("400 Cost is expected to be number")
+            raise store.StoreError("400 Cost is expected to be number")
         super().update(database_id, page_id, values)
 
 
@@ -67,17 +67,17 @@ class _Down(_BoardClient):
     """A board where nothing can be written, nor read back."""
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
-        raise RuntimeError("Notion is down")
+        raise RuntimeError("the board is down")
 
-    def page(self, page_id: str) -> notion.Page:
-        raise notion.NotionError("503 service unavailable")
+    def page(self, page_id: str) -> store.Page:
+        raise store.StoreError("503 service unavailable")
 
 
 # -- the ticket's own columns -------------------------------------------------
 
 
 @case
-def a_column_notion_refuses_is_dropped_and_the_status_written_alone(state_home: Path) -> None:
+def a_column_the_board_refuses_is_dropped_and_the_status_written_alone(state_home: Path) -> None:
     ticket = _ticket()
     runner, said = _runner([ticket.page], _Refusing([ticket.page]))
     runner._set(ticket, statut="review", Cost="a lot")
@@ -131,7 +131,7 @@ def a_claim_on_a_ticket_moved_meanwhile_refuses_the_whole_write(state_home: Path
 
 @case
 def a_claim_on_a_page_that_cannot_be_read_back_goes_ahead(state_home: Path) -> None:
-    """The write that follows meets the same Notion; refusing here would gain nothing."""
+    """The write that follows meets the same board; refusing here would gain nothing."""
     ticket = _ticket(status="ready")
     runner, _ = _runner([])  # the board does not find the page again: a 404
     assert runner._claim(ticket, statut="progress")
@@ -172,7 +172,7 @@ def leaving_blocked_empties_the_block_cell_and_failing_does_not(state_home: Path
 @case
 def a_status_held_as_a_select_is_remembered_as_a_select(state_home: Path) -> None:
     """A board whose Status column is a select: the page the run holds says it so too."""
-    ticket = Ticket(page=notion.Page(id="p-1", url="", title="t", properties={}))
+    ticket = Ticket(page=store.Page(id="p-1", url="", title="t", properties={}))
     client = _BoardClient([])
     client.columns["statut"] = "select"
     runner, _ = _runner(client=client)
@@ -231,20 +231,20 @@ class _Mute(_BoardClient):
     """An integration without the comment capabilities."""
 
     def comment(self, page_id: str, text: str, discussion_id: str = "") -> None:
-        raise notion.NotionError("403 Insufficient permissions for this endpoint")
+        raise store.StoreError("403 Insufficient permissions for this endpoint")
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
-        raise notion.NotionError("403 Insufficient permissions for this endpoint")
+    def comments(self, page_id: str) -> list[store.Comment]:
+        raise store.StoreError("403 Insufficient permissions for this endpoint")
 
 
 @case
-def a_comment_notion_refuses_says_which_capability_is_missing_and_is_not_remembered(
+def a_comment_the_board_refuses_is_said_and_not_remembered(
     state_home: Path,
 ) -> None:
     ticket = _ticket()
     runner, said = _runner(client=_Mute([]))
     runner._comment(ticket, "Fait.")
-    assert any("Insert comments" in line for line in said), said
+    assert any("the board refused the comment" in line for line in said), said
     assert not runner.ledger.knows("p-1"), "a page nobody spoke on is not one to watch"
 
 
@@ -260,19 +260,19 @@ def a_comment_written_forgets_the_cached_thread_and_remembers_the_page(state_hom
 
 
 @case
-def unreadable_comments_are_an_empty_discussion_with_the_capability_named(state_home: Path) -> None:
+def unreadable_comments_are_an_empty_discussion_and_said(state_home: Path) -> None:
     runner, said = _runner(client=_Mute([]))
     assert runner.discussion(_ticket()) == []
-    assert any("Read comments" in line for line in said), said
+    assert any("comments not readable" in line for line in said), said
     assert runner.asked("p-1") is None, "and no question to read an answer against"
 
 
 class _Thread(_BoardClient):
-    def __init__(self, comments: list[notion.Comment]) -> None:
+    def __init__(self, comments: list[store.Comment]) -> None:
         super().__init__([])
         self.thread = comments
 
-    def comments(self, page_id: str) -> list[notion.Comment]:
+    def comments(self, page_id: str) -> list[store.Comment]:
         return self.thread
 
     def me(self) -> str:
@@ -294,14 +294,14 @@ def the_discussion_says_who_spoke_and_reads_an_option_as_what_it_names(state_hom
     runner, _ = _runner(
         client=_Thread(
             [
-                notion.Comment("Le header   prend\ntrop de place.", created_by="u-salva"),
-                notion.Comment(CHOICE, created_by="u-runner"),
-                notion.Comment("Je regarde   ça.", created_by="u-runner"),
-                notion.Comment("2", created_by="u-salva"),
+                store.Comment("Le header   prend\ntrop de place.", created_by="u-salva"),
+                store.Comment(CHOICE, created_by="u-runner"),
+                store.Comment("Je regarde   ça.", created_by="u-runner"),
+                store.Comment("2", created_by="u-salva"),
             ]
         )
     )
-    runner._me = None  # asked of Notion, as a run does
+    runner._me = None  # asked of the board, as a run does
     lines = runner.discussion(_ticket())
     assert lines[0] == "the ticket's author: Le header prend trop de place."
     assert lines[1] == (
@@ -315,11 +315,11 @@ def the_discussion_says_who_spoke_and_reads_an_option_as_what_it_names(state_hom
 
 @case
 def the_discussion_keeps_the_newest_comments_within_its_budget(state_home: Path) -> None:
-    many = [notion.Comment(f"remarque {index}", created_by="u-salva") for index in range(15)]
+    many = [store.Comment(f"remarque {index}", created_by="u-salva") for index in range(15)]
     runner, _ = _runner(client=_Thread(many))
     lines = runner.discussion(_ticket())
     assert len(lines) == 10 and lines[-1].endswith("remarque 14"), "the last ten, newest last"
-    long = [notion.Comment(word * 900, created_by="u-salva") for word in "abc"]
+    long = [store.Comment(word * 900, created_by="u-salva") for word in "abc"]
     runner, _ = _runner(client=_Thread(long))
     lines = runner.discussion(_ticket())
     assert len(lines) == 2 and lines[-1].endswith("c" * 900), "the oldest is what goes"
@@ -380,7 +380,7 @@ def a_blocked_session_naming_its_own_cause_is_filed_under_it(state_home: Path) -
 
 @case
 def a_crash_whose_failure_cannot_be_written_is_still_a_result(state_home: Path) -> None:
-    """Notion is the thing that is down: the pass gets its result all the same."""
+    """The board is the thing that is down: the pass gets its result all the same."""
     ticket = _ticket()
     runner, said = _runner(client=_Down([]))
 

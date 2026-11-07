@@ -4,7 +4,7 @@
     python3 scripts/demo.py [port]        # 8791, and the token is "demo"
     cd frontend && npm run dev:demo       # the page, hot reloaded, on that console
 
-Working on the console used to take a real installation — Notion, repositories,
+Working on the console used to take a real installation — repositories,
 paid sessions — or the server of the browser tests, whose board is cut for them:
 one ticket per gesture to check, a single run in the journal, a handful of
 notifications. A page drawn against that is drawn empty. This board is cut to be
@@ -106,7 +106,7 @@ PROJECTS = {
         "Newsletter",
         "✉️",
         "",
-        "The monthly letter: written on the board, published from Notion.",
+        "The monthly letter: written on the board, published from the console.",
     ),
     "handbook": (
         "Team Handbook",
@@ -206,7 +206,7 @@ TICKETS = [
     ("trader", "Fix the timezone of the daily candles", CODE, "Bug", "done", ""),
     ("trader", "Alert when the API quota reaches 80 %", CODE, "Amélioration", "ready", ""),
     ("trader", "Refactor the broker adapters", CODE, "Refactor", "draft", ""),
-    ("trader", "Write the weekly report to Notion", WRITING, "", "blocked", "notion.write-failed"),
+    ("trader", "Write the weekly report to the wiki", WRITING, "", "blocked", "board.write-failed"),
     ("newsletter", "Issue 41: autumn product news", WRITING, "", "done", ""),
     ("newsletter", "Issue 42: customer stories", WRITING, "", "progress", ""),
     ("newsletter", "Subject lines to test for issue 43", WRITING, "", "ready", ""),
@@ -266,7 +266,7 @@ GOALS = [
         None,
         60,
         ["ponos"],
-        "Nobody opens Notion to follow a ticket any more.",
+        "Nobody opens another tool to follow a ticket any more.",
         "The console as the one place the work is followed and answered.",
         [
             "Show the cost of a ticket on its card",
@@ -356,10 +356,10 @@ STOPS = {
         "Clean it up, or do you want to look at what is in it first?",
         "1. Clean it up · 2. Leave it, I will look",
     ),
-    "notion.write-failed": (
+    "board.write-failed": (
         "Stuck",
-        "Notion refused the page: the integration cannot see the Reports database any more",
-        "Share the Reports database with the integration, then say done.",
+        "the board refused the report: ponos.db was locked by another process",
+        "Stop the other process holding ponos.db, then say done.",
         "",
     ),
     "access.sudo": (
@@ -403,7 +403,7 @@ PAST_STOPS = [
     "session.killed",
     "merge.pushed-over",
     "session.question",
-    "notion.read-failed",
+    "board.read-failed",
     "merge.checks-failed",
 ]
 
@@ -1351,7 +1351,7 @@ def main(argv: list[str]) -> int:
     here = Path(tempfile.mkdtemp(prefix="ponos-demo-"))
     try:
         build(here)
-        print("Ponos demo: a console on made-up data — no Notion, no network, nothing of yours.")
+        print("Ponos demo: a console on made-up data — no network, nothing of yours.")
         print(f"  open  http://127.0.0.1:{port}/?token={TOKEN}")
         print(
             f"  dev   cd frontend && npm run dev:demo   (PONOS_ORIGIN=http://127.0.0.1:{port} npm run dev)"

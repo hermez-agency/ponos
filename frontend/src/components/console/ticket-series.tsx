@@ -44,7 +44,7 @@ import { ticketHref } from "@/resources/tickets"
  * The address holds it (`?series=blocked`, over whatever page is under it), so
  * Back closes it and a link opens it again. The order is `series.ts`'s: what
  * you can settle at once first. The board is the stream's, live: a ticket that
- * leaves the column elsewhere — its session, Notion, another tab — leaves the
+ * leaves the column elsewhere — its session, another tab — leaves the
  * series as it happens, and one that arrives joins it at the end. One you
  * decided stays in the list, ticked, so the count you started with still adds
  * up; and the last one decided can be taken back, which puts it back in its

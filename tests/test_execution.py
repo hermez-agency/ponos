@@ -13,7 +13,7 @@ from typing import Any, cast
 
 from support import _board_runner, _BoardClient, _git_answering, _reviewed, case
 
-from ponos import execution, notion, projects, resources, session, state, stopping, store
+from ponos import execution, projects, resources, session, state, stopping, store
 from ponos import git as git_module
 from ponos import github_token as github_token_module
 from ponos import ticket as ticket_module
@@ -35,7 +35,7 @@ def _outcome(**values: Any) -> session.Outcome:
     return session.Outcome(**{**fields, **values})
 
 
-def _job(*, code: bool = False, page: notion.Page | None = None) -> ticket_module.Job:
+def _job(*, code: bool = False, page: store.Page | None = None) -> ticket_module.Job:
     """A job on a fresh scratch directory: on a repository when `code` says so."""
     page = page or _reviewed("p-ticket", "progress", None)
     root = Path(tempfile.mkdtemp())
@@ -53,7 +53,7 @@ def _job(*, code: bool = False, page: notion.Page | None = None) -> ticket_modul
     )
 
 
-def _runner(status: dict[str, str] | None = None) -> tuple[Runner, notion.Page, list[str]]:
+def _runner(status: dict[str, str] | None = None) -> tuple[Runner, store.Page, list[str]]:
     """A runner on a fake board that keeps what it says, instead of logging it."""
     page = _reviewed("p-ticket", "progress", None)
     runner = _board_runner([page], status or {"review": "review", "done": "done"})
@@ -104,7 +104,7 @@ def a_listener_that_raises_is_dropped_and_the_other_keeps_hearing() -> None:
 
     def refusing(event: dict[str, Any]) -> None:
         broken.append(event)
-        raise RuntimeError("Notion said 500")
+        raise RuntimeError("the board said 500")
 
     listen = execution._both(heard.append, refusing)
     listen({"n": 1})
@@ -185,7 +185,6 @@ def the_work_of_tickets_that_ended_without_a_commit_is_told_from_their_verdict()
     for summary in settled:
         assert execution._settled(summary), summary
     for outside in (
-        "8 tickets créés vers react-resource-view 1.2.2 dans Master Tickets.",
         "Sitemaps envoyés et lus par Google, indexation demandée pour 8 pages publiques.",
     ):
         assert execution._done_elsewhere(outside), outside
@@ -413,7 +412,7 @@ def a_killed_session_whose_ticket_is_cancelled_in_the_pause_is_not_tried_again(
     job = _job(code=True, page=page)
 
     def cancel() -> None:
-        # Moved on the board, under the page this run holds: Notion's copy, not ours.
+        # Moved on the board, under the page this run holds: the board's copy, not ours.
         _client(runner)._pages = [_reviewed("p-ticket", "cancelled", None)]
 
     outcome, started = _killed_then(runner, job, cancel)
@@ -650,14 +649,16 @@ def a_document_session_that_wrote_no_answer_is_blocked_and_its_directory_removed
 
 
 @case
-def an_answer_notion_refuses_fails_the_ticket_and_says_where_it_still_is(state_home: Path) -> None:
+def an_answer_the_board_refuses_fails_the_ticket_and_says_where_it_still_is(
+    state_home: Path,
+) -> None:
     runner, page, _ = _runner()
     job = _job(page=page)
 
     def refusing(page_id: str, titles: Sequence[str], text: str) -> None:
-        raise notion.NotionError("PATCH /blocks: 502 bad gateway")
+        raise store.StoreError("PATCH /blocks: 502 bad gateway")
 
-    runner.client.replace_section = refusing  # type: ignore[method-assign, assignment]  # a double: Notion refuses
+    runner.client.replace_section = refusing  # type: ignore[method-assign, assignment]  # a double: the board refuses
 
     def answered(job: ticket_module.Job, template: str) -> session.Outcome:
         (job.workdir / "ANSWER.md").write_text("La réponse, entière.")
@@ -795,7 +796,7 @@ def a_project_setup_runs_in_the_worktree_before_the_session_and_the_session_is_t
 
     runner, _, said = _runner()
     job = _job(code=True)
-    job.project.notion_id = "proj-1"
+    job.project.page_id = "proj-1"
     project_settings.set_setup("proj-1", "Northwind", "echo prepared > node_modules.txt")
     done, failed = _prepared(runner, job)
     assert done is None and not failed
@@ -810,7 +811,7 @@ def a_project_setup_runs_in_the_worktree_before_the_session_and_the_session_is_t
 def a_project_without_a_setup_starts_its_session_as_before(state_home: Path) -> None:
     runner, _, _ = _runner()
     job = _job(code=True)
-    job.project.notion_id = "proj-1"
+    job.project.page_id = "proj-1"
     done, failed = _prepared(runner, job)
     assert done is None and not failed and job.prepared == ""
     assert not (job.workdir.parent / "run.setup.log").exists()
@@ -824,7 +825,7 @@ def the_repository_setup_script_runs_when_the_project_has_no_command_and_loses_t
 
     runner, _, _ = _runner()
     job = _job(code=True)
-    job.project.notion_id = "proj-1"
+    job.project.page_id = "proj-1"
     job.workdir.mkdir(parents=True)
     (job.workdir / ".ponos").mkdir()
     (job.workdir / ".ponos" / "setup.sh").write_text("echo from-script > ran.txt\n")
@@ -847,7 +848,7 @@ def a_setup_that_fails_blocks_the_ticket_with_the_end_of_its_output_and_no_sessi
     runner, _, _ = _runner()
     runner.config.runner.keep_worktree_on_failure = True
     job = _job(code=True)
-    job.project.notion_id = "proj-1"
+    job.project.page_id = "proj-1"
     project_settings.set_setup(
         "proj-1", "Northwind", "echo installing; echo 'ERR! no lockfile'; exit 3"
     )
@@ -870,7 +871,7 @@ def a_setup_secret_is_given_to_the_command_and_masked_in_what_the_ticket_shows(
     runner, _, _ = _runner()
     runner.config.runner.keep_worktree_on_failure = True
     job = _job(code=True)
-    job.project.notion_id = "proj-1"
+    job.project.page_id = "proj-1"
     runner.config.vault.projects = {"northwind": {"NPM_TOKEN": "PONOS_TEST_SETUP_SECRET"}}
     os.environ["PONOS_TEST_SETUP_SECRET"] = "npm_setup_case_0123456789"
     project_settings.set_setup("proj-1", "Northwind", 'echo "token=$NPM_TOKEN"; exit 1')

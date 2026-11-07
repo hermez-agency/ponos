@@ -6,13 +6,12 @@ import json
 import tempfile
 import threading
 import time
-import uuid
 from pathlib import Path
 from typing import Any
 
-from support import _Clock, _run_on, case
+from support import _Clock, case
 
-from ponos import markdown, notion, progress, session
+from ponos import progress, session, store
 
 # -- the live report ---------------------------------------------------------
 
@@ -138,7 +137,7 @@ class _Live:
 
     def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
         if self.refuse:
-            raise notion.NotionError("403 forbidden")
+            raise store.StoreError("403 forbidden")
         self.properties.append(values["Progress"])
 
 
@@ -203,13 +202,13 @@ class _Stuck(_Live):
 
 
 @case
-def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
+def a_board_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
     """The report used to be written from the loop that reads the CLI's output.
 
     A write waiting out a 429 stopped that loop, the pipe filled, and the CLI
     stopped on its next write while its timeout kept running. The writing has
     its own thread now: the stream is read through as if nobody listened, and
-    what waited goes down in one write when Notion answers.
+    what waited goes down in one write when the board answers.
     """
     clock, client = _Clock(), _Stuck()
     live = progress.Live(
@@ -249,8 +248,8 @@ def a_notion_that_takes_minutes_does_not_hold_up_reading_the_session() -> None:
     elapsed = time.monotonic() - started
 
     assert client.held.wait(5), "the writer had started its first write"
-    assert len(texts) == 200 and client.properties == [], "read to the end, Notion still stuck"
-    assert elapsed < 2, f"reading took {elapsed:.1f}s behind a stuck Notion"
+    assert len(texts) == 200 and client.properties == [], "read to the end, the board still stuck"
+    assert elapsed < 2, f"reading took {elapsed:.1f}s behind a stuck board"
 
     client.free.set()
     live.close()
@@ -268,109 +267,6 @@ def what_is_still_waiting_is_written_when_the_session_ends() -> None:
     assert client.properties[0] == "Edit · src/x.py"
     # A finished ticket no longer claims to be doing anything.
     assert client.properties[-1] == ""
-
-
-class _Page:
-    """A Notion page as a tree of blocks: written by a live report, read by the client."""
-
-    def __init__(self) -> None:
-        self.children: dict[str, list[dict[str, Any]]] = {"page": []}
-        self.asked: list[str] = []
-
-    def add(self, parent: str, block: dict[str, Any]) -> str:
-        identifier = uuid.uuid4().hex
-        kind = block["type"]
-        rich = [
-            {**part, "plain_text": part["text"]["content"]} for part in block[kind]["rich_text"]
-        ]
-        self.children[parent].append(
-            {"id": identifier, "has_children": False, **block, kind: {"rich_text": rich}}
-        )
-        self.children[identifier] = []
-        for held in self.children.values():
-            for child in held:
-                child["has_children"] = bool(self.children.get(child["id"]))
-        return identifier
-
-    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
-        return [self.add(block_id, block) for block in blocks]
-
-    def update_block(self, block_id: str, payload: dict[str, Any]) -> None:
-        for held in self.children.values():
-            for child in held:
-                if child["id"] == block_id:
-                    child["toggle"]["rich_text"] = [
-                        {**part, "plain_text": part["text"]["content"]}
-                        for part in payload["toggle"]["rich_text"]
-                    ]
-
-    def update(self, database_id: str, page_id: str, values: dict[str, Any]) -> None:
-        pass
-
-    def request(self, method: str, path: str, body: Any = None, **_: Any) -> dict[str, Any]:
-        parent = path.split("/")[2]
-        self.asked.append(parent)
-        return {"results": self.children[parent], "has_more": False}
-
-
-@case
-def a_brief_is_read_without_the_story_of_earlier_runs() -> None:
-    """A ticket sent back to Ready is briefed on what you wrote, not on its past runs.
-
-    Every run leaves its toggle on the page; read as a brief, the page skips
-    them — and does not even ask Notion for what they hold. The report a run
-    ends on, and a toggle somebody wrote by hand, are still read.
-    """
-    page = _Page()
-    page.add("page", markdown.to_blocks("## À faire\n\nCorriger l'entête.")[0])
-    page.add("page", markdown.to_blocks("Corriger l'entête.")[0])
-    _run_on(page, "fr", "Je lis la configuration.", ok=False)  # type: ignore[arg-type]  # a fake: a page as a tree of blocks
-    page.add("page", markdown.to_blocks("Pull request ouverte : x/y#3")[0])
-    _run_on(page, "en", "Reading the header again.")  # type: ignore[arg-type]  # a fake: a page as a tree of blocks
-    by_hand = page.add(
-        "page",
-        {
-            "object": "block",
-            "type": "toggle",
-            "toggle": {"rich_text": [{"type": "text", "text": {"content": "Notes"}}]},
-        },
-    )
-    page.add(by_hand, markdown.to_blocks("Garder le logo.")[0])
-    titles = [
-        "".join(part["plain_text"] for part in block["toggle"]["rich_text"])
-        for block in page.children["page"]
-        if block["type"] == "toggle"
-    ]
-    assert titles[0].startswith("⚠️ Trace — 2 étapes") and titles[1].startswith("✓ 2 steps"), titles
-    runs = [block["id"] for block in page.children["page"] if progress.is_live(block)]
-    assert len(runs) == 2
-
-    client = notion.Client("ntn_x")
-    client._request = page.request  # type: ignore[method-assign]
-    brief = client.blocks_text("page", live=False)
-    assert brief == (
-        "## À faire\nCorriger l'entête.\nPull request ouverte : x/y#3\nNotes\n  Garder le logo."
-    ), brief
-    assert not set(runs) & set(page.asked), "a run's toggle is not even opened"
-    whole = client.blocks_text("page")
-    assert "Je lis la configuration." in whole and "Reading the header again." in whole
-    assert "Trace" in whole
-
-
-@case
-def a_toggle_that_only_looks_like_a_run_is_kept() -> None:
-    def toggle(title: str, bold: bool = True) -> dict[str, Any]:
-        part = {"type": "text", "text": {"content": title}, "annotations": {"bold": bold}}
-        return {"type": "toggle", "toggle": {"rich_text": [part]}}
-
-    assert progress.is_live(toggle("⏳ Live"))
-    assert progress.is_live(toggle("⏳ En cours — 4 étapes · moins d'une minute"))
-    assert progress.is_live(toggle("✓ 16 step(s) · 3 min"))
-    assert progress.is_live(toggle("⚠️ Trace — 3 steps · 2 minutes · interrupted"))
-    assert not progress.is_live(toggle("✓ Done items"))
-    assert not progress.is_live(toggle("⏳ Live", bold=False))
-    assert not progress.is_live(toggle("Notes"))
-    assert not progress.is_live({"type": "paragraph", "paragraph": toggle("⏳ Live")["toggle"]})
 
 
 @case
@@ -395,7 +291,7 @@ def the_same_step_twice_in_a_row_is_said_once() -> None:
 
 
 @case
-def a_notion_that_refuses_costs_the_report_and_not_the_ticket() -> None:
+def a_board_that_refuses_costs_the_report_and_not_the_ticket() -> None:
     """Reporting is commentary: it never becomes a reason to fail a ticket."""
     live, client, clock = _reporting(refuse=True)
     for index in range(10):

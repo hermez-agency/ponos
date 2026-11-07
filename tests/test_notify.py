@@ -26,7 +26,7 @@ from support import (
     case,
 )
 
-from ponos import channels, db, notify, notion, voice, workspace
+from ponos import channels, db, notify, store, voice, workspace
 from ponos import config as C
 from ponos.channels import slack as slack_channel
 from ponos.channels import telegram as telegram_channel
@@ -45,7 +45,7 @@ def _found(value: Found | None) -> Found:
 
 
 def _answers(runner: Runner) -> _AnsweringClient:
-    """The fake Notion `_answering` put under `runner`, with what was written."""
+    """The fake board `_answering` put under `runner`, with what was written."""
     return cast(_AnsweringClient, runner.client)
 
 
@@ -490,11 +490,11 @@ def a_moment_nobody_named_is_dropped_rather_than_never_sent() -> None:
 @case
 def a_value_can_be_written_into_a_table_that_has_a_dot_in_its_name() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
-    path.write_text('[notion]\ntoken = "ntn_real"\ntickets_database = "abc"\n')
+    path.write_text('[runner]\nmodel = "opus"\n')
     assert C.write_value(path, "notify.telegram", "chat", "4242") is True
     assert C.write_value(path, "notify.telegram", "chat", "4242") is False, "already says that"
     assert C.load(path).notify.telegram["chat"] == "4242"
-    assert 'token = "ntn_real"' in path.read_text(), "the rest of the file is untouched"
+    assert 'model = "opus"' in path.read_text(), "the rest of the file is untouched"
 
 
 @case
@@ -525,7 +525,7 @@ def a_message_that_answers_nothing_is_never_written_to_a_ticket() -> None:
 
 
 @case
-def a_notion_that_refuses_the_answer_says_so_where_it_was_typed() -> None:
+def a_board_that_refuses_the_answer_says_so_where_it_was_typed() -> None:
     runner, stub = _answering(
         [channels.Reply(channel="telegram", text="oui", ticket=TICKET, title="Le header")],
         error="403 API token does not have access",
@@ -548,10 +548,10 @@ def a_blocked_ticket_travels_with_its_question_and_its_link() -> None:
         "T",
         (),
         {
-            "page": notion.Page(id=TICKET, url="https://notion.so/t", title="Le header"),
+            "page": store.Page(id=TICKET, url="https://board.invalid/t", title="Le header"),
             "id": TICKET,
             "title": "Le header",
-            "url": "https://notion.so/t",
+            "url": "https://board.invalid/t",
         },
     )()
 
@@ -573,7 +573,7 @@ def a_blocked_ticket_travels_with_its_question_and_its_link() -> None:
     message = sent[0]
     assert message["text"].startswith("🙋 Stuck · Le header"), "the comment's own verdict"
     assert "Which header" in message["text"], "the agent's question, not the runner's summary"
-    assert "https://notion.so/t" in message["text"], "a notification you have to go and find"
+    assert "https://board.invalid/t" in message["text"], "a notification you have to go and find"
     assert "An answer here" not in message["text"], "the question says how to answer it"
     assert message["ask"] is True and message["ticket"] == TICKET
 
@@ -590,7 +590,7 @@ def nothing_is_sent_anywhere_during_a_dry_run() -> None:
         "T",
         (),
         {
-            "page": notion.Page(id=TICKET, url="u", title="t"),
+            "page": store.Page(id=TICKET, url="u", title="t"),
             "title": "t",
             "url": "u",
         },
@@ -634,14 +634,14 @@ def _notifying(*, missing: str = "") -> Iterator[list[list[str]]]:
 def a_desktop_notification_takes_you_to_the_ticket_it_names() -> None:
     """A line on screen you cannot follow is a title you then go and hunt for."""
     with _notifying() as launched:
-        assert notify.send("Blocked · Le header", "Which header?", link="https://notion.so/t")
+        assert notify.send("Blocked · Le header", "Which header?", link="https://board.invalid/t")
     assert len(launched) == 1, "the plain notification is not sent on top of the clickable one"
     command = launched[0]
     assert command[1:3] == ["-m", "ponos.notify"], (
         "the click is waited for beside the run, never inside it"
     )
     assert command[3:] == [
-        "https://notion.so/t",
+        "https://board.invalid/t",
         "Blocked · Le header",
         "Which header?",
         "normal",
@@ -653,11 +653,11 @@ def a_desktop_notification_takes_you_to_the_ticket_it_names() -> None:
         notify.send(
             "To review · t",
             "PR #42",
-            link="https://notion.so/t",
+            link="https://board.invalid/t",
             warning=True,
             buttons=(
                 ("See the PR", "https://github.com/o/r/pull/42"),
-                ("Open the ticket", "https://notion.so/t"),
+                ("Open the ticket", "https://board.invalid/t"),
             ),
         )
     assert launched[0][8:] == [
@@ -665,7 +665,7 @@ def a_desktop_notification_takes_you_to_the_ticket_it_names() -> None:
         "See the PR",
         "https://github.com/o/r/pull/42",
         "Open the ticket",
-        "https://notion.so/t",
+        "https://board.invalid/t",
     ], "each button travels to the child with where it goes"
 
 
@@ -673,7 +673,7 @@ def a_desktop_notification_takes_you_to_the_ticket_it_names() -> None:
 def a_notification_with_nowhere_to_go_is_a_notification_all_the_same() -> None:
     for tool in ("gdbus", "dbus-monitor", "xdg-open"):
         with _notifying(missing=tool) as launched:
-            assert notify.send("Ready to review · t", "branch", link="https://notion.so/t")
+            assert notify.send("Ready to review · t", "branch", link="https://board.invalid/t")
         assert launched[0][0] == "/usr/bin/notify-send", f"sent anyway, without {tool}"
 
     with _notifying() as launched:
@@ -791,10 +791,10 @@ def a_ticket_notification_carries_its_page_to_the_screen_too() -> None:
         "T",
         (),
         {
-            "page": notion.Page(id=TICKET, url="https://notion.so/t", title="t"),
+            "page": store.Page(id=TICKET, url="https://board.invalid/t", title="t"),
             "id": TICKET,
             "title": "t",
-            "url": "https://notion.so/t",
+            "url": "https://board.invalid/t",
         },
     )()
     original = notify.send
@@ -809,7 +809,7 @@ def a_ticket_notification_carries_its_page_to_the_screen_too() -> None:
             "title": "To review",
             "urgent": False,
             "warning": False,
-            "link": "https://notion.so/t",
+            "link": "https://board.invalid/t",
             "action": "Open the ticket",
             "buttons": (),
         }
@@ -847,7 +847,10 @@ def a_ticket_notification_carries_its_page_to_the_screen_too() -> None:
     review, blocked, failed = seen
     assert review["title"] == "À relire — Leadz"
     assert review["body"] == "t\nDone.", "no address, price, or duration"
-    assert review["buttons"] == (("Voir la PR", pull), ("Ouvrir le ticket", "https://notion.so/t"))
+    assert review["buttons"] == (
+        ("Voir la PR", pull),
+        ("Ouvrir le ticket", "https://board.invalid/t"),
+    )
     assert blocked["title"] == "Ponos a une question" and blocked["urgent"] is True
     assert blocked["body"] == "t\nWhich one?\nRéponds dans le ticket"
     assert failed["urgent"] is False and failed["warning"] is True, "a failure goes away by itself"
@@ -932,27 +935,29 @@ def a_ticket_that_speaks_again_replaces_its_notification_instead_of_stacking(
 
     subprocess.run = run  # type: ignore[assignment]  # a double: what was launched is kept
     try:
-        assert notify._post("t", "b", urgent=False, replaces="5", key="https://notion.so/t") == "7"
+        assert (
+            notify._post("t", "b", urgent=False, replaces="5", key="https://board.invalid/t") == "7"
+        )
     finally:
         subprocess.run = original
     tail = posted[0][posted[0].index("--") + 1 :]
     assert tail[1] == "5", "posted over the ticket's last one"
     assert tail[6] == (
-        "{'urgency': <byte 1>, 'x-canonical-private-synchronous': <\"https://notion.so/t\">}"
+        "{'urgency': <byte 1>, 'x-canonical-private-synchronous': <\"https://board.invalid/t\">}"
     )
 
-    assert notify._remembered("https://notion.so/t") == {}
-    notify._remember("https://notion.so/t", "7", {})
-    assert notify._remembered("https://notion.so/t")["id"] == "7"
-    assert notify._remembered("https://notion.so/other") == {}
+    assert notify._remembered("https://board.invalid/t") == {}
+    notify._remember("https://board.invalid/t", "7", {})
+    assert notify._remembered("https://board.invalid/t")["id"] == "7"
+    assert notify._remembered("https://board.invalid/other") == {}
 
     with _notifying() as launched:
         notify.send("t", "b")
     assert "string:x-canonical-private-synchronous:" not in " ".join(launched[0])
     with _notifying(missing="gdbus") as launched:
-        notify.send("t", "b", link="https://notion.so/t")
+        notify.send("t", "b", link="https://board.invalid/t")
     assert launched[0][launched[0].index("--hint") + 1] == (
-        "string:x-canonical-private-synchronous:https://notion.so/t"
+        "string:x-canonical-private-synchronous:https://board.invalid/t"
     )
 
 
@@ -1225,7 +1230,7 @@ def a_question_a_review_and_a_failure_ring_the_bell_but_a_dry_run_does_not(
         "T",
         (),
         {
-            "page": notion.Page(id=TICKET, url="u", title="t"),
+            "page": store.Page(id=TICKET, url="u", title="t"),
             "id": TICKET,
             "title": "t",
             "url": "u",
@@ -1253,10 +1258,10 @@ class _Writing:
         self.rows: list[tuple[str, dict[str, Any]]] = []
         self.notes: list[str] = []
 
-    def query(self, database_id: str) -> list[notion.Page]:
+    def query(self, database_id: str) -> list[store.Page]:
         return [
-            notion.Page(id="p1", properties={}, title="Ponos", url=""),
-            notion.Page(id="p2", properties={}, title="Leadz", url=""),
+            store.Page(id="p1", properties={}, title="Ponos", url=""),
+            store.Page(id="p2", properties={}, title="Leadz", url=""),
         ]
 
     def schema(self, database_id: str) -> dict[str, str]:
@@ -1270,8 +1275,8 @@ class _Writing:
         self.notes.append(markdown)
         return 1
 
-    def page(self, page_id: str) -> notion.Page:
-        return notion.Page(id=page_id, properties={}, title="", url="https://notion.so/new")
+    def page(self, page_id: str) -> store.Page:
+        return store.Page(id=page_id, properties={}, title="", url="https://board.invalid/new")
 
 
 class _Phone(channels.Channel):
@@ -1334,7 +1339,7 @@ def a_ticket_command_writes_a_draft_and_tells_where(state_home: Path) -> None:
     assert title == "le bouton Stop ne s'affiche pas sur mobile"
     assert values["Project"] == ["p1"]
     assert values["statut"] == "draft", "a draft is written in the drafts' status"
-    assert "Ponos" in phone.said[0] and "https://notion.so/new" in phone.said[0]
+    assert "Ponos" in phone.said[0] and "https://board.invalid/new" in phone.said[0]
 
 
 @case

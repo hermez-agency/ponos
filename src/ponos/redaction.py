@@ -1,6 +1,6 @@
 """Passwords and tokens, kept out of what a ticket says.
 
-An answer typed at a ticket becomes a Notion comment, and a comment stays: it
+An answer typed at a ticket becomes a comment, and a comment stays: it
 is read by every run after, by whoever the page is shared with, and nothing in
 the runner ever deletes one. The day an answer carried a password in clear, it
 stayed on the page for as long as the page did. So the three roads by which a

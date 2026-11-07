@@ -5,7 +5,7 @@
 one ticket per gesture to check against a board drawn to be looked at — and
 must stay apart, or a prettier demo would move a test. What does not differ is
 everything around the data, and it is here once: a configuration of its own
-(no Notion token, so the board is `ponos.db`), a `XDG_STATE_HOME` and a `HOME` in a temporary
+(its board a `ponos.db` of its own), a `XDG_STATE_HOME` and a `HOME` in a temporary
 directory so that nothing reads the state of the console you run for yourself,
 and a `claude`, a `gh` and a `systemctl` first in the PATH, so that nothing
 reaches a session, GitHub, the machine's daemon or its keyring.
@@ -253,7 +253,7 @@ class Seed:
     def __init__(self) -> None:
         from ponos import config, ledger, pages
 
-        settings = config.Notion()
+        settings = config.BoardNames()
         self.store = ledger.Ledger(pages.Pages(settings), settings)
         self.store.workspace(settings)
 
@@ -314,7 +314,7 @@ class Seed:
         from ponos import store
 
         # The pages a ticket points at are the database's own here (see pages.py).
-        self.store.notion.create_row(collection, title, properties, page_id=id)  # type: ignore[call-arg]
+        self.store.backend.create_row(collection, title, properties, page_id=id)
         if body:
             self.store.replace_markdown(id, body)
         if icon:
@@ -333,4 +333,4 @@ class Seed:
 
     def context(self, text: str) -> None:
         """The standing context every ticket is read with."""
-        self.store.notion.set_context(text)  # type: ignore[attr-defined]
+        self.store.backend.set_context(text)

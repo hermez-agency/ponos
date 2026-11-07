@@ -4,7 +4,7 @@ The state of the one `Api` — `api.py` says why there is one, and why it is put
 together out of chapters rather than written as a single class: the
 configuration and the runner built on it, the three reads the console caches,
 the tickets held between two readings of the board, the moves on their way to
-Notion, the stream every open page listens to, and what the ideas keep while a
+The board, the stream every open page listens to, and what the ideas keep while a
 batch is being written. Nothing else holds any of it, so a saved file that
 makes it a different board is told once: `config` drops what was read of the
 old one, and `forget` what a failed call earned.
@@ -124,11 +124,10 @@ class Base(Chapters):
         self._reader = board_module.Reader()
         self._synced: dict[str, Any] = {}
         # The last board drawn — when, after how many writes, and what it was —
-        # under the lock that keeps two readers from asking Notion the same
+        # under the lock that keeps two readers from asking the board the same
         # thing at once. See `Tickets.board`.
         self._drawn: tuple[float, int, dict[str, Any]] | None = None
         self._drawing = threading.Lock()
-        self._briefs: dict[str, tuple[str, str]] = {}
         self._disk: tuple[float, dict[str, int], list[tuple[str, int]]] | None = None
         self._health: tuple[float, dict[str, Any]] | None = None
         # The schedules last read, and when: see `Schedules.schedules`.
@@ -203,7 +202,7 @@ class Base(Chapters):
 
     @property
     def outbox(self) -> board_module.Outbox:
-        """The writes waiting for Notion. In memory, and idle, for an `Api` a
+        """The writes waiting for the board. In memory, and idle, for an `Api` a
         test built without `__init__`: only the console's own sends anything."""
         if getattr(self, "_outbox", None) is None:
             self._outbox = board_module.Outbox()
@@ -227,7 +226,7 @@ class Base(Chapters):
         return ""
 
     def forget(self) -> None:
-        """Drop the caches. What a failed Notion call earns, so the next retries."""
+        """Drop the caches. What a failed read of the board earns, so the next retries."""
         self._runner = None
         self._projects = {}
         self._projects_at = 0.0
@@ -254,7 +253,7 @@ class Base(Chapters):
         return notifications.recent()
 
     def synchronised(self) -> dict[str, Any]:
-        """When the board last agreed with Notion, and what does not. See `board.describe`."""
+        """When the console last agreed with the board, and what does not. See `board.describe`."""
         return dict(getattr(self, "_synced", {}) or {})
 
 

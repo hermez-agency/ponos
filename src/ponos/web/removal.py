@@ -3,7 +3,7 @@
 A project the console no longer shows is not enough: one that is only hidden is
 still on the board, still synchronised, and its ready tickets are still taken by
 the runner — which is what spends tokens. So deleting is done where the runner
-looks: the project's page goes to the **Notion trash** (thirty days to bring it
+looks: the project's page goes to the **trash** (thirty days to bring it
 back, and every query stops listing it), and what still points at it is dealt
 with in the same gesture rather than at the next pass.
 
@@ -40,7 +40,7 @@ from .base import Base
 class Removal(Base):
     def tickets_of(self, project: str) -> list[store.Page]:
         """The tickets whose project relation names that page."""
-        settings = self.config.notion
+        settings = self.config.board
         wanted = project.replace("-", "")
         pages = self.reader.read(self.runner.client, self.runner.database, settings.prop("status"))
         relation = settings.prop("project")
@@ -75,7 +75,7 @@ class Removal(Base):
             )
 
         client = self.runner.client
-        settings = self.config.notion
+        settings = self.config.board
         blocked = settings.state("blocked")
         trash = bool(payload.get("trash_tickets"))
         said = self.runner.voice.say("project-deleted", project=name)

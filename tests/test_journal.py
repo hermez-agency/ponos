@@ -14,7 +14,7 @@ from typing import Any
 from support import case
 
 from ponos import config as C
-from ponos import db, journal, models, notion, state
+from ponos import db, journal, models, state, store
 from ponos import ticket as ticket_module
 from ponos.__main__ import main as cli_main
 from ponos.runner import Runner
@@ -156,9 +156,7 @@ def a_run_is_written_step_by_step_and_closed_on_what_the_ticket_came_to(state_ho
         assert found["status"] is None and found["ended_at"] is None, "still going"
         assert found["session"] == "s2" and found["log"] == "a-again.jsonl"
         assert found["cost_usd"] == 0.75 and found["steps"] == 4
-        assert journal.runs(f"https://app.notion.com/p/Journal-{ticket.replace('-', '')}") == [
-            found
-        ]
+        assert journal.runs(f"https://board.invalid/p/Journal-{ticket.replace('-', '')}") == [found]
 
         run.end("done", "https://github.com/o/r/pull/1")
         run.end("failed", "too late: a run is closed once")
@@ -226,9 +224,7 @@ def every_road_out_of_a_ticket_closes_its_run(state_home: Path) -> None:
     try:
         runner = Runner.__new__(Runner)
         runner._journals = {}
-        runner.config = C.Config(
-            notion=C.Notion(), runner=C.Runner(), projects={}, path=Path("/nowhere")
-        )
+        runner.config = C.Config(runner=C.Runner(), projects={}, path=Path("/nowhere"))
         runner.dry_run = False
         written: list[str] = []
 
@@ -238,7 +234,7 @@ def every_road_out_of_a_ticket_closes_its_run(state_home: Path) -> None:
 
         # A fake: only the part it writes.
         runner.client = SimpleNamespace(replace_section=replace_section)
-        ticket = ticket_module.Ticket(notion.Page(id="b" * 32, url="", title="t"))
+        ticket = ticket_module.Ticket(store.Page(id="b" * 32, url="", title="t"))
         runner._journals[ticket.id] = journal.Run.start(ticket=ticket.id)
         result = {
             "ticket": "t",
@@ -261,7 +257,7 @@ def every_road_out_of_a_ticket_closes_its_run(state_home: Path) -> None:
     heard: list[dict[str, Any]] = []
 
     def broken(event: dict[str, Any]) -> None:
-        raise RuntimeError("Notion is down")
+        raise RuntimeError("the board is down")
 
     listen = _both(heard.append, broken)
     with contextlib.redirect_stdout(io.StringIO()):

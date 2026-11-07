@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 /* Where the console writes Markdown: the context, a project's brief, a new
  * ticket, a schedule's page. All four used to be a text area — the asterisks
- * typed by hand, and a heading only a heading once Notion drew it.
+ * typed by hand, and a heading only a heading once the page was drawn.
  *
  * The editor itself is Milkdown (see `crepe-editor.tsx`), and it is fetched the
  * first time one of these fields is drawn rather than with the console: it is

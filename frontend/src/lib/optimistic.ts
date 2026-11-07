@@ -4,7 +4,7 @@ import { why } from "./api"
 
 /* An action drawn before the server has agreed to it.
  *
- * A click used to wait for the answer — often Notion's, a second or three
+ * A click used to wait for the answer — often the board's, a second or three
  * away — before closing its window or showing its result. Here the page takes
  * the write for granted: `apply` draws the expected state now, `request` goes
  * out behind it, and when it is refused `rollback` puts the page back and a

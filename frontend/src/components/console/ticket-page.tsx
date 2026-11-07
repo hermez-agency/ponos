@@ -191,7 +191,7 @@ export function TicketPage() {
           }
         >
           {t(
-            "This ticket does not exist, or Ponos has no access to it (the Notion integration must be added to the page)."
+            "This ticket does not exist: it was deleted, or was never on this board."
           )}
         </EmptyState>
       ) : context.error ? (
@@ -393,7 +393,7 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
     (ticket.model ? { label: ticket.model_label ?? ticket.model, full: ticket.model, default: false } : undefined)
   const created = ago(ticket.created)
   const pull = ticket.pull_request.match(/\/pull\/(\d+)/)?.[1]
-  // The board's word for the column is Notion's, often English ("Progress"):
+  // The board's word for the column is its own, often English ("Progress"):
   // the console's own, in its language, where it has one.
   const status = LABEL[ticket.column]
     ? t(LABEL[ticket.column])
@@ -807,7 +807,7 @@ function TicketTabs({
 /* The layout's header, written here rather than told to it.
  *
  * The package's own says the record's identity under the title — for a ticket,
- * the whole Notion id, `#3eb451680af481ab9ab5dca1a49e1a7b`, where the board, the
+ * the whole id, `#3eb451680af481ab9ab5dca1a49e1a7b`, where the board, the
  * palette and the tab all call it `#a49e1a7b` — and cuts the title with "…"
  * and nothing to read the rest in. It lets a view replace the title and the
  * actions, but the line under them only with the whole header: so this is the
@@ -857,7 +857,7 @@ export function TicketHead() {
             </p>
           ) : null}
         </div>
-        {/* Notion, the pull request, the session: where else the ticket is. */}
+        {/* The pull request, the session: where else the ticket is. */}
         {ticket ? (
           <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 md:w-auto">
             <TicketLinks ticket={ticket} />

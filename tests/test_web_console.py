@@ -90,7 +90,7 @@ def the_console_runs_what_it_lists_and_nothing_the_cli_grows_later() -> None:
     commands = web_console.Commands(lambda *a, **k: None, subcommands())
     assert set(commands.allowed) <= set(web_console.OFFERED)
     assert set(commands.allowed) <= set(subcommands()), "never a verb the CLI does not have"
-    for verb in ("run", "update", "clean", "init", "service"):
+    for verb in ("run", "update", "clean", "service"):
         assert verb not in commands.allowed, verb
         try:
             commands.parse(f"{verb} --force")
@@ -341,11 +341,11 @@ def a_new_conversation_leaves_the_old_one_its_files_until_it_is_deleted() -> Non
 @case
 def conversations_are_listed_reopened_renamed_and_searched() -> None:
     with _chat() as chat:
-        chat.send("How do I rotate the Notion token?\nSecond line")
+        chat.send("How do I rotate the console token?\nSecond line")
         _said_to(chat)
         first = chat.id
         chats = chat.chats
-        assert chat.title == "How do I rotate the Notion token?", chat.title
+        assert chat.title == "How do I rotate the console token?", chat.title
         chat = _fresh(chat)
         assert chat.history() == [] and chat.session_id == ""
         chat.send("Draft the release notes")
@@ -353,8 +353,8 @@ def conversations_are_listed_reopened_renamed_and_searched() -> None:
         second = chat.id
         listed = chats.sessions()
         assert [item["id"] for item in listed] == [second, first], "the latest first"
-        assert [item["id"] for item in chats.sessions("notion")] == [first]
-        assert chats.sessions("notion")[0]["matched"] == "title"
+        assert [item["id"] for item in chats.sessions("console")] == [first]
+        assert chats.sessions("console")[0]["matched"] == "title"
         assert chats.sessions("seen")[0]["matched"] == "content", "the answers are searched too"
         assert chats.sessions("100%") == [], "a wildcard is a character"
         chats.rename(first, "  Token   rotation ")

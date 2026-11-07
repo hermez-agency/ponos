@@ -17,7 +17,7 @@
 [project]
 name = "ponos"
 version = "0.2.0"
-description = "Notion tickets turned into Claude Code sessions."
+description = "Tickets turned into Claude Code sessions, on a board of its own."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Hermez", email = "contact@cardona.digital" }]

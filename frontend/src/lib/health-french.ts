@@ -7,6 +7,11 @@
    `french.ts`. Same rule as there: the English sentence is the key. */
 
 export const HEALTH_FRENCH: Record<string, string> = {
+  // The board group: `ponos.db` read, or not.
+  "The board cannot be read.": "Le tableau ne peut pas être lu.",
+  "The board is ponos.db: {{count}} ticket(s).": "Le tableau est ponos.db : {{count}} ticket(s).",
+  "Run `ponos doctor` again; if it says the same, see ponos.log.":
+    "Relancez `ponos doctor` ; s'il dit la même chose, voyez ponos.log.",
   "no ticket can be claimed, moved or finished":
     "aucun ticket ne peut être réclamé, déplacé ni terminé",
   "no ticket is tied to a project, so none reaches a repository":
@@ -37,10 +42,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
     "pas d'agent, donc pas de rôle, par ticket",
   "the kind a ticket was classified as is not kept on the board":
     "le type d'un ticket n'est pas gardé sur le tableau",
-  "why a ticket stopped is not on the board, so no Notion view can filter blocks by cause":
-    "la raison d'un blocage n'est pas sur le tableau, donc aucune vue Notion ne peut filtrer les blocages par cause",
-  "the state of a pull request's checks is not on the board, so no Notion view can filter on it":
-    "l'état des vérifications d'une pull request n'est pas sur le tableau, donc aucune vue Notion ne peut filtrer dessus",
   "a code ticket's sub-type is not kept, so its commit, its pull request and its CHANGELOG entry go by its title's prefix alone":
     "le sous-type d'un ticket de code n'est pas gardé : son commit, sa pull request et son entrée de CHANGELOG ne suivent que le préfixe du titre",
   "the prompt a ticket runs at each change of status is not read, so none runs":
@@ -53,7 +54,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
     "Il manque une permission au jeton {{channel}}.",
   "{{channel}} refused the bot token.":
     "{{channel}} a refusé le jeton du bot.",
-  "Notion token": "Jeton Notion",
   "Tickets properties": "Propriétés des tickets",
   "Tickets statuses": "Statuts des tickets",
   "Claude Code version": "Version de Claude Code",
@@ -65,16 +65,10 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "{{channel}} notifications": "Notifications {{channel}}",
   "Check": "Vérification",
   "Connected as “{{name}}”.": "Connecté en tant que « {{name}} ».",
-  "No Notion token or tickets database is set.": "Aucun jeton Notion ni base de tickets n'est renseigné.",
   "The integration was never created, or its token never reached the settings.": "L'intégration n'a jamais été créée, ou son jeton n'est jamais arrivé dans les réglages.",
-  "Create an integration on Notion and copy its secret.": "Créez une intégration sur Notion et copiez son secret.",
-  "Paste it in Settings › Notion (notion.token).": "Collez-le dans Réglages › Notion (notion.token).",
-  "Notion refused the token.": "Notion a refusé le jeton.",
   "The token was revoked, mistyped, or belongs to another workspace.": "Le jeton a été révoqué, mal recopié, ou appartient à un autre espace de travail.",
-  "Open the integration on Notion and copy its secret again.": "Ouvrez l'intégration sur Notion et copiez de nouveau son secret.",
   "The tickets database cannot be read.": "La base de tickets est illisible.",
   "The database is not shared with the integration, or it was deleted or renamed.": "La base n'est pas partagée avec l'intégration, ou elle a été supprimée ou renommée.",
-  "Add the Ponos integration to your Notion page: ··· menu › Connections.": "Ajoutez l'intégration Ponos à votre page Notion : menu ··· › Connexions.",
   "Check that the page or database named in the settings still exists.": "Vérifiez que la page ou la base nommée dans les réglages existe toujours.",
   "Projects database found and shared.": "Base de projets trouvée et partagée.",
   "The projects database cannot be read.": "La base de projets est illisible.",
@@ -87,9 +81,7 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Properties missing on the tickets database: {{missing}}.": "Propriétés manquantes sur la base de tickets : {{missing}}.",
   "Properties of the wrong type on the tickets database: {{wrong}}.": "Propriétés de mauvais type sur la base de tickets : {{wrong}}.",
   "The board predates a version of Ponos, or a property was renamed or retyped.": "Le tableau date d'une version antérieure de Ponos, ou une propriété a été renommée ou changée de type.",
-  "Rename or retype the property in Notion: Ponos reads it under this name only.": "Renommez ou changez le type de la propriété dans Notion : Ponos ne la lit que sous ce nom.",
   "Statuses Ponos does not know: {{strays}}. A ticket there is read as a draft.": "Statuts que Ponos ne connaît pas : {{strays}}. Un ticket qui s’y trouve est lu comme un brouillon.",
-  "Move their tickets to another status, then remove the options in Notion.": "Déplacez leurs tickets vers un autre statut, puis supprimez ces options dans Notion.",
   "“{{status}}” is not offered: a ticket being written has no status.": "« {{status}} » n’est pas proposé : un ticket en cours d’écriture n’a pas de statut.",
   "Fix": "Corriger",
   "Add {{missing}} to the tickets database? Existing properties are left as they are.": "Ajouter {{missing}} à la base de tickets ? Les propriétés existantes ne sont pas touchées.",
@@ -98,7 +90,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Every status the runner moves tickets through is offered.": "Tous les statuts par lesquels le runner fait passer les tickets sont proposés.",
   "Statuses missing: {{missing}}.": "Statuts manquants : {{missing}}.",
   "The board was built by hand, or by an older Ponos.": "Le tableau a été construit à la main, ou par un Ponos plus ancien.",
-  "Notion cannot add a status option from outside: add {{missing}} in the Status property, by hand.": "Notion ne permet pas d'ajouter une option de statut depuis l'extérieur : ajoutez {{missing}} à la propriété Statut, à la main.",
   "Add the statuses {{missing}} to the Status property? The existing ones are kept.": "Ajouter les statuts {{missing}} à la propriété Statut ? Les existants sont conservés.",
   "Claude Code is not installed on this machine.": "Claude Code n'est pas installé sur cette machine.",
   "`claude` is not on the PATH of the runner.": "`claude` n'est pas dans le PATH du runner.",
@@ -244,8 +235,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Models": "Modèles",
   "Monday for a weekly one, 1 to 31 for a monthly one": "Monday pour une hebdomadaire, 1 à 31 pour une mensuelle",
   "Name the people allowed in {{table}}.allowed_users.": "Nommez les personnes autorisées dans {{table}}.allowed_users.",
-  "Notion workspace": "Espace de travail Notion",
-  "Open your integration on Notion › Capabilities, and tick Read comments (and Insert comments).": "Ouvrez votre intégration sur Notion › Capabilities, et cochez Read comments (et Insert comments).",
   "“{{name}}” is a {{kind}}, which the runner cannot write: make it a {{preferred}}.": "« {{name}} » est de type {{kind}}, que le runner ne peut pas écrire : passez la colonne en {{preferred}}.",
   "Properties missing on the schedules database: {{missing}}.": "Propriétés manquantes sur la base de récurrences : {{missing}}.",
   "Put back the copy taken before the migration, at schema version {{backup_version}}: `{{restore}}` — what was written since is lost.": "Remettez la copie prise avant la migration, au schéma {{backup_version}} : `{{restore}}` — ce qui a été écrit depuis est perdu.",
@@ -305,8 +294,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Every sub-type option is one the runner writes.": "Chaque option de sous-type est l'une de celles qu'écrit le runner.",
   "Sub-type options the runner does not write: {{options}}, on {{count}} ticket.": "Options de sous-type que le runner n'écrit pas : {{options}}, sur {{count}} ticket.",
   "Sub-type options the runner does not write: {{options}}, on {{count}} tickets.": "Options de sous-type que le runner n'écrit pas : {{options}}, sur {{count}} tickets.",
-  "An older Ponos, or a hand, wrote another spelling: a Notion view filtered on one misses the others.": "Un Ponos plus ancien, ou quelqu'un à la main, a écrit une autre graphie : une vue Notion filtrée sur l'une manque les autres.",
-  "Give the tickets on {{unknown}} a sub-type by hand, then remove the option in Notion.": "Donnez à la main un sous-type aux tickets sur {{unknown}}, puis retirez l'option dans Notion.",
   "Rewrite": "Réécrire",
   "Move the tickets on {{missing}} to the runner's option, then remove those options?": "Passer les tickets sur {{missing}} à l'option du runner, puis retirer ces options ?",
   "Validation": "Validation",
@@ -319,7 +306,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Write an address (10.0.1.5) or a network (10.0.1.0/24).": "Écrivez une adresse (10.0.1.5) ou un réseau (10.0.1.0/24).",
   "`gh` is not installed: a repository the GitHub App does not reach gets no pull request.": "`gh` n'est pas installé : un dépôt que l'App GitHub n'atteint pas n'a pas de pull request.",
   "`gh` is not signed in as {{account}}, the account [github] names for {{owner}}/*.": "`gh` n'est pas connecté en tant que {{account}}, le compte que [github] nomme pour {{owner}}/*.",
-  "`ponos init` adds it to a select; on a Notion status, add the option by hand.": "`ponos init` l'ajoute à un select ; sur un statut Notion, ajoutez l'option à la main.",
   "Optional: with ffmpeg, a video sent to the workspace can be looked at through its frames.": "Facultatif : avec ffmpeg, une vidéo envoyée à l'espace de travail se regarde à travers ses images.",
   "ffmpeg is missing: a video sent to the workspace cannot be looked at.": "ffmpeg manque : une vidéo envoyée à l'espace de travail ne peut pas être regardée.",
   "git is not installed.": "git n'est pas installé.",
@@ -333,7 +319,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "A setup command runs in each fresh worktree before the session ({{minutes}} minutes at most): {{names}}.": "Une commande de préparation tourne dans chaque worktree neuf avant la session ({{minutes}} minutes au plus) : {{names}}.",
   "runner.local_ci is on: tickets go on without their local CI until Docker answers.": "runner.local_ci est activé : les tickets continuent sans leur CI locale tant que Docker ne répond pas.",
   "runner.log_retention_days = 0: nothing is ever tidied on its own.": "runner.log_retention_days = 0 : rien n'est jamais rangé tout seul.",
-  "runner.schedule = false: the schedules database is read by nobody.": "runner.schedule = false : la base de récurrences n'est lue par personne.",
   "runner.{{key}} = “{{asked}}” is not a language spoken here: it is read as English.": "runner.{{key}} = « {{asked}} » n'est pas une langue parlée ici : elle est lue comme de l'anglais.",
   "the hour it happens at, written 09:00": "l'heure à laquelle elle a lieu, écrite 09:00",
   "the model every ticket it makes runs on": "le modèle sur lequel tourne chaque ticket qu'elle crée",

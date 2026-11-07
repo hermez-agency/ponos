@@ -1,9 +1,9 @@
 """The goals: what a ticket is done for, and how far each one has gone.
 
-A goal is a row of the Objectifs database, written by hand in Notion as a
+A goal is a row of the Objectifs database, written by hand on the board as a
 project's is, so its columns are found under the names they are written with.
-How far it has gone is counted from the board rather than read from Notion's
-rollup: a board without Notion has none, and the tickets the console already
+How far it has gone is counted from the board rather than read from the board's
+rollup: a board has none, and the tickets the console already
 holds say it column by column.
 """
 
@@ -96,15 +96,15 @@ class Goals(Base):
     def goals(self, fresh: bool = False) -> dict[str, Any]:
         """Every goal, and how far its tickets have gone.
 
-        How far is counted, not read: Notion's rollup is not a column `store`
-        reads, and a board without Notion has none. The tickets the board
+        How far is counted, not read: a rollup is not a column `store`
+        reads, and a board has none. The tickets the board
         lists already say it — their column, and the goal they point at — so
         a goal's progress is the same data the dashboard draws, column by
         column, on either board.
 
         And answered from what the console holds — the goals last read, the
         tickets the board brought, the projects' index however old — never
-        from Notion when it holds them: the first opening of the page after a
+        from the board when it holds them: the first opening of the page after a
         few idle minutes was measured at sixteen seconds, the board read again
         under it. What is out of date is read again behind the answer, and the
         page is told on the stream (`goals`) when that changed something.
@@ -160,16 +160,13 @@ class Goals(Base):
             "goals": rows,
             "statuses": self._goal_statuses(),
             "configured": bool(self.runner.workspace.goals),
-            # "Notion's trash" and its link are Notion's, and a board without
-            # Notion has neither.
-            "notion": not self.config.standalone,
         }
 
     def _held_goal_pages(self) -> list[store.Page]:
         """The goals' pages as last read: read there and then only when none are held.
 
         Older than the watcher's period, they are still the ones answered, and
-        read again behind — a goal written in Notion reaches the page a moment
+        read again behind — a goal written on the board reaches the page a moment
         later. A write from the console lets go of them (`_drop_goals`), so the
         list it opens next says what was just written.
         """
@@ -247,9 +244,9 @@ class Goals(Base):
         columns, at every opening of the list and after every write, was most
         of what a goal cost. A console that has not read the board yet counts
         nothing, and reads it behind the answer: 1 800 tickets are sixteen
-        seconds of Notion, and the page reads its goals again once they are in.
+        seconds of the board, and the page reads its goals again once they are in.
         """
-        settings = self.config.notion
+        settings = self.config.board
         pages = self.reader.pages()
         if not self.reader.synced_at:
             self._behind("_goal_board_reading", self._read_board)
@@ -274,9 +271,7 @@ class Goals(Base):
         return tickets
 
     def _read_board(self) -> bool:
-        self.reader.read(
-            self.runner.client, self.runner.database, self.config.notion.prop("status")
-        )
+        self.reader.read(self.runner.client, self.runner.database, self.config.board.prop("status"))
         return True
 
     def create_goal(self, name: str, values: dict[str, Any]) -> dict[str, Any]:
@@ -302,9 +297,9 @@ class Goals(Base):
         """Change one row of the Goals database, and the tickets it serves.
 
         Nothing but the columns a goal is written in: `Avancement`, `Faits` and
-        `Total` are Notion's rollups of the tickets, and they recompute on their
+        `Total` are the board's rollups of the tickets, and they recompute on their
         own once the tickets point here — which is why `tickets` writes the
-        ticket's side of the relation, the one a board without Notion has too.
+        ticket's side of the relation, the one a board has too.
         """
         database = self.runner.workspace.goals
         if not database:
@@ -368,7 +363,7 @@ class Goals(Base):
         checked once for the lot, and a page is not read back — the console
         holds it already, and is told the relation it now has. Forty tickets
         were once more than eighty requests in a row, any of which could end
-        the lot halfway with nobody told; a ticket Notion refuses now is set
+        the lot halfway with nobody told; a ticket the board refuses now is set
         down beside the others, and the rest are still written.
         """
         # A goal made a moment ago is not in the index yet: read it again.
@@ -411,7 +406,7 @@ class Goals(Base):
 
     def _goal_relation(self, goal_id: str) -> str:
         """The tickets' column that points at a goal, once this one is known to exist."""
-        column = self.config.notion.prop("goal")
+        column = self.config.board.prop("goal")
         if column not in self.runner.client.schema(self.runner.database):
             raise ValueError(f"this board has no “{column}” column to point a ticket at a goal")
         if goal_id and goal_id.replace("-", "") not in {
@@ -431,7 +426,7 @@ class Goals(Base):
         return {"id": ticket_id.replace("-", ""), "goal_id": goal_id.replace("-", "")}
 
     def delete_goal(self, page_id: str) -> dict[str, Any]:
-        """Take a goal off the board: into Notion's trash, where it can be brought back.
+        """Take a goal off the board: into the trash, where it can be brought back.
 
         The tickets that served it keep a relation to a page that no longer
         answers a query, and read as serving none.

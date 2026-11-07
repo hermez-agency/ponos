@@ -22,7 +22,7 @@ A model told not to repeat itself still does; a comparison of two strings does
 not forget.
 
 **An idea is ours, a ticket is the board's.** Ideas live in the local database
-rather than as Notion pages, because nine out of ten are thrown away and a board
+rather than as pages, because nine out of ten are thrown away and a board
 is not where a discarded thought belongs. Keeping one is the moment it crosses
 over — and the ticket it became is remembered on it, so that taking the decision
 back and keeping it again finds that ticket rather than writing a second one.

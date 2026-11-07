@@ -103,7 +103,7 @@ def a_report_of_work_done_outside_the_repository_is_told_from_a_code_change() ->
 
     for outside in (
         "Variable SMTP_HOST ajoutée dans Dokploy, application redéployée.",
-        "6 bugs et 13 idées créés dans Notion.",
+        "6 bugs et 13 idées postés sur Slack.",
         "Enregistrement DNS ajouté chez OVH, le domaine répond.",
         "Redeployed the app with the new environment variable.",
     ):
@@ -136,7 +136,7 @@ def the_classification_is_told_whether_there_is_a_repository() -> None:
 @case
 def a_board_spells_the_types_in_either_language() -> None:
     """A board built by hand in French reads as typed, not as four unknown words."""
-    settings = C.Notion()
+    settings = C.BoardNames()
     assert settings.kind_of("Rédaction") == "writing"
     assert settings.kind_of(" action externe ") == "external"
     assert settings.kind_of("Code") == "code" and settings.kind_of("Rédaction") == "writing"

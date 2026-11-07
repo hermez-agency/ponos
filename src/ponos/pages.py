@@ -2,16 +2,14 @@
 
 A ticket is a row of `tickets.py`. Everything else a ticket points at —
 the project it runs on, the agent that took it, the goal it serves, the
-schedule that made it — is still a page of Notion on an installation that has
-one, and a row here on an installation that has none. `store.open` picks: this
-store is what `ledger.Ledger` falls back on when the configuration holds no
-token, so a board can be had without an account anywhere.
+schedule that made it — is a row here, and `ledger.Ledger` hands every read
+and write of them on to this store.
 
 **Properties are kept flat, under the board's own names.** One JSON object per
 page, `{"Status": "Ready", "Project": ["…"]}`, read back through
 `store.written` with the kind `store.shape` declares for the column — the same
 reduction every store hands the runner. A column that is not declared is read
-as text, which is what every unknown Notion property reduces to anyway.
+as text.
 
 **Nothing is ever deleted.** `trash` sets a flag; every read leaves the page
 out, and taking it back is clearing the flag by hand.
@@ -34,7 +32,7 @@ from . import db, ids, vault
 from .store import SLOTS, Comment, Missing, Page, Picture, StoreError, matches, read, shape, written
 
 if TYPE_CHECKING:
-    from .config import Notion
+    from .config import BoardNames
     from .workspace import Workspace
 
 # The collections a board is made of. `tickets` is here only to be named: its
@@ -45,9 +43,6 @@ COLLECTIONS = ("tickets", "projects", "agents", "schedules", "goals")
 # identifier of its own. This is the name it answers to when a caller addresses
 # it as a page — `blocks_text`, `append_markdown`, `replace_markdown`.
 CONTEXT_PAGE = "context"
-
-# The kinds of Notion property the import keeps: the ones `store.written` can give back.
-_KEPT = ("rich_text", "select", "status", "url", "checkbox", "number", "date", "relation")
 
 # What a page carries about itself, as opposed to what the board carries about it.
 RESERVED = ("id", "title", "created", "edited", "cover", "icon")
@@ -78,27 +73,25 @@ def new_id() -> str:
 
 
 def _blocks(markdown: str) -> int:
-    """How many blocks that text would have been, for the reports that count them."""
-    from . import markdown as converter
-
-    return len(converter.to_blocks(markdown))
+    """How many paragraphs that text holds, for the reports that count what they wrote."""
+    return len([part for part in markdown.split("\n\n") if part.strip()])
 
 
 class Pages:
-    """A board without Notion. One implementation of `store.Store`, for the non-tickets.
+    """The pages that are not tickets. One implementation of `store.Store`, for them.
 
     Stateless on purpose: every read goes to the database, which is a local file.
     """
 
-    def __init__(self, settings: Notion | None = None) -> None:
+    def __init__(self, settings: BoardNames | None = None) -> None:
         self._settings = settings
         self._schemas: dict[str, dict[str, str]] | None = None
 
-    def settings(self) -> Notion:
+    def settings(self) -> BoardNames:
         if self._settings is None:
-            from .config import Notion
+            from .config import BoardNames
 
-            self._settings = Notion()
+            self._settings = BoardNames()
         return self._settings
 
     # -- reading -------------------------------------------------------------
@@ -151,10 +144,6 @@ class Pages:
         """A page's body. Already Markdown, so already what an agent reads."""
         return str(self._row(block_id)[4]).strip()
 
-    def attachment(self, block_id: str) -> str:
-        """Nothing here is addressable below the page."""
-        raise LookupError("a board without Notion has no blocks to hold a file")
-
     def comments(self, page_id: str) -> list[Comment]:
         """The discussion of one page, oldest first."""
         with db.transaction(immediate=False) as connection:
@@ -168,8 +157,8 @@ class Pages:
             for one, at, by, discussion, body in rows
         ]
 
-    def workspace(self, settings: Notion) -> Workspace:
-        """Five names and a page — which is all a board without Notion is."""
+    def workspace(self, settings: BoardNames) -> Workspace:
+        """Five names and a page — which is all the board is made of."""
         from .workspace import Workspace
 
         # The naming settings decide what every column is called, so a board
@@ -214,8 +203,7 @@ class Pages:
         }
         for name, value in _loads(raw_properties).items():
             # A column the board does not declare is still a column somebody
-            # typed: read as text, which is what every unknown Notion property
-            # reduces to anyway.
+            # typed: read as text.
             shaped = written(schema.get(name, "rich_text"), value)
             if shaped is not None:
                 properties[name] = shaped
@@ -271,45 +259,6 @@ class Pages:
                 "UPDATE board_pages SET title = ?, properties = ?, edited = ? WHERE id = ?",
                 (title, json.dumps(properties), now(), row[0]),
             )
-
-    def adopt(self, collection: str, page: Page, body: str) -> bool:
-        """A page of Notion, brought home under its own identifier; False when it is here already.
-
-        What the import does for projects, agents, goals and schedules. The
-        identifier is kept, so that every relation a ticket holds still lands;
-        a page already here is the database's now and is left as it is.
-        """
-        collection = self.resolve_database(collection)
-        identifier = ids.bare(page.id)
-        properties: dict[str, Any] = {}
-        for name, prop in page.properties.items():
-            kind = prop.get("type") if isinstance(prop, dict) else ""
-            if kind not in _KEPT:
-                continue
-            value = read(page, name)
-            if kind == "relation":
-                value = [ids.bare(one) for one in value or []]
-            if value is None or value == "" or value == []:
-                continue
-            properties[name] = value
-        created = str(page.raw.get("created_time") or "") or now()
-        edited = str(page.raw.get("last_edited_time") or "") or created
-        with db.transaction() as connection:
-            found = connection.execute(
-                "INSERT OR IGNORE INTO board_pages"
-                " (id, collection, title, properties, body, created, edited)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    identifier,
-                    collection,
-                    page.title.strip(),
-                    json.dumps(properties),
-                    vault.mask(body.strip()),
-                    created,
-                    edited,
-                ),
-            ).rowcount
-        return bool(found)
 
     def set_picture(self, page_id: str, slot: str, picture: Picture) -> Page:
         """A page's cover or icon, written beside the database. See `store.Store.set_picture`."""
@@ -498,7 +447,7 @@ def _loads(text: object) -> dict[str, Any]:
 
 
 def _picture(slot: str, value: object) -> dict[str, Any] | None:
-    """A stored cover or icon, in the shape Notion hands the same thing over.
+    """A stored cover or icon, in the shape a `Page` carries it.
 
     A URL is somebody else's image, or a `file://` one of ours; a short line
     with neither a dot nor a slash in it is an emoji, and only an icon may be one.

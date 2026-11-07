@@ -10,8 +10,8 @@ So a console **nobody can sign into and whose token nobody chose** is
 *unclaimed*, and what it serves is this form rather than a demand for a secret.
 Filling it in is the whole installation, in the order somebody would say it: the
 email and password that open the console from here on — which is also what
-closes this door behind them — then the Notion integration and the page to build
-the board under, the rules every ticket is written against, and the Telegram bot
+closes this door behind them — then the rules every ticket is written against,
+and the Telegram bot
 that reaches your phone. Nothing here is new configuration: every value written
 is a key of `config.toml` you could have typed yourself — or, for a secret, a
 line of `secrets.env` — saved through the same `config.edit` the Settings tab
@@ -19,7 +19,7 @@ saves through.
 
 It is drawn by the console itself, in steps (`frontend/src/components/console/
 setup.tsx`), and it is one write per step: who opens the console, which account
-answers the sessions, the board, GitHub, the channels — and then what all of it
+answers the sessions, GitHub, the channels — and then what all of it
 amounts to, which the Settings page shows again afterwards (`summary`).
 
 Two things are worth saying out loud.
@@ -34,11 +34,10 @@ Two things are worth saying out loud.
   outside. `PONOS_WEB_EMAIL` and `PONOS_WEB_PASSWORD` in the environment claim
   the console before anybody arrives, and the steps start after the account.
 - **It is not one transaction, and it does not pretend to be.** The credentials
-  are written in a single edit: all of them or none. What comes after them
-  creates pages in somebody's Notion, and no undo of that is possible or wanted
-  — so a step that fails is said in the report and leaves everything before it
-  standing. That is the rule `ponos init` already follows, where running
-  it again is how you finish the job; the Settings tab is the other way.
+  are written in a single edit: all of them or none. What comes after them —
+  the rules, the Telegram pairing — is said in the report when it fails, and
+  leaves everything before it standing; the Settings tab is where it is
+  finished.
 """
 
 from __future__ import annotations
@@ -57,11 +56,9 @@ from .. import (
     github_app,
     github_token,
     log,
-    notion,
     prerequisites,
     projects,
     provider,
-    provision,
     session,
     store,
     voice,
@@ -78,6 +75,16 @@ logger = logging.getLogger(__name__)
 # is not. Eight characters and a second per wrong attempt (see `_sign_in`) is
 # the floor; the field says so before it refuses, rather than after.
 SHORTEST_PASSWORD = 8
+
+
+class Report:
+    """What a step did, in the order it did it — drawn back by the page."""
+
+    def __init__(self) -> None:
+        self.steps: list[tuple[str, str]] = []
+
+    def note(self, verb: str, what: str) -> None:
+        self.steps.append((verb, what))
 
 
 def _text(payload: dict[str, Any], key: str) -> str:
@@ -104,22 +111,16 @@ def apply(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     if password != confirm:
         raise ValueError("the two passwords are not the same")
 
-    page = _text(payload, "notion_page")
-    page_id = config_module.identifier(page)
-    if page and not config_module.is_identifier(page_id):
-        raise ValueError(f"“{page}” does not contain a Notion page ID")
-
     bot = _text(payload, "telegram_token")
     chat = _text(payload, "telegram_chat")
 
-    report = provision.Report()
+    report = Report()
     values: dict[str, object] = {"web.email": email, "web.password": password}
     # Chosen on the step before this one, while nobody could write yet.
     language = _text(payload, "language")
     if language in voice.LANGUAGES:
         values["runner.language"] = values["runner.app_language"] = language
     for name, value in (
-        ("notion.token", _text(payload, "notion_token")),
         ("notify.telegram.token", bot),
         ("notify.telegram.chat", chat),
     ):
@@ -128,12 +129,9 @@ def apply(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     api.save_settings({"settings": values})
     report.note("created", f"this console opens as {email} from now on")
 
-    # The rules are written *into* the context page, so they wait on the board
-    # having been built. The chat id does not wait on anything: it is read back
-    # from the bot, and a Notion that refused is no reason to leave it unpaired.
-    problem = _notion(api, report, page_id) if page_id else ""
-    if not problem:
-        problem = _rules(api, report, str(payload.get("rules", "")))
+    # The chat id does not wait on anything: it is read back from the bot, and
+    # rules that were refused are no reason to leave it unpaired.
+    problem = _rules(api, report, str(payload.get("rules", "")))
     paired = _telegram(api, report, bot) if bot and not chat else ""
     return {
         "steps": [list(step) for step in report.steps],
@@ -142,51 +140,16 @@ def apply(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _notion(api: Api, report: provision.Report, page_id: str) -> str:
-    """Build the board under the page that was shared, and point the file at it.
-
-    `provision` is the same code `ponos init` runs, which is the point:
-    a board built from a browser and a board built from a terminal are the same
-    five databases, with the same columns spelled the same way.
-    """
-    token = api.config.notion.token
-    if not token or token == config_module.PLACEHOLDER:
-        return "a page without a token: nothing was built under it"
-    try:
-        built = provision.provision(notion.Client(token), api.config.notion, page_id)
-    except store.StoreError as error:
-        return notion_problem(error)
-    report.steps.extend(built.steps)
-    api.save_settings({"settings": {"notion.workspace": built.workspace}})
-    report.note("created", f"the board is {built.workspace} — written to the configuration")
-    return ""
-
-
-def notion_problem(error: Exception) -> str:
-    """What stopped the board, with the right cure: a wrong token or a page not shared."""
-    said = f"Notion: {str(error).splitlines()[0]}"
-    if isinstance(error, (notion.Refused, notion.Missing)):
-        said += f" — {notion.advice(error)}"
-    return said
-
-
-def _rules(api: Api, report: provision.Report, rules: str) -> str:
+def _rules(api: Api, report: Report, rules: str) -> str:
     """The standing context, which is the one text worth typing here.
 
     Not a nicety: it reaches every prompt before the project's brief and before
     the ticket, and it is what makes an answer sound like you rather than like
-    nobody. Written as *the* context rather than appended to the seed `init`
-    leaves — a first connection is the moment that page has nothing to keep.
+    nobody. Written as *the* context rather than appended to it — a first
+    connection is the moment that page has nothing to keep.
     """
     if not rules.strip():
         return ""
-    try:
-        # The context page is a page of the board, so there has to be a board.
-        # Said here rather than discovered as a 401 from Notion, which is what
-        # asking a placeholder token to write somewhere would produce.
-        api.config.require_usable()
-    except config_module.ConfigError:
-        return "nowhere to write the rules yet: fill Notion in, then the Context pane"
     try:
         api.save_context(rules)
     except (ValueError, store.StoreError) as error:
@@ -195,7 +158,7 @@ def _rules(api: Api, report: provision.Report, rules: str) -> str:
     return ""
 
 
-def _telegram(api: Api, report: provision.Report, token: str) -> str:
+def _telegram(api: Api, report: Report, token: str) -> str:
     """The chat id, found by reading who has written to the bot.
 
     The one value of this configuration nobody can look up, and the usual advice
@@ -272,75 +235,6 @@ def claude_login() -> dict[str, Any]:
         "installed": bool(session.available()),
         "install": prerequisites.CLAUDE_INSTALL,
     }
-
-
-def save_notion(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
-    """The board step: the token, then the page `ponos init` builds under.
-
-    Nothing to type when the board is already there — the step says what it
-    found and leaves it alone. A page given here is the same provisioning
-    `ponos init` runs, through the same `_notion` the old first connection used.
-    """
-    token = _text(payload, "token")
-    page = _text(payload, "page")
-    page_id = config_module.identifier(page)
-    if page and not config_module.is_identifier(page_id):
-        raise ValueError(f"“{page}” does not contain a Notion page ID")
-    report = provision.Report()
-    if token:
-        api.save_settings({"settings": {"notion.token": token}})
-        report.note("created", "the integration token is written to the configuration")
-    # A board found already built, among what was shared: pointed at, not rebuilt.
-    workspace = config_module.identifier(_text(payload, "workspace"))
-    if workspace and not page_id:
-        if not config_module.is_identifier(workspace):
-            raise ValueError("that board has no Notion ID")
-        api.save_settings({"settings": {"notion.workspace": workspace}})
-        report.note("kept", f"the board {workspace} — written to the configuration")
-    problem = _notion(api, report, page_id) if page_id else ""
-    return {
-        "steps": [list(step) for step in report.steps],
-        "problem": problem,
-        "board": _board(api),
-    }
-
-
-def notion_shared(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
-    """Is this token Notion's, and what has been shared with it so far?
-
-    Asked once when the token is pasted and then every few seconds by the page,
-    while somebody is in Notion adding the integration to a page: the moment
-    the share is done, the page appears here, and nobody has to copy its link.
-    A token Notion refuses is not written — the field keeps it, and says why.
-    """
-    token = _text(payload, "token")
-    stored = api.config.notion.token
-    if not token and (not stored or stored == config_module.PLACEHOLDER):
-        return {"ok": False, "said": "no token yet", "name": "", "pages": [], "boards": []}
-    client = notion.Client(token or stored, timeout=provider.CHECK_TIMEOUT)
-    try:
-        name = client.my_name()
-        pages, boards = client.shared(provision.DIRECTORY)
-    except store.StoreError as error:
-        said = str(error).splitlines()[0]
-        # The one refusal a newcomer meets, said by the page in its own words.
-        refused = any(word in said.lower() for word in ("401", "unauthorized", "invalid"))
-        if refused:
-            said = (
-                "Notion refused this token — copy the “Internal Integration Secret” "
-                "again from notion.so/my-integrations"
-            )
-        return {
-            "ok": False,
-            "said": said,
-            "refused": refused,
-            "name": "",
-            "pages": [],
-            "boards": [],
-        }
-    if token and token != stored:
-        api.save_settings({"settings": {"notion.token": token}})
-    return {"ok": True, "said": "", "name": name, "pages": pages, "boards": boards}
 
 
 def project_choices(api: Api) -> dict[str, Any]:
@@ -652,7 +546,7 @@ def save_channels(api: Api, payload: dict[str, Any]) -> dict[str, Any]:
         )
         if value
     }
-    report = provision.Report()
+    report = Report()
     if values:
         api.save_settings({"settings": values})
     problem = _telegram(api, report, bot) if bot and not chat else ""
@@ -683,7 +577,7 @@ def _seen() -> Path:
 def pending() -> bool:
     """Is this a fresh container whose steps nobody has gone through yet?
 
-    A board without Notion is usable from the first second, and a console claimed from
+    A board is usable from the first second, and a console claimed from
     the environment has no account to ask for: nothing in the configuration
     says the installation is unfinished, which is why the Dokploy template
     opened straight on an empty board. So the steps are remembered instead — a
@@ -705,52 +599,13 @@ def finish() -> dict[str, Any]:
 
 def _board(api: Api) -> dict[str, Any]:
     """The board this console reads, and how many tickets are on it."""
-    configuration = api.config
-    drawn: dict[str, Any] = {
-        "state": "ok",
-        "notion": not configuration.standalone,
-        "workspace": configuration.notion.workspace or configuration.notion.tickets_database,
-        "name": "",
-        "url": "",
-        "tickets": None,
-        "said": "",
-    }
-    try:
-        configuration.require_usable()
-    except config_module.ConfigError as error:
-        return {**drawn, "state": "missing", "said": str(error).splitlines()[0]}
+    drawn: dict[str, Any] = {"state": "ok", "tickets": None, "said": ""}
     try:
         drawn["tickets"] = len(api.board().get("tickets", []))
     except Exception as error:  # the summary says it, it does not fail on it
         logger.exception("setup: the board could not be read", extra=log.FILE_ONLY)
         return {**drawn, "state": "error", "said": str(error).splitlines()[0]}
-    if not configuration.standalone and drawn["workspace"]:
-        drawn.update(_titled(api, drawn["workspace"]))
     return drawn
-
-
-def _titled(api: Api, identifier: str) -> dict[str, str]:
-    """The workspace's name and link, as Notion shows them.
-
-    Thirty-two hexadecimal characters say nothing to whoever reads the summary,
-    and cannot be clicked: the name can, and the ID stays behind it. A board the
-    tickets were just counted on answers this too — what it does not answer
-    leaves the line without a name, not in error.
-    """
-    from ..ledger import Ledger
-
-    client: object = api.runner.client
-    if isinstance(client, Ledger):
-        client = client.notion
-    if not isinstance(client, notion.Client):
-        return {}
-    try:
-        database = client.database(client.resolve_database(identifier))
-    except Exception:  # the line goes without a name, it does not fail on it
-        logger.exception("setup: the workspace's name could not be read", extra=log.FILE_ONLY)
-        return {}
-    title = "".join(part.get("plain_text", "") for part in database.get("title") or [])
-    return {"name": title.strip(), "url": str(database.get("url") or "")}
 
 
 def summary(api: Api) -> dict[str, Any]:

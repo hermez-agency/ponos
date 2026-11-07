@@ -495,3 +495,44 @@ def a_checkout_does_not_migrate_the_installations_database_from_a_direct_import(
     finally:
         db.close()
         os.environ["HOME"], os.environ["XDG_STATE_HOME"] = previous
+
+
+@case
+def the_tables_of_the_former_board_service_go_with_a_copy_taken_first() -> None:
+    """The last migration drops what only the former board service read, and its two files."""
+    location = Path(tempfile.mkdtemp()) / "ponos.db"
+    before = db.MIGRATIONS[: db.MIGRATIONS.index(db._notion_is_gone)]
+    raw = db.open_at(location, before)
+    try:
+        raw.executemany(
+            "INSERT INTO tickets (id, title, notion, block, created_at, edited_at) "
+            "VALUES (?, ?, ?, ?, 'now', 'now')",
+            [
+                ("a1", "first", "aaaa-1111", ""),
+                ("b2", "second", "", "notion.write-failed"),
+            ],
+        )
+        raw.execute("INSERT INTO ticket_after (ticket, after) VALUES ('b2', 'aaaa-1111')")
+        raw.execute("INSERT INTO mirror_queue (ticket, what, at) VALUES ('a1', 'status', 'now')")
+    finally:
+        raw.close()
+    for leftover in ("notion-identity.json", "notion-pages.json"):
+        (location.parent / leftover).write_text("{}")
+    migrated = db.open_at(location)
+    try:
+        tables = {
+            row[0]
+            for row in migrated.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        assert not {"mirror_queue", "page_formats"} & tables, tables
+        assert "notion" not in _columns(migrated, "tickets")
+        assert migrated.execute("SELECT after FROM ticket_after").fetchall() == [("a1",)], (
+            "named by its id now"
+        )
+        assert migrated.execute("SELECT block FROM tickets WHERE id = 'b2'").fetchone() == (
+            "board.write-failed",
+        )
+    finally:
+        migrated.close()
+    assert not list(location.parent.glob("notion-*.json"))
+    assert [number for number, _ in db.backups(location)] == [len(before)], "copied first"

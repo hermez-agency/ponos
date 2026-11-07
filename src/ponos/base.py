@@ -83,8 +83,6 @@ if TYPE_CHECKING:
         def queue(self) -> tuple[list[Ticket], list[tuple[Ticket, datetime]]]: ...
         def _ready_filter(self) -> dict[str, Any]: ...
         def requested(self, reference: str) -> list[Ticket]: ...
-        def mirror(self) -> None: ...
-        def reshape(self) -> int: ...
         def sweep(self) -> int: ...
         def close_merged(self) -> int: ...
         def in_repository(self, ticket: Ticket) -> str: ...
@@ -260,20 +258,16 @@ class Base(Chapters):
         # minute into the systemd journal forever, and buries the runs that
         # matter. A terminal wants the reassurance; a log does not.
         self.announce_idle = announce_idle
-        # The board, whichever one the configuration asked for: `ponos.db` with
-        # Notion behind it, or on its own. Nothing above this line knows
-        # which — see store.py.
-        self.client = store.open(config, dropped=self._dropped)
+        # The board `ponos.db` keeps — see store.py.
+        self.client = store.open(config)
         self.resolver = Resolver(config.runner.workspace_root, config.projects, config.github)
         self.agent_label = f"ponos@{socket.gethostname()}"
         self._workspace: workspace_module.Workspace | None = None
         # The comments of a page, read once per run. Three things want them —
         # what wakes a ticket, what goes into its prompt, and what is waiting
-        # for an answer — and asking Notion three times for the same thread is
-        # how a board with forty tickets becomes a rate limit problem.
+        # for an answer — and reading the same thread three times is work for
+        # nothing.
         self._comments: dict[str, list[store.Comment]] = {}
-        # The page edits already read for the database — see notion_import.rise.
-        self._risen: dict[str, str] = {}
         self._ledger: conversation.Ledger | None = None
         self._ledger_lock = threading.Lock()
         self._spellings: tuple[str, ...] | None = None
@@ -309,9 +303,6 @@ class Base(Chapters):
         # And for the disk guard, with the time of its last emergency tidy.
         self._disk_warned = False
         self._disk_tidied = 0.0
-        # The columns a write of this run left out because the board has none
-        # by that name. Each is said once — see `_dropped`.
-        self._unwritten: set[tuple[str, str]] = set()
         # The run each ticket in flight is writing into the local journal,
         # opened with its session and closed by `_guarded` once the ticket's
         # outcome is known — see journal.py.
@@ -336,15 +327,9 @@ class Base(Chapters):
         The daemon's: a pass used to read the file afresh at every start, and
         the daemon never starts again. What is read off `self.config` when it
         is needed follows at once; the projects and the workspace are resolved
-        again. Notion's token and the standalone switch are what the board is
-        opened with, and change under nobody's feet: False, and the daemon
-        restarts on them.
+        again. The board is opened on nothing the file says, so a new
+        configuration is always taken: True.
         """
-        if (config.notion.token, config.standalone) != (
-            self.config.notion.token,
-            self.config.standalone,
-        ):
-            return False
         self.config = config
         self.dry_run = self.dry_run or config.runner.dry_run
         self.resolver = Resolver(config.runner.workspace_root, config.projects, config.github)
@@ -360,7 +345,7 @@ class Base(Chapters):
         for every ticket, to be told the same story.
         """
         if self._workspace is None:
-            self._workspace = workspace_module.resolve(self.client, self.config.notion)
+            self._workspace = workspace_module.resolve(self.client, self.config.board)
         return self._workspace
 
     @property
@@ -385,7 +370,7 @@ class Base(Chapters):
         relation and an unreadable page all read as no agent at all — the
         reason it never belonged to one caller more than another.
         """
-        settings = self.config.notion
+        settings = self.config.board
         role = store.read(ticket.page, settings.prop("role")) or []
         return (
             agents.resolve(self.client, role[0], settings.prop("model")) if role else agents.Agent()
@@ -427,7 +412,7 @@ class Base(Chapters):
         The one door every session of a run goes through, for the day's limit:
         a ticket's line in the history is written once the ticket is closed,
         and the sessions that name it, classify it or repair its CI — or whose
-        ticket never got as far as its line, Notion down or the run crashed
+        ticket never got as far as its line, the board down or the run crashed
         under it — used never to reach it, paid all the same. See `state.spend`.
         """
         # Every session of a ticket can be ended from the console — see stopping.py.
@@ -474,25 +459,6 @@ class Base(Chapters):
             # Onto the standard output, which the systemd journal keeps, and into
             # ponos.log — masked on the way, see log.py.
             logger.info(message)
-
-    def _dropped(self, database: str, name: str) -> None:
-        """A write left `name` out: the board has no such column. Said once a run.
-
-        Once, and not at every ticket: the column is missing for all of them,
-        and the progress line alone is rewritten every few seconds. But said,
-        because a column the configuration names and the board does not have
-        is a feature switched off without anybody having switched it — the
-        claims went unsigned for a day, and the abandoned tickets with them.
-        """
-        if (database, name) in self._unwritten:
-            return
-        self._unwritten.add((database, name))
-        cost = store.lost(self.config.notion, name) if database == self.database else ""
-        self.say(
-            f"  ! “{name}” is not a column of the board — left unwritten"
-            + (f": {cost}" if cost else "")
-            + " (ponos doctor)"
-        )
 
     def _notify(
         self,

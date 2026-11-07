@@ -179,8 +179,8 @@ describe("before the brief is read", () => {
 
   test("a brief that could not be read says why, and is asked for again", async () => {
     const user = userEvent.setup()
-    const read = drawn(ticket(), Promise.reject(new Error("Notion did not answer")))
-    expect(await screen.findByText("Notion did not answer")).toBeTruthy()
+    const read = drawn(ticket(), Promise.reject(new Error("The board did not answer")))
+    expect(await screen.findByText("The board did not answer")).toBeTruthy()
     expect(screen.getByText("This ticket could not be read.")).toBeTruthy()
     await user.click(screen.getByRole("button", { name: "Try again" }))
     expect(read).toHaveBeenCalledTimes(2)
@@ -204,7 +204,7 @@ describe("before the brief is read", () => {
     expect(screen.getByText("This ticket could not be found.")).toBeTruthy()
     expect(
       screen.getByText(
-        "This ticket does not exist, or Ponos has no access to it (the Notion integration must be added to the page)."
+        "This ticket does not exist: it was deleted, or was never on this board."
       )
     ).toBeTruthy()
     expect(screen.queryByText(/no ticket with id/)).toBeNull()

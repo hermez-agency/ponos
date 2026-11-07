@@ -1,5 +1,5 @@
 /* The French of the badge beside a goal's due date (`goal-deadline.ts`), and of
-   what the Goals page says without Notion, and of the search
+   what the Goals page says when one is deleted, and of the search
    that ties tickets to a goal in its form (`goal-tickets.tsx`).
 
    Apart from `french.ts`, as `health-french.ts` is, and fetched by the goal
@@ -14,7 +14,7 @@ export const GOAL_FRENCH: Record<string, string> = {
   "In {{count}} days": "Dans {{count}} jours",
   // The way from a goal's page to its tickets on the board.
   "See on the board": "Voir sur le board",
-  // What a goal's page says without Notion.
+  // What a goal's page says when one is deleted.
   "The goal is deleted. Its tickets stay where they are, and serve no goal. To close a goal that is over, mark it reached or given up instead.":
     "L'objectif est supprimé. Ses tickets restent où ils sont, sans objectif. Pour clore un objectif terminé, marquez-le plutôt atteint ou abandonné.",
   // The search that ties tickets to a goal, in its form.

@@ -175,7 +175,7 @@ class Console:
 
         async def serving() -> None:
             # A request is answered on a thread of its own while the `Api`
-            # waits on Notion, git or a process — as `http.server` answered
+            # waits on the board, git or a process — as `http.server` answered
             # every one: more of them than anyio's forty, so that a few slow
             # reads do not hold up a page opening.
             to_thread.current_default_thread_limiter().total_tokens = THREADS
@@ -899,7 +899,7 @@ READABLE = {
 
 
 # The address Ponos writes for a ticket — in a notification, a pull request,
-# `ponos list` — read back. A Notion page id, dashes and all, is still a
+# `ponos list` — read back. A page id, dashes and all, is still a
 # ticket's id: the import kept them, so a link written before is not dead.
 _TICKET_ADDRESS = re.compile(r"/tickets/([0-9a-fA-F-]{8,36})/?")
 
@@ -937,7 +937,7 @@ def index(request: Request) -> Response:
     # The bare address of a console with no board yet — or of a fresh container
     # whose steps nobody has gone through — leads to its first steps, rather
     # than to an empty board.
-    if not request.url.query and (not _usable(_console(request)) or setup.pending()):
+    if not request.url.query and setup.pending():
         return _send(303, b"", "text/plain", {"Location": "/setup"})
     return _static(_asking(request), "index.html")
 
@@ -973,14 +973,6 @@ def github_callback(code: str = "", state: str = "") -> Response:
 @doors.get("/api/github/installed", include_in_schema=False)
 def github_installed(setup_action: str = "") -> Response:
     return _send(200, github.installed(setup_action).encode(), "text/html; charset=utf-8")
-
-
-def _usable(console: Console) -> bool:
-    try:
-        console.api.config.require_usable()
-    except config_module.ConfigError:
-        return False
-    return True
 
 
 # -- signing in, and the first connection ------------------------------------
@@ -1074,7 +1066,6 @@ def setup_state(request: Request) -> Response:
             "code_drawn": bool(console.code),
             "container": config_module.in_container(),
             "version": __version__,
-            "notion": not console.api.config.standalone,
         }
     )
 

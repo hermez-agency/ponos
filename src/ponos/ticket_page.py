@@ -4,7 +4,7 @@ Every session used to append a folded block to the end of the page — the steps
 then the report — and a ticket run three times ended on three of them: nobody
 could tell at a glance what stood done, and the brief read before a session
 could carry the earlier ones back into its prompt. So a page now has a shape,
-the same for every ticket, and it is decided here rather than in Notion's
+the same for every ticket, and it is decided here rather than on the board's
 rendering of it, so that whatever holds the ticket next keeps it as it is:
 
 - **Mission** — written by a person, or by the agent that created the ticket.
@@ -43,7 +43,7 @@ DONE = voice_module.every("page-done")
 HISTORY = voice_module.every("page-history")
 
 # A heading line of Markdown: one to three hashes, as `markdown.plain` writes
-# Notion's three levels of heading.
+# the board's three levels of heading.
 _HEADING = re.compile(r"^(#{1,3})\s+(.+?)\s*#*\s*$")
 
 # The mark of each ending a run can come to, at the head of its history line.

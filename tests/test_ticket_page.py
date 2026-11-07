@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 from typing import Any
 
-from support import _board, _run_on, case
+from support import _board, case
 
 from ponos import config as C
-from ponos import db, journal, markdown, notion, progress, question, state, ticket_page, voice
+from ponos import db, journal, question, ticket_page, voice
 from ponos import prompt as prompt_module
 from ponos import ticket as ticket_module
 from ponos.runner import Runner
@@ -36,7 +35,7 @@ def a_page_written_before_the_format_is_all_mission() -> None:
 
 @case
 def the_second_part_is_found_however_its_heading_was_written() -> None:
-    """In either language, at any level, numbered or not — Notion flattens it to one line."""
+    """In either language, at any level, numbered or not — a heading is found by its words."""
     for heading in (
         "## What was done",
         "# Ce qui a été fait",
@@ -116,78 +115,11 @@ def a_line_of_history_is_its_date_duration_cost_result_and_session() -> None:
 # -- the page, rewritten -------------------------------------------------------
 
 
-class _Page:
-    """A Notion page as a list of blocks, reached through the client's own requests."""
-
-    def __init__(self) -> None:
-        self.children: dict[str, list[dict[str, Any]]] = {"page": []}
-        self.deleted: list[str] = []
-
-    def append_blocks(self, block_id: str, blocks: list[dict[str, Any]]) -> list[str]:
-        made = []
-        for block in blocks:
-            kind = block["type"]
-            rich = [
-                {**part, "plain_text": part["text"]["content"]}
-                for part in block[kind].get("rich_text", [])
-            ]
-            made.append(
-                {"id": uuid.uuid4().hex, "has_children": False, **block, kind: {"rich_text": rich}}
-            )
-        self.children.setdefault(block_id, []).extend(made)
-        for held in self.children.values():
-            for child in held:
-                child["has_children"] = bool(self.children.get(child["id"]))
-        return [block["id"] for block in made]
-
-    def request(self, method: str, path: str, body: Any = None, **_: Any) -> dict[str, Any]:
-        parent = path.split("?")[0].split("/")[2]
-        if method == "DELETE":
-            self.deleted.append(parent)
-            for held in self.children.values():
-                held[:] = [block for block in held if block["id"] != parent]
-            return {}
-        if method == "PATCH":
-            return {
-                "results": [{"id": made} for made in self.append_blocks(parent, body["children"])]
-            }
-        return {"results": list(self.children.get(parent, [])), "has_more": False}
-
-
-def _client(page: _Page) -> notion.Client:
-    client = notion.Client("ntn_x")
-    client._request = page.request  # type: ignore[method-assign]
-    return client
-
-
 @case
-def notion_rewrites_the_second_part_and_never_the_mission() -> None:
-    """Block by block: the mission's blocks keep their identity, the old part and
-    the toggles an older live report left are the only ones deleted."""
-    page = _Page()
-    page.append_blocks("page", markdown.to_blocks("Corriger l'entête.\n\n- garder le logo"))
-    mission = [block["id"] for block in page.children["page"]]
-    _run_on(page, "fr", "Je lis la configuration.")  # type: ignore[arg-type]  # a fake: a page as a tree of blocks
-    client = _client(page)
-    said = voice.Voice("fr")
-
-    for report in ("Premier compte rendu.", "Second compte rendu."):
-        client.replace_section("page", ticket_page.DONE, ticket_page.section(said, report, []))
-
-    assert [block["id"] for block in page.children["page"][:2]] == mission
-    assert not [block for block in page.children["page"] if progress.is_live(block)]
-    text = client.blocks_text("page")
-    assert text.count("Ce qui a été fait") == 1, text
-    assert "Second compte rendu." in text and "Premier compte rendu." not in text, text
-    assert ticket_page.mission(text) == "Corriger l'entête.\n- garder le logo"
-
-
-@case
-def the_ledger_rewrites_the_second_part_and_drops_its_live_reports() -> None:
+def the_ledger_rewrites_the_second_part_and_never_the_mission() -> None:
     with _board("fr") as board:
         page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
         board.append_markdown(page_id, "Relire la page.")
-        _run_on(board, "fr", "Je lis la configuration.", page_id=page_id)
         said = voice.Voice("fr")
         for report in ("Un.", "Deux."):
             board.replace_section(page_id, ticket_page.DONE, ticket_page.section(said, report, []))
@@ -205,7 +137,6 @@ def _runner(board: Any) -> Runner:
     runner.client = board
     runner.dry_run = False
     runner.config = C.Config(
-        notion=C.Notion(),
         runner=C.Runner(language="fr"),
         projects={},
         path=Path("/nowhere"),
@@ -243,7 +174,6 @@ def a_ticket_run_three_times_has_one_part_and_three_lines_of_history(state_home:
             assert all(
                 "https://ponos.example/?view=console/tickets/read/" in line for line in page.history
             )
-            assert state.shaped([ticket.id]) == {ticket.id}
 
             # What the next session is told of its page: the mission, once,
             # and no earlier report at all.
@@ -282,37 +212,5 @@ def a_session_that_did_no_work_keeps_the_last_report(state_home: Path) -> None:
             page = ticket_page.split(board.blocks_text(page_id))
             assert "entête corrigé" in page.report and "crédits" not in page.report, page.report
             assert len(page.history) == 2 and "⏸️" in page.history[1], page.history
-    finally:
-        db.close()
-
-
-@case
-def an_open_ticket_written_before_the_format_is_put_in_two_parts_once(state_home: Path) -> None:
-    """The mission is the page as it stood; the last report comes from the comments."""
-    try:
-        with _board("fr") as board:
-            runner = _runner(board)
-            page_id = board.create_row("tickets", "Corriger l'entête", {"statut": "ready"})
-            board.append_markdown(page_id, "Le titre est faux.")
-            _run_on(board, "fr", "Je lis la configuration.", page_id=page_id)
-            board.comment(page_id, "✅ À relire\nEntête corrigé.\nhttps://github.com/x/y/pull/3")
-            finished = board.create_row("tickets", "Fini", {"statut": "done"})
-            board.append_markdown(finished, "Rien à toucher.")
-            runner._workspace = type("W", (), {"tickets": "tickets"})()
-
-            assert runner.reshape() == 1
-            page = ticket_page.split(board.blocks_text(page_id))
-            assert page.mission == "Le titre est faux.", page
-            assert "Entête corrigé." in page.report, page.report
-            assert "Je lis la configuration." not in board.blocks_text(page_id)
-            assert ticket_page.split(board.blocks_text(finished)).mission == "Rien à toucher."
-            assert not ticket_page.split(board.blocks_text(finished)).report, (
-                "a done ticket is not touched"
-            )
-
-            # Once: the board is not read for it again.
-            board.append_markdown(page_id, "Ajouté depuis.")
-            assert runner.reshape() == 0
-            assert "Ajouté depuis." in board.blocks_text(page_id)
     finally:
         db.close()

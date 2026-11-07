@@ -36,9 +36,7 @@ from . import (
     launches,
     leftovers,
     log,
-    notion,
     priority,
-    provision,
     session,
     spending,
     state,
@@ -65,7 +63,7 @@ if sys.stdout.isatty():
 # first, sentences the second.
 PRODUCT = "ponos"
 NAME = "Ponos"
-TAGLINE = "Runs your tickets with Claude Code — on its own board, or Notion's."
+TAGLINE = "Runs your tickets with Claude Code, on its own board."
 
 
 def ok(message: str) -> None:
@@ -89,7 +87,7 @@ def _names(reference: str, filename: str) -> bool:
 
     A full ID, a dashed one, a URL, or just the short form all have to work —
     log files are named by the ticket's *last* eight characters, which is not
-    what someone copying an ID from Notion has in hand.
+    what someone copying an ID from the console has in hand.
     """
     probe = reference.strip().rstrip("/").rsplit("/", 1)[-1].rsplit("-", 1)[-1].replace("-", "")
     forms = {probe, probe[-8:]} if len(probe) >= 8 else {probe}
@@ -103,9 +101,7 @@ def _colour(status: str) -> str:
 
 def load_config() -> config_module.Config:
     try:
-        configuration = config_module.load()
-        configuration.require_usable()
-        return configuration
+        return config_module.load()
     except config_module.ConfigError as error:
         print(f"{RED}error:{RESET} {error}", file=sys.stderr)
         raise SystemExit(2) from error
@@ -255,7 +251,7 @@ def command_list(args: argparse.Namespace) -> int:
     if tickets:
         title(f"{len(tickets)} ticket(s) to handle, in the order they will run")
     for position, ticket in enumerate(tickets, 1):
-        relation = store.read(ticket.page, configuration.notion.prop("project")) or []
+        relation = store.read(ticket.page, configuration.board.prop("project")) or []
         project, kind = "?", ""
         if relation:
             try:
@@ -264,10 +260,10 @@ def command_list(args: argparse.Namespace) -> int:
                 kind = "code" if resolved.is_code else "document"
             except (LookupError, store.StoreError):
                 project = f"{YELLOW}project not found{RESET}"
-        score = store.read(ticket.page, configuration.notion.prop("priority"))
+        score = store.read(ticket.page, configuration.board.prop("priority"))
         badges = [
             f"priority {priority.score(score)}" if score not in (None, "") else "",
-            str(store.read(ticket.page, configuration.notion.prop("model")) or ""),
+            str(store.read(ticket.page, configuration.board.prop("model")) or ""),
         ]
         tail = " · ".join([part for part in [project, kind, *badges] if part])
         print(
@@ -309,7 +305,7 @@ def command_subtypes(args: argparse.Namespace) -> int:
     runner = Runner(configuration, quiet=True)
     column = runner.subtype_column()
     if not column:
-        bad(f"no “{configuration.notion.prop('subtype')}” column on the board — ponos init adds it")
+        bad(f"no “{configuration.board.prop('subtype')}” column on the board — ponos init adds it")
         return 1
     if args.backfill:
         try:
@@ -355,10 +351,6 @@ def command_schedules(args: argparse.Namespace) -> int:
 
     if not runner.workspace.schedules:
         print("Nothing repeats here.")
-        print(
-            f"  {DIM}no “{configuration.notion.page('schedules')}” page in the workspace"
-            f" — ponos init <page-url> builds it{RESET}"
-        )
         return 0
     if args.run:
         return _run_schedule(runner, rows, args.run, force=args.force)
@@ -427,10 +419,10 @@ def _run_schedule(
     # overlap rule if this ticket is still open when it comes round.
     runner._mark(  # noqa: SLF001
         schedule,
-        {runner.config.notion.prop("last_run"): datetime.now().astimezone()},
+        {runner.config.board.prop("last_run"): datetime.now().astimezone()},
     )
     state.record(entry)
-    ok(f"{entry['ticket']} — created, waiting in “{runner.config.notion.state('ready')}”")
+    ok(f"{entry['ticket']} — created, waiting in “{runner.config.board.state('ready')}”")
     return 0
 
 
@@ -452,7 +444,7 @@ def command_diagnose(args: argparse.Namespace) -> int:
     if not symptom:
         bad('say what does not work: ponos diagnose "the emails do not go out"')
         return 2
-    settings = configuration.notion
+    settings = configuration.board
     values: dict[str, object] = {
         settings.prop("status"): settings.state("draft" if args.draft else "ready"),
         settings.prop("type"): runner.kind_name("diagnostic"),
@@ -499,7 +491,7 @@ def command_projects(args: argparse.Namespace) -> int:
     runner = Runner(configuration, quiet=True)
     seen: dict[str, None] = {}
     for ticket in runner.client.query(runner.database):
-        for page_id in store.read(ticket, configuration.notion.prop("project")) or []:
+        for page_id in store.read(ticket, configuration.board.prop("project")) or []:
             seen.setdefault(page_id, None)
     if not seen:
         print("No project referenced by any ticket.")
@@ -522,59 +514,6 @@ def command_projects(args: argparse.Namespace) -> int:
             failed += 1
             bad(str(error).replace("\n", "\n    "))
     return 1 if failed else 0
-
-
-def command_import(args: argparse.Namespace) -> int:
-    """Bring home everything Notion still holds, once. Run it twice and nothing doubles.
-
-    Explicit and never part of a pass: it reads the whole workspace, comments
-    and files included, and a board that has already been imported has nothing
-    for it to do. `--check` is the parity report that says whether the token
-    can be let go. See notion_import.py.
-    """
-    from . import notion_import
-    from .ledger import Ledger
-
-    configuration = load_config()
-    try:
-        client = store.open(configuration, notion_only=True)
-        # Through the ledger, which keeps the databases it found: the first pass
-        # after the import may find Notion refusing, and must still start.
-        ledger = Ledger(client, configuration.notion)
-        space = ledger.workspace(configuration.notion)
-        if getattr(args, "check", False):
-            title("Parity: Notion against ponos.db")
-            parity = notion_import.check(client, configuration, space)
-            for label, there, here in parity.rows:
-                line = f"{label:<14} Notion {there:>5}   ponos.db {here:>5}"
-                (ok if here >= there else bad)(line)
-            for note in parity.notes:
-                warn(note)
-            for loss in parity.losses:
-                bad(loss)
-            if parity.ok:
-                ok("no loss: everything Notion holds is in ponos.db")
-            else:
-                bad(f"{len(parity.losses)} loss(es) — run `ponos import notion` again")
-            return 0 if parity.ok else 1
-        title("Importing Notion into ponos.db")
-        report = notion_import.run(client, configuration, space)
-    except store.StoreError as error:
-        bad(f"Notion did not answer: {error}")
-        return 1
-    ok(
-        f"{report.created} ticket(s) imported, {report.existing} already there, "
-        f"{report.comments} comment(s) added, {report.links} link(s), {report.files} file(s) "
-        f"({report.gone} gone at their source), "
-        f"{report.projects} project(s) read"
-    )
-    for key, count in report.brought.items():
-        ok(f"{count} {key} page(s) brought home, {report.kept.get(key, 0)} already there")
-    if report.context:
-        ok("standing context brought home")
-    for problem in report.problems:
-        warn(problem)
-    return 1 if report.problems else 0
 
 
 def _console_url() -> str:
@@ -798,20 +737,19 @@ def _status_budget(configuration: config_module.Config) -> None:
 def _status_board(configuration: config_module.Config) -> None:
     """`ponos status`: how many tickets each column holds, the ready one in green."""
     try:
-        configuration.require_usable()
         runner = Runner(configuration, quiet=True)
         counts: dict[str, int] = {}
         for page in runner.client.query(runner.database):
-            name = str(store.read(page, configuration.notion.prop("status")) or "—")
+            name = str(store.read(page, configuration.board.prop("status")) or "—")
             counts[name] = counts.get(name, 0) + 1
         if not counts:
             print(f"  {DIM}no ticket{RESET}")
-        ready_state = configuration.notion.state("ready")
+        ready_state = configuration.board.state("ready")
         for name, number in sorted(counts.items(), key=lambda item: -item[1]):
             highlight = GREEN if name == ready_state else DIM
             print(f"  {highlight}{number:>3}{RESET}  {name}")
     except (config_module.ConfigError, store.StoreError) as error:
-        bad(f"Notion unreachable: {str(error).splitlines()[0]}")
+        bad(f"The board cannot be read: {str(error).splitlines()[0]}")
     except db.DatabaseError as error:
         # The same line `_status_recent` says in its own section.
         bad(f"The board cannot be read: {str(error).splitlines()[0]}")
@@ -981,132 +919,6 @@ def _render(line: str) -> str:
     return ""
 
 
-def command_init(args: argparse.Namespace) -> int:
-    """Build the whole Notion side from one page link.
-
-    The only thing asked of the user beforehand is the one thing no API can do:
-    share a page with the integration. An integration cannot grant itself
-    access, so that click is the floor — everything past it is done here.
-    """
-    try:
-        configuration = config_module.load()
-    except config_module.ConfigError as error:
-        bad(str(error))
-        return 2
-
-    token, given = _init_token(args.token, configuration.notion.token)
-    if not token or token == config_module.PLACEHOLDER:
-        bad("no Notion token yet")
-        print(
-            f"    {DIM}create an internal integration at "
-            f"https://www.notion.so/my-integrations{RESET}\n"
-            f"    {DIM}then: ponos init <page-url> --token -   (it asks for the token){RESET}"
-        )
-        return 2
-
-    page = config_module.identifier(args.page)
-    if not config_module.is_identifier(page):
-        bad(f"“{args.page}” does not contain a Notion page ID")
-        print(f"    {DIM}copy the page's link: ··· → Copy link{RESET}")
-        return 2
-
-    client = notion.Client(token)
-
-    title("Page")
-    try:
-        target = client.page(page)
-    except store.StoreError as error:
-        bad(f"unreachable: {str(error).splitlines()[0]}")
-        warn(notion.advice(error))
-        return 1
-    ok(f"“{target.title or page}”")
-
-    title("Workspace")
-    try:
-        report = provision.provision(client, configuration.notion, page, demo=not args.no_demo)
-    except store.StoreError as error:
-        # The API's validation errors say what is wrong on the lines after the
-        # first one; cutting them off leaves “body failed validation. Fix one:”.
-        first, *rest = str(error).splitlines()
-        bad(first)
-        for line in rest:
-            print(f"    {DIM}{line}{RESET}")
-        warn("what was built is kept: run the same command again once it is fixed")
-        return 1
-    for verb, what in report.steps:
-        if verb == "created":
-            ok(what)
-        elif verb == "kept":
-            _kept(what)
-        else:
-            warn(what)
-
-    title("Configuration")
-    _init_configuration(configuration, report.workspace, token if given else "")
-
-    print(
-        f"\n{BOLD}ready.{RESET}\n\n"
-        f"  Check it end to end:\n\n    {BOLD}ponos doctor{RESET}\n\n"
-        f"  {DIM}board{RESET}    {target.url}\n"
-        f"  {DIM}next{RESET}     write a ticket, move it to "
-        f"“{configuration.notion.state('ready')}”, and wait for the next pass\n"
-    )
-    return 0
-
-
-def _init_configuration(configuration: config_module.Config, workspace: str, token: str) -> None:
-    """`ponos init`: the workspace written to the configuration, and the token beside it if given."""
-    if token:
-        # Beside the file rather than in it: config.toml holds no secret.
-        secrets = config_module.secrets_path(configuration.path)
-        config_module.write_secrets(secrets, {config_module.SECRETS[("notion", "token")]: token})
-        ok(f"token saved — in {secrets}")
-    if config_module.write_notion_value(configuration.path, "workspace", workspace):
-        ok(f"workspace = {workspace} — written to {configuration.path}")
-    else:
-        ok(f"workspace already pointed here ({workspace})")
-    if configuration.notion.tickets_database:
-        warn(
-            "notion.tickets_database is still set and wins over the workspace — "
-            "clear it unless you meant it"
-        )
-
-
-def _init_token(option: str | None, configured: str) -> tuple[str, bool]:
-    """The token `init` works with, and whether it was given rather than found.
-
-    A token on the command line stays in the shell's history and in `ps` for as
-    long as the databases take to build, so `--token -` reads it from stdin —
-    a pipe, or a prompt that does not echo it — and so does a bare `init` in a
-    terminal that has none yet. `PONOS_NOTION_TOKEN` counts as given: saved like
-    the others, it outlives the shell it was exported in.
-    """
-    if option == "-":
-        return _read_token(), True
-    if option:
-        return option.strip(), True
-    environment = os.environ.get(config_module.SECRETS[("notion", "token")], "").strip()
-    if environment:
-        return environment, True
-    configured = configured.strip()
-    if configured and configured != config_module.PLACEHOLDER:
-        return configured, False
-    if sys.stdin.isatty():
-        return _read_token(), True
-    return "", False
-
-
-def _read_token() -> str:
-    """One token from stdin: asked without echo in a terminal, one line from a pipe."""
-    if sys.stdin.isatty():
-        try:
-            return getpass.getpass("Notion token (ntn_…, not shown): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return ""
-    return sys.stdin.readline().strip()
-
-
 def _kept(message: str) -> None:
     """Already there, and left alone. Worth one dim line, not a green tick."""
     print(f"  {DIM}·{RESET} {message}")
@@ -1150,7 +962,7 @@ def _span(seconds: float) -> str:
 
 # What a group of checks is called on a terminal.
 GROUP_TITLES = {
-    "notion": "Board",
+    "board": "Board",
     "github": "GitHub",
     "claude": "Claude",
     "projects": "Projects",
@@ -1601,11 +1413,8 @@ def _service_run(args: argparse.Namespace) -> int:
                 f"  {DIM}— ponos mcp revoke {client['id']}{RESET}"
             )
         return 0
-    # Loaded, not required to be usable: the console is where an installation
-    # becomes usable — its first connection asks for the Notion token and the
-    # page — so refusing to start without them made that page unreachable, and
-    # the systemd unit restart forever on a fresh install. A file that is
-    # missing or does not parse still stops it: there is nothing to edit then.
+    # A file that is missing or does not parse stops it: there is nothing to
+    # edit then.
     try:
         configuration = config_module.load()
     except config_module.ConfigError as error:
@@ -2125,18 +1934,6 @@ def _add_ticket_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
     projects = subparsers.add_parser("projects", help="check the project → repository mapping")
     projects.set_defaults(function=command_projects)
 
-    importing = subparsers.add_parser("import", help="fill ponos.db from another board, once")
-    imported = importing.add_subparsers(dest="source", required=True, help="the board to read")
-    notion_import_parser = imported.add_parser(
-        "notion", help="everything Notion still holds (tickets, pages, files, comments) → ponos.db"
-    )
-    notion_import_parser.add_argument(
-        "--check",
-        action="store_true",
-        help="write nothing: count both sides, type by type, and list what ponos.db lacks",
-    )
-    importing.set_defaults(function=command_import)
-
 
 def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """What says how things went: status, history, logs, diagnostics."""
@@ -2182,21 +1979,6 @@ def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.Argume
 
 def _add_setup_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Setting the installation up, and keeping it current."""
-    initialise = subparsers.add_parser(
-        "init",
-        help="create the Notion databases from one page link (Notion board only)",
-    )
-    initialise.add_argument("page", help="URL of the Notion page to build under")
-    initialise.add_argument(
-        "--token",
-        help="Notion integration token, saved to the configuration "
-        "(-: read it from stdin, or asked without echo in a terminal; "
-        "PONOS_NOTION_TOKEN is read too)",
-    )
-    initialise.add_argument(
-        "--no-demo", action="store_true", help="do not create the demonstration ticket"
-    )
-    initialise.set_defaults(function=command_init)
 
     configure = subparsers.add_parser("config", help="open the configuration")
     configure.set_defaults(function=command_config)

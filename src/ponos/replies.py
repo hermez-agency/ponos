@@ -92,7 +92,7 @@ class Replies(Base):
             # yours — and a runner answering itself would never stop. Said once,
             # then the tickets.
             reason = self._identity_error or "no user ID came back"
-            self.say(f"  ! comments not answered: Notion would not say who we are ({reason})")
+            self.say(f"  ! comments not answered: the board would not say who we are ({reason})")
             ledger.save()
             return []
 
@@ -140,7 +140,7 @@ class Replies(Base):
                 continue
             for thread in conversation.waiting(comments, me=me, spellings=spellings):
                 if self.ledger.answered(thread.discussion) == thread.last.id:
-                    # Already answered: Notion handed back a thread whose reply
+                    # Already answered: the board handed back a thread whose reply
                     # is still in flight.
                     continue
                 pending.append((page_id, thread))
@@ -211,7 +211,7 @@ class Replies(Base):
         )
         if not outcome.ok and resumed and not outcome.exhausted:
             # A session Claude Code no longer has — pruned, or filed on another
-            # machine. The thread's history is in Notion, so a fresh one starts
+            # machine. The thread's history is on the board, so a fresh one starts
             # from everything except the tone of the last exchange.
             self.say("    ↻ that conversation could not be resumed — starting a new one")
             with self._ledger_lock:
@@ -282,7 +282,7 @@ class Replies(Base):
             else text
         )
         chosen = self.config.runner.allowed(
-            str(store.read(ticket.page, self.config.notion.prop("model")) or "")
+            str(store.read(ticket.page, self.config.board.prop("model")) or "")
             or agent.model
             or self.config.runner.model
         )

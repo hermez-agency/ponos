@@ -1,4 +1,4 @@
-/* A card changed in Notion meanwhile: said in the page's words, and said once.
+/* A card changed on the board meanwhile: said in the page's words, and said once.
  *
  * Why it was not overwritten reaches the page as the English the server wrote
  * in the sync journal — the runner's refusal in `reports.py`, the console's in
@@ -21,19 +21,19 @@
 const RUNNER =
   /^the runner would have written (.*), but the page says (.*) \(it said .* when the runner last read it\); not overwritten$/
 /** The console's own, as `web/board.py` raises it — the move it wanted is on the card. */
-const CONSOLE = /^Notion already says (.*)$/
+const CONSOLE = /^The board already says (.*)$/
 /** What the runner writes for a page whose status is empty. */
 const NONE = "no status"
 
-export const BY_RUNNER = "Ponos wanted to move it to {{wanted}}, but it is {{found}} in Notion: left as it is."
-export const BY_CONSOLE = "You moved it to {{wanted}}, but it is {{found}} in Notion: left as it is."
+export const BY_RUNNER = "Ponos wanted to move it to {{wanted}}, but it is {{found}} on the board: left as it is."
+export const BY_CONSOLE = "You moved it to {{wanted}}, but it is {{found}} on the board: left as it is."
 
 export interface Conflict {
   /** The sentence to say it with, `wanted` and `found` to be put in. */
   key: typeof BY_RUNNER | typeof BY_CONSOLE
   /** The status the move was to — empty for none. */
   wanted: string
-  /** The status Notion has instead — empty for none. */
+  /** The status the board has instead — empty for none. */
   found: string
 }
 

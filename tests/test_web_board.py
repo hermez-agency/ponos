@@ -1,4 +1,4 @@
-"""`web/board.py`: the console and Notion, kept in step."""
+"""`web/board.py`: the console and the board, kept in step."""
 
 from __future__ import annotations
 
@@ -23,16 +23,16 @@ from support import (
     case,
 )
 
-from ponos import board_journal, notion, store
+from ponos import board_journal, store
 from ponos import ticket as ticket_module
 from ponos.web import api as web_api
 from ponos.web import board as web_board
 
-# -- the console and Notion, kept in step ------------------------------------
+# -- the console and the board, kept in step ------------------------------------
 
 
 class _Minutes:
-    """A tickets database whose clock, like Notion's, is kept to the minute.
+    """A tickets database whose clock, like the board's, is kept to the minute.
 
     Queries answer the `last_edited_time` filter the console builds; `update`
     and `page` are what a move from the console reads and writes. `stale` is a
@@ -62,7 +62,7 @@ class _Minutes:
         )
 
     def move(self, page_id: str, status: str) -> None:
-        """Somebody drags a card in Notion."""
+        """Somebody drags a card on the board."""
         page = self.pages[page_id]
         self.pages[page_id] = store.Page(
             id=page.id,
@@ -110,8 +110,8 @@ def _statuses(pages: list[store.Page]) -> dict[str, str]:
 
 
 @case
-def three_moves_in_one_notion_minute_all_reach_the_console() -> None:
-    """Notion keeps `last_edited_time` to the minute; the console must not care.
+def three_moves_in_one_minute_all_reach_the_console() -> None:
+    """The board keeps `last_edited_time` to the minute; the console must not care.
 
     Measured on the real board: four statuses written at :06, :22, :39 and :52
     all came back as `09:32:00.000Z`. A read of "edited since my last read"
@@ -133,7 +133,7 @@ def three_moves_in_one_notion_minute_all_reach_the_console() -> None:
         assert asked is not None
         window = asked["last_edited_time"]["on_or_after"]
         assert datetime.fromisoformat(window) < fake.now.replace(second=0), (
-            "the window starts before the minute Notion rounds to"
+            "the window starts before the minute the board rounds to"
         )
     seen = [entry.detail.split(" · ")[0] for entry in said if entry.what == "seen"]
     assert seen == ["done → blocked", "blocked → review", "review → done"], seen
@@ -152,7 +152,7 @@ def the_whole_board_is_read_again_and_what_the_window_missed_is_counted() -> Non
     said: list[board_journal.Entry] = []
     reader = _reader(fake, said)
     reader.read(_store(fake), "db", "statut")
-    # A page whose edit time the window cannot see: as if Notion's clock lied.
+    # A page whose edit time the window cannot see: as if the board's clock lied.
     fake.move("1".zfill(32), "blocked")
     fake.pages["1".zfill(32)].raw["last_edited_time"] = "2026-09-30T08:00:00.000Z"
     fake.now = fake.now + timedelta(seconds=30)
@@ -175,34 +175,7 @@ def the_whole_board_is_read_again_and_what_the_window_missed_is_counted() -> Non
 
 
 @case
-def a_board_of_more_than_a_hundred_tickets_is_read_to_its_last_page() -> None:
-    """Notion hands out a hundred at a time; the real board is 366 tickets."""
-    client = notion.Client("ntn_x")
-    asked: list[dict[str, Any]] = []
-
-    def answer(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-        asked.append(dict(body or {}))
-        start = int((body or {}).get("start_cursor") or 0)
-        results = [
-            {"object": "page", "id": f"{index:032x}", "properties": {}}
-            for index in range(start, min(start + 100, 250))
-        ]
-        more = start + 100 < 250
-        return {
-            "results": results,
-            "has_more": more,
-            "next_cursor": str(start + 100) if more else None,
-        }
-
-    client._request = answer  # type: ignore[method-assign, assignment]
-    pages = client.query("db")
-    assert len(pages) == 250 and len({page.id for page in pages}) == 250
-    assert [one.get("start_cursor") for one in asked] == [None, "100", "200"]
-    assert all(one["page_size"] == 100 for one in asked)
-
-
-@case
-def a_move_the_network_lost_is_sent_again_until_notion_has_it() -> None:
+def a_move_the_network_lost_is_sent_again_until_the_board_has_it() -> None:
     """Never lost in silence: pending on the card, then there, or said failed."""
     fake = _Minutes()
     said: list[board_journal.Entry] = []
@@ -234,12 +207,12 @@ def a_move_the_network_lost_is_sent_again_until_notion_has_it() -> None:
     outbox.flush(send, lambda: changed.append(1))
     assert outbox.marks() == {}, "confirmed, and let go of"
     assert store.read(fake.page("1".zfill(32)), "statut") == "blocked"
-    assert [entry.what for entry in said] == ["console→notion"]
+    assert [entry.what for entry in said] == ["console→board"]
     assert "3 attempt(s)" in said[0].detail
 
 
 @case
-def a_move_notion_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand() -> None:
+def a_move_the_board_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand() -> None:
     fake = _Minutes()
     said: list[board_journal.Entry] = []
     outbox = web_board.Outbox(
@@ -264,8 +237,8 @@ def a_move_notion_refuses_for_good_is_said_on_the_card_and_tried_again_on_demand
 
 
 @case
-def a_move_over_a_status_changed_in_notion_meanwhile_is_not_written() -> None:
-    """The console showed done; somebody moved it to review in Notion since."""
+def a_move_over_a_status_changed_on_the_board_meanwhile_is_not_written() -> None:
+    """The console showed done; somebody moved it to review on the board since."""
     fake = _Minutes()
     said: list[board_journal.Entry] = []
     outbox = web_board.Outbox(
@@ -278,7 +251,7 @@ def a_move_over_a_status_changed_in_notion_meanwhile_is_not_written() -> None:
         )
     )
     outbox.flush(lambda write: web_board.send(_store(fake), "db", "statut", write), lambda: None)
-    assert fake.patched == [], "Notion's review was not written over"
+    assert fake.patched == [], "the board's review was not written over"
     mark = outbox.marks()["1".zfill(32)]
     assert mark.state == "conflict" and "review" in mark.error
     assert [entry.what for entry in said] == ["conflict"] and "review" in said[0].detail
@@ -304,7 +277,7 @@ def a_write_is_confirmed_by_reading_the_page_back() -> None:
     except store.StoreError as error:
         assert "still says done" in str(error)
     else:
-        raise AssertionError("a PATCH Notion did not keep is not a move")
+        raise AssertionError("a PATCH the board did not keep is not a move")
 
 
 @case
@@ -325,7 +298,7 @@ def a_confirmed_move_is_not_undone_by_a_query_that_has_not_caught_up() -> None:
     fake.stale["1".zfill(32)] = stale
     fake.now = fake.now + timedelta(seconds=3)
     assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "blocked"
-    # Once the hold is over, Notion's word is the word again.
+    # Once the hold is over, the board's word is the word again.
     fake.now = fake.now + timedelta(seconds=web_board.HOLD + 1)
     assert _statuses(reader.read(_store(fake), "db", "statut"))["ticket 1"] == "done"
 
@@ -374,7 +347,7 @@ def a_move_waiting_to_be_sent_survives_a_console_restart() -> None:
 
 
 @case
-def a_card_moved_from_the_console_is_drawn_waiting_until_notion_has_it() -> None:
+def a_card_moved_from_the_console_is_drawn_waiting_until_the_board_has_it() -> None:
     """The board the stream carries says it, so every tab says the same thing."""
     api = _bare_api(_ColumnsClient(["ready", "done"]))
     assert api._runner is not None
@@ -467,18 +440,18 @@ class _Counted(_ColumnsClient):
         super().__init__(statuses)
         self.queries = 0
 
-    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[store.Page]:
         self.queries += 1
         return super().query(database, *args, **kwargs)
 
 
 @case
-def the_board_then_the_statistics_cost_notion_one_query_not_two(state_home: Path) -> None:
+def the_board_then_the_statistics_cost_one_query_not_two(state_home: Path) -> None:
     """The watcher reads the board every fifteen seconds; a page asking meanwhile reuses it.
 
     Opening the dashboard asked `/api/board`, the statistics pane read the board
     again, and each was a query of its own on top of the watcher's. Only a write
-    from the console — `nudge` — makes the next one read Notion again.
+    from the console — `nudge` — makes the next one read the board again.
     """
     from types import SimpleNamespace
 
@@ -502,7 +475,7 @@ def the_board_then_the_statistics_cost_notion_one_query_not_two(state_home: Path
     assert client.queries == 1, f"{client.queries} queries for one board"
 
     api.watch.refresh()
-    assert client.queries == 2, "the watcher itself always asks Notion"
+    assert client.queries == 2, "the watcher itself always asks the board"
     web_routes.board(request)  # type: ignore[arg-type]
     assert client.queries == 2, "and the page is served what it read"
 
@@ -512,14 +485,14 @@ def the_board_then_the_statistics_cost_notion_one_query_not_two(state_home: Path
 
 
 class _HeldBack(_Counted):
-    """The same, with a query that waits for `gate` once `held` is set: a slow Notion."""
+    """The same, with a query that waits for `gate` once `held` is set: a slow board."""
 
     def __init__(self, statuses: list[str]) -> None:
         super().__init__(statuses)
         self.held = False
         self.gate = threading.Event()
 
-    def query(self, database: str, *args: Any, **kwargs: Any) -> list[notion.Page]:
+    def query(self, database: str, *args: Any, **kwargs: Any) -> list[store.Page]:
         if self.held:
             self.gate.wait(10)
         return super().query(database, *args, **kwargs)
@@ -565,7 +538,7 @@ def the_board_is_answered_as_held_and_read_again_behind_the_answer(state_home: P
     """Fourteen seconds measured for `/api/board` once nobody had a page open for a while.
 
     The board drawn last was read again under the request. Past the watcher's
-    period it is now answered at once, and read again behind: a Notion that
+    period it is now answered at once, and read again behind: a board that
     does not answer keeps nobody waiting.
     """
     client = _HeldBack(["ready", "done"])
@@ -579,7 +552,7 @@ def the_board_is_answered_as_held_and_read_again_behind_the_answer(state_home: P
     api._drawn = (started - api.config.web.poll_seconds, written, drawn)
     answered = time.monotonic()
     assert len(board()["tickets"]) == 2
-    assert time.monotonic() - answered < 1, "not a wait on Notion"
+    assert time.monotonic() - answered < 1, "not a wait on the board"
     assert len(board()["tickets"]) == 2, "a second reader meanwhile"
     client.gate.set()
     assert _waited(lambda: client.queries == 2), "read once behind, for both"
@@ -599,22 +572,17 @@ def a_restarted_console_answers_the_board_it_kept(state_home: Path) -> None:
     api, board = _served(client)
     answered = time.monotonic()
     assert board() == before
-    assert time.monotonic() - answered < 1, "not a wait on Notion"
+    assert time.monotonic() - answered < 1, "not a wait on the board"
     client.gate.set()
     assert _waited(lambda: getattr(api, "_drawn", None) is not None), "read behind the answer"
     assert len(board()["tickets"]) == 3, "and answered next"
 
 
 @case
-def a_kept_board_is_not_answered_for_another_board_or_after_a_write(state_home: Path) -> None:
-    """Kept for this configuration's board only — and a write from the console reads Notion."""
+def a_kept_board_is_not_answered_after_a_write(state_home: Path) -> None:
+    """Kept for this board only — and a write from the console reads the board again."""
     _, board = _served(_HeldBack(["ready"]))
     board()
-
-    client = _HeldBack(["ready", "done"])
-    api, board = _served(client)
-    api._config.notion.tickets_database = "b" * 32
-    assert len(board()["tickets"]) == 2, "another database is read, not answered from the file"
 
     client = _HeldBack(["ready", "done", "done"])
     api, board = _served(client)

@@ -9,7 +9,7 @@ import { Flow } from "./text"
 /* Markdown, drawn rather than shown.
  *
  * Two things in the console are written in markdown: a ticket's page, which
- * `/api/tickets/<id>` flattens out of the Notion blocks the runner is handed
+ * `/api/tickets/<id>` reads out of the board the way the runner is handed it
  * before a run, and what a session says afterwards — in a comment on the
  * ticket, or in an answer in the workspace's transcript. Left alone both arrive
  * as their own source, and a reader ends up reading the asterisks.

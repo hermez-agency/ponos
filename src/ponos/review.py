@@ -180,7 +180,7 @@ class Review(Base):
 
     def _reviews(self, job: Job) -> bool:
         """Whether this ticket's branch is read before its push: the project's word, else the file's."""
-        own = project_settings.self_review(job.project.notion_id)
+        own = project_settings.self_review(job.project.page_id)
         return own if own is not None else self.config.runner.self_review
 
     def _self_review(self, job: Job, outcome: session.Outcome) -> session.Outcome:

@@ -59,7 +59,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
 
     with _board() as board:
         project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
-        settings = C.Notion()
+        settings = C.BoardNames()
         blocked = board.create_row(
             "tickets", "Choisir l'hébergeur", {"statut": settings.state("blocked")}
         )
@@ -80,7 +80,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert (
             task["project"] == "Usine" and task["status"] == "blocked" and task["waiting_for_you"]
         )
-        assert "url" not in task, "a task is not a Notion page"
+        assert "url" not in task, "a task is not a page of the board"
 
         detail = _mcp_call(api, grant, "get_task", task=task["short"])["structuredContent"]
         assert "Dokploy ou Vercel" in detail["question"]
@@ -155,7 +155,7 @@ def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home: Path) -
             {"Statut": "actif", "Échéance": "2026-12-31", "Projets": [project]},
         )
         board.create_row("goals", "Ranger", {"Statut": "atteint"})
-        settings = C.Notion()
+        settings = C.BoardNames()
         for title, column in (("Fait", "done"), ("En cours", "running"), ("Laissé", "cancelled")):
             ticket = board.create_row("tickets", title, {"statut": settings.state(column)})
             board.update("tickets", ticket, {"Objectif": [launch]})
@@ -199,7 +199,7 @@ def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home: Path) -
 def an_mcp_client_lists_the_solutions_of_a_blocked_task_and_applies_one(state_home: Path) -> None:
     from ponos.web import oauth as web_oauth
 
-    settings = C.Notion()
+    settings = C.BoardNames()
     with _board() as board:
         blocked = board.create_row(
             "tickets", "Install Tailscale", {"statut": settings.state("blocked")}
@@ -445,7 +445,9 @@ def the_mcp_connector_says_its_name_and_who_holds_the_key(state_home: Path) -> N
 
     with _board() as board:
         board.create_row("projects", "Usine", {"Repository": "user/usine"})
-        board.create_row("tickets", "Choisir l'hébergeur", {"statut": C.Notion().state("blocked")})
+        board.create_row(
+            "tickets", "Choisir l'hébergeur", {"statut": C.BoardNames().state("blocked")}
+        )
         api = _ideas_api(board)
         api._config.web.email = "moi@example.com"
         writer = web_oauth.Grant(
@@ -514,7 +516,7 @@ def the_mcp_server_is_reached_through_oauth_with_pkce_and_its_own_keys(state_hom
     opener = urllib.request.build_opener(Stay)
 
     with _board() as board:
-        board.create_row("tickets", "Un ticket", {"statut": C.Notion().state("blocked")})
+        board.create_row("tickets", "Un ticket", {"statut": C.BoardNames().state("blocked")})
         api = _ideas_api(board)
         api._config.web.token = "tok"
         console = web_app.Console(("127.0.0.1", 0), api, "tok")
@@ -1184,7 +1186,9 @@ def a_batch_of_mcp_messages_is_masked_as_one_message_is(state_home: Path) -> Non
     with _board() as board:
         # Written by hand on the ticket, before the vault knew the value.
         board.create_row(
-            "tickets", "Publier avec npm_supersecret_42", {"statut": C.Notion().state("blocked")}
+            "tickets",
+            "Publier avec npm_supersecret_42",
+            {"statut": C.BoardNames().state("blocked")},
         )
         vault.remember("npm_supersecret_42")
         api = _ideas_api(board)
@@ -1237,16 +1241,16 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
 
     listed = mcp_setup.parse(
         "Checking MCP server health...\n\n"
-        "notion: https://mcp.notion.com/mcp?key=SECRET (HTTP) - ✓ Connected\n"
+        "linear: https://mcp.linear.app/mcp?key=SECRET (HTTP) - ✓ Connected\n"
         "github: https://api.example.com/mcp - ⚠ Needs authentication\n"
         "local: npx -y @x/server --token=SECRET - ✗ Failed to connect\n"
     )
     assert [(one["name"], one["state"]) for one in listed] == [
-        ("notion", "ok"),
+        ("linear", "ok"),
         ("github", "auth"),
         ("local", "error"),
     ], listed
-    assert listed[0]["target"] == "https://mcp.notion.com/mcp" and listed[2]["target"] == "npx", (
+    assert listed[0]["target"] == "https://mcp.linear.app/mcp" and listed[2]["target"] == "npx", (
         listed
     )
     assert "SECRET" not in json.dumps(listed)

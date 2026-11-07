@@ -9,7 +9,6 @@ import {
   KeyRound,
   Languages,
   ListChecks,
-  NotebookText,
   Play,
 } from "lucide-react"
 
@@ -22,7 +21,6 @@ const ICONS: Record<StepKey, React.ComponentType<{ className?: string }>> = {
   language: Languages,
   access: KeyRound,
   provider: Bot,
-  notion: NotebookText,
   github: GitPullRequest,
   project: FolderGit2,
   channels: Bell,
@@ -34,7 +32,6 @@ export const TITLES: Record<StepKey, string> = {
   language: "Language",
   access: "Access",
   provider: "Claude provider",
-  notion: "Notion",
   github: "GitHub",
   project: "First project",
   channels: "Channels",

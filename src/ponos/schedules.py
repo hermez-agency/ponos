@@ -18,7 +18,7 @@ makes the calendar testable at all:
 `scheduled_for` is here too, and that is deliberate. A date written on a ticket
 and a date written on a schedule mean the same thing — a moment in this
 machine's timezone, a bare date being midnight here and not noon UTC — and two
-readings of a Notion date that drift apart is the sort of bug nobody finds.
+readings of a date that drift apart is the sort of bug nobody finds.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import priority as priority_module
 from . import store, timestamps
-from .config import Notion
+from .config import BoardNames
 
 # What a cadence may say. A select rather than free text, for the same reason as
 # the model column: the point is to pick without remembering the spelling.
@@ -75,7 +75,7 @@ class Schedule:
 
 
 def scheduled_for(value: object) -> datetime | None:
-    """A Notion date, read in this machine's timezone.
+    """A date, read in this machine's timezone.
 
     A bare date means the start of that day here: a ticket due "30 August"
     becomes eligible at midnight, not at noon UTC. A date with a time is taken
@@ -106,7 +106,7 @@ def timezone_name() -> str:
     return named
 
 
-def read(page: store.Page, settings: Notion) -> Schedule:
+def read(page: store.Page, settings: BoardNames) -> Schedule:
     """One schedule, and what — if anything — makes it unreadable.
 
     Never raises. A row somebody half filled in is a row the pass steps over,
