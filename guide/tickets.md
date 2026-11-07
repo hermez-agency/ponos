@@ -139,12 +139,10 @@ A thread is one long Claude Code session, resumed: ask a second question and it 
 the same conversation as the first, which is why the second answer knows what the first one
 said. `claude --resume` in a terminal opens that very session.
 
-The answers run on a cadence of their own — `reply_interval_seconds`, sixty by default —
-because a comment does not change the ticket it is on. So it looks where a conversation can plausibly be: the tickets a
-daemon reads anyway, and the pages it has spoken on, `reply_scan` of them per look with the
-window moving each time. A ticket sitting in *Ready* that it has never touched is the one
-place it is not listening — and that one is about to be run, which is where your comment
-was going to be read regardless.
+The daemon looks for an answer to write as soon as a comment lands on the board, and at its
+safety look (`interval_seconds`) besides: it reads the threads of the tickets most recently
+commented on, straight from `ponos.db`. A ticket sitting in *Ready* that it is about to run
+is the one place it does not answer — your comment goes into that run's prompt instead.
 
 Answers never come before the work. With tickets ready, the tickets take their places
 first; the answers — and the look at the blocked tickets, below — then take one place of

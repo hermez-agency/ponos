@@ -184,8 +184,6 @@ if TYPE_CHECKING:
         def _carried_session(self, ticket: Ticket) -> str: ...
         def _comment(self, ticket: Ticket, text: str, discussion: str = "") -> None: ...
         def comments(self, page_id: str) -> list[store.Comment]: ...
-        @property
-        def ledger(self) -> conversation.Ledger: ...
         def discussion(self, ticket: Ticket) -> list[str]: ...
         def _tell(
             self,
@@ -268,8 +266,8 @@ class Base(Chapters):
         # for an answer — and reading the same thread three times is work for
         # nothing.
         self._comments: dict[str, list[store.Comment]] = {}
-        self._ledger: conversation.Ledger | None = None
-        self._ledger_lock = threading.Lock()
+        # Where a conversation may be waiting, and the session having it.
+        self.threads = conversation.Threads()
         self._spellings: tuple[str, ...] | None = None
         self._me: str | None = None
         self._identity_error = ""

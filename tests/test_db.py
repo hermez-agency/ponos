@@ -196,7 +196,7 @@ def json_files_left_beside_the_database_are_read_by_nobody(state_home: Path) -> 
         (state_home / name).write_text(content, encoding="utf-8")
     try:
         assert state.history() == [] and state.claims() == {} and board_journal.journal() == []
-        assert conversation.Ledger.load().known_pages() == [] and credits.held() == 0.0
+        assert conversation.Threads().recent() == [] and credits.held() == 0.0
         for name, content in left.items():
             assert (state_home / name).read_text(encoding="utf-8") == content, name
         assert sorted(path.name for path in state_home.iterdir() if ".imported" in path.name) == []
@@ -514,6 +514,15 @@ def the_tables_of_the_former_board_service_go_with_a_copy_taken_first() -> None:
         )
         raw.execute("INSERT INTO ticket_after (ticket, after) VALUES ('b2', 'aaaa-1111')")
         raw.execute("INSERT INTO mirror_queue (ticket, what, at) VALUES ('a1', 'status', 'now')")
+        raw.executemany(
+            "INSERT INTO ticket_comments (ticket, discussion, author, text, at) "
+            "VALUES ('a1', 'd1', ?, ?, 'now')",
+            [("salva", "pourquoi ?"), ("ponos", "parce que.")],
+        )
+        raw.execute(
+            "INSERT INTO conversation_threads (discussion, session, answered) "
+            "VALUES ('d1', 's-1', '2')"
+        )
     finally:
         raw.close()
     for leftover in ("notion-identity.json", "notion-pages.json"):
@@ -524,7 +533,14 @@ def the_tables_of_the_former_board_service_go_with_a_copy_taken_first() -> None:
             row[0]
             for row in migrated.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
-        assert not {"mirror_queue", "page_formats"} & tables, tables
+        gone = {"mirror_queue", "page_formats", "conversation_pages", "conversation_threads"}
+        assert not (gone | {"conversation_scan"}) & tables, tables
+        assert migrated.execute(
+            "SELECT text, session FROM ticket_comments ORDER BY id"
+        ).fetchall() == [
+            ("pourquoi ?", ""),
+            ("parce que.", "s-1"),
+        ], "the session of a thread, on its last answer"
         assert "notion" not in _columns(migrated, "tickets")
         assert migrated.execute("SELECT after FROM ticket_after").fetchall() == [("a1",)], (
             "named by its id now"

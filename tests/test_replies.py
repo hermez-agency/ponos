@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
-import threading
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, cast
@@ -122,43 +120,6 @@ def a_thread_transcript_tells_its_two_voices_apart() -> None:
     )
 
 
-@case
-def the_scan_moves_across_the_board_a_window_at_a_time() -> None:
-    """One request per page, and a run that can come round every ten seconds."""
-    ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    pages = [f"p{index}" for index in range(5)]
-    assert ledger.rotate(pages, 2) == ["p0", "p1"]
-    assert ledger.rotate(pages, 2) == ["p2", "p3"]
-    assert ledger.rotate(pages, 2) == ["p4", "p0"], "it wraps rather than starting over"
-    assert ledger.rotate(pages, 10) == pages, "a window wider than the board is the board"
-    assert ledger.rotate([], 2) == []
-
-
-@case
-def the_pass_holds_off_until_its_own_interval_has_passed() -> None:
-    ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    assert ledger.due(60), "a runner that has never looked is due at once"
-    ledger.stamp()
-    assert not ledger.due(60)
-    assert ledger.due(0)
-
-
-@case
-def what_the_runner_remembers_survives_a_restart() -> None:
-    path = Path(tempfile.mkdtemp()) / "ponos.db"
-    ledger = conversation.Ledger(database=path)
-    ledger.remember_page("3ca45168-0af4-80ae-9443-de0b65d9abf8")
-    ledger.remember_thread("d1", session="s-1", comment="c-1")
-    ledger.cursor = 3
-    ledger.save()
-
-    again = conversation.Ledger.load(path)
-    assert again.known_pages() == ["3ca451680af480ae9443de0b65d9abf8"], "dashes and all"
-    assert again.session_of("d1") == "s-1"
-    assert again.cursor == 3
-    assert conversation.Ledger.load(Path(tempfile.mkdtemp()) / "ponos.db").known_pages() == []
-
-
 class _ThreadClient:
     """Pages with comments on them, and nothing else."""
 
@@ -176,26 +137,43 @@ class _ThreadClient:
         return "Ponos"
 
 
+class _Threads(conversation.Threads):
+    """The tickets most recently commented on, and the sessions, kept in memory."""
+
+    def __init__(self, pages: Iterable[str]) -> None:
+        super().__init__()
+        self.pages = list(pages)
+        self.sessions: dict[tuple[str, str], str] = {}
+
+    def recent(self) -> list[str]:
+        return list(self.pages)
+
+    def session_of(self, ticket: str, discussion: str) -> str:
+        return self.sessions.get((ticket, discussion), "")
+
+    def remember(self, ticket: str, discussion: str, session: str) -> None:
+        self.sessions[(ticket, discussion)] = session
+
+    def forget(self, ticket: str, discussion: str) -> None:
+        self.sessions.pop((ticket, discussion), None)
+
+
 def _talking(
-    pages: dict[str, list[store.Comment]], *, claimed: Iterable[str] = frozenset(), scan: int = 20
+    pages: dict[str, list[store.Comment]], *, claimed: Iterable[str] = frozenset()
 ) -> Runner:
     runner = _bare_runner(_ThreadClient(pages))
     runner.config = _config("")
-    runner.config.runner.reply_scan = scan
     runner._spellings = None  # resolved from the client, as in a real run
     runner._me = ME
     runner._claimed = set(claimed)
-    runner._ledger_lock = threading.Lock()
-    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
-    for page in pages:
-        runner._ledger.remember_page(page)
+    runner.threads = _Threads(pages)
     return runner
 
 
-def _ledger(runner: Runner) -> conversation.Ledger:
-    """The ledger `_talking` gave the runner, which a run may not have."""
-    assert runner._ledger is not None
-    return runner._ledger
+def _threads(runner: Runner) -> _Threads:
+    """The threads `_talking` gave the runner."""
+    assert isinstance(runner.threads, _Threads)
+    return runner.threads
 
 
 REPLIED_TO = [
@@ -230,7 +208,7 @@ def a_pass_answers_one_thread_per_page_and_stops_at_five() -> None:
 @case
 def a_page_that_cannot_be_read_costs_that_page_and_nothing_else() -> None:
     runner = _talking({"ptwo": REPLIED_TO})
-    _ledger(runner).remember_page("pgone")
+    _threads(runner).pages.append("pgone")
     assert [page for page, _ in runner._pending(ME)] == ["ptwo"]
 
 
@@ -302,7 +280,6 @@ def a_second_question_lands_in_the_same_conversation(state_home: Path) -> None:
         again = [*REPLIED_TO, _said("et le footer ?", ident="c-later")]
         client.pages["pone"] = again
         runner._comments.clear()
-        _ledger(runner).at = 0.0  # the interval, not the point of this test
         runner.converse()
 
     assert len(calls) == 2
@@ -341,7 +318,6 @@ def a_conversation_whose_session_is_gone_starts_a_new_one(state_home: Path) -> N
 
         client.pages["pone"] = [*REPLIED_TO, _said("et le footer ?", ident="c-later")]
         runner._comments.clear()
-        _ledger(runner).at = 0.0
         runner.converse()
 
     assert [call["resume"] for call in calls] == [False, True, False]
@@ -351,7 +327,7 @@ def a_conversation_whose_session_is_gone_starts_a_new_one(state_home: Path) -> N
 
 
 @case
-def a_pass_that_is_turned_off_or_too_soon_asks_the_board_nothing(state_home: Path) -> None:
+def a_pass_that_is_turned_off_asks_the_board_nothing(state_home: Path) -> None:
     with _no_session() as calls:
         runner = _talking({"pone": REPLIED_TO})
         client = _TalkingClient({"pone": REPLIED_TO})
@@ -359,10 +335,6 @@ def a_pass_that_is_turned_off_or_too_soon_asks_the_board_nothing(state_home: Pat
         runner.dry_run = False
         runner.config.runner.reply = False
         assert runner.converse() == []
-
-        runner.config.runner.reply = True
-        _ledger(runner).stamp()
-        assert runner.converse() == [], "the interval has not passed"
         assert client.asked == [] and calls == []
 
 

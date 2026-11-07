@@ -465,14 +465,11 @@ class Board(Base):
         Which machine reported is read off the board's Agent column rather than
         off the comment: reports open on a verdict now, not on a host, and the
         column is where the host was always written down anyway. An empty one
-        is a ticket no run has claimed, which is most of a backlog: unless the
-        ledger remembers speaking on it, there is no report to find, and reading
-        its comments would cost a read per ticket and per pass for nothing.
+        is a ticket no run has claimed, which is most of a backlog: its comments
+        are read all the same, as a report is what decides.
         """
         agent = str(store.read(ticket.page, self.config.board.prop("agent")) or "")
         if agent and agent != self.agent_label:
-            return False
-        if not agent and not self.ledger.knows(ticket.page.id):
             return False
         try:
             comments = self.comments(ticket.page.id)

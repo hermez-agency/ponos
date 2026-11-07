@@ -119,6 +119,7 @@ class Scheduler(adoption.Adoption):
         self._credit_read = 0.0
         self._projects: dict[str, str] = {}
         self._talked_at = 0.0
+        self._heard = -1
         self._ending_at: tuple[str, float] | None = None
         self._upkeeping = threading.Lock()
         pool = ThreadPoolExecutor(max_workers=THREADS, thread_name_prefix="tr-place")
@@ -222,7 +223,12 @@ class Scheduler(adoption.Adoption):
         self._past_limit = max(0, min(self._past_limit, len(self._places) - self.width))
         with self._lock:
             publishing = list(self._publishing)
-        talk = time.time() - self._talked_at >= self.config.runner.reply_interval_seconds
+        # A comment arrived since the answers were last looked at — a read of
+        # the file, every loop — or the safety look is due.
+        heard = self.threads.last()
+        talk = heard != self._heard or (
+            time.time() - self._talked_at >= self.config.runner.interval_seconds
+        )
         if not self._free() or not (publishing or self._queued or talk):
             self.explain(self._queued, self.width)
             return
@@ -254,7 +260,7 @@ class Scheduler(adoption.Adoption):
                 break
             self._start(pool, picked)
         if talk and self._free() and self.room_for_a_session() and not self._talking():
-            self._talked_at = time.time()
+            self._talked_at, self._heard = time.time(), heard
             self._occupy(pool, Place("replies"), self._talk)
         self.explain(self._queued, self.width)
 

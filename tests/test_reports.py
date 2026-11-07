@@ -238,25 +238,23 @@ class _Mute(_BoardClient):
 
 
 @case
-def a_comment_the_board_refuses_is_said_and_not_remembered(
+def a_comment_the_board_refuses_is_said(
     state_home: Path,
 ) -> None:
     ticket = _ticket()
     runner, said = _runner(client=_Mute([]))
     runner._comment(ticket, "Fait.")
     assert any("the board refused the comment" in line for line in said), said
-    assert not runner.ledger.knows("p-1"), "a page nobody spoke on is not one to watch"
 
 
 @case
-def a_comment_written_forgets_the_cached_thread_and_remembers_the_page(state_home: Path) -> None:
+def a_comment_written_forgets_the_cached_thread(state_home: Path) -> None:
     ticket = _ticket("p-1-2")
     runner, _ = _runner()
     assert runner.comments("p12") == []
     assert "p12" in runner._comments, "cached under the id without its dashes"
     runner._comment(ticket, "Fait.")
     assert "p12" not in runner._comments, "one comment short: read again next time"
-    assert runner.ledger.knows("p-1-2")
 
 
 @case

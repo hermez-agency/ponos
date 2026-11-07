@@ -276,13 +276,7 @@ class Reports(Base):
     # -- what is said on the page ---------------------------------------------
 
     def _comment(self, ticket: Ticket, text: str, discussion: str = "") -> None:
-        """Say something on a ticket, and remember that we said it.
-
-        Remembering matters: a comment does not change a ticket's columns, so
-        there is no asking them which tickets have been commented on since. The pages
-        the runner has spoken on are the only affordable place to look for an
-        answer — see `conversation.Ledger`.
-        """
+        """Say something on a ticket."""
         if self.dry_run:
             return
         try:
@@ -291,9 +285,6 @@ class Reports(Base):
             self.say(f"    ! the board refused the comment: {error}")
             return
         self.forget_comments(ticket.page.id)
-        with self._ledger_lock:
-            self.ledger.remember_page(ticket.page.id)
-            self.ledger.save()
 
     def comments(self, page_id: str) -> list[store.Comment]:
         """The comments of a page, once per run, and never a reason to fail.
@@ -310,12 +301,6 @@ class Reports(Base):
     def forget_comments(self, page_id: str) -> None:
         """We just wrote on that page; what we cached is one comment short."""
         self._comments.pop(page_id.replace("-", ""), None)
-
-    @property
-    def ledger(self) -> conversation.Ledger:
-        if self._ledger is None:
-            self._ledger = conversation.Ledger.load()
-        return self._ledger
 
     def discussion(self, ticket: Ticket) -> list[str]:
         """What was said on the ticket, ready for the prompt, newest last.

@@ -772,11 +772,10 @@ def _board_runner(
     runner._spellings = conversation.names()
     runner._me = ""
     runner._identity_error = ""
-    runner._ledger_lock = threading.Lock()
     runner._landed, runner._replayed_after = {}, {}
     runner._landed_lock = threading.Lock()
     runner._queues = {}
-    runner._ledger = conversation.Ledger(database=Path(tempfile.mkdtemp()) / "ponos.db")
+    runner.threads = conversation.Threads(database=Path(tempfile.mkdtemp()) / "ponos.db")
     return runner
 
 

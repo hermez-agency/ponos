@@ -1160,6 +1160,20 @@ def _notion_is_gone(connection: sqlite3.Connection) -> None:
     # base, et la marque de l'importation, partent avec.
     connection.execute("DROP TABLE IF EXISTS mirror_queue")
     connection.execute("DROP TABLE IF EXISTS page_formats")
+    # Le relevé des commentaires page par page, à son rythme, n'existait que
+    # pour ménager l'API : les commentaires sont dans ce fichier. Reste de lui la
+    # session qui parle dans un fil, posée sur la dernière réponse de ce fil.
+    connection.execute("ALTER TABLE ticket_comments ADD COLUMN session TEXT NOT NULL DEFAULT ''")
+    connection.execute(
+        "UPDATE ticket_comments SET session = (SELECT session FROM conversation_threads "
+        "WHERE conversation_threads.discussion = ticket_comments.discussion) "
+        "WHERE discussion != '' AND id IN "
+        "(SELECT MAX(id) FROM ticket_comments GROUP BY ticket, discussion) "
+        "AND EXISTS (SELECT 1 FROM conversation_threads "
+        "WHERE conversation_threads.discussion = ticket_comments.discussion)"
+    )
+    for table in ("conversation_pages", "conversation_threads", "conversation_scan"):
+        connection.execute(f"DROP TABLE IF EXISTS {table}")
     # Ce qui avait été convenu de chaque image avec Notion : relu au prochain tour.
     connection.execute("DELETE FROM images")
     columns = {row[1] for row in connection.execute("PRAGMA table_info(tickets)")}

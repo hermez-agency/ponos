@@ -314,11 +314,11 @@ def what_is_not_an_answer_under_a_report_wakes_nothing() -> None:
 
 
 @case
-def a_ticket_of_another_host_or_of_nobody_is_not_asked_about() -> None:
+def a_ticket_of_another_host_is_not_asked_about() -> None:
     other, client = _answered([REPORT, store.Comment("Oui.")], agent="ponos@desktop")
     assert not other and client.asked == 0, "another host's ticket costs no request"
-    unknown, client = _answered([REPORT, store.Comment("Oui.")], agent="")
-    assert not unknown and client.asked == 0, "an unclaimed ticket the ledger never spoke on"
+    unclaimed, _ = _answered([REPORT, store.Comment("Oui.")], agent="")
+    assert unclaimed, "no host named, but a report of ours under it: its comments decide"
 
 
 @case

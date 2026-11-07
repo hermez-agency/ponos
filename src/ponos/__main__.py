@@ -1315,10 +1315,10 @@ def command_clean(args: argparse.Namespace) -> int:
     if removed:
         print(f"  removed {removed} log file(s) older than {args.days} days")
     # The scratch directory a conversation runs in, for a ticket with no
-    # repository. Kept while the runner still remembers the page — that is
+    # repository. Kept while a session still answers on the ticket — that is
     # what makes the next question land in the same Claude session.
     talks = conversation.clean_talks(
-        {short_id(page) for page in conversation.Ledger.load().known_pages()}
+        {short_id(ticket) for ticket in conversation.Threads().talked_on()}
     )
     if talks:
         print(f"  removed {talks} conversation directory(ies)")
