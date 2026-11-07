@@ -1218,4 +1218,38 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Type it": "Taper",
   "Press Enter": "Entrée",
   "Done, close it": "Terminé, le fermer",
+  // The Skills page (components/console/skills-page.tsx).
+  "The skill was not saved": "La skill n'a pas été enregistrée",
+  "Skill name": "Nom de la skill",
+  "skill-name": "nom-de-la-skill",
+  "What it is for": "À quoi elle sert",
+  "What it is for, and when Claude should use it.": "À quoi elle sert, et quand Claude doit l'utiliser.",
+  "SKILL.md": "SKILL.md",
+  "All the sessions": "Toutes les sessions",
+  "Only some projects": "Certains projets seulement",
+  "Files beside the SKILL.md": "Fichiers à côté du SKILL.md",
+  "Remove {{name}}": "Retirer {{name}}",
+  "Attach files": "Joindre des fichiers",
+  "Files can be attached once the skill is saved.": "Les fichiers se joignent une fois la skill enregistrée.",
+  Active: "Active",
+  Inactive: "Inactive",
+  "{{count}} file(s)": "{{count}} fichier(s)",
+  "The repository of {{projects}} already has this skill: the repository's wins, this one is not placed there.":
+    "Le dépôt de {{projects}} a déjà cette skill : celle du dépôt gagne, celle-ci n'y est pas posée.",
+  Disable: "Désactiver",
+  Enable: "Activer",
+  "Delete {{name}}": "Supprimer {{name}}",
+  "The skill and its files are deleted. The next sessions no longer receive it.":
+    "La skill et ses fichiers sont supprimés. Les prochaines sessions ne la reçoivent plus.",
+  "Skill deleted": "Skill supprimée",
+  "Skill imported": "Skill importée",
+  "Import a folder": "Importer un dossier",
+  "Import a .zip": "Importer un .zip",
+  "New skill": "Nouvelle skill",
+  "The Claude Code skills Ponos gives its sessions. Each is put in the worktree of a ticket under .claude/skills, for every session or for some projects.":
+    "Les skills Claude Code que Ponos donne à ses sessions. Chacune est posée dans le worktree d'un ticket, sous .claude/skills, pour toutes les sessions ou pour certains projets.",
+  "No skill yet.": "Aucune skill pour l'instant.",
+  "In the repositories": "Dans les dépôts",
+  "Skills the projects' repositories already hold. Read only: they are changed in their repository.":
+    "Les skills que les dépôts des projets ont déjà. En lecture seule : elles se changent dans leur dépôt.",
 }

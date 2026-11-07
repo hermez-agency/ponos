@@ -1,5 +1,5 @@
 import * as React from "react"
-import { BookOpen, Brain, KeyRound, Library, NotebookText } from "lucide-react"
+import { BookOpen, Brain, KeyRound, Library, NotebookText, Sparkles } from "lucide-react"
 import { ActionList } from "react-data-form"
 import {
   createViewResource,
@@ -34,6 +34,7 @@ export const STANDING_TAB = "standing"
 export const VAULT_TAB = "vault"
 export const MEMORY_TAB = "memory"
 export const LIBRARY_TAB = "library"
+export const SKILLS_TAB = "skills"
 
 /** The page as the views hold it: only what the bar's breadcrumb needs. */
 export interface ContextItem {
@@ -68,6 +69,10 @@ const LibraryTab = lazyTab(() =>
   import("@/components/console/library-page").then((module) => ({ default: module.LibraryPage }))
 )
 
+const Skills = lazyTab(() =>
+  import("@/components/console/skills-page").then((module) => ({ default: module.SkillsPage }))
+)
+
 interface ContextTab {
   tab: Omit<TabDefinition<ContextItem>, "icon"> & { icon: IconType }
   /** Whether this role is given the tab at all; the API refuses the rest. */
@@ -100,6 +105,15 @@ const TAB_DEFINITIONS: ContextTab[] = [
       description: "Reference files kept for the sessions, for all the projects or some.",
       icon: Library,
       component: LibraryTab,
+    },
+  },
+  {
+    tab: {
+      id: SKILLS_TAB,
+      label: "Skills",
+      description: "The Claude Code skills Ponos gives its sessions, for all of them or for some projects.",
+      icon: Sparkles,
+      component: Skills,
     },
   },
   {

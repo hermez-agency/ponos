@@ -620,7 +620,8 @@ if log:
              if "--max-budget-usd" in args else "",
              "permission_mode": args[args.index("--permission-mode") + 1]
              if "--permission-mode" in args else "",
-             "base_url": os.environ.get("ANTHROPIC_BASE_URL", "")}
+             "base_url": os.environ.get("ANTHROPIC_BASE_URL", ""),
+             "skills": sorted(os.listdir(".claude/skills")) if os.path.isdir(".claude/skills") else []}
         ) + "\\n")
 
 
@@ -1923,6 +1924,38 @@ def a_pdf_kept_for_one_project_reaches_its_sessions_and_no_other(machine: Bench)
     assert Path(path).read_bytes() == charter, "the session reads it where it was told"
     assert not Path(told["site"][0]["cwd"], "charter.pdf").exists(), "copied into the worktree"
     assert all("charter.pdf" not in one["prompt"] for one in told["blog"]), told["blog"]
+
+
+def a_skill_made_for_a_project_is_in_the_worktree_of_its_next_session_and_of_no_other(
+    machine: Bench,
+) -> None:
+    """Contexte › Skills: a skill for project X reaches X's sessions, not Y's.
+
+    A global one reaches both; and none of them ends in the branch the ticket
+    delivers — the skills are left out of git, for the commit and for the pull request.
+    """
+    from ponos import skills
+
+    repository = machine.repository("site")
+    site = machine.project("Site", repository)
+    other = machine.project("Autre", machine.repository("autre"))
+    skills.create("pour-site", "Pour Site.", "# Site\n", [site])
+    skills.create("pour-tous", "Pour tous.", "# Tous\n")
+    first = machine.ticket("Corriger l'entête", "Le titre est faux.", site)
+    second = machine.ticket("Corriger le pied", "Le pied est faux.", other)
+
+    results = machine.run()
+
+    assert {result["status"] for result in results} == {"done"}, results
+    seen = [call["skills"] for call in machine.sessions()]
+    by_prompt = {
+        ("Corriger l'entête" in call["prompt"]): call["skills"] for call in machine.sessions()
+    }
+    assert by_prompt[True] == ["pour-site", "pour-tous"], seen
+    assert by_prompt[False] == ["pour-tous"], seen
+    assert first != second
+    for branch in machine.branches(repository):
+        assert not any(".claude/skills" in name for name in machine.files_on(repository, branch))
     db.close()
 
 

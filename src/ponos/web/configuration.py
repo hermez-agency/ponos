@@ -9,6 +9,7 @@ workspace or a property name changed is a different board.
 
 from __future__ import annotations
 
+import base64
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,7 @@ from .. import (
     planning,
     preview,
     project_settings,
+    skills,
     store,
     subtypes,
     vault,
@@ -545,3 +547,126 @@ class Configuration(Base):
         library.delete(identifier)
         self.hub.publish("library", id=identifier)
         return self.library()
+
+    # -- the skills Ponos gives its sessions -----------------------------------
+
+    def _repository_skills(self) -> list[dict[str, Any]]:
+        """The skills the repositories already hold, each with the project it comes from."""
+        found: list[dict[str, Any]] = []
+        for project in self.all_projects()["projects"]:
+            if project.get("kind") != "code":
+                continue
+            try:
+                where = self.runner.resolver.locate(
+                    project["name"],
+                    project.get("configured") or project.get("path") or "",
+                    project.get("repository") or "",
+                )
+            except OSError:
+                where = None
+            if where is None:
+                continue
+            for item in skills.in_repository(where):
+                found.append(
+                    {
+                        "name": item["name"],
+                        "description": item["description"],
+                        "project": project["id"],
+                        "project_name": project["name"],
+                        "repository": project.get("repository") or str(where),
+                    }
+                )
+        return found
+
+    def skills(self) -> dict[str, Any]:
+        """Ponos's skills with where each applies, and the repositories' own, read only."""
+        names = {
+            project_settings.key(item["id"]): str(item["name"])
+            for item in self.all_projects()["projects"]
+            if item["id"]
+        }
+        from_repositories = self._repository_skills()
+        shown = []
+        for item in skills.listing():
+            scope = item["scope"]
+            clashes = [
+                {"project": other["project"], "project_name": other["project_name"]}
+                for other in from_repositories
+                if other["name"] == item["name"]
+                and (not scope or project_settings.key(other["project"]) in scope)
+            ]
+            shown.append(
+                {
+                    **item,
+                    "scope_names": [names.get(key, key) for key in scope],
+                    "conflicts": clashes,
+                }
+            )
+        return {
+            "skills": shown,
+            "repositories": from_repositories,
+            "file_limit": skills.FILE_LIMIT,
+        }
+
+    def skill(self, identifier: int) -> dict[str, Any]:
+        return skills.get(identifier)
+
+    def skill_add(self, payload: dict[str, Any]) -> dict[str, Any]:
+        made = skills.create(
+            str(payload.get("name", "")),
+            str(payload.get("description", "")),
+            str(payload.get("body", "")),
+            payload.get("scope"),
+            enabled=payload.get("enabled") is not False,
+        )
+        self.hub.publish("skills", id=made["id"])
+        return made
+
+    def skill_change(self, identifier: int, payload: dict[str, Any]) -> dict[str, Any]:
+        def text(key: str) -> str | None:
+            value = payload.get(key)
+            return value if isinstance(value, str) else None
+
+        changed = skills.update(
+            identifier,
+            name=text("name"),
+            description=text("description"),
+            body=text("body"),
+            scope=payload.get("scope"),
+            scope_given="scope" in payload,
+            enabled=payload["enabled"] if isinstance(payload.get("enabled"), bool) else None,
+        )
+        self.hub.publish("skills", id=identifier)
+        return changed
+
+    def skill_delete(self, identifier: int) -> None:
+        skills.delete(identifier)
+        self.hub.publish("skills", id=identifier)
+
+    def skill_attach(self, identifier: int, payload: dict[str, Any]) -> dict[str, Any]:
+        """Files added to a skill: `{files: [{path, data}]}`, data in base64."""
+        files = skills.decode(payload.get("files"))
+        changed = skills.get(identifier)
+        for path, content in files.items():
+            changed = skills.put_file(identifier, path, content)
+        self.hub.publish("skills", id=identifier)
+        return changed
+
+    def skill_detach(self, identifier: int, path: str) -> dict[str, Any]:
+        changed = skills.remove_file(identifier, path)
+        self.hub.publish("skills", id=identifier)
+        return changed
+
+    def skill_import(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """A skill read from a folder (`files`) or a .zip (`archive`, base64)."""
+        scope = payload.get("scope")
+        if isinstance(payload.get("archive"), str):
+            try:
+                data = base64.b64decode(payload["archive"], validate=True)
+            except ValueError as error:
+                raise ValueError("l'archive envoyée est illisible") from error
+            made = skills.import_archive(data, scope=scope)
+        else:
+            made = skills.import_files(skills.decode(payload.get("files")), scope=scope)
+        self.hub.publish("skills", id=made["id"])
+        return made

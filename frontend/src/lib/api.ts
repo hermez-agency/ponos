@@ -264,6 +264,21 @@ export const api = {
         params: { path: { identifier: chat, file: id } },
       })
     ),
+  /** The skills given to the sessions — skills.py. Files travel as base64. */
+  skills: () => answer(client.GET("/api/skills")),
+  skill: (id: number) => answer(client.GET("/api/skills/{identifier}", { params: { path: { identifier: id } } })),
+  addSkill: (values: Record<string, unknown>) => answer(client.POST("/api/skills", { body: values })),
+  changeSkill: (id: number, values: Record<string, unknown>) =>
+    answer(client.PUT("/api/skills/{identifier}", { params: { path: { identifier: id } }, body: values })),
+  deleteSkill: (id: number) =>
+    answer(client.DELETE("/api/skills/{identifier}", { params: { path: { identifier: id } } })),
+  attachSkillFiles: (id: number, files: { path: string; data: string }[]) =>
+    answer(client.POST("/api/skills/{identifier}/files", { params: { path: { identifier: id } }, body: { files } })),
+  detachSkillFile: (id: number, path: string) =>
+    answer(
+      client.DELETE("/api/skills/{identifier}/file", { params: { path: { identifier: id }, query: { path } } })
+    ),
+  importSkill: (values: Record<string, unknown>) => answer(client.POST("/api/skills/import", { body: values })),
   /** Ponos's own vault, without a value: an admin's. */
   vault: () => answer(client.GET("/api/vault")),
   vaultHistory: (id: string) =>

@@ -79,9 +79,9 @@ test.describe("at 1440px", () => {
     await expect(block(page).locator(".ProseMirror")).toBeVisible()
   })
 
-  test("four tabs, the address carries the tab, and the Projects page no longer holds the context", async ({ page }) => {
+  test("five tabs, the address carries the tab, and the Projects page no longer holds the context", async ({ page }) => {
     await open(page)
-    await expect(page.getByRole("tab")).toHaveCount(4)
+    await expect(page.getByRole("tab")).toHaveCount(5)
     await expect(page.getByRole("tab", { name: "Context", exact: true })).toHaveAttribute("aria-selected", "true")
     await page.getByRole("tab", { name: "Vault" }).click()
     await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/context/read/context/vault")
@@ -91,7 +91,7 @@ test.describe("at 1440px", () => {
 
     // The menu has the page; the Projects page has no context block.
     await page.getByRole("link", { name: "Context", exact: true }).first().click()
-    await expect(page.getByRole("tab")).toHaveCount(4)
+    await expect(page.getByRole("tab")).toHaveCount(5)
     await page.goto(PROJECTS)
     await expect(page.getByText("Website").first()).toBeVisible()
     await expect(block(page)).toHaveCount(0)
