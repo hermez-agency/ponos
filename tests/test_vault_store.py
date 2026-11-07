@@ -34,7 +34,10 @@ def _job(project: str, ticket: str = "t-1") -> Any:
     return type(
         "J",
         (),
-        {"project": type("P", (), {"name": project})(), "ticket": type("T", (), {"id": ticket})()},
+        {
+            "project": type("P", (), {"name": project, "page_id": ""})(),
+            "ticket": type("T", (), {"id": ticket})(),
+        },
     )()
 
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { api, why } from "@/lib/api"
@@ -145,6 +146,30 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const savePath = async (value: string) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { path: { value } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveVault = async (entries: Record<string, string>) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { vault: { entries } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const saveDiagnostic = async (diagnostic: DiagnosticSaved) => {
     setSaving(true)
     try {
@@ -263,6 +288,15 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       </Card>
       <PlanCard key={JSON.stringify(settings.plan)} plan={settings.plan} saving={saving} onSave={savePlan} />
       <NotesCard project={project} />
+      {/* Prefixed: an empty path would otherwise share the key "" with an
+       * empty setup command, and React keep a stale copy of either card. */}
+      <PathCard key={`path:${settings.path.value}`} path={settings.path} saving={saving} onSave={savePath} />
+      <VaultCard
+        key={`vault:${JSON.stringify(settings.vault.entries)}`}
+        vault={settings.vault}
+        saving={saving}
+        onSave={saveVault}
+      />
       <SetupCard key={settings.setup} setup={settings.setup} saving={saving} onSave={saveSetup} />
       <PreviewCard
         key={JSON.stringify(settings.preview)}
@@ -407,6 +441,153 @@ function PlanCard({
 /* The project's setup: the command run in each fresh worktree before its
  * session, typed and saved with its button. Empty, the repository's own
  * `.ponos/setup.sh` runs if it has one. */
+/* Where the repository is on this machine, and the keys the project's
+ * sessions are given from the vault: both live in ponos.db now, typed and
+ * saved with their button like the setup below. What an older config.toml
+ * still says is shown, read-only, until the file is converted. */
+function PathCard({
+  path,
+  saving,
+  onSave,
+}: {
+  path: ProjectSettings["path"]
+  saving: boolean
+  onSave: (value: string) => Promise<void>
+}) {
+  const t = useT()
+  const [value, setValue] = React.useState(path.value)
+  const changed = value.trim() !== path.value
+  return (
+    <Card data-card="project-path" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Repository path")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {t(
+            "Where this project's repository is on this machine. Empty: the page's Path property, then the clone found under the workspace root by its GitHub address."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 sm:px-6">
+        <form
+          className="py-2"
+          data-field="project-path-value"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (changed) void onSave(value.trim())
+          }}
+        >
+          <Label htmlFor="project-path-value" className="leading-snug font-semibold">
+            {t("Path")}
+          </Label>
+          {path.file ? (
+            <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
+              {t("An older config.toml still says {{path}} under [projects].", { path: path.file })}
+            </p>
+          ) : null}
+          <div className="mt-2.5 flex gap-2">
+            <Input
+              id="project-path-value"
+              className="font-mono text-[13px]"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="~/workspace/my-project"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+            />
+            <Button type="submit" variant="outline" disabled={!changed || saving}>
+              {t("Save")}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+const toLines = (entries: Record<string, string>) =>
+  Object.entries(entries)
+    .map(([variable, item]) => (variable === item ? variable : `${variable} = ${item}`))
+    .join("\n")
+
+const fromLines = (text: string) => {
+  const entries: Record<string, string> = {}
+  for (const line of text.split("\n")) {
+    const [variable, ...rest] = line.split("=")
+    const name = variable.trim()
+    if (!name) continue
+    entries[name] = rest.join("=").trim() || name
+  }
+  return entries
+}
+
+function VaultCard({
+  vault,
+  saving,
+  onSave,
+}: {
+  vault: ProjectSettings["vault"]
+  saving: boolean
+  onSave: (entries: Record<string, string>) => Promise<void>
+}) {
+  const t = useT()
+  const [text, setText] = React.useState(toLines(vault.entries))
+  const changed = text.trim() !== toLines(vault.entries).trim()
+  const inherited = Object.keys(vault.file)
+  return (
+    <Card data-card="project-vault" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Vault keys")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {t(
+            "The environment variables this project's sessions are given, and the vault item each is read from. Never the values: only where to read them."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 sm:px-6">
+        <form
+          className="py-2"
+          data-field="project-vault-entries"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (changed) void onSave(fromLines(text))
+          }}
+        >
+          <Label htmlFor="project-vault-entries" className="leading-snug font-semibold">
+            {t("Keys")}
+          </Label>
+          <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
+            <Rich
+              text={t(
+                "One per line: `NPM_TOKEN = hermez/npm`, or `NPM_TOKEN` alone to read it under its own name."
+              )}
+            />
+          </p>
+          {inherited.length ? (
+            <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
+              {t("An older config.toml still grants {{keys}} under [vault.projects].", {
+                keys: inherited.join(", "),
+              })}
+            </p>
+          ) : null}
+          <Textarea
+            id="project-vault-entries"
+            className="mt-2.5 font-mono text-[13px]"
+            rows={4}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="NPM_TOKEN = hermez/npm"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <Button type="submit" variant="outline" className="mt-2.5" disabled={!changed || saving}>
+            {t("Save")}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
 function SetupCard({
   setup,
   saving,

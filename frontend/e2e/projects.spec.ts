@@ -525,4 +525,38 @@ test.describe("the settings of a project", () => {
     await card().getByRole("button", { name: "Save" }).click()
     await expect(page.getByText("is not an http or https address", { exact: false })).toBeVisible()
   })
+
+  test("set its repository path and its vault keys without touching the TOML", async ({ page }) => {
+    await go(page, `${WEBSITE}&tab=settings`)
+    await onThePageOf(page, "Website")
+    const path = () => page.locator('[data-card="project-path"]')
+    const pathInput = () => path().getByRole("textbox", { name: "Path", exact: true })
+    const vault = () => page.locator('[data-card="project-vault"]')
+    const vaultInput = () => vault().getByRole("textbox", { name: "Keys", exact: true })
+
+    await expect(pathInput()).toHaveValue("")
+    await pathInput().fill("~/workspace/website")
+    await path().getByRole("button", { name: "Save" }).click()
+    await expect(path().getByRole("button", { name: "Save" })).toBeDisabled()
+    await page.reload()
+    await expect(pathInput()).toHaveValue("~/workspace/website")
+
+    await expect(vaultInput()).toHaveValue("")
+    await vaultInput().fill("NPM_TOKEN = hermez/npm")
+    await vault().getByRole("button", { name: "Save" }).click()
+    await expect(vault().getByRole("button", { name: "Save" })).toBeDisabled()
+    await page.reload()
+    await expect(vaultInput()).toHaveValue("NPM_TOKEN = hermez/npm")
+
+    // Both back to nothing: the project holds no word of its own any more.
+    await vaultInput().fill("")
+    await vault().getByRole("button", { name: "Save" }).click()
+    await expect(vault().getByRole("button", { name: "Save" })).toBeDisabled()
+    await pathInput().fill("")
+    await path().getByRole("button", { name: "Save" }).click()
+    await expect(path().getByRole("button", { name: "Save" })).toBeDisabled()
+    await page.reload()
+    await expect(pathInput()).toHaveValue("")
+    await expect(vaultInput()).toHaveValue("")
+  })
 })

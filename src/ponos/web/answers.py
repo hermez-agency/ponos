@@ -650,6 +650,26 @@ class ProjectDiagnostic(Shape):
     """The names of the vault's entries, to choose a host's from."""
 
 
+class ProjectPath(Shape):
+    """Where a project's repository is, by its own word — see project_settings.py."""
+
+    value: str
+    """The path the project holds itself; empty, the file's or the page's."""
+    file: str
+    """What a `[projects]` line of an older file still says for it, "" when none."""
+
+
+class ProjectVault(Shape):
+    """The keys a project's sessions are given — see vault.py."""
+
+    entries: dict[str, str]
+    """The project's own: `VARIABLE` → the item it is read from."""
+    file: dict[str, str]
+    """What `[vault.projects]` of an older file still grants it, read-only."""
+    provider: str
+    """Where an item is read from when it names no other provider."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -664,6 +684,8 @@ class ProjectSettings(Shape):
     plan: ProjectPlan
     browser: ProjectBrowser
     diagnostic: ProjectDiagnostic
+    path: ProjectPath
+    vault: ProjectVault
 
 
 class ProjectNotes(Shape):

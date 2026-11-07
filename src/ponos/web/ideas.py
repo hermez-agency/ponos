@@ -161,6 +161,7 @@ class Ideas(Base):
                         name,
                         row.get("configured") or row.get("path") or "",
                         row.get("repository") or "",
+                        project,
                     )
                 )
         else:

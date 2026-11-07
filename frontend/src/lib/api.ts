@@ -487,6 +487,8 @@ export const api = {
       plan?: { priority: number | null; subtypes: string[] }
       browser?: { value: "ponos" | "chrome" }
       diagnostic?: Pick<ProjectSettings["diagnostic"], "mcp" | "hosts" | "urls" | "ready">
+      path?: { value: string }
+      vault?: { entries: Record<string, string> }
     }
   ) =>
     answer(

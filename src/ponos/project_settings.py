@@ -68,6 +68,12 @@ BROWSER = "browser"
 # diagnostic.py: `mcp`, `hosts`, `urls` and `ready`. Absent, nothing beyond the
 # repository and Ponos, and fix tickets in the drafts.
 DIAGNOSTIC = "diagnostic"
+# Where its repository is on this machine — see projects.py: a string. Absent,
+# `[projects]` in the file, then the page's `path` property.
+PATH = "path"
+# The keys the vault gives its sessions — see vault.py: `{VARIABLE: item}`, read
+# beside `[vault.projects]`, which a project's own entry replaces key by key.
+VAULT = "vault"
 
 
 def key(project: str) -> str:
@@ -241,6 +247,76 @@ def set_browser(project: str, name: str, value: str | None) -> None:
             settings[BROWSER] = value
 
     _write(project, name, change)
+
+
+def path(project: str) -> str:
+    """Where the project's repository is, by its own word — "" when it says none."""
+    if not key(project):
+        return ""
+    try:
+        own = _read(project).get(PATH)
+    except db.ERRORS:
+        return ""
+    return own.strip() if isinstance(own, str) else ""
+
+
+def set_path(project: str, name: str, value: str) -> None:
+    """Say where the project's repository is, or hand it back to the file (empty)."""
+
+    def change(settings: dict[str, Any]) -> None:
+        if value.strip():
+            settings[PATH] = value.strip()
+        else:
+            settings.pop(PATH, None)
+
+    _write(project, name, change)
+
+
+def vault(project: str) -> dict[str, str]:
+    """The keys the project's sessions are given, `{VARIABLE: item}` — empty when it says none."""
+    if not key(project):
+        return {}
+    try:
+        own = _read(project).get(VAULT)
+    except db.ERRORS:
+        return {}
+    if not isinstance(own, dict):
+        return {}
+    return {str(name): str(item) for name, item in own.items() if str(name) and str(item)}
+
+
+def set_vault(project: str, name: str, entries: dict[str, str]) -> None:
+    """Give the project's sessions these keys (replacing its own), or none (empty)."""
+
+    def change(settings: dict[str, Any]) -> None:
+        kept = {
+            variable.strip(): item.strip()
+            for variable, item in entries.items()
+            if variable.strip() and item.strip()
+        }
+        if kept:
+            settings[VAULT] = kept
+        else:
+            settings.pop(VAULT, None)
+
+    _write(project, name, change)
+
+
+def every_vault() -> dict[str, dict[str, str]]:
+    """What each project that grants keys of its own grants, by project name as saved."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT project, name, settings FROM project_settings ORDER BY name COLLATE NOCASE"
+            ).fetchall()
+    except db.ERRORS:
+        return {}
+    granted: dict[str, dict[str, str]] = {}
+    for project, name, _ in rows:
+        entries = vault(str(project))
+        if entries:
+            granted[str(name)] = entries
+    return granted
 
 
 def setup(project: str) -> str:
