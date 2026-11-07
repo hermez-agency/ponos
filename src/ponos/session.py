@@ -5,7 +5,7 @@ written to a log as-is, which lets you follow a ticket live
 (`ponos logs -f`) and read back afterwards why it failed.
 
 `on_event` sees every event of that stream as it arrives, which is what lets
-the runner write the steps into the Notion ticket while they happen.
+the runner write the steps into the ticket while they happen.
 
 The session ID is **drawn before** launching and passed as `--session-id`. So we
 know it even if the session dies halfway, and `claude --resume <id>` reopens the
@@ -145,7 +145,7 @@ def signalled(outcome: Outcome) -> bool:
 def new_id() -> str:
     """A session identifier, drawn before the session exists.
 
-    The runner draws it at claim time so the Notion ticket can point at the work
+    The runner draws it at claim time so the ticket can point at the work
     from the moment it starts, not only once it is finished.
     """
     return str(uuid.uuid4())

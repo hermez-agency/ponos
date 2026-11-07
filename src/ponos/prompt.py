@@ -125,11 +125,12 @@ RESULT: blocked — <what is missing to decide>
 
 
 DOCUMENT = """\
-You are handling a Notion ticket {scope}, alone and with nobody to talk to: no \
+You are handling a ticket {scope}, alone and with nobody to talk to: no \
 one can answer a question while the session runs.
 
 There is no code repository here. What the ticket asks for is a document, and \
-your answer will be written back into the Notion ticket itself.
+your answer will be written back into the ticket itself, as its document in \
+Ponos.
 
 # Ticket — {title}
 
@@ -214,7 +215,7 @@ RESULT: blocked — <what stopped you, or what is missing to do it>
 
 
 CONVERSATION = """\
-Someone has written to you in the comments of a Notion ticket {scope}. You are \
+Someone has written to you in the comments of a ticket {scope}. You are \
 answering them, here, in that thread.
 
 **You are talking, not working.** Nothing you say changes anything, and neither \
@@ -298,7 +299,7 @@ No RESULT line and no other report.
 
 
 ON_STATUS = """\
-The status of a Notion ticket {scope} has just changed, and the ticket carries a \
+The status of a ticket {scope} has just changed, and the ticket carries a \
 prompt written for exactly that moment. You are carrying it out, alone and with \
 nobody to talk to: no one can answer a question while the session runs.
 

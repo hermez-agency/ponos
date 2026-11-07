@@ -531,6 +531,14 @@ def an_address_the_console_does_not_have_is_a_page_for_a_browser() -> None:
         assert (status, headers["Location"]) == (303, "/?view=console/settings/read/config")
         status, headers, _ = _talk_to(console, "GET", "/projets", **browser)
         assert (status, headers["Location"]) == (303, "/?view=console/projects/list")
+        ticket = "410451680af481acae55d57c803dcc73"
+        status, headers, _ = _talk_to(console, "GET", f"/tickets/{ticket}", **browser)
+        assert (status, headers["Location"]) == (303, f"/?view=console/tickets/read/{ticket}")
+        page = "41045168-0af4-81ac-ae55-D57C803DCC73"
+        status, headers, _ = _talk_to(console, "GET", f"/tickets/{page}", **browser)
+        assert (status, headers["Location"]) == (303, f"/?view=console/tickets/read/{ticket}")
+        status, _, _ = _talk_to(console, "GET", "/tickets/not-an-id!", **browser)
+        assert status == 404, status
         status, _, said = _talk_to(console, "GET", "/api/inconnu", **browser)
         assert (status, said) == (404, {"error": "no such route: /api/inconnu"})
         status, _, said = _talk_to(console, "GET", "/nowhere", **key)

@@ -206,7 +206,7 @@ def braces_in_a_ticket_are_handed_over_as_written() -> None:
 @case
 def a_ticket_with_no_project_reads_as_one() -> None:
     text = prompt.build(prompt.DOCUMENT, **{**_COMMON, "project": ""})
-    assert "a Notion ticket that belongs to no project" in text
+    assert "a ticket that belongs to no project" in text
     assert "# About" not in text, "no brief heading without a project brief"
 
 

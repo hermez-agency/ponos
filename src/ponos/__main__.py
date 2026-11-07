@@ -577,6 +577,14 @@ def command_import(args: argparse.Namespace) -> int:
     return 1 if report.problems else 0
 
 
+def _console_url() -> str:
+    """Where the console is, for a link — nothing when the configuration cannot say."""
+    try:
+        return config_module.load().console_url
+    except config_module.ConfigError:
+        return ""
+
+
 def command_history_csv(args: argparse.Namespace) -> int:
     """Every session of a period as CSV on the standard output: see `spending.py`."""
     try:
@@ -598,6 +606,7 @@ def command_history_csv(args: argparse.Namespace) -> int:
         last,
         project=args.project,
         models=journal.models(),
+        console=_console_url(),
     )
     sys.stdout.write(spending.write(lines))
     return 0
