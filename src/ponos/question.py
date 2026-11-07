@@ -63,6 +63,9 @@ CAVEATS = 4
 # What it learned about the project that the next ticket should know — see
 # notes.py. One line, at the same place as the caveats.
 _LESSON = re.compile(r"^LESSON\s*:\s*(.*)$", re.IGNORECASE)
+# A fact worth remembering from one session to the next — see memory.py. A few
+# lines, at the same place again.
+_MEMORY = re.compile(r"^MEMORY\s*:\s*(.*)$", re.IGNORECASE)
 
 # How the options sit on their line: “1. Tu fusionnes · 2. Tu m'autorises”.
 _OPTION = re.compile(r"(\d)\.\s+(.+?)(?=\s+·\s+\d\.\s|$)")
@@ -266,7 +269,7 @@ def caveats(answer: str) -> list[str]:
         lines.pop()
     said: list[str] = []
     for line in reversed(lines):
-        if _LESSON.match(line):
+        if _LESSON.match(line) or _MEMORY.match(line):
             continue
         matched = _CAVEAT.match(line)
         if not matched:
@@ -291,7 +294,7 @@ def prose(answer: str) -> str:
         if (
             not line
             or line.upper().startswith("RESULT")
-            or any(pattern.match(line) for pattern in (_FIELD, _CAVEAT, _LESSON))
+            or any(pattern.match(line) for pattern in (_FIELD, _CAVEAT, _LESSON, _MEMORY))
         ):
             lines.pop()
             continue
@@ -316,9 +319,33 @@ def lesson(answer: str) -> str:
     for line in reversed(lines):
         if matched := _LESSON.match(line):
             return " ".join(matched.group(1).strip("*_` ").split())
-        if not _CAVEAT.match(line):
+        if not (_CAVEAT.match(line) or _MEMORY.match(line)):
             break
     return ""
+
+
+def memories(answer: str, limit: int = 3) -> list[str]:
+    """The `MEMORY:` lines a session that ended ok wrote, oldest first, at most `limit`.
+
+    Read from the same stretch as the caveats and the lesson — just above the
+    RESULT line; the text after the colon is for memory.parse to read.
+    """
+    lines = [
+        line.strip().strip("*_`").lstrip("-#> ").strip("*_` ")
+        for line in str(answer or "").splitlines()
+    ]
+    lines = [line for line in lines if line]
+    if lines and lines[-1].upper().startswith("RESULT"):
+        lines.pop()
+    said: list[str] = []
+    for line in reversed(lines):
+        if matched := _MEMORY.match(line):
+            value = " ".join(matched.group(1).strip("*_` ").split())
+            if value:
+                said.insert(0, value)
+        elif not (_LESSON.match(line) or _CAVEAT.match(line)):
+            break
+    return said[:limit]
 
 
 def found(report: str) -> Question | None:

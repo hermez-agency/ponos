@@ -74,6 +74,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
+from . import memory as memory_module
 from . import notes as notes_module
 
 DEFAULT = """\
@@ -499,6 +500,18 @@ ticket. Somebody reads it before it reaches anyone:
 LESSON: <one durable fact about the project>
 """
 
+# Asked on every ticket: what Ponos should remember from this one. A proposal,
+# never a memory — see memory.py.
+MEMORY = """
+If this ticket taught you something durable that a later session would otherwise \
+ask or get wrong — a preference, a decision, a constraint, a fact about the person \
+or a reference — you may propose to remember it: up to {count} lines, just before \
+the final line (and the LESSON and CAVEAT lines), each under {limit} characters. \
+Somebody accepts them in the console before any session reads them:
+
+MEMORY: <person|preference|project|reference> | <project|global> | <the fact>
+"""
+
 # What a session is told when it is picked back up where an exhausted quota left
 # it. Deliberately not the whole prompt again: this session has the ticket, the
 # brief and the context already, and resending them would cost on every turn
@@ -876,6 +889,7 @@ def build(
     owners: Iterable[str] = (),
     workers: int = 0,
     notes: Iterable[str] = (),
+    memories: Iterable[str] = (),
 ) -> str:
     scope, frame, heading, aim, role, discussion = _frames(
         project,
@@ -889,6 +903,7 @@ def build(
         goal_criterion,
         goal_due,
         notes,
+        memories,
     )
     rules = permissions(allowed, ask, owners)
     text = template.format(
@@ -911,6 +926,8 @@ def build(
         kind=f"\n{kind}" if kind else "",
         asking=ASKING,
     )
+    # Every ticket may propose what to remember; the permissions still close it.
+    text = f"{text.rstrip()}\n{MEMORY.format(count=memory_module.PER_SESSION, limit=memory_module.FACT_LIMIT)}"
     if "{permissions}" not in template:
         # The same for the permissions: a file written before them must not be
         # the road by which a session asks what it was told it may do.
@@ -1098,6 +1115,7 @@ def _frames(
     goal_criterion: str = "",
     goal_due: str = "",
     notes: Iterable[str] = (),
+    memories: Iterable[str] = (),
 ) -> tuple[str, str, str, str, str, str]:
     """The blocks that surround a ticket, widest first. Shared by both prompts."""
     # A ticket may have no project at all: the sentence has to read either way.
@@ -1119,6 +1137,16 @@ def _frames(
             f"# Notes on {project}\n\n"
             "Kept from earlier tickets of this project; they hold unless the ticket says otherwise.\n\n"
             + "\n".join(f"- {note}" for note in learned)
+            + "\n\n"
+        )
+    # What Ponos remembers from earlier sessions — see memory.py: accepted
+    # facts only, already bounded by the caller.
+    remembered = [fact.strip() for fact in memories if fact.strip()]
+    if remembered:
+        heading += (
+            "# What you remember\n\n"
+            "Kept from earlier sessions and conversations; they hold unless the ticket says otherwise.\n\n"
+            + "\n".join(f"- {fact}" for fact in remembered)
             + "\n\n"
         )
     # The goal the ticket serves: the intent of the task, so after the project

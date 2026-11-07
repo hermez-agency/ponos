@@ -412,6 +412,20 @@ def bell_of() -> None:
     db.close()
 
 
+def memory_of() -> None:
+    """What Ponos remembers: one kept fact, and two proposals waiting.
+
+    One proposal comes from a ticket (its link leads there), the other from a
+    conversation of the MCP, which has no page to lead to.
+    """
+    from ponos import db, memory
+
+    memory.add("Prefers short reports.", "preference")
+    memory.propose("The client signs off on Fridays.", "project", "", "ticket", ASKING)
+    memory.propose("The owner is an early riser.", "person", "", "chat")
+    db.close()
+
+
 def main() -> None:
     port = sys.argv[1] if len(sys.argv) > 1 else "8790"
     # `unclaimed`: no token and no sign-in, for the first connection's steps.
@@ -446,6 +460,7 @@ def main() -> None:
         journal_of(ASKING)
         bell_of()
         checks_of()
+        memory_of()
     workbench.serve(port)
 
 

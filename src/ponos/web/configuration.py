@@ -17,6 +17,7 @@ from .. import (
     diagnostic,
     idea_schedule,
     local_ci,
+    memory,
     notes,
     planning,
     preview,
@@ -392,3 +393,89 @@ class Configuration(Base):
         self.forget()
         self.hub.publish("context", saved=True)
         return {"ok": True, "text": text.strip()}
+
+    # -- what Ponos remembers --------------------------------------------------
+
+    def memories(
+        self, scope: str = "", kind: str = "", status: str = "", search: str = ""
+    ) -> dict[str, Any]:
+        """The memories, filtered; `scope` is "" for every scope, "global", or a project's id."""
+        names = {
+            project_settings.key(item["id"]): str(item["name"])
+            for item in self.all_projects()["projects"]
+        }
+        wanted: str | None = None
+        if scope == "global":
+            wanted = ""
+        elif scope:
+            wanted = project_settings.key(scope)
+        shown = []
+        for item in memory.listing(scope=wanted, kind=kind, status=status, search=search):
+            shown.append(
+                {
+                    **item,
+                    "scope_name": names.get(item["scope"], item["scope"]) if item["scope"] else "",
+                }
+            )
+        folder = memory.files_folder(self.config.runner.workspace_root)
+        return {
+            "memories": shown,
+            "kinds": list(memory.KINDS),
+            "auto_accept": memory.options()[memory.AUTO_ACCEPT],
+            "importable": len(memory.importable(folder)),
+            "limit": memory.FACT_LIMIT,
+            "capacity": memory.PROMPT_LIMIT,
+        }
+
+    def _memory_scope(self, payload: dict[str, Any]) -> str | None:
+        scope = payload.get("scope")
+        if scope is None:
+            return None
+        if not isinstance(scope, str):
+            raise ValueError("a scope is “global” or a project")
+        return "" if scope in ("", "global") else project_settings.key(scope)
+
+    def memory_add(self, payload: dict[str, Any]) -> dict[str, Any]:
+        made = memory.add(
+            str(payload.get("text", "")),
+            str(payload.get("kind") or "preference"),
+            self._memory_scope(payload) or "",
+        )
+        self.hub.publish("memory", id=made["id"])
+        return self.memories()
+
+    def memory_change(self, identifier: int, payload: dict[str, Any]) -> dict[str, Any]:
+        text = payload.get("text")
+        kind = payload.get("kind")
+        memory.edit(
+            identifier,
+            text=text if isinstance(text, str) else None,
+            kind=kind if isinstance(kind, str) else None,
+            scope=self._memory_scope(payload),
+        )
+        self.hub.publish("memory", id=identifier)
+        return self.memories()
+
+    def memory_decide(self, identifier: int, action: str) -> dict[str, Any]:
+        """Accept or refuse a proposal, or delete a memory."""
+        if action == "accept":
+            memory.accept(identifier)
+        elif action == "refuse":
+            memory.refuse(identifier)
+        elif action == "delete":
+            memory.delete(identifier)
+        else:
+            raise ValueError("say what to do with the memory: accept, refuse or delete")
+        self.hub.publish("memory", id=identifier)
+        return self.memories()
+
+    def memory_import(self) -> dict[str, Any]:
+        """Read the assistant's memory files into the memory, once each."""
+        taken = memory.import_files(memory.files_folder(self.config.runner.workspace_root))
+        self.hub.publish("memory", imported=taken)
+        return {**self.memories(), "imported": taken}
+
+    def memory_auto_accept(self, on: bool) -> dict[str, Any]:
+        memory.set_option(memory.AUTO_ACCEPT, on)
+        self.hub.publish("memory", auto_accept=on)
+        return self.memories()

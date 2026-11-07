@@ -663,11 +663,47 @@ you open it:
 | Tab | What it holds |
 |---|---|
 | **Context** | the global context: the standing text every ticket is told first, for all the projects. Folded to a few lines, *See all* reads the rest, *Edit* writes it in place with the editor the brief uses; leaving with something typed asks first |
+| **Memory** | what Ponos remembers from one session to the next — see [Memory](#memory) below |
 | **Vault** | Ponos's own vault — the keys, logins and notes the sessions are given, [kept encrypted](configuration.md#ponoss-own-vault-context--vault). An admin's: for a member or a reader the tab is not there, and the API answers 403 |
 
 The context used to sit beside the Projects page, and the vault was a tab of Settings; the
 Projects page no longer carries the context, and the old address `settings/vault` (and
-`?page=context`) leads to the new page. More tabs will join these two.
+`?page=context`) leads to the new page. More tabs will join these three.
+
+#### Memory
+
+Every session starts from nothing but the global context, so a preference given in answer to a
+ticket, a decision, a constraint of a project would be lost, or said again. **Memory** keeps them as
+short facts, in `ponos.db`: a **type** (*person*, *preference or instruction*, *project*,
+*reference*), a **scope** (all the projects, or one), a **source** (a ticket, a conversation, or typed by
+hand — with a link back to the ticket or the conversation) and its dates. A fact is 300 characters at
+most.
+
+The tab lists them, filtered by scope, type and state (*accepted*, *waiting*, *refused*) and searched by
+a word; *Add a memory* writes one (accepted at once), the pencil rewrites one, the bin deletes it.
+
+**What reaches the sessions.** Only the *accepted* memories: those of the ticket's project and the
+global ones, in a `# What you remember` block of the prompt, within 3 000 characters (the project's
+first, the most recently touched first; the prompt says how many it left out). Another project's are
+never in it. The console's assistant is told the global ones when a conversation opens.
+
+**What a session proposes.** Every ticket may end its report with up to three
+`MEMORY: <type> | <project|global> | <fact>` lines. They are *proposals*, shown at the top of the tab
+with *Accept* / *Refuse*: nothing is read by a session before you accept it. A refused proposal stays
+known, so the same fact learned again does not come back. *Accept the proposals without waiting*
+(under the list, an admin's) lifts the rule: a proposal is then kept at once, and you read it
+afterwards.
+
+**One memory, not two.** The console's assistant keeps files of its own
+(`~/.claude/projects/<workspace>/memory/`, one per fact). When some are not imported yet the tab
+offers *Import n file(s) of the assistant*: each file's description becomes a global memory, once —
+importing again adds nothing, and the files are left as they are. From then on this tab is the memory
+the sessions, the assistant's opening frame and the [MCP server](#connect-ponos-to-claude) read.
+
+Over MCP, `list_memories` (read) lists them and `propose_memory` (write) proposes one — it waits like
+the others. The API is `GET /api/memories`, `POST /api/memories`, `PUT`/`DELETE
+/api/memories/<id>`, `POST /api/memories/<id>/accept` and `/refuse`, `POST /api/memories/import`;
+the acceptance setting (`POST /api/memories/options`) is an admin's.
 
 ### Goals
 
@@ -1237,6 +1273,8 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `answer_question` | Répondre à une tâche bloquée | write | an answer under a blocked task's question, as the console's discussion writes it; `ready: true` also moves it back to *ready* |
 | `list_solutions` | Solutions d'une tâche en attente | read | why a blocked task stopped (its kind, its reason, what is done) or what a task in review delivered (sentence, pull request, checks, points to check), and the choices the console offers on a blocked ticket's discussion and its Decide tab |
 | `apply_solution` | Appliquer une solution | write | one of those choices: the decision and its instruction in the task's discussion, then the move — *ready*, *validated* or *done* |
+| `list_memories` | Mémoire | read | what Ponos remembers: facts with their type, scope, source and state (accepted, proposed, refused) |
+| `propose_memory` | Proposer un souvenir | write | a fact put to the person; it stays *proposed* — no session reads it — until accepted in Context → Memory |
 | `create_idea` | Proposer une idée | write | an idea among the proposed ones, to be kept or thrown away |
 | `set_idea_state` | Garder ou jeter une idée | write | `keep` (for later, nothing on the board), `ticket` (a draft, as swiping right in the pile does), `discard`, or `new` to propose it again |
 

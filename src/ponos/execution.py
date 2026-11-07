@@ -51,6 +51,7 @@ from . import (
     journal,
     kinds,
     local_ci,
+    memory,
     notes,
     planning,
     preview,
@@ -244,6 +245,7 @@ class Execution(Base):
             live.close()
         self._hold_credits(outcome)
         self._propose_lesson(job, outcome)
+        self._propose_memories(job, outcome)
         return outcome
 
     def _propose_lesson(self, job: Job, outcome: session.Outcome) -> None:
@@ -252,6 +254,19 @@ class Execution(Base):
             return
         if notes.propose(job.project.notion_id, job.project.name, outcome.lesson):
             self.say(f"    · lesson proposed for {job.project.name}: {outcome.lesson}")
+
+    def _propose_memories(self, job: Job, outcome: session.Outcome) -> None:
+        """What a session that ended ok proposes to remember, put to the person as proposals."""
+        if not (outcome.ok and outcome.memories) or self.dry_run:
+            return
+        for line in outcome.memories:
+            read = memory.parse(line)
+            if read is None:
+                continue
+            kind, where, fact = read
+            project = job.project.notion_id if where == "project" and job.project.notion_id else ""
+            if memory.propose(fact, kind, project, "ticket", job.ticket.id):
+                self.say(f"    · memory proposed: {fact}")
 
     def _session_prompt(self, job: Job, template: str, subtype: bool) -> str:
         """The prompt of a job's session: its template, filled with the ticket."""
@@ -268,6 +283,7 @@ class Execution(Base):
                 url=job.ticket.url,
                 brief=job.project.brief,
                 notes=notes.kept(job.project.notion_id),
+                memories=memory.for_prompt(job.project.notion_id),
                 context=self.workspace.context,
                 agent_name=job.agent.name,
                 agent_brief=job.agent.brief,

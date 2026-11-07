@@ -712,6 +712,43 @@ class Context(Shape):
     editable: bool
 
 
+class Memory(Shape):
+    """One thing Ponos remembers — see memory.py."""
+
+    id: int
+    text: str
+    kind: str
+    """person, preference, project or reference."""
+    scope: str
+    """"" for every project, else the project's id."""
+    scope_name: str
+    source: str
+    """ticket, chat or manual."""
+    source_ref: str
+    """The ticket or the conversation it came from; `file:<name>` for an imported file."""
+    status: str
+    """accepted (sessions read it), proposed (waiting) or refused."""
+    created: str
+    updated: str
+
+
+class Memories(Shape):
+    memories: list[Memory]
+    kinds: list[str]
+    auto_accept: bool
+    """Whether a proposal is accepted without waiting."""
+    importable: int
+    """Memory files of the console's assistant not imported yet."""
+    limit: int
+    """Characters in one memory."""
+    capacity: int
+    """Characters of memories a prompt carries at most."""
+
+
+class MemoriesImported(Memories):
+    imported: int
+
+
 class ContextSaved(Shape):
     ok: bool
     text: str

@@ -1607,6 +1607,48 @@ def save_context(request: Request, payload: Text = Body(default_factory=Text)) -
     return answer(_api(request).save_context(payload.text))
 
 
+# -- what Ponos remembers ----------------------------------------------------------
+
+
+@router.get("/api/memories", response_model=answers.Memories)
+def memories(
+    request: Request, scope: str = "", kind: str = "", status: str = "", search: str = ""
+) -> Response:
+    return answer(_api(request).memories(scope, kind, status, search))
+
+
+@router.post("/api/memories", response_model=answers.Memories)
+def memory_add(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
+    return answer(_api(request).memory_add(payload))
+
+
+@router.post("/api/memories/import", response_model=answers.MemoriesImported)
+def memory_import(request: Request) -> Response:
+    return answer(_api(request).memory_import())
+
+
+@router.post("/api/memories/options", response_model=answers.Memories)
+def memory_options(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
+    return answer(_api(request).memory_auto_accept(payload.get("auto_accept") is True))
+
+
+@router.put("/api/memories/{identifier}", response_model=answers.Memories)
+def memory_change(
+    request: Request, identifier: int, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).memory_change(identifier, payload))
+
+
+@router.delete("/api/memories/{identifier}", response_model=answers.Memories)
+def memory_delete(request: Request, identifier: int) -> Response:
+    return answer(_api(request).memory_decide(identifier, "delete"))
+
+
+@router.post("/api/memories/{identifier}/{action}", response_model=answers.Memories)
+def memory_decide(request: Request, identifier: int, action: str) -> Response:
+    return answer(_api(request).memory_decide(identifier, action))
+
+
 @router.post("/api/schedules", response_model=answers.ScheduleNamed)
 def create_schedule(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(_api(request).create_schedule(str(payload.get("name", "")), payload))

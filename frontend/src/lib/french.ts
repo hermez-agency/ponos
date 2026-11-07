@@ -2033,6 +2033,9 @@ export const FRENCH: Record<string, string> = {
   // The accounts of a shared console — see web/accounts.py.
   "Who the console is shared with, and what each of them may do.": "Avec qui la console est partagée, et ce que chacun peut y faire.",
   Vault: "Coffre-fort",
+  Memory: "Mémoire",
+  "What Ponos remembers from one session to the next, for all the projects or one.":
+    "Ce que Ponos retient d'une session à l'autre, pour tous les projets ou pour un seul.",
   "What every ticket is told, for all the projects.": "Ce que reçoit chaque ticket, pour tous les projets.",
   "Everything a session is given besides its ticket": "Tout ce qu'une session reçoit en plus de son ticket",
   "Pick a project to read its page here. What every ticket is told lives in the Context page.":
