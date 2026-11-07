@@ -41,8 +41,8 @@ the `gh` accounts exactly as before. An app GitHub no longer knows, or a network
 that does not answer, is the same nothing: a ticket falls back on `gh` rather
 than failing over a connection somebody set up once.
 
-The credentials live in `secrets.env` with the other secrets — the same file,
-the same 0600 — as one JSON line, since a machine may have two apps: a private
+The credentials live in Ponos's vault with the other secrets — sealed the
+same way — as one JSON value, since a machine may have two apps: a private
 app can only be installed on the account that owns it, so your own repositories
 and an organisation's are two apps, one connection each. Neither the key nor a
 token is ever printed: `describe` is what the console sees, and it holds names.
@@ -76,7 +76,7 @@ WEB = "https://github.com"
 API_ENV = "PONOS_GITHUB_API"
 WEB_ENV = "PONOS_GITHUB_WEB"
 
-# The one line of `secrets.env` that holds every app this machine created.
+# The one secret of Ponos's vault that holds every app this machine created.
 APPS_ENV = "PONOS_GITHUB_APPS"
 
 # What the app's page on GitHub links to.
@@ -194,13 +194,9 @@ def _call(
 # -- the apps this machine holds ----------------------------------------------
 
 
-def _secrets_file() -> Path:
-    return config_module.secrets_path()
-
-
 def apps() -> list[App]:
-    """Every app connected here: `secrets.env` first, then the environment."""
-    raw = config_module.read_secrets(_secrets_file()).get(APPS_ENV) or os.environ.get(APPS_ENV, "")
+    """Every app connected here: Ponos's vault first, then the environment."""
+    raw = config_module.kept_secrets().get(APPS_ENV) or os.environ.get(APPS_ENV, "")
     if not raw.strip():
         return []
     try:
@@ -217,7 +213,7 @@ def apps() -> list[App]:
 
 def _write(held: list[App]) -> None:
     value = json.dumps([asdict(app) for app in held], separators=(",", ":")) if held else None
-    config_module.write_secrets(_secrets_file(), {APPS_ENV: value})
+    config_module.keep_secrets({APPS_ENV: value})
     with _lock:
         _installations.clear()
 

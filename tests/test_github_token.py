@@ -11,11 +11,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from support import _config, _github_answering, _test_app, _tools, case
+from support import _config, _github_answering, _no_secrets, _test_app, _tools, case
 
 from ponos import config as C
 from ponos import git as git_module
-from ponos import github_app, github_token, vault
+from ponos import github_app, github_token, vault, vault_store
 from ponos.web import github as web_github
 
 # -- the GitHub token ----------------------------------------------------------
@@ -41,13 +41,13 @@ def _token_answering(answer: Answer, configuration: str = "") -> Iterator[list[s
 
     folder = Path(tempfile.mkdtemp())
     (folder / "config.toml").write_text(configuration)
-    names = ("PONOS_CONFIG", C.SECRETS_PATH_ENV, C.GITHUB_TOKEN_ENV)
+    names = ("PONOS_CONFIG", C.GITHUB_TOKEN_ENV)
     before = {name: os.environ.get(name) for name in names}
     original = github_token._send
     github_token._send = send
     os.environ["PONOS_CONFIG"] = str(folder / "config.toml")
-    os.environ[C.SECRETS_PATH_ENV] = str(folder / "secrets.env")
     os.environ.pop(C.GITHUB_TOKEN_ENV, None)
+    _no_secrets()
     github_token._kept = None
     github_app._installations.clear()
     github_app._tokens.clear()
@@ -93,9 +93,9 @@ def a_token_with_what_a_code_ticket_needs_is_kept_and_never_shown() -> None:
         assert github_token.token() == ""
         github_token.save("github_pat_abcdef123456")
         assert github_token.token() == "github_pat_abcdef123456"
-        assert github_token.source() == "secrets.env"
+        assert github_token.source() == github_token.VAULT
         assert "github_pat_abcdef123456" not in C.config_path().read_text()
-        assert oct((Path(os.environ[C.SECRETS_PATH_ENV])).stat().st_mode & 0o777) == "0o600"
+        assert b"github_pat_abcdef123456" not in vault_store.path().read_bytes()
         assert vault.mask("pushed with github_pat_abcdef123456") == "pushed with ***"
         assert "github_pat_abcdef123456" not in json.dumps(github_token.describe())
         assert github_token.forget() is True and github_token.token() == ""

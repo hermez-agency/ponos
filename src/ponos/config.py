@@ -5,17 +5,18 @@ install time rather than in the middle of a ticket — for everything but its
 secrets. A token or a password is not read from `config.toml`, ever: that file
 is one you open in an editor, paste into a ticket, copy into an image or onto a
 shared volume, and a secret has no business going wherever it goes. They live in
-the environment, or in `secrets.env` beside it — `NAME=value` lines, created
-`0600` and written by the console the way it writes everything else (`SECRETS`
-says which names). A secret still found in `config.toml` is ignored, moved out
-by the next launch (`move_secrets`), and said so on stderr.
+Ponos's own vault (vault_store.py: `vault.db`, sealed, the table `own`), where
+the console writes them, or in the environment (`SECRETS` says which names). A
+secret still found in `config.toml` is ignored, moved into the vault by the next
+launch (`move_secrets`), and said so on stderr — and so is what a `secrets.env`
+from before the vault still held in clear, the file deleted once it is.
 
-Which of the two wins depends on who wrote it last. The console writes
-`secrets.env`, and a key somebody has just typed and checked must not lose to
-one a compose file was started with weeks ago: the file wins. The console's
-sign-in goes the other way round — `PONOS_WEB_EMAIL` and `PONOS_WEB_PASSWORD`
-are how a unit file or a container claims a console before anybody arrives, and
-the environment wins over the file; that is what makes it worth setting.
+Which of the two wins depends on who wrote it last. The console writes the
+vault, and a key somebody has just typed and checked must not lose to one a
+compose file was started with weeks ago: the vault wins. The console's sign-in
+goes the other way round — `PONOS_WEB_EMAIL` and `PONOS_WEB_PASSWORD` are how a
+unit file or a container claims a console before anybody arrives, and the
+environment wins over the vault; that is what makes it worth setting.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from __future__ import annotations
 import fcntl
 import os
 import re
+import sqlite3
 import sys
 import threading
 import tomllib
@@ -49,7 +51,7 @@ OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
 GITHUB_TOKEN_ENV = "PONOS_GITHUB_TOKEN"
 
 # Every secret the configuration knows: where `config.toml` used to hold it, and
-# the variable that holds it now — in the environment, or in `secrets.env`.
+# the name it holds now — in the environment, or in Ponos's own vault.
 SECRETS: dict[tuple[str, str], str] = {
     ("web", "token"): "PONOS_WEB_TOKEN",
     ("web", "password"): WEB_PASSWORD_ENV,
@@ -73,9 +75,6 @@ LANGUAGE_ENV = "PONOS_LANGUAGE"
 # none: what a container is given in its compose file, beside Traefik — whose
 # address only the deployment knows. Comma-separated; the file wins.
 TRUSTED_PROXIES_ENV = "PONOS_WEB_TRUSTED_PROXIES"
-
-# Where the secrets file is, when it is not beside the configuration.
-SECRETS_PATH_ENV = "PONOS_SECRETS"
 
 # Set by the image (see the Dockerfile): this process runs in a container, where
 # there is no systemd, no desktop and no install directory to move — a new
@@ -169,16 +168,12 @@ def config_path() -> Path:
     return Path(override) if override else config_dir() / "config.toml"
 
 
-def secrets_path(config: Path | None = None) -> Path:
-    """`secrets.env`, beside the configuration it goes with.
+def legacy_secrets_path(config: Path | None = None) -> Path:
+    """`secrets.env`, where the secrets were kept in clear before the vault.
 
-    Beside rather than under the configuration directory: a test, or a second
-    installation started with `PONOS_CONFIG`, gets its own secrets with its own
-    file, and never reads the real ones.
+    Read once more by `move_secrets`, which empties it into the vault and
+    deletes it — never as a source of secrets any more.
     """
-    override = os.environ.get(SECRETS_PATH_ENV)
-    if override:
-        return Path(override)
     return (config or config_path()).parent / "secrets.env"
 
 
@@ -704,7 +699,7 @@ class GithubAccess:
     """`[github_access]`: the GitHub App or a personal access token. See github_token.py.
 
     The token itself is never a key of the file: `token` is read from
-    `secrets.env` or the environment (`SECRETS`), and `token_item` names where a
+    Ponos's vault or the environment (`SECRETS`), and `token_item` names where a
     vault keeps it instead (`pass:ponos/github`, `keyring:ponos-github`).
     """
 
@@ -1114,8 +1109,9 @@ def edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
     a working installation unable to run, nothing moves — and only then does it
     take the file's place, in one `os.replace` and with its permissions.
 
-    A secret is not the file's: it goes to `secrets.env`, by the same copy and
-    the same replace, and whatever line `config.toml` still had for it goes.
+    A secret is not the file's: it goes to Ponos's vault (`keep_secrets`), once
+    the copy has been loaded with it, and whatever line `config.toml` still had
+    for it goes.
 
     The file it displaces is kept as `config.toml.bak`, which is what you want
     the first time a save turns out to have been the wrong idea.
@@ -1152,12 +1148,9 @@ def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
     """`edit`, once the lock is held."""
     original = path.read_text(encoding="utf-8")
 
-    secrets_file = secrets_path(path)
-    try:
-        secrets_text = secrets_file.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        secrets_text = ""
-    pending = secrets_text
+    kept = kept_secrets()
+    pending = dict(kept)
+    secrets: dict[str, str | None] = {}
     touched: list[str] = []
     file_changes: list[tuple[str, str, object]] = []
     for table, key, value in changes:
@@ -1165,23 +1158,26 @@ def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
             file_changes.append((table, key, value))
             continue
         name = SECRETS[(table, key)]
-        if name == WEB_PASSWORD_ENV and value is not None and str(value).strip():
-            # Written as a digest from its first line: see `passwords`.
-            value = _password_digest(str(value))
-        updated = _set_secret(pending, name, None if value is None else str(value))
-        if read_secrets_text(updated).get(name) != read_secrets_text(pending).get(name):
+        typed = "" if value is None else str(value).strip()
+        if name == WEB_PASSWORD_ENV and typed:
+            # Kept as a digest from the first: see `passwords`.
+            typed = _password_digest(typed)
+        if typed != pending.get(name, ""):
             touched.append(f"{table}.{key}")
-        pending = updated
+        secrets[name] = typed or None
+        if typed:
+            pending[name] = typed
+        else:
+            pending.pop(name, None)
         file_changes.append((table, key, None))
 
     # Named per call: two saves at once — two browser tabs, a tab and the CLI —
     # would otherwise edit the same copy and the loser would win.
     suffix = f"saving.{os.getpid()}.{threading.get_ident()}"
     scratch = path.parent / f".{path.name}.{suffix}"
-    secrets_scratch = secrets_file.parent / f".{secrets_file.name}.{suffix}"
-    # Created private rather than tightened afterwards: this copy may hold every
-    # token the file does, and a chmod after the write leaves a moment in which
-    # the umask decides who reads them.
+    # Created private rather than tightened afterwards: a file from before the
+    # vault may still hold a token, and a chmod after the write leaves a moment
+    # in which the umask decides who reads it.
     disk.write_private(scratch, original)
     try:
         written = [
@@ -1192,10 +1188,8 @@ def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
         touched += [name for name in written if name not in touched]
         if not touched:
             return []
-        if pending != secrets_text:
-            disk.write_private(secrets_scratch, pending)
         try:
-            load(scratch, secrets=secrets_scratch if pending != secrets_text else secrets_file)
+            load(scratch, secrets=pending)
         # Broad on purpose: the loader coerces as it reads, and anything it
         # refuses to read — a port that is not a number, a path that is not one
         # — has to come back as "not saved" rather than as a traceback and half
@@ -1205,8 +1199,13 @@ def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
                 f"that would leave the configuration unusable — "
                 f"{str(error).splitlines()[0].replace(str(scratch), str(path))}"
             ) from error
-        if pending != secrets_text:
-            os.replace(secrets_scratch, secrets_file)
+        if pending != kept:
+            try:
+                keep_secrets(secrets)
+            except (vault.VaultError, sqlite3.Error) as error:
+                raise ConfigError(
+                    f"the secret could not be kept in Ponos's vault — {error}"
+                ) from error
         if written:
             try:
                 mode = path.stat().st_mode & 0o777
@@ -1220,9 +1219,8 @@ def _edit(path: Path, changes: list[tuple[str, str, object]]) -> list[str]:
             scratch.chmod(mode)
             os.replace(scratch, path)
     finally:
-        for leftover in (scratch, secrets_scratch):
-            if leftover.exists():
-                leftover.unlink()
+        if scratch.exists():
+            scratch.unlink()
     return touched
 
 
@@ -1261,25 +1259,17 @@ def exposed(raw: dict[str, Any]) -> list[tuple[str, str]]:
     ]
 
 
-# One line of `secrets.env`. The shape compose's `env_file`, systemd's
-# `EnvironmentFile` and a shell's `source` all read, so one file serves them all.
+# One line of a `secrets.env` from before the vault — the shape compose's
+# `env_file`, systemd's `EnvironmentFile` and a shell's `source` all read.
 _ASSIGNMENT = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$")
-# A value written as it is. Anything else is double-quoted, with what a shell or
-# systemd would interpret inside the quotes escaped.
-_BARE_VALUE = re.compile(r"^[A-Za-z0-9_\-.:/+@=,%~^]*$")
 
 
 def read_secrets(path: Path) -> dict[str, str]:
-    """`secrets.env` as `NAME → value`; nothing at all when there is no file."""
+    """A `secrets.env` as `NAME → value`; nothing at all when there is no file."""
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return {}
-    return read_secrets_text(text)
-
-
-def read_secrets_text(text: str) -> dict[str, str]:
-    """The same, from a text already in hand."""
     found: dict[str, str] = {}
     for line in text.splitlines():
         match = _ASSIGNMENT.match(line)
@@ -1294,63 +1284,30 @@ def read_secrets_text(text: str) -> dict[str, str]:
     return found
 
 
-def _secret_line(name: str, value: str) -> str:
-    # No line breaks and no control characters: a value is one line, or it is
-    # the next variable's name.
-    value = "".join(character for character in value.strip() if character >= " ")
-    if _BARE_VALUE.match(value):
-        return f"{name}={value}"
-    for raw in ("\\", '"', "$", "`"):
-        value = value.replace(raw, "\\" + raw)
-    return f'{name}="{value}"'
+def kept_secrets() -> dict[str, str]:
+    """Ponos's own secrets as its vault keeps them, `NAME → value`.
 
-
-_SECRETS_HEADER = (
-    "# Ponos's secrets, one NAME=value a line. Kept 0600, and never in config.toml:\n"
-    "# see config.example.toml for the names. The environment holds them as well.\n"
-)
-
-
-def _set_secret(text: str, name: str, value: str | None) -> str:
-    """A secrets file's text with one variable set — or removed, for `None`."""
-    lines = text.splitlines()
-    at = [
-        index
-        for index, line in enumerate(lines)
-        if (match := _ASSIGNMENT.match(line)) and match.group(1) == name
-    ]
-    if value is None or not str(value).strip():
-        lines = [line for index, line in enumerate(lines) if index not in at]
-    elif at:
-        lines[at[0]] = _secret_line(name, str(value))
-        lines = [line for index, line in enumerate(lines) if index not in at[1:]]
-    else:
-        if not lines:
-            lines = _SECRETS_HEADER.splitlines()
-        lines.append(_secret_line(name, str(value)))
-    return "\n".join(lines) + "\n" if lines else ""
-
-
-def write_secrets(path: Path, values: dict[str, str | None]) -> list[str]:
-    """Set — or, with `None`, remove — variables of a secrets file, in one write.
-
-    The file's other lines stay where they are, comments included, and it is
-    replaced whole and private from its first byte (`disk.write_atomic`).
-    Returns the names whose value actually changed.
+    Nothing when the vault cannot be opened — its key gone, the file refused:
+    the environment still answers, and `ponos doctor` says why the vault does
+    not (`vault_store.problem`).
     """
+    from . import vault_store
+
     try:
-        original = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        original = ""
-    before = read_secrets(path)
-    text = original
-    for name, value in values.items():
-        text = _set_secret(text, name, value)
-    if text == original:
-        return []
-    disk.write_atomic(path, text)
-    after = read_secrets(path)
-    return [name for name in values if before.get(name) != after.get(name)]
+        return vault_store.own()
+    except (vault.VaultError, sqlite3.Error, OSError):
+        return {}
+
+
+def keep_secrets(values: dict[str, str | None]) -> list[str]:
+    """Set — or, with `None`, remove — some of Ponos's own secrets in its vault.
+
+    Returns the names whose value actually changed; raises `vault.VaultError`
+    when the vault cannot be opened or written.
+    """
+    from . import vault_store
+
+    return vault_store.keep_own(values)
 
 
 def _scrub(target: Path, keys: list[tuple[str, str]]) -> None:
@@ -1371,19 +1328,23 @@ def _scrub(target: Path, keys: list[tuple[str, str]]) -> None:
 
 
 def move_secrets(path: Path) -> list[str]:
-    """Take every secret out of `config.toml` and into `secrets.env`.
+    """Take every secret out of `config.toml` and of `secrets.env`, into Ponos's vault.
 
-    What a launch does before anything else (see `__main__`), because the file
-    was where the installer and the console used to write them,
-    and an installation that updates itself must not wake up without its token.
-    Moved rather than copied: a secret left in the file is the very thing this
-    is about. A variable `secrets.env` already holds is not overwritten — it was
-    put there later than the line the file kept.
+    What a launch does before anything else (see `__main__`), because those
+    two files were where the installer and the console used to write them, and
+    an installation that updates itself must not wake up without its token.
+    Moved rather than copied: a secret left in clear is the very thing this is
+    about. A name the vault already holds is not overwritten — it was put there
+    later than the line either file kept — and `secrets.env` wins over
+    `config.toml`, for the same reason.
 
-    `config.toml.bak` is scrubbed too, being yesterday's copy of the same file.
+    `config.toml.bak` is scrubbed too, being yesterday's copy of the same file;
+    `secrets.env` is deleted once every line of it is in the vault, those of
+    `[vault] provider = "env"` included (`vault.Environment` reads them there).
 
-    Returns the keys moved, `table.key` each; raises OSError when the files
-    cannot be written, and then the file is left as it was.
+    Returns what was moved, `table.key` for a line of `config.toml` and the
+    name for one of `secrets.env`; raises OSError or `vault.VaultError` when
+    the move cannot be made, and then both files are left as they were.
     """
     with _locked(path):
         return _move_secrets(path)
@@ -1393,30 +1354,40 @@ def _move_secrets(path: Path) -> list[str]:
     """`move_secrets`, under the lock a save takes too."""
     raw = read_raw(path)
     found = exposed(raw)
-    if not found:
+    legacy = legacy_secrets_path(path)
+    lines = read_secrets(legacy)
+    if not found and not legacy.exists():
         return []
-    file = secrets_path(path)
-    stored = read_secrets(file)
-    write_secrets(
-        file,
-        {
-            SECRETS[(table, key)]: str(_section(raw, table)[key]).strip()
-            for table, key in found
-            if SECRETS[(table, key)] not in stored
-        },
-    )
+    from . import vault_store
+
+    held = set(vault_store.own_names()) if (found or lines) else set()
+    moving: dict[str, str | None] = {}
+    for table, key in found:
+        name = SECRETS[(table, key)]
+        if name not in held:
+            moving[name] = str(_section(raw, table)[key]).strip()
+    for name, value in lines.items():
+        if name not in held and value.strip():
+            moving[name] = value
+    if moving.get(WEB_PASSWORD_ENV):
+        moving[WEB_PASSWORD_ENV] = _password_digest(str(moving[WEB_PASSWORD_ENV]))
+    if moving:
+        keep_secrets(moving)
     _scrub(path, found)
     backup = path.parent / f"{path.name}.bak"
     if backup.exists():
         _scrub(backup, exposed(read_raw(backup)))
+    legacy.unlink(missing_ok=True)
     # A line `write_value` cannot reach — an inline table — stays, and `load`
     # keeps saying so: only what actually left is reported as moved.
     left = set(exposed(read_raw(path)))
-    return [f"{table}.{key}" for table, key in found if (table, key) not in left]
+    return [f"{table}.{key}" for table, key in found if (table, key) not in left] + sorted(
+        name for name in lines if name in moving
+    )
 
 
 def _password_digest(value: str) -> str:
-    """The console's password as `secrets.env` keeps it — a digest already stays one.
+    """The console's password as the vault keeps it — a digest already stays one.
 
     Stripped first, as `secret` strips what it reads back: the password that
     was compared in clear was the stripped one, and the digest has to be of it.
@@ -1425,29 +1396,27 @@ def _password_digest(value: str) -> str:
     return value if passwords.is_digest(value) else passwords.digest(value)
 
 
-def hash_password(path: Path) -> bool:
-    """Replace a password `secrets.env` keeps in clear by its digest.
+def hash_password() -> bool:
+    """Replace a password the vault keeps in clear by its digest.
 
-    What a launch does after `move_secrets` — which may just have brought one
-    over from `config.toml` — so that an installation from before digests keeps
-    its password, the one people type, and stops keeping it readable. Nobody is
-    asked to type it again: the digest is of the very value that was there.
+    The console writes a digest from the first; this is for a password put in
+    the vault some other way. Nobody is asked to type it again: the digest is
+    of the very value that was there. The environment's is left alone, being
+    the unit's or the compose file's to keep; the console digests it in memory
+    (`web.server.sign_in`).
 
-    The environment's is left alone, being the unit's or the compose file's to
-    keep; the console digests it in memory (`web.server.sign_in`).
-
-    Returns whether anything was written; raises OSError when the file cannot be.
+    Returns whether anything was written; raises `vault.VaultError` when the
+    vault cannot be written.
     """
-    file = secrets_path(path)
-    kept = read_secrets(file).get(WEB_PASSWORD_ENV, "").strip()
+    kept = kept_secrets().get(WEB_PASSWORD_ENV, "").strip()
     if not kept or passwords.is_digest(kept):
         return False
-    write_secrets(file, {WEB_PASSWORD_ENV: _password_digest(kept)})
+    keep_secrets({WEB_PASSWORD_ENV: _password_digest(kept)})
     return True
 
 
 def secret(stored: dict[str, str], table: str, key: str) -> str:
-    """One secret, from `secrets.env` or the environment — see the docstring.
+    """One secret, from Ponos's vault (`stored`) or the environment — see the docstring.
 
     Both remembered, to be masked wherever the runner writes (see vault.py):
     the one that loses is no less a secret for it.
@@ -1462,17 +1431,17 @@ def secret(stored: dict[str, str], table: str, key: str) -> str:
     return written or environment
 
 
-def load(path: Path | None = None, *, secrets: Path | None = None) -> Config:
+def load(path: Path | None = None, *, secrets: dict[str, str] | None = None) -> Config:
     """The runner's reading of the file — and of its secrets, which are elsewhere.
 
-    `secrets` names the secrets file when it is not the one beside `path`: the
-    copy `edit` checks before it replaces anything. What each key may hold is
+    `secrets` are the secrets when they are not the vault's: those `edit`
+    checks before it keeps anything. What each key may hold is
     schema.py's; what is put together here is what the file does not say — the
     secrets, the environment, the defaults that depend on where this runs.
     """
     target = path or config_path()
     raw, file, unknown, retired = _validated(target)
-    stored = read_secrets(secrets or secrets_path(target))
+    stored = kept_secrets() if secrets is None else secrets
     runner = _runner(file.runner, _section(raw, "runner"))
     return Config(
         runner=runner,

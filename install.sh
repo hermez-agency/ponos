@@ -334,7 +334,7 @@ fi
 # The second word says how it is opened: "claimed" when somebody chose a token
 # or a sign-in, "open" while its first connection is still waiting for one.
 # Read by the runner's own loader: the token and the password are not in the
-# file, they are in secrets.env or the environment.
+# file, they are in Ponos's vault or the environment.
 CONSOLE_STATE=$(PYTHONPATH="$APP_DIR/src" "$PYTHON" - "$CONFIG" <<'PY'
 import pathlib, sys
 from ponos import config

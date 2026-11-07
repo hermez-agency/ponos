@@ -758,8 +758,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Un jeton à granularité fine avec Contents et Pull requests en lecture et écriture. L'onglet GitHub le vérifie avant de le garder ; ici il est gardé tel que saisi. Vide, c'est `PONOS_GITHUB_TOKEN` de l'environnement qui est utilisé.",
   "pass:ponos/github": "pass:ponos/github",
   "Keep the token in a vault": "Garder le jeton dans un coffre-fort",
-  "Instead of `secrets.env`: where your vault holds it, e.g. `pass:ponos/github` or `keyring:ponos-github`. The token can also come from `PONOS_GITHUB_TOKEN` in the environment.":
-    "Au lieu de `secrets.env` : là où votre coffre-fort le garde, p. ex. `pass:ponos/github` ou `keyring:ponos-github`. Le jeton peut aussi venir de `PONOS_GITHUB_TOKEN` dans l'environnement.",
+  "Instead of Ponos's vault: where another vault holds it, e.g. `pass:ponos/github` or `keyring:ponos-github`. The token can also come from `PONOS_GITHUB_TOKEN` in the environment.":
+    "Au lieu du coffre-fort de Ponos : là où un autre coffre le garde, p. ex. `pass:ponos/github` ou `keyring:ponos-github`. Le jeton peut aussi venir de `PONOS_GITHUB_TOKEN` dans l'environnement.",
   "Finding ideas on a schedule":
     "Recherche d'idées planifiée",
   "Ponos proposes ideas without being asked, while the console runs. The button on the Ideas page keeps working whatever is set here; the same settings are in its Settings window.":
@@ -849,8 +849,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "The runner as it stands on this machine.": "Le runner tel qu'il est sur cette machine.",
   "Configuration file": "Fichier de configuration",
   "Its key in config.toml": "Sa clé dans config.toml",
-  "Its variable, in secrets.env or the environment":
-    "Sa variable, dans secrets.env ou l'environnement",
+  "Its name, in Ponos's vault or the environment":
+    "Son nom, dans le coffre-fort de Ponos ou l'environnement",
   "one setting": "un réglage",
   "{{count}} settings": "{{count}} réglages",
   "Saved {{how}}: {{names}}.": "Enregistré {{how}} : {{names}}.",
@@ -935,12 +935,13 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Sous Repository access, choisissez les dépôts sur lesquels les tickets peuvent travailler.",
   "Needed: Contents and Pull requests on read and write, Metadata on read-only.":
     "Nécessaire : Contents et Pull requests en lecture et écriture, Metadata en lecture seule.",
-  "Paste it here. It is checked, then kept in secrets.env — never in the configuration, never in a ticket.":
-    "Collez-le ici. Il est vérifié, puis gardé dans secrets.env — jamais dans la configuration, jamais dans un ticket.",
+  "Paste it here. It is checked, then sealed in Ponos's vault — never in the configuration, never in a ticket.":
+    "Collez-le ici. Il est vérifié, puis scellé dans le coffre-fort de Ponos — jamais dans la configuration, jamais dans un ticket.",
   "Access token": "Jeton d'accès",
   "Check and keep the token": "Vérifier et garder le jeton",
   "The token could not be forgotten": "Le jeton n'a pas pu être oublié",
   "Kept in {{source}}.": "Gardé dans {{source}}.",
+  "Kept in Ponos's vault.": "Gardé dans le coffre-fort de Ponos.",
   "Forget the token?": "Oublier le jeton ?",
   "It is deleted from this machine, and tickets go back to the App or gh. The token itself stays valid on GitHub until you revoke it there.":
     "Il est supprimé de cette machine, et les tickets reviennent à l'App ou à gh. Le jeton lui-même reste valide sur GitHub jusqu'à ce que vous l'y révoquiez.",

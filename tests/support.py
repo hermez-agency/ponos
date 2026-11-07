@@ -100,7 +100,7 @@ def fixture(function: Fixture) -> Fixture:
 
 def call(function: Callable[..., None]) -> None:
     """Run one case the way pytest would, its fixtures opened and closed around it."""
-    with contextlib.ExitStack() as stack:
+    with fresh_vault(), contextlib.ExitStack() as stack:
         values = {
             name: stack.enter_context(contextmanager(FIXTURES[name])(function))
             for name in inspect.signature(function).parameters
@@ -161,6 +161,24 @@ def run(argv: list[str]) -> int:
         + f" in {time.monotonic() - started:.1f}s"
     )
     return 1 if failures else 0
+
+
+@contextmanager
+def fresh_vault() -> Iterator[None]:
+    """Around each case: the vault of the worker's state, and its key, gone after it.
+
+    Ponos's own secrets live in `vault.db`, under `XDG_STATE_HOME` — which a
+    worker shares between every case it runs — and not beside a case's own
+    `config.toml`: a token one case saves would otherwise be read by the next.
+    """
+    from ponos import vault_store
+
+    try:
+        yield
+    finally:
+        for leftover in (vault_store.path(), vault_store.key_path(), vault_store._pending_path()):
+            leftover.unlink(missing_ok=True)
+        vault_store._own_kept = None
 
 
 # A tidy prunes Docker, and this machine's Docker is not the test's to prune.
@@ -243,6 +261,13 @@ def isolate() -> None:
     # its run into the local journal, and opening the real `ponos.db` would
     # migrate it and set aside the JSON files the installed runner still reads.
     os.environ["XDG_STATE_HOME"] = tempfile.mkdtemp()
+    # And its configuration directory, where the vault's key is written when
+    # the keyring does not take it — never the machine's `vault.key`, nor its
+    # keyring: Ponos's own secrets are in that vault (see `fresh_vault`).
+    os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
+    from ponos import vault_store
+
+    vault_store.keyring_usable = lambda: False
     # GitHub, for a machine that has connected an app: an address nothing
     # listens on, so a test that reaches `git.token_for` falls back on `gh` at
     # once rather than asking the real GitHub for a token. The tests about the
@@ -292,8 +317,8 @@ def _file_config(body: str) -> C.Config:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text(body)
     # Written the way a file used to be, and read the way a launch leaves it:
-    # its secrets moved into secrets.env.
-    C.move_secrets(path)
+    # its secrets moved into the vault.
+    _launched(path)
     return C.load(path)
 
 
@@ -1103,8 +1128,26 @@ def _saved(body: str = "") -> tuple[Path, C.Config]:
     """A configuration file on disk, and the runner's reading of it."""
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text("# a file somebody wrote by hand\n" + body, encoding="utf-8")
-    C.move_secrets(path)  # as a launch leaves it, see `_config`
+    _launched(path)
     return path, C.load(path)
+
+
+def _no_secrets() -> None:
+    """None of Ponos's own secrets in the vault: what a fresh `secrets.env` used to be."""
+    from ponos import vault_store
+
+    vault_store.keep_own({name: None for name in vault_store.own_names()})
+
+
+def _launched(path: Path) -> None:
+    """A file as a launch leaves it: its secrets, and those alone, in the vault.
+
+    Each file of a case used to come with its own `secrets.env`; the vault is
+    the case's whole state's, so what an earlier file of the same case moved
+    there is taken out first.
+    """
+    _no_secrets()
+    C.move_secrets(path)
 
 
 @contextmanager
@@ -1315,8 +1358,9 @@ def _github_answering(
 ) -> Iterator[list[tuple[str, str, dict[str, str]]]]:
     """GitHub replaced by `answer(method, path, headers, body) -> (status, dict)`.
 
-    Yields the calls made, as (method, path, headers); the secrets file, the
-    caches and the states are this test's own, and left as they were found.
+    Yields the calls made, as (method, path, headers); the configuration, the
+    caches and the states are this test's own, and left as they were found —
+    the vault each case's own already (`fresh_vault`).
     """
     calls: list[tuple[str, str, dict[str, str]]] = []
 
@@ -1329,10 +1373,10 @@ def _github_answering(
         return status, json.dumps(payload).encode()
 
     folder = Path(tempfile.mkdtemp())
-    original, before = github_app._send, os.environ.get(C.SECRETS_PATH_ENV)
+    original = github_app._send
     config_before = os.environ.get("PONOS_CONFIG")
     github_app._send = send
-    os.environ[C.SECRETS_PATH_ENV] = str(folder / "secrets.env")
+    _no_secrets()
     # The machine's own configuration says nothing here: `github_token` reads it.
     os.environ["PONOS_CONFIG"] = str(folder / "config.toml")
     github_token._kept = None
@@ -1343,10 +1387,6 @@ def _github_answering(
     finally:
         github_app._send = original
         github_token._kept = None
-        if before is None:
-            os.environ.pop(C.SECRETS_PATH_ENV, None)
-        else:
-            os.environ[C.SECRETS_PATH_ENV] = before
         if config_before is None:
             os.environ.pop("PONOS_CONFIG", None)
         else:

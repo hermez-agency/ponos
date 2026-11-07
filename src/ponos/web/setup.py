@@ -13,8 +13,8 @@ email and password that open the console from here on — which is also what
 closes this door behind them — then the rules every ticket is written against,
 and the Telegram bot
 that reaches your phone. Nothing here is new configuration: every value written
-is a key of `config.toml` you could have typed yourself — or, for a secret, a
-line of `secrets.env` — saved through the same `config.edit` the Settings tab
+is a key of `config.toml` you could have typed yourself — or, for a secret, one
+sealed in Ponos's vault — saved through the same `config.edit` the Settings tab
 saves through.
 
 It is drawn by the console itself, in steps (`frontend/src/components/console/

@@ -1,14 +1,16 @@
 """The console's password, kept as a scrypt digest rather than as itself.
 
-`secrets.env` is `0600`, and that was the whole of the protection: a backup, a
+`secrets.env` was `0600`, and that was the whole of the protection: a backup, a
 volume copied to another host, a `cat` pasted into a ticket, and the password —
 the one that opens a runner in `bypassPermissions` — went with it, readable.
+It is sealed in Ponos's vault now, and still kept as a digest: a vault opened
+by whoever holds its key gives a digest, not the password.
 What is kept now is what a password *proves* rather than what it *is*.
 
 scrypt because `hashlib` has it, so the core still needs nothing but Python; and
 its parameters are written with the digest, `scrypt:n:r:p:salt:hash`, so that
 raising them one day leaves every password written before readable. The
-separators and the alphabet are the ones `secrets.env` writes bare — no `$`,
+separators and the alphabet are ones an environment file takes bare — no `$`,
 which a compose `env_file` would try to expand.
 
 A value without that prefix is a password still in clear: one written before
@@ -59,7 +61,7 @@ def _scrypt(password: str, salt: bytes, n: int, r: int, p: int, length: int) -> 
 
 
 def digest(password: str) -> str:
-    """`password`, as the line `secrets.env` keeps for it."""
+    """`password`, as Ponos's vault keeps it."""
     salt = secrets.token_bytes(16)
     derived = _scrypt(password, salt, COST, BLOCK, PARALLEL, LENGTH)
     return f"{PREFIX}:{COST}:{BLOCK}:{PARALLEL}:{_encoded(salt)}:{_encoded(derived)}"

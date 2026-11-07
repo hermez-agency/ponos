@@ -136,8 +136,9 @@ the image's `HEALTHCHECK`.
 compose file. **This is where a container's secrets go** — Dokploy's *Environment* tab, below
 — and never into a `config.toml` copied into the image or onto a volume: the runner does
 not read a secret from that file anyway (see [Configuration](configuration.md#configuration)). A secret
-typed in the console's first connection or Settings lands in `/data/config/ponos/secrets.env`,
-`600`, on the `ponos-data` volume, and wins over the variable.
+typed in the console's first connection or Settings is sealed in Ponos's vault,
+`/data/state/ponos/vault.db` on the `ponos-data` volume, and wins over the variable — the
+variables stay a way in of their own: nothing is moved out of the environment.
 
 | Variable | What it does |
 |---|---|

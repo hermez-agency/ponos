@@ -74,8 +74,9 @@ none of that was addressed to a runner that was not listening yet.
 No public URL, no webhook, no domain: the runner *polls*, which is what makes this the one
 channel that installs on a laptop behind a NAT.
 
-1. talk to [@BotFather](https://t.me/BotFather) → `/newbot` → put the token in
-   `secrets.env` as `PONOS_TELEGRAM_TOKEN` (or type it in the console's Settings);
+1. talk to [@BotFather](https://t.me/BotFather) → `/newbot` → type the token in the
+   console's Settings, which seals it in Ponos's vault (or set `PONOS_TELEGRAM_TOKEN` in the
+   environment);
 2. open the chat with your new bot and say anything to it;
 3. `ponos notify --pair` — it reads that message and writes the chat id into your
    configuration. (The usual advice is to paste your token into somebody else's bot, which
@@ -108,7 +109,8 @@ conversations in it, and a colleague's "ok" is not an approval of anything.
 2. *OAuth & Permissions* → Bot Token Scopes: `chat:write`, and the history scope matching
    where you put it — `channels:history` for a public channel, `groups:history` for a
    private one, `im:history` for a direct message;
-3. *Install to Workspace*, copy the `xoxb-` token into `secrets.env` as `PONOS_SLACK_TOKEN`;
+3. *Install to Workspace*, paste the `xoxb-` token in the console's Settings, which seals it
+   in Ponos's vault (or set `PONOS_SLACK_TOKEN` in the environment);
 4. `/invite @your-bot` in the channel — the step everyone forgets — and put the channel ID
    (`···` → *View channel details*, at the bottom) in `channel`. Its name (`infra` or
    `#infra`) works too, with the `channels:read` scope (`groups:read` for a private

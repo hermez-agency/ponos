@@ -370,8 +370,13 @@ def the_consoles_sign_in_may_live_in_the_environment_rather_than_the_file() -> N
     out of it is stripped, because a password read out of a file carries the
     newline that file ends with and would lock you out of your own console.
     """
+    from ponos import passwords
+
     path, config = _saved('\n[web]\nemail = "file@example.com"\npassword = "written down"\n')
-    assert config.web.email == "file@example.com" and config.web.password == "written down"
+    assert config.web.email == "file@example.com"
+    assert passwords.matches("written down", config.web.password), (
+        "moved into the vault as its digest"
+    )
 
     previous = {name: os.environ.get(name) for name in (C.WEB_EMAIL_ENV, C.WEB_PASSWORD_ENV)}
     os.environ[C.WEB_EMAIL_ENV] = "unit@example.com"
@@ -445,14 +450,19 @@ def a_secret_left_in_config_toml_is_never_read() -> None:
 
 
 @case
-def a_launch_moves_the_secrets_out_of_config_toml_and_says_so() -> None:
+def a_launch_moves_the_secrets_of_config_toml_and_secrets_env_into_the_vault(
+    vault_home: Path,
+) -> None:
     """An installation that updates itself must not wake up without its token.
 
     Moved, not copied: the file and its backup are left with no secret in them,
-    the comments around stay, and `secrets.env` is private from its first byte.
-    A variable secrets.env already holds was put there later: it is kept.
+    the comments around stay, `secrets.env` is deleted, and nothing of it is
+    left in clear in the vault. What the vault already holds was put there
+    later: it is kept, and `secrets.env` wins over `config.toml` for the same
+    reason. A password comes in as its digest.
     """
     from ponos import __main__ as cli
+    from ponos import passwords, vault_store
 
     folder = Path(tempfile.mkdtemp())
     path = folder / "config.toml"
@@ -464,20 +474,33 @@ def a_launch_moves_the_secrets_out_of_config_toml_and_says_so() -> None:
     path.write_text(text)
     path.chmod(0o640)
     (folder / "config.toml.bak").write_text(text)
-    C.write_secrets(C.secrets_path(path), {"OPENROUTER_API_KEY": "sk-or-new"})
+    legacy = folder / "secrets.env"
+    legacy.write_text(
+        "# Ponos's secrets\nOPENROUTER_API_KEY=sk-or-new\n"
+        'PONOS_WEB_PASSWORD="a typed password"\nBW_SESSION=bw-session-value\n'
+    )
+    C.keep_secrets({"PONOS_SLACK_TOKEN": "xoxb-already-in-the-vault"})
 
     said: list[str] = []
-    with _environ(PONOS_CONFIG=str(path)):
+    with _environment(PONOS_CONFIG=str(path)):
         cli.secrets_out_of_config(said.append)
-    assert len(said) == 1 and "web.token" in said[0] and "secrets.env" in said[0], said
+    assert len(said) == 1 and "web.token" in said[0] and "Ponos's vault" in said[0], said
 
-    stored = C.read_secrets(C.secrets_path(path))
-    assert stored == {
+    kept = C.kept_secrets()
+    password = kept.pop("PONOS_WEB_PASSWORD")
+    assert passwords.is_digest(password) and passwords.matches("a typed password", password)
+    assert kept == {
         "PONOS_WEB_TOKEN": "tok_real",
         "PONOS_TELEGRAM_TOKEN": "123:abc",
         "OPENROUTER_API_KEY": "sk-or-new",
-    }, stored
-    assert (C.secrets_path(path).stat().st_mode & 0o777) == 0o600
+        "BW_SESSION": "bw-session-value",
+        "PONOS_SLACK_TOKEN": "xoxb-already-in-the-vault",
+    }, kept
+    assert not legacy.exists(), "secrets.env is gone once the vault holds it"
+    sealed = vault_store.path().read_bytes()
+    for value in ("tok_real", "123:abc", "sk-or-new", "a typed password", "bw-session-value"):
+        assert value.encode() not in sealed, value
+    assert (vault_store.path().stat().st_mode & 0o777) == 0o600
     for left in (path, folder / "config.toml.bak"):
         written = left.read_text()
         assert "tok_real" not in written and "123:abc" not in written and "sk-or" not in written
@@ -489,28 +512,36 @@ def a_launch_moves_the_secrets_out_of_config_toml_and_says_so() -> None:
     assert config.openrouter.key == "sk-or-new" and config.exposed == ()
 
     said.clear()
-    with _environ(PONOS_CONFIG=str(path)):
+    with _environment(PONOS_CONFIG=str(path)):
         cli.secrets_out_of_config(said.append)
     assert said == [], "a second launch has nothing to say"
 
-    C.secrets_path(path).chmod(0o644)
-    with _environ(PONOS_CONFIG=str(path)):
+    # A line typed into the file again, after: refused — moved out, never read,
+    # and the vault's own value kept.
+    path.write_text(path.read_text().replace("port = 8787", 'port = 8787\ntoken = "tok_stale"'))
+    assert C.load(path).web.token == "tok_real", "never read from the file"
+    with _environment(PONOS_CONFIG=str(path)):
         cli.secrets_out_of_config(said.append)
-    assert said and "chmod 600" in said[0], said
+    assert "tok_stale" not in path.read_text() and C.kept_secrets()["PONOS_WEB_TOKEN"] == "tok_real"
 
 
 @case
-def the_console_writes_a_secret_beside_the_file_never_in_it() -> None:
+def the_console_writes_a_secret_into_the_vault_never_in_the_file(vault_home: Path) -> None:
     """The Settings tab and the first connection save through `config.edit`."""
+    from ponos import vault_store
+
     path, config = _saved('\n[claude]\nprovider = "api_key"\n')
-    C.write_secrets(C.secrets_path(path), {"PONOS_WEB_TOKEN": "tok_real"})
+    C.keep_secrets({"PONOS_WEB_TOKEN": "tok_real"})
     saved = web_settings.save(
         config, {"settings": {"claude.api_key": "sk-ant-typed", "runner.max_concurrent": 3}}
     )
     assert set(saved["saved"]) == {"claude.api_key", "runner.max_concurrent"}, saved
     written = path.read_text()
     assert "sk-ant-typed" not in written and "max_concurrent = 3" in written
-    assert C.read_secrets(C.secrets_path(path))["ANTHROPIC_API_KEY"] == "sk-ant-typed"
+    assert C.exposed(C.read_raw(path)) == [], "no secret in the file after a save"
+    assert C.kept_secrets()["ANTHROPIC_API_KEY"] == "sk-ant-typed"
+    assert b"sk-ant-typed" not in vault_store.path().read_bytes(), "sealed, not in clear"
+    assert not (path.parent / "secrets.env").exists()
     assert "sk-ant" not in (path.parent / "config.toml.bak").read_text()
 
     fresh = C.load(path)
@@ -524,19 +555,42 @@ def the_console_writes_a_secret_beside_the_file_never_in_it() -> None:
     assert field["stated"] and field["preview"] == "…yped" and field["value"] == ""
 
     web_settings.save(fresh, {"settings": {"claude.api_key": None}})
-    assert "ANTHROPIC_API_KEY" not in C.read_secrets(C.secrets_path(path))
-    assert C.read_secrets(C.secrets_path(path))["PONOS_WEB_TOKEN"] == "tok_real"
+    assert "ANTHROPIC_API_KEY" not in C.kept_secrets()
+    assert C.kept_secrets()["PONOS_WEB_TOKEN"] == "tok_real"
 
 
 @case
-def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password() -> None:
-    """Who wrote it last: the console writes secrets.env, a compose file the
+def a_vault_that_does_not_open_leaves_the_environment_and_refuses_a_save(
+    vault_home: Path,
+) -> None:
+    """Its key gone, the vault gives nothing — the runner still starts — and keeps nothing."""
+    from ponos import vault_store
+
+    path, config = _saved()
+    C.keep_secrets({"PONOS_WEB_TOKEN": "tok_sealed"})
+    vault_store.key_path().unlink()
+    vault_store._own_kept = None
+    with _environment(PONOS_TELEGRAM_TOKEN="123:from-the-env"):
+        loaded = C.load(path)
+    assert loaded.web.token == "" and loaded.notify.telegram["token"] == "123:from-the-env"
+    try:
+        C.edit(path, [("claude", "api_key", "sk-ant-typed")])
+    except C.ConfigError as error:
+        assert "vault" in str(error), error
+    else:
+        raise AssertionError("a secret the vault cannot keep is not saved")
+    assert "sk-ant-typed" not in path.read_text()
+
+
+@case
+def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password(
+    vault_home: Path,
+) -> None:
+    """Who wrote it last: the console writes the vault, a compose file the
     environment — except for the sign-in, which the environment is there to claim."""
     path, _ = _saved()
-    C.write_secrets(
-        C.secrets_path(path), {"ANTHROPIC_API_KEY": "typed", "PONOS_WEB_PASSWORD": "typed too"}
-    )
-    with _environ(
+    C.keep_secrets({"ANTHROPIC_API_KEY": "typed", "PONOS_WEB_PASSWORD": "typed too"})
+    with _environment(
         ANTHROPIC_API_KEY="composed",
         PONOS_WEB_PASSWORD="from the unit",
         PONOS_SLACK_TOKEN="xoxb-env",
@@ -548,49 +602,48 @@ def a_typed_key_wins_over_the_environment_and_the_environment_over_a_password() 
 
 
 @case
-def every_secret_the_runner_reads_is_masked() -> None:
-    """From the environment or from secrets.env, a value read is a value masked.
+def every_secret_the_runner_reads_is_masked(vault_home: Path) -> None:
+    """From the environment or from the vault, a value read is a value masked.
 
     Even the one that loses to the other: a session that prints it leaks it all
     the same. See vault.py.
     """
     path, _ = _saved()
-    C.write_secrets(C.secrets_path(path), {"PONOS_WEB_TOKEN": "tok_written-in-the-file"})
+    C.keep_secrets({"PONOS_WEB_TOKEN": "tok_written-in-the-vault"})
+    vault.forget()
     try:
-        with _environ(
+        with _environment(
             PONOS_WEB_TOKEN="tok_set-by-compose",
             PONOS_WEB_PASSWORD="password-set-by-compose",
             PONOS_TELEGRAM_TOKEN="123456:telegram-token",
         ):
             C.load(path)
-        said = "tok_written-in-the-file tok_set-by-compose password-set-by-compose 123456:telegram-token"
+        said = "tok_written-in-the-vault tok_set-by-compose password-set-by-compose 123456:telegram-token"
         assert vault.mask(said) == " ".join([vault.MASK] * 4), vault.mask(said)
     finally:
         vault.forget()
 
 
 @case
-def secrets_env_reads_what_a_shell_and_compose_read() -> None:
-    """One file for `source`, `env_file` and `EnvironmentFile` — and for us."""
+def an_old_secrets_env_is_read_the_way_a_shell_read_it() -> None:
+    """What `move_secrets` brings into the vault is what `source` and `env_file` read."""
     path = Path(tempfile.mkdtemp()) / "secrets.env"
     awkward = 'a "quoted" pass $HOME `x` \\ end'
-    assert C.write_secrets(path, {"PONOS_WEB_PASSWORD": awkward, "PONOS_WEB_TOKEN": "t0k"}) == [
-        "PONOS_WEB_PASSWORD",
-        "PONOS_WEB_TOKEN",
-    ]
-    assert C.read_secrets(path) == {"PONOS_WEB_PASSWORD": awkward, "PONOS_WEB_TOKEN": "t0k"}
+    path.write_text(
+        "# mine\nexport OTHER='kept'\n"
+        'PONOS_WEB_PASSWORD="a \\"quoted\\" pass \\$HOME \\`x\\` \\\\ end"\nPONOS_WEB_TOKEN=t0k\n'
+    )
+    assert C.read_secrets(path) == {
+        "OTHER": "kept",
+        "PONOS_WEB_PASSWORD": awkward,
+        "PONOS_WEB_TOKEN": "t0k",
+    }, C.read_secrets(path)
     shell = subprocess.run(
         ["sh", "-c", f'. "{path}"; printf %s "$PONOS_WEB_PASSWORD"'],
         capture_output=True,
         text=True,
     )
     assert shell.stdout == awkward, shell.stdout
-
-    path.write_text("# mine\nexport OTHER='kept'\nPONOS_WEB_TOKEN=old\n")
-    assert C.write_secrets(path, {"PONOS_WEB_TOKEN": "new"}) == ["PONOS_WEB_TOKEN"]
-    assert C.write_secrets(path, {"PONOS_WEB_TOKEN": "new"}) == [], "nothing moved, nothing written"
-    assert path.read_text() == "# mine\nexport OTHER='kept'\nPONOS_WEB_TOKEN=new\n"
-    assert C.read_secrets(path)["OTHER"] == "kept"
 
 
 @case

@@ -254,7 +254,7 @@ def the_first_connection_writes_the_whole_installation_at_once() -> None:
     from ponos.web import setup as web_setup
 
     path, _ = _saved()
-    C.write_secrets(C.secrets_path(path), {"PONOS_SLACK_TOKEN": "xoxb-kept"})
+    C.keep_secrets({"PONOS_SLACK_TOKEN": "xoxb-kept"})
     api = _Fresh(path)
     report = web_setup.apply(
         api,  # type: ignore[arg-type]  # a double: what a first connection asks of an Api
@@ -271,10 +271,10 @@ def the_first_connection_writes_the_whole_installation_at_once() -> None:
     assert report["steps"] and report["steps"][0][1].endswith("me@example.com from now on")
 
     written = path.read_text(encoding="utf-8")
-    secrets = C.read_secrets(C.secrets_path(path))
+    secrets = C.kept_secrets()
     assert 'email = "me@example.com"' in written and "one I remember" not in written
     assert passwords.matches("one I remember", secrets["PONOS_WEB_PASSWORD"]), (
-        "a secret goes beside the file"
+        "a secret goes into the vault"
     )
     assert passwords.is_digest(secrets["PONOS_WEB_PASSWORD"]), "and the password as its digest only"
     assert 'chat = "4242"' in written and "123:abc" not in written
@@ -754,36 +754,42 @@ def a_sign_in_lasts_thirty_days_from_its_last_use_and_all_of_them_end_at_once(
 
 
 @case
-def a_password_kept_in_clear_becomes_its_digest_on_the_first_launch() -> None:
-    """`secrets.env` held the password as it is typed; it keeps its digest now.
+def a_password_kept_in_clear_becomes_its_digest_on_the_first_launch(vault_home: Path) -> None:
+    """`secrets.env` held the password as it is typed; the vault keeps its digest.
 
-    The installation from before is not asked anything: the launch replaces the
-    line by the digest of that very value, the same password signs in, and the
-    next launch has nothing to do. The environment's is the unit's to keep.
+    The installation from before is not asked anything: the launch moves the
+    digest of that very value into the vault, the same password signs in, and
+    the next launch has nothing to do. One the vault held in clear is digested
+    the same way. The environment's is the unit's to keep.
     """
     from ponos import __main__ as ponos_main
-    from ponos import passwords
+    from ponos import passwords, vault_store
     from ponos.web import server as web_server
 
     path, _ = _saved('\n[web]\nemail = "me@example.com"\n')
-    secrets_file = C.secrets_path(path)
-    C.write_secrets(secrets_file, {C.WEB_PASSWORD_ENV: "one I remember"})
+    legacy = path.parent / "secrets.env"
+    legacy.write_text(f"{C.WEB_PASSWORD_ENV}=one-I-remember\n", encoding="utf-8")
     said: list[str] = []
     with _environment(PONOS_CONFIG=str(path), PONOS_WEB_PASSWORD=None):
         ponos_main.secrets_out_of_config(said.append)
-        kept = C.read_secrets(secrets_file)[C.WEB_PASSWORD_ENV]
-        assert passwords.is_digest(kept) and "one I remember" not in secrets_file.read_text(
-            encoding="utf-8"
-        )
-        assert any("scrypt digest" in line for line in said), said
+        kept = C.kept_secrets()[C.WEB_PASSWORD_ENV]
+        assert passwords.is_digest(kept) and not legacy.exists()
+        assert b"one-I-remember" not in vault_store.path().read_bytes()
+        assert any(C.WEB_PASSWORD_ENV in line for line in said), said
         entry = web_server.sign_in(C.load(path), "tok")
         assert entry is not None and entry.digest == kept
-        assert entry.opens("me@example.com", "one I remember"), "the same password signs in"
+        assert entry.opens("me@example.com", "one-I-remember"), "the same password signs in"
         said.clear()
         ponos_main.secrets_out_of_config(said.append)
-        assert C.read_secrets(secrets_file)[C.WEB_PASSWORD_ENV] == kept and not said, "once"
+        assert C.kept_secrets()[C.WEB_PASSWORD_ENV] == kept and not said, "once"
+
+        vault_store.keep_own({C.WEB_PASSWORD_ENV: "one in clear"})
+        ponos_main.secrets_out_of_config(said.append)
+        assert any("scrypt digest" in line for line in said), said
+        assert passwords.matches("one in clear", C.kept_secrets()[C.WEB_PASSWORD_ENV])
+
         C.edit(path, [("web", "password", "another I remember")])
-        typed = C.read_secrets(secrets_file)[C.WEB_PASSWORD_ENV]
+        typed = C.kept_secrets()[C.WEB_PASSWORD_ENV]
         assert passwords.is_digest(typed) and passwords.matches("another I remember", typed), (
             "and one typed in the Settings is written as its digest from the start"
         )

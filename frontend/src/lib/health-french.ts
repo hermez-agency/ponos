@@ -243,7 +243,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Python environment": "Environnement Python",
   "Found by its name, “{{reference}}”.": "Trouvée par son nom, « {{reference}} ».",
   "“{{page}}” found.": "« {{page}} » trouvée.",
-  "Run `chmod 600 {{target}}`.": "Lancez `chmod 600 {{target}}`.",
   "Run `ponos clean --force` to empty them.": "Lancez `ponos clean --force` pour les vider.",
   "Run `ponos clean --force` to stop them, once no run is in progress.": "Lancez `ponos clean --force` pour les arrêter, une fois qu'aucune exécution n'est en cours.",
   "Run `ponos update`, or Update in the console's header.": "Lancez `ponos update`, ou Mettre à jour dans l'en-tête de la console.",
@@ -341,7 +340,8 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "{{current}} installed, {{available}} available.": "{{current}} installée, {{available}} disponible.",
   "{{file}}, line {{line}}: {{key}} is not a known key — did you mean {{match}}?": "{{file}}, ligne {{line}} : {{key}} n'est pas une clé connue — vouliez-vous dire {{match}} ?",
   "{{file}}, line {{line}}: {{key}} is not a known key.": "{{file}}, ligne {{line}} : {{key}} n'est pas une clé connue.",
-  "{{file}} still holds {{keys}}: ignored, and moved to {{target}} at the next launch.": "{{file}} contient encore {{keys}} : ignorés, et déplacés vers {{target}} au prochain lancement.",
+  "{{file}} still holds {{keys}}: ignored, and moved into Ponos's vault at the next launch.": "{{file}} contient encore {{keys}} : ignorés, et déplacés dans le coffre-fort de Ponos au prochain lancement.",
+  "{{target}} still holds secrets in clear: moved into Ponos's vault, and deleted, at the next launch.": "{{target}} contient encore des secrets en clair : déplacés dans le coffre-fort de Ponos, et le fichier effacé, au prochain lancement.",
   "Load {{load}} on {{cores}} cores, above runner.max_load_per_core ({{per_core}}, so {{ceiling}}): no session is started until it comes down.":
     "Charge de {{load}} sur {{cores}} cœurs, au-dessus de runner.max_load_per_core ({{per_core}}, soit {{ceiling}}) : aucune session ne démarre avant qu'elle redescende.",
   "Load {{load}} on {{cores}} cores (a session starts at {{ceiling}} or below).":
@@ -359,7 +359,6 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "{{repository}} is not reached by the GitHub App.": "{{repository}} n'est pas atteint par l'App GitHub.",
   "{{root}} does not exist (runner.workspace_root).": "{{root}} n'existe pas (runner.workspace_root).",
   "{{setting}} is off: a validated merge that conflicts blocks its ticket.": "{{setting}} est désactivé : une fusion validée en conflit bloque son ticket.",
-  "{{target}} can be read by others ({{mode}}).": "{{target}} est lisible par d'autres ({{mode}}).",
   "“{{status}}” is not offered: no column to give a ticket up in.": "« {{status}} » n'est pas proposé : aucune colonne où abandonner un ticket.",
   "“{{status}}” is not offered: no column to pause a ticket in.": "« {{status}} » n'est pas proposé : aucune colonne où mettre un ticket en pause.",
   "“{{status}}”: a ticket there is never run by itself.": "« {{status}} » : un ticket qui s'y trouve n'est jamais lancé de lui-même.",

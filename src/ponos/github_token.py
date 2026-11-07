@@ -9,7 +9,7 @@ use, `git.token_for`: the token takes the place of the app's installation token
 and nothing downstream knows which of the two it holds.
 
 **Where the token lives.** Never in `config.toml`, a ticket or a log. It is
-`PONOS_GITHUB_TOKEN` in `secrets.env` (what the console writes) or in the
+`PONOS_GITHUB_TOKEN` in Ponos's vault (what the console writes) or in the
 environment (what a container is given), and `[github_access] token_item` may
 instead name an item of a vault the machine already has — `pass:ponos/github`,
 `keyring:ponos-github`, `bitwarden:…` — read through vault.py the way a
@@ -60,6 +60,9 @@ class GithubTokenError(Exception):
     pass
 
 
+# Where a token the console was given is said to come from (`source`).
+VAULT = "vault"
+
 _lock = threading.Lock()
 # When it was read, the value, and where it came from.
 _kept: tuple[float, str, str] | None = None
@@ -72,7 +75,7 @@ def access() -> config_module.GithubAccess:
     """`[github_access]` as the files say it now — read again, since the console writes them."""
     path = config_module.config_path()
     return config_module.read_github_access(
-        config_module.read_raw(path), config_module.read_secrets(config_module.secrets_path(path))
+        config_module.read_raw(path), config_module.kept_secrets()
     )
 
 
@@ -87,16 +90,15 @@ def _read() -> tuple[str, str]:
     if held.token_item:
         which, item = vault.where(held.token_item, "env")
         try:
-            stored = config_module.read_secrets(config_module.secrets_path())
-            value = vault.provider(which, stored).read(item).strip()
+            value = vault.provider(which, config_module.kept_secrets()).read(item).strip()
         except vault.VaultError:
             value = ""
         origin = held.token_item if value else ""
     if not value and held.token:
-        stored = config_module.read_secrets(config_module.secrets_path())
+        stored = config_module.kept_secrets()
         value = held.token
         origin = (
-            "secrets.env"
+            VAULT
             if stored.get(config_module.GITHUB_TOKEN_ENV, "").strip()
             else config_module.GITHUB_TOKEN_ENV
         )
@@ -136,25 +138,19 @@ def holds(value: str) -> bool:
 
 
 def save(value: str) -> None:
-    """Keep a token in `secrets.env`, 0600 like the other secrets."""
+    """Keep a token in Ponos's vault, sealed like the other secrets."""
     global _kept
-    config_module.write_secrets(
-        config_module.secrets_path(), {config_module.GITHUB_TOKEN_ENV: value.strip()}
-    )
+    config_module.keep_secrets({config_module.GITHUB_TOKEN_ENV: value.strip()})
     vault.remember(value.strip())
     with _lock:
         _kept = None
 
 
 def forget() -> bool:
-    """Drop the token from `secrets.env`. One the environment gives stays."""
+    """Drop the token from Ponos's vault. One the environment gives stays."""
     global _kept
-    present = bool(
-        config_module.read_secrets(config_module.secrets_path()).get(config_module.GITHUB_TOKEN_ENV)
-    )
-    config_module.write_secrets(
-        config_module.secrets_path(), {config_module.GITHUB_TOKEN_ENV: None}
-    )
+    present = bool(config_module.kept_secrets().get(config_module.GITHUB_TOKEN_ENV))
+    config_module.keep_secrets({config_module.GITHUB_TOKEN_ENV: None})
     with _lock:
         _kept = None
     return present

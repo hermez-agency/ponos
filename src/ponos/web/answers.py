@@ -1541,7 +1541,7 @@ class SettingField(Shape):
     value: str | float | bool | list[str] | None
     preview: str = omitted()
     variable: str = omitted()
-    """A secret's variable, in secrets.env or the environment — never config.toml."""
+    """A secret's name, in Ponos's vault or the environment — never config.toml."""
     unit: str = omitted()
     """What a number counts — "seconds", "days" — drawn beside its box."""
     placeholder: str = omitted()

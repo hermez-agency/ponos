@@ -31,6 +31,13 @@ every place the runner writes — what is read goes through `vault.remember`,
 so its value is masked. What it does not: somebody with the Unix account that
 runs Ponos, who can read the key wherever it is kept and ask the runner itself.
 
+Ponos's own secrets — its console's token and password, the Telegram and
+Slack tokens, the provider keys, the GitHub token and apps (`config.SECRETS`)
+— are sealed here too, in a table of their own (`own`): not entries, so that
+no project can be granted one and no session handed it, and so that the names
+the runner keeps for itself never show up as a key somebody may rename. Each
+is sealed with the same key, bound to its name (`_own_associated`).
+
 The journal (`journal` table) says who did what to an entry — created,
 replaced, its projects or its address changed, revoked — and every time a session was given
 it, with the ticket and the project; never a value. Ponos's browser writes
@@ -348,6 +355,12 @@ CREATE TABLE IF NOT EXISTS journal (
 CREATE INDEX IF NOT EXISTS journal_entry ON journal (entry, id);
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
+    nonce BLOB NOT NULL,
+    sealed BLOB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS own (
+    name TEXT PRIMARY KEY,
+    updated TEXT NOT NULL,
     nonce BLOB NOT NULL,
     sealed BLOB NOT NULL
 );
@@ -926,6 +939,105 @@ def signed_in(name: str, ticket: str, project: str, result: str) -> None:
             _write_down(connection, row, result, ticket=ticket, project=project)
 
 
+# -- Ponos's own secrets -----------------------------------------------------------
+
+# What `own` last opened, and the file it opened it from: `config.load` asks at
+# every reading of the configuration, and the key may sit behind `secret-tool`.
+_own_kept: tuple[tuple[str, int, int, int], dict[str, str]] | None = None
+
+
+def _own_associated(name: str) -> bytes:
+    """What one of Ponos's own secrets is bound to: its name, in a table no entry is in."""
+    return f"ponos-own:1\n{name}".encode()
+
+
+def _stamp() -> tuple[str, int, int, int] | None:
+    try:
+        stat = path().stat()
+    except OSError:
+        return None
+    return str(path()), stat.st_ino, stat.st_mtime_ns, stat.st_size
+
+
+def own() -> dict[str, str]:
+    """Ponos's own secrets, `NAME → value` — nothing at all for a vault that holds none.
+
+    Raises VaultStoreError when there are some and the key does not open them:
+    a token that cannot be read is no token, and the caller says so.
+    """
+    global _own_kept
+    stamp = _stamp()
+    if stamp is None:
+        return {}
+    with _lock:
+        if _own_kept is not None and _own_kept[0] == stamp:
+            return dict(_own_kept[1])
+        with _connected() as connection:
+            rows = connection.execute("SELECT * FROM own ORDER BY name").fetchall()
+            found: dict[str, str] = {}
+            if rows:
+                key = _key(connection, create=False)
+                for row in rows:
+                    found[row["name"]] = _open(
+                        key.raw, row["nonce"], row["sealed"], _own_associated(row["name"])
+                    ).decode()
+        # Stamped after: opening the file may have added the `own` table to it.
+        _own_kept = (_stamp() or stamp, found)
+        return dict(found)
+
+
+def keep_own(values: dict[str, str | None]) -> list[str]:
+    """Set — or, with `None` or "", remove — some of Ponos's own secrets, in one transaction.
+
+    Returns the names whose value actually changed.
+    """
+    global _own_kept
+    wanted = {name: (value or "").strip() for name, value in values.items()}
+    if not any(wanted.values()) and not exists():
+        return []
+    changed: list[str] = []
+    with _lock, _connected() as connection:
+        rows = {
+            row["name"]: row
+            for row in connection.execute("SELECT * FROM own").fetchall()
+            if row["name"] in wanted
+        }
+        key = _key(connection, create=True) if any(wanted.values()) or rows else None
+        for name, value in wanted.items():
+            row = rows.get(name)
+            if not value:
+                if row is not None:
+                    connection.execute("DELETE FROM own WHERE name = ?", (name,))
+                    changed.append(name)
+                continue
+            assert key is not None
+            if row is not None:
+                try:
+                    was = _open(key.raw, row["nonce"], row["sealed"], _own_associated(name))
+                except VaultStoreError:
+                    was = b""
+                if was.decode() == value:
+                    continue
+            nonce, sealed = _seal(key.raw, value.encode(), _own_associated(name))
+            connection.execute(
+                "INSERT OR REPLACE INTO own (name, updated, nonce, sealed) VALUES (?, ?, ?, ?)",
+                (name, _now(), nonce, sealed),
+            )
+            changed.append(name)
+        _own_kept = None
+    for value in wanted.values():
+        vault.remember(value)
+    return changed
+
+
+def own_names() -> list[str]:
+    """The names of Ponos's own secrets the vault holds — read without the key."""
+    if not exists():
+        return []
+    with _lock, _connected() as connection:
+        return [row["name"] for row in connection.execute("SELECT name FROM own ORDER BY name")]
+
+
 def rotate() -> tuple[int, Key]:
     """Every entry sealed again under a new key; the old one opens nothing any more.
 
@@ -953,6 +1065,13 @@ def rotate() -> tuple[int, Key]:
                 "UPDATE entries SET nonce = ?, sealed = ? WHERE id = ?", (nonce, sealed, row["id"])
             )
             _write_down(connection, row, "rotated")
+        for row in connection.execute("SELECT * FROM own").fetchall():
+            associated = _own_associated(row["name"])
+            plain = _open(old.raw, row["nonce"], row["sealed"], associated)
+            nonce, sealed = _seal(fresh, plain, associated)
+            connection.execute(
+                "UPDATE own SET nonce = ?, sealed = ? WHERE name = ?", (nonce, sealed, row["name"])
+            )
         nonce, sealed = _seal(fresh, _CHECK, _CHECKED)
         connection.execute(
             "UPDATE meta SET nonce = ?, sealed = ? WHERE key = 'check'", (nonce, sealed)

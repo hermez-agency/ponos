@@ -6,11 +6,12 @@
 # what each became, are listed in CHANGELOG.md. A file that still holds one is
 # read all the same: `ponos doctor` names it. After any change:  ponos doctor
 #
-# Secrets — tokens, keys, passwords — are never here. They live in the
-# environment or in ~/.config/ponos/secrets.env (NAME=value, 0600; PONOS_SECRETS
-# moves it): PONOS_WEB_TOKEN, PONOS_WEB_PASSWORD,
+# Secrets — tokens, keys, passwords — are never here, and never read from here:
+# one left here is moved into Ponos's vault at the next launch. They live in that
+# vault (~/.local/state/ponos/vault.db, sealed; the console's Settings write
+# there) or in the environment: PONOS_WEB_TOKEN, PONOS_WEB_PASSWORD,
 # PONOS_TELEGRAM_TOKEN, PONOS_SLACK_TOKEN, ANTHROPIC_API_KEY, OPENROUTER_API_KEY,
-# PONOS_GITHUB_TOKEN. Where both hold one, secrets.env wins (the console's
+# PONOS_GITHUB_TOKEN. Where both hold one, the vault wins (the console's
 # password: the environment).
 
 [runner]

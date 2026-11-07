@@ -18,11 +18,10 @@ this one is imported by `load`, when the file is read, and not before — a
 Python without pydantic can still start, say what it is missing, and make the
 environment that has it (`__main__.command_run`).
 
-The secrets are no key of these models. They are read from `secrets.env` and
-the environment by `config.secret`, with two precedences — the file first,
-the environment first for the console's password — and a writer that keeps
-the file's comments; pydantic-settings would have taken one more dependency
-to say less, and was left out.
+The secrets are no key of these models. They are read from Ponos's vault and
+the environment by `config.secret`, with two precedences — the vault first,
+the environment first for the console's password; pydantic-settings would
+have taken one more dependency to say less, and was left out.
 """
 
 from __future__ import annotations

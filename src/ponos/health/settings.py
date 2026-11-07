@@ -72,60 +72,59 @@ def _voice(settings: config_module.Speech) -> list[Check]:
 
 
 def _secrets(config: config_module.Config) -> list[Check]:
-    """Where the secrets are: never in config.toml, and nobody else's to read."""
+    """Where the secrets are: in Ponos's vault or the environment, never in clear in a file."""
     found: list[Check] = []
-    target = config_module.secrets_path(config.path)
+    legacy = config_module.legacy_secrets_path(config.path)
     title = "Secrets"
+    steps = ["Start Ponos once (`ponos run`, or the console) to move them."]
     if config.exposed:
         found.append(
             _check(
                 "settings.secrets",
                 ERROR,
                 title,
-                "{{file}} still holds {{keys}}: ignored, and moved to {{target}} at the next launch.",
-                params={
-                    "file": str(config.path),
-                    "keys": ", ".join(config.exposed),
-                    "target": str(target),
-                },
-                steps=["Start Ponos once (`ponos run`, or the console) to move them."],
+                "{{file}} still holds {{keys}}: ignored, and moved into Ponos's vault at the next launch.",
+                params={"file": str(config.path), "keys": ", ".join(config.exposed)},
+                steps=steps,
             )
         )
-    try:
-        mode = target.stat().st_mode & 0o777
-    except OSError:
-        found.append(
-            _check(
-                "settings.secrets",
-                OK,
-                title,
-                "No secret in {{file}}, none in {{target}} either: the environment holds them.",
-                params={"file": config.path.name, "target": target.name},
-            )
-        )
-        return found
-    if mode & 0o077:
+    if legacy.exists():
         found.append(
             _check(
                 "settings.secrets",
                 ERROR,
                 title,
-                "{{target}} can be read by others ({{mode}}).",
-                params={"target": str(target), "mode": oct(mode)[2:]},
-                steps=["Run `chmod 600 {{target}}`."],
+                "{{target}} still holds secrets in clear: moved into Ponos's vault, and deleted, "
+                "at the next launch.",
+                params={"target": str(legacy)},
+                steps=steps,
             )
         )
-    elif not config.exposed:
-        found.append(
+    if found:
+        return found
+    try:
+        names = vault_store.own_names()
+    except (sqlite3.Error, OSError):
+        names = []
+    if names:
+        return [
             _check(
                 "settings.secrets",
                 OK,
                 title,
-                "Secrets in {{target}} (600), none in {{file}}.",
-                params={"target": str(target), "file": config.path.name},
+                "No secret in {{file}}: Ponos's vault holds {{names}}.",
+                params={"file": config.path.name, "names": ", ".join(names)},
             )
+        ]
+    return [
+        _check(
+            "settings.secrets",
+            OK,
+            title,
+            "No secret in {{file}}, none in Ponos's vault either: the environment holds them.",
+            params={"file": config.path.name},
         )
-    return found
+    ]
 
 
 def _keys(config: config_module.Config) -> list[Check]:
@@ -392,7 +391,7 @@ def _vault(config: config_module.Config) -> list[Check]:
                     params={"provider": name},
                 )
             )
-    stored = config_module.read_secrets(config_module.secrets_path(config.path))
+    stored = config_module.kept_secrets()
     for project, granted in sorted(grants.items()):
         read = vault.read(granted, settings.provider, stored)
         if read.values:
@@ -428,6 +427,8 @@ def _vault_store() -> list[Check]:
     title = "Vault"
     try:
         entries = vault_store.listing()
+        # Ponos's own secrets need its key as much as an entry does.
+        own = vault_store.own_names()
     except (vault.VaultError, sqlite3.Error, OSError) as error:
         return [
             _check(
@@ -438,7 +439,7 @@ def _vault_store() -> list[Check]:
                 evidence=str(error),
             )
         ]
-    if not entries:
+    if not entries and not own:
         return []
     found: list[Check] = []
     problem = vault_store.problem()

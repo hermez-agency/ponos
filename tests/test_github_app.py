@@ -11,9 +11,8 @@ from typing import Any
 
 from support import _TEST_PEM, _github_answering, _test_app, case
 
-from ponos import config as C
 from ponos import git as git_module
-from ponos import github_app
+from ponos import github_app, vault_store
 from ponos.web import github as web_github
 
 # -- the GitHub App ----------------------------------------------------------
@@ -81,8 +80,8 @@ def the_manifest_code_is_exchanged_once_and_the_app_kept_with_the_secrets() -> N
             (42, "ponos-laptop", "Hermez", "shh")
         ]
         assert kept[0].pem == _TEST_PEM, "the key comes back whole, line breaks and all"
-        file = C.secrets_path()
-        assert file.stat().st_mode & 0o777 == 0o600
+        sealed = vault_store.path().read_bytes()
+        assert b"PRIVATE KEY" not in sealed and b"shh" not in sealed, "sealed in the vault"
         # The console is shown names and places, never what signs or opens.
         shown = json.dumps(web_github.status())
         assert "PRIVATE KEY" not in shown and "shh" not in shown and "hook" not in shown
