@@ -288,9 +288,11 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       </Card>
       <PlanCard key={JSON.stringify(settings.plan)} plan={settings.plan} saving={saving} onSave={savePlan} />
       <NotesCard project={project} />
-      <PathCard key={settings.path.value} path={settings.path} saving={saving} onSave={savePath} />
+      {/* Prefixed: an empty path would otherwise share the key "" with an
+       * empty setup command, and React keep a stale copy of either card. */}
+      <PathCard key={`path:${settings.path.value}`} path={settings.path} saving={saving} onSave={savePath} />
       <VaultCard
-        key={JSON.stringify(settings.vault.entries)}
+        key={`vault:${JSON.stringify(settings.vault.entries)}`}
         vault={settings.vault}
         saving={saving}
         onSave={saveVault}
