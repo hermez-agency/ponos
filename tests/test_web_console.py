@@ -1084,6 +1084,9 @@ def a_turn_past_the_limit_waits_in_its_conversation_for_a_place() -> None:
             state = three.send("three")
             assert not three.busy and state["limited"] is True and len(state["queue"]) == 1
             assert state["running"] == 2 and state["limit"] == 2
+            # The two turns run on their own threads: wait until both have
+            # reached the session (and left their gate) before reading them.
+            _until(lambda: {"one", "two"} <= gates.keys(), "both turns should be running")
             assert len(one.prompts) == 2, "the third message did not start"
             gates["one"].set()
             _until(lambda: three.busy, "the place that was freed was not given")
