@@ -194,8 +194,12 @@ function MemoryTab() {
     }
   }, [scope, kind, status, search])
 
-  // The search is asked of the server a moment after the last key.
+  // The search is asked of the server a moment after the last key. A read
+  // already on its way was asked with other filters: it is not drawn any more,
+  // or the rows would be those of the filters before while the new ones wait —
+  // and a click would land on a row about to go.
   React.useEffect(() => {
+    asked.current += 1
     const timer = window.setTimeout(() => void read(), search ? 250 : 0)
     return () => window.clearTimeout(timer)
   }, [read, search])
