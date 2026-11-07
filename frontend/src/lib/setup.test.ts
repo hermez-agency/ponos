@@ -47,7 +47,7 @@ const summary: Summary = {
   model: { state: "ok", model: "", auto: true, said: "" },
   board: { state: "ok", tickets: 12, said: "" },
   github: { state: "missing", account: "", via: "gh", said: "not signed in", command: "gh auth login", create_url: "" },
-  projects: { state: "ok", root: "/workspace", repositories: 3, configured: 0 },
+  projects: { state: "ok", root: "/workspace", repositories: 3 },
   channels: { state: "ok", active: ["telegram"] },
   environment: { state: "ok", container: true, version: "0.1.0" },
   machine: {

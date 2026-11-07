@@ -6,9 +6,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from support import _config, case
+from support import case
 
-from ponos import config as C
 from ponos import project_settings, projects
 from ponos.health import settings as health_settings
 
@@ -36,25 +35,20 @@ def a_project_holds_its_path_and_its_vault_keys_and_lets_them_go(state_home: Pat
 
 
 @case
-def the_path_of_the_project_comes_before_the_one_of_the_file(state_home: Path) -> None:
+def the_path_of_the_project_is_where_its_repository_is_looked_for(state_home: Path) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        filed = _repository(root, "filed")
         own = _repository(root, "own")
-        resolver = projects.Resolver(root / "empty", {"Brevo": str(filed)})
-        assert resolver.locate("Brevo", page_id=PROJECT) == filed, (
-            "the file, while the project is silent"
-        )
+        resolver = projects.Resolver(root / "empty")
+        assert resolver.locate("Brevo", page_id=PROJECT) is None, "nothing, while it is silent"
         project_settings.set_path(PROJECT, "Brevo", str(own))
         assert resolver.locate("Brevo", page_id=PROJECT) == own, "then the project's own word"
-        assert resolver.locate("Brevo") == filed, "and a caller without a page keeps the file's"
+        assert resolver.locate("Brevo") is None, "which a caller without a page cannot read"
 
 
 @case
-def the_doctor_reads_the_keys_a_project_holds_beside_the_ones_of_the_file(state_home: Path) -> None:
-    config = _config("")
-    config.vault = C.Vault(projects={"Brevo": {"A_TOKEN": "a"}})
-    project_settings.set_vault(PROJECT, "brevo", {"B_TOKEN": "b", "ANTHROPIC_API_KEY": "x"})
-    grants, problems = health_settings._grants(config)
-    assert grants == {"Brevo": {"A_TOKEN": "a", "B_TOKEN": "b"}}
+def the_doctor_reads_the_keys_a_project_holds(state_home: Path) -> None:
+    project_settings.set_vault(PROJECT, "Brevo", {"B_TOKEN": "b", "ANTHROPIC_API_KEY": "x"})
+    grants, problems = health_settings._grants()
+    assert grants == {"Brevo": {"B_TOKEN": "b"}}
     assert len(problems) == 1 and "ANTHROPIC_API_KEY" in problems[0], "the runner's own is refused"

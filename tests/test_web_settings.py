@@ -29,15 +29,15 @@ def a_value_is_written_as_toml_spells_it() -> None:
     assert C.write_value(path, "runner", "unblock", True)
     assert C.write_value(path, "runner", "interval_seconds", 900)
     assert C.write_value(path, "notify", "events", ["blocked"])
-    # A project called "Site vitrine" is not a bare key, and has to survive
+    # An owner called "north wind" is not a bare key, and has to survive
     # being written and read back under the same name.
-    assert C.write_value(path, "projects", "Site vitrine", "~/work/site")
+    assert C.write_value(path, "github", "north wind", "dev-northwind")
     config = C.load(path)
     assert config.runner.unblock is True
     assert config.runner.interval_seconds == 900
     assert config.notify.events == ("blocked",)
-    assert "Site vitrine" in config.projects
-    assert C.write_value(path, "projects", "Site vitrine", "~/work/site") is False
+    assert "north wind" in config.github
+    assert C.write_value(path, "github", "north wind", "dev-northwind") is False
 
 
 @case
@@ -265,7 +265,6 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
     expected |= {"github_access.token"}
     # Named in the file and not drawn: the two lists of people a channel listens to,
     # which are edited where they are read (see `notify.telegram`).
-    expected -= set(web_settings.LEGACY)
     missing = expected - set(web_settings.FIELDS)
     assert not missing, f"not reachable from the console: {sorted(missing)}"
     unknown = set(web_settings.FIELDS) - expected
@@ -315,29 +314,15 @@ def a_choice_is_shown_in_words_and_saved_as_the_file_spells_it() -> None:
 
 
 @case
-def the_tables_that_are_mappings_gain_and_lose_rows() -> None:
-    """The two sections that are a mapping rather than a list of known keys.
+def the_table_that_is_a_mapping_gains_and_loses_rows() -> None:
+    """The section that is a mapping rather than a list of known keys.
 
-    `[projects]` and `[github]` are saved by what the browser sends in full, so
-    a row you removed there is a line that goes away here.
+    `[github]` is saved by what the browser sends in full, so a row you removed
+    there is a line that goes away here.
     """
-    path, config = _saved(
-        '\n[projects]\n"Site vitrine" = "~/work/site"\nold = "~/work/old"\n'
-        '\n[github]\nnorthwind = "dev-northwind"\nold = "nobody"\n'
-    )
-    web_settings.save(
-        config,
-        {
-            "projects": [
-                {"name": "Site vitrine", "value": "~/work/site-v2"},
-                {"name": "Trader IA", "value": "~/work/trader"},
-            ],
-            "github": [{"name": "Northwind", "value": "dev-northwind"}],
-        },
-    )
+    path, config = _saved('\n[github]\nnorthwind = "dev-northwind"\nold = "nobody"\n')
+    web_settings.save(config, {"github": [{"name": "Northwind", "value": "dev-northwind"}]})
     saved = C.load(path)
-    assert set(saved.projects) == {"Site vitrine", "Trader IA"}, "the row you removed is gone"
-    assert saved.projects["Site vitrine"].endswith("site-v2")
     assert saved.github == {"northwind": "dev-northwind"}, "and an owner is read lowercased"
 
     drawn = web_settings.describe(C.load(path))

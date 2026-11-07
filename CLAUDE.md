@@ -138,7 +138,7 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   à chaque changement de statut), `reports.py` (ce qui s'écrit sur un ticket et ce qui
   atteint ton téléphone), `ticket.py` (`Ticket` et `Job`, sans dépendance).
 - `src/ponos/` — autour du run : `config.py` (et `schema.py`, ce que chaque table de
-  `config.toml` peut dire, en modèles pydantic ; `project_settings.py`, ce qu'un
+  `config.toml` peut dire, en modèles pydantic — une clé ou une table inconnue y est refusée, avec sa ligne ; `conversion.py`, ce que `ponos config` réécrit une fois d'un fichier d'avant ; `project_settings.py`, ce qu'un
   projet décide pour lui-même par-dessus, gardé dans `ponos.db`), `store.py` (le vocabulaire
   du board, sa forme et son ouverture), `ledger.py` (les tickets de `ponos.db` vus comme
   des pages) et `pages.py` (les pages des projets, agents, objectifs, récurrences et

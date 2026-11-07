@@ -259,14 +259,21 @@ def a_killed_session_asks_to_be_run_again_and_a_blocked_one_asks_its_own_questio
 
 
 @case
-def a_project_is_handed_the_secrets_it_is_granted_and_told_which_could_not_be_read() -> None:
+def a_project_is_handed_the_secrets_it_is_granted_and_told_which_could_not_be_read(
+    state_home: Path,
+) -> None:
+    from ponos import project_settings
+
     runner, _, said = _runner()
     job = _job(code=True)
+    job.project.page_id = "proj-1"
     assert runner._secrets(job) == {}, "a project the vault does not name gets nothing"
 
-    runner.config.vault.projects = {
-        "northwind": {"NPM_TOKEN": "PONOS_TEST_NPM_SECRET", "MISSING_TOKEN": "PONOS_TEST_ABSENT"}
-    }
+    project_settings.set_vault(
+        "proj-1",
+        "Northwind",
+        {"NPM_TOKEN": "PONOS_TEST_NPM_SECRET", "MISSING_TOKEN": "PONOS_TEST_ABSENT"},
+    )
     os.environ["PONOS_TEST_NPM_SECRET"] = "npm_execution_case_0123456789"
     os.environ.pop("PONOS_TEST_ABSENT", None)
     try:
@@ -276,7 +283,7 @@ def a_project_is_handed_the_secrets_it_is_granted_and_told_which_could_not_be_re
         found = runner._secrets(job)
     finally:
         os.environ.pop("PONOS_TEST_NPM_SECRET", None)
-    assert found == {"NPM_TOKEN": "npm_execution_case_0123456789"}, "matched however it is spelt"
+    assert found == {"NPM_TOKEN": "npm_execution_case_0123456789"}
     assert "    · secrets: NPM_TOKEN" in said
     assert any(line.startswith("    ! secret not read: MISSING_TOKEN") for line in said), said
     assert not any("npm_execution_case" in line for line in said), "the value is never said"
@@ -872,7 +879,7 @@ def a_setup_secret_is_given_to_the_command_and_masked_in_what_the_ticket_shows(
     runner.config.runner.keep_worktree_on_failure = True
     job = _job(code=True)
     job.project.page_id = "proj-1"
-    runner.config.vault.projects = {"northwind": {"NPM_TOKEN": "PONOS_TEST_SETUP_SECRET"}}
+    project_settings.set_vault("proj-1", "Northwind", {"NPM_TOKEN": "PONOS_TEST_SETUP_SECRET"})
     os.environ["PONOS_TEST_SETUP_SECRET"] = "npm_setup_case_0123456789"
     project_settings.set_setup("proj-1", "Northwind", 'echo "token=$NPM_TOKEN"; exit 1')
     try:

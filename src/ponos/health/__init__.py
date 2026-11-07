@@ -135,7 +135,6 @@ from .projects import _workspace_root as _workspace_root
 from .projects import base_without_ci as base_without_ci
 from .settings import _console as _console
 from .settings import _ideas as _ideas
-from .settings import _keys as _keys
 from .settings import _languages as _languages
 from .settings import _secrets as _secrets
 from .settings import _settings as _settings

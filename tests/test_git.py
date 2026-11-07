@@ -1893,10 +1893,6 @@ def conflicts_are_resolved_everywhere_but_where_the_file_says_not() -> None:
     config = _config(resolve_conflicts_except="Northwind, Site vitrine")
     assert not config.runner.resolves_conflicts("site vitrine")
     assert config.runner.resolves_conflicts("Trader IA")
-    # No key of the file any more: a line there changes nothing.
-    assert _config('[runner]\nresolve_conflicts_except = "Site"\n').runner.resolves_conflicts(
-        "Site"
-    )
     off = _config(resolve_conflicts=False).runner
     assert not off.resolves_conflicts("Trader IA")
 

@@ -18,34 +18,18 @@ from ponos import ledger, pages, prompt, session, tickets, vault
 
 
 @case
-def the_vault_is_read_project_by_project_and_checked() -> None:
-    """`[vault]` grants each project its own keys, and says what it cannot hand over."""
-    settings = _config(
-        '[vault]\nprovider = "pass"\n'
-        '[vault.projects]\nLeadz = ["LEADZ_DOKPLOY_TOKEN"]\n'
-        '[vault.projects.Ponos]\nNPM_TOKEN = "hermez-npm"\nGH_TOKEN = "keyring:service=gh"\n'
-        'ANTHROPIC_API_KEY = "stolen"\nPONOS_WEB_TOKEN = "stolen"\n"not a name" = "x"\n'
-    ).vault
-    assert settings.provider == "pass"
-    assert settings.granted("leadz") == {"LEADZ_DOKPLOY_TOKEN": "LEADZ_DOKPLOY_TOKEN"}
-    assert settings.granted(" PONOS ") == {
-        "NPM_TOKEN": "hermez-npm",
-        "GH_TOKEN": "keyring:service=gh",
-    }
-    assert settings.granted("Opoil") == {}, "a project the table does not name is given nothing"
-    joined = "\n".join(settings.problems)
-    assert "ANTHROPIC_API_KEY is the runner's own" in joined, joined
-    assert "PONOS_WEB_TOKEN is the runner's own" in joined, joined
-    assert "'not a name' is not an environment variable name" in joined, joined
+def the_vault_says_where_keys_are_read_and_checks_it() -> None:
+    """`[vault]` names the provider; which keys a project is given is the project's own."""
+    assert _config('[vault]\nprovider = "pass"\n').vault.provider == "pass"
     assert C.Config.__dataclass_fields__["vault"]  # and an empty file has a vault too
     empty = _config("").vault
-    assert empty.provider == "env" and empty.projects == {} and empty.problems == ()
+    assert empty.provider == "env" and empty.problems == ()
     typo = _config('[vault]\nprovider = "1pass"\n').vault
     assert "vault.provider = '1pass'" in typo.problems[0]
     assert vault.where("pass:hermez/npm", "env") == ("pass", "hermez/npm")
     assert vault.where("service=gh account=a:b", "keyring") == ("keyring", "service=gh account=a:b")
     example = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
-    assert "[vault]" in example and "[vault.projects]" in example
+    assert "[vault]" in example and "[vault.projects]" not in example
 
 
 @case
@@ -193,23 +177,19 @@ def a_session_given_a_secret_never_writes_it_down() -> None:
 
 
 @case
-def a_ticket_session_is_given_its_project_secrets_by_name_only() -> None:
+def a_ticket_session_is_given_its_project_secrets_by_name_only(state_home: Path) -> None:
+    from ponos import project_settings
+
     vault.forget()
     runner = _bare_runner(None)
     runner.dry_run = False
-    runner.config = _config('[vault]\n[vault.projects]\nLeadz = ["PONOS_TEST_LEADZ_KEY"]\n')
-    os.environ["PONOS_TEST_LEADZ_KEY"] = "leadz_secret_value"
-    try:
-        leadz = type("J", (), {"project": type("P", (), {"name": "Leadz", "page_id": ""})()})()
-        other = type("J", (), {"project": type("P", (), {"name": "Ponos", "page_id": ""})()})()
-        assert runner._secrets(other) == {}, "nobody else's keys"
-    finally:
-        os.environ.pop("PONOS_TEST_LEADZ_KEY")
-    # A PONOS_ name is refused for a project: the runner's own namespace.
-    assert "PONOS_TEST_LEADZ_KEY is the runner's own" in runner.config.vault.problems[0]
-    runner.config = _config('[vault]\n[vault.projects]\nLeadz = ["LEADZ_TEST_KEY"]\n')
+    runner.config = _config("[vault]\n")
+    leadz = type("J", (), {"project": type("P", (), {"name": "Leadz", "page_id": "leadz-1"})()})()
+    other = type("J", (), {"project": type("P", (), {"name": "Ponos", "page_id": "ponos-1"})()})()
+    project_settings.set_vault("leadz-1", "Leadz", {"LEADZ_TEST_KEY": "LEADZ_TEST_KEY"})
     os.environ["LEADZ_TEST_KEY"] = "leadz_secret_value"
     try:
+        assert runner._secrets(other) == {}, "nobody else's keys"
         assert runner._secrets(leadz) == {"LEADZ_TEST_KEY": "leadz_secret_value"}
         assert vault.mask("leadz_secret_value") == "***"
     finally:

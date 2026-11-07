@@ -288,7 +288,6 @@ def _projects(configuration: config_module.Config) -> dict[str, Any]:
         "state": "ok" if root.is_dir() else "missing",
         "root": str(root),
         "repositories": len(found),
-        "configured": len(configuration.projects),
     }
 
 

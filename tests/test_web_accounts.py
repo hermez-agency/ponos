@@ -159,7 +159,6 @@ def _serving(api: web_api.Api) -> Iterator[web_app.Console]:
     api._config = C.Config(
         board=api.config.board,
         runner=api.config.runner,
-        projects={},
         path=Path("/nowhere/config.toml"),
         web=C.Web(email="salva@example.com", password="the owner's own"),
     )

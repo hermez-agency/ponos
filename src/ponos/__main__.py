@@ -1017,10 +1017,39 @@ def _doctor_line(check: health.Check) -> None:
 
 
 def command_config(args: argparse.Namespace) -> int:
+    """Convert a file an older version wrote, then open it — see conversion.py.
+
+    A file that was converted is not opened at once: what moved is said first,
+    and an editor would cover it. The next `ponos config` opens it.
+    """
+    from . import conversion
+
     path = config_module.config_path()
     if not path.exists():
         print(f"{path} does not exist — run install.sh again", file=sys.stderr)
         return 1
+    try:
+        done = conversion.convert(path)
+    except config_module.ConfigError as error:
+        print(f"{RED}error:{RESET} {error}", file=sys.stderr)
+        return 2
+    for line in done.moved:
+        print(f"  moved    {line}")
+    for line in done.removed:
+        print(f"  removed  {line}")
+    for line in done.notes:
+        print(f"  {YELLOW}note{RESET}     {line}")
+    if done.changed:
+        print(f"{path} is in today's format — the previous one is kept as {done.backup or path}")
+    try:
+        config_module.load(path)
+    except config_module.ConfigError as error:
+        print(f"{RED}error:{RESET} {error}", file=sys.stderr)
+        return 2
+    if done.changed or args.convert:
+        if not done.changed:
+            print(f"{path} is already in today's format: nothing to convert")
+        return 0
     editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "nano"
     return subprocess.call([editor, str(path)])
 
@@ -1980,7 +2009,12 @@ def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.Argume
 def _add_setup_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Setting the installation up, and keeping it current."""
 
-    configure = subparsers.add_parser("config", help="open the configuration")
+    configure = subparsers.add_parser(
+        "config", help="convert a configuration from an older version, or open it"
+    )
+    configure.add_argument(
+        "--convert", action="store_true", help="convert the file if it needs it, never open it"
+    )
     configure.set_defaults(function=command_config)
 
     updating = subparsers.add_parser("update", help="move the installation to the newest version")

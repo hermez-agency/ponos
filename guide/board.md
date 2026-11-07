@@ -16,9 +16,8 @@ nothing about the board, and the console's first connection goes straight to who
 sessions.
 
 The console has the screens that make the board self-sufficient:
-**Projects** (every project this installation knows of, the board's and the ones only
-`[projects]` names — each of them a form a click opens in a drawer over the list, and a page of
-its own), headed by the **global context** (the standing text every ticket is told first, for
+**Projects** (every project of the board — each of them a form a click opens in a drawer
+over the list, and a page of its own), headed by the **global context** (the standing text every ticket is told first, for
 all the projects: folded to a few lines, opened by *See all*, editable in place rather than
 read-only; the old `Context` address leads there) and an editable **Schedules** — a row is
 turned off from the list itself, its name opens the six columns it is written in and the
@@ -600,8 +599,8 @@ One row per project, and **the project decides what kind of work its tickets are
 A project that names a repository is a **code project**. Its tickets get a git worktree, a
 branch, commits and a pull request. Three ways to name it, most explicit first:
 
-1. the **Repository path** set in the project's Settings tab (kept in `ponos.db`), or a
-   `[projects]` entry an older configuration still has — `"Trader Ia" = "~/workspace/labo/trader-ia"`;
+1. the **Repository path** set in the project's Settings tab (kept in `ponos.db`) —
+   `~/workspace/labo/trader-ia`;
 2. a **`Path` property on the project page**, which keeps the mapping on the board rather
    than in a file on one machine;
 3. a **`Repository` property** — a GitHub URL or `owner/name` — matched against the

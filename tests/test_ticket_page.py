@@ -138,7 +138,6 @@ def _runner(board: Any) -> Runner:
     runner.dry_run = False
     runner.config = C.Config(
         runner=C.Runner(language="fr"),
-        projects={},
         path=Path("/nowhere"),
     )
     runner.config.web.url = "https://ponos.example"

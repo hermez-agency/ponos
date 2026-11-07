@@ -654,9 +654,7 @@ class ProjectPath(Shape):
     """Where a project's repository is, by its own word — see project_settings.py."""
 
     value: str
-    """The path the project holds itself; empty, the file's or the page's."""
-    file: str
-    """What a `[projects]` line of an older file still says for it, "" when none."""
+    """The path the project holds itself; empty, the page's."""
 
 
 class ProjectVault(Shape):
@@ -664,8 +662,6 @@ class ProjectVault(Shape):
 
     entries: dict[str, str]
     """The project's own: `VARIABLE` → the item it is read from."""
-    file: dict[str, str]
-    """What `[vault.projects]` of an older file still grants it, read-only."""
     provider: str
     """Where an item is read from when it names no other provider."""
 
@@ -1630,7 +1626,6 @@ class Settings(Shape):
     groups: list[SettingGroup]
     folds: list[SettingFold]
     sections: list[SettingSection]
-    projects: list[Pair]
     github: list[Pair]
     docker: Docker = omitted()
     """Whether Docker answers here, which the local CI needs."""
@@ -2625,7 +2620,6 @@ class SetupProjects(Shape):
     state: SetupHealth
     root: str
     repositories: int
-    configured: int
 
 
 class SetupChannels(Shape):

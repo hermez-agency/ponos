@@ -95,7 +95,7 @@ def _workspace(
         git_module.current_name = current_name
         git_module.clone = clone
         try:
-            yield projects.Resolver(root, {}), asked
+            yield projects.Resolver(root), asked
         finally:
             git_module.remote_url, git_module.current_name, git_module.clone = original
 

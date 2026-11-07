@@ -38,7 +38,7 @@ def a_file_with_no_provider_runs_its_sessions_where_it_always_did() -> None:
         _, plain = _saved()
         assert provider.chosen(plain) == "cli" and provider.environment(plain) == {}
         # A key alone changes nothing; the provider is what routes the sessions.
-        _, only_key = _saved('\n[openrouter]\nkey = "sk-or-1234567890"\nroute_sessions = true\n')
+        _, only_key = _saved('\n[openrouter]\nkey = "sk-or-1234567890"\n')
         assert provider.chosen(only_key) == "cli"
         _, routed = _saved(
             '\n[claude]\nprovider = "openrouter"\n[openrouter]\nkey = "sk-or-1234567890"\n'

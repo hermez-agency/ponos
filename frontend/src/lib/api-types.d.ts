@@ -4311,10 +4311,8 @@ export interface components {
         };
         /** @description Where a project's repository is, by its own word — see project_settings.py. */
         ProjectPath: {
-            /** @description The path the project holds itself; empty, the file's or the page's. */
+            /** @description The path the project holds itself; empty, the page's. */
             value: string;
-            /** @description What a `[projects]` line of an older file still says for it, "" when none. */
-            file: string;
         };
         ProjectPlaces: {
             name: string;
@@ -4367,10 +4365,6 @@ export interface components {
         ProjectVault: {
             /** @description The project's own: `VARIABLE` → the item it is read from. */
             entries: {
-                [key: string]: string;
-            };
-            /** @description What `[vault.projects]` of an older file still grants it, read-only. */
-            file: {
                 [key: string]: string;
             };
             /** @description Where an item is read from when it names no other provider. */
@@ -4814,7 +4808,6 @@ export interface components {
             groups: components["schemas"]["SettingGroup"][];
             folds: components["schemas"]["SettingFold"][];
             sections: components["schemas"]["SettingSection"][];
-            projects: components["schemas"]["Pair"][];
             github: components["schemas"]["Pair"][];
             /** @description Whether Docker answers here, which the local CI needs. */
             docker?: components["schemas"]["Docker"];
@@ -4869,7 +4862,6 @@ export interface components {
             state: "ok" | "missing" | "error";
             root: string;
             repositories: number;
-            configured: number;
         };
         SetupProvider: {
             /** @enum {string} */

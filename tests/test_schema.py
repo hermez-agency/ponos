@@ -95,51 +95,63 @@ def _written(table: str, key: str) -> str:
     return f"[{table}]\n{key} = 999\n"
 
 
-@case
-def a_retired_key_still_in_a_file_leaves_the_constant_it_became() -> None:
-    """Each key the file lost is read as nothing: the dataclass default, the old default.
+def _refused(body: str) -> list[str]:
+    """What `load` says of that file, one line each — it must not load."""
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text(body, encoding="utf-8")
+    try:
+        C.load(path, secrets={})
+    except C.ConfigError as error:
+        return [line.strip().removeprefix(f"{path}, ") for line in str(error).splitlines()]
+    raise AssertionError(f"loaded: {body!r}")
 
-    The whole of `schema.REMOVED`, one line each — a file an update leaves
-    behind must neither stop the runner nor move a setting that is a constant now.
+
+@case
+def a_retired_key_still_in_a_file_is_refused_and_named() -> None:
+    """Each key the file lost stops the load, by its line — `ponos config` takes it out.
+
+    The whole of `conversion.RETIRED`, one line each: a file an update leaves
+    behind is converted once, it is not read with its old lines on the side.
     """
-    base = _config("")
-    legacy = {f"force_validated_{kind}" for kind in C.TYPES}
-    for table, keys in schema.REMOVED.items():
+    from ponos import conversion
+
+    for table, keys in conversion.RETIRED.items():
         for key in keys:
-            if (table, key) == ("runner", "notify") or key in legacy:
-                continue  # said by their own cases below
-            read = _config(_written(table, key))
-            for section in ("runner", "web", "notify", "openrouter", "speech", "review", "budget"):
-                assert getattr(read, section) == getattr(base, section), f"{table}.{key}"
-            assert (read.retired[0][1] if read.retired else "") == f"{table}.{key}", (table, key)
+            [said] = _refused(_written(table, key))
+            assert said.startswith(f"line 2: {table}.{key} is not a key of config.toml"), said
+            assert said.endswith("ponos config converts a file an older version wrote"), said
+    for table in conversion.RETIRED_TABLES:
+        if table == "notion":
+            continue  # said in its own words: see the next case
+        [said] = _refused(f"[{table}]\nanything = 1\n")
+        assert said.startswith(f"line 1: [{table}] is not a table of config.toml"), said
     assert C.Runner().credit_reserve_percent == 5 and C.Runner().push is True
 
 
 @case
-def the_four_force_validated_booleans_become_the_one_list() -> None:
-    """`force_validated` names the types; a file that has not been converted is read as it said."""
+def a_notion_table_is_refused_in_its_own_words() -> None:
+    [said] = _refused('[runner]\n\n[notion]\nworkspace = "x"\n')
+    assert said.startswith("line 3: [notion] — Ponos no longer works with Notion"), said
+    assert "ponos config does" in said, said
+
+
+@case
+def the_four_force_validated_booleans_are_one_list() -> None:
+    """`force_validated` names the types; the old booleans are a file to convert."""
     assert _config("").runner.forces_validation("code") is False
     assert _config(
         '[runner]\nforce_validated = ["code", "Publication", "nonsense"]\n'
     ).runner.forces_validation("publication")
     listed = _config('[runner]\nforce_validated = ["code"]\n').runner
     assert listed.forces_validation("code") and not listed.forces_validation("writing")
-    old = _config("[runner]\nforce_validated_code = true\nforce_validated_writing = false\n")
-    assert old.runner.forces_validation("code") and not old.runner.forces_validation("writing")
-    assert [name for _, name in old.retired] == [
-        "runner.force_validated_code",
-        "runner.force_validated_writing",
-    ]
-    # The list wins once the file has it, even empty.
-    both = _config("[runner]\nforce_validated = []\nforce_validated_code = true\n")
-    assert not both.runner.forces_validation("code")
+    said = _refused("[runner]\nforce_validated_code = true\n")
+    assert said[0].startswith("line 2: runner.force_validated_code is not a key"), said
 
 
 @case
 def the_example_reads_against_the_model_and_gives_the_defaults() -> None:
     text = EXAMPLE.read_text(encoding="utf-8")
     file = schema.read(tomllib.loads(text), text, EXAMPLE)
-    assert schema.unknown(tomllib.loads(text), text) == [], "the example names no key unread"
     assert file.runner.workspace_root == "~/workspace"
     assert file.runner.model_copy(update={"workspace_root": ""}) == schema.RunnerTable(
         workspace_root=""
@@ -201,14 +213,16 @@ def a_value_no_rule_reads_names_its_key_and_its_line() -> None:
         raise AssertionError("loaded")
     assert said[0].startswith(f"{path}, line 4: runner.unblock = 'perhaps' — "), said
     assert said[1].startswith(f"  {path}, line 7: web.port = 'eighty' — "), said
-    assert said[2].startswith(f"  {path}, line 11: notify.events = 'blocked' — "), said
-    assert len(said) == 3, "a key nobody reads is left alone, as it always was"
+    assert said[2].startswith(f"  {path}, line 10: notify.replies is not a key"), said
+    assert said[3].startswith(f"  {path}, line 11: notify.events = 'blocked' — "), said
+    assert said[4].startswith(f"  {path}, line 12: notify.not_a_key is not a key"), said
+    assert len(said) == 5, "every value that does not read, and every key nobody reads"
 
 
 @case
-def a_key_nobody_reads_is_named_with_its_line_and_the_key_it_was_meant_to_be() -> None:
-    """Ignored, as it always was — but said: a misspelt key is a setting that does nothing."""
-    config = _config(
+def a_key_or_a_table_nobody_reads_is_refused_with_its_line_and_what_it_was_meant_to_be() -> None:
+    """A misspelt key is a setting that does nothing: the load stops on it, and says which."""
+    said = _refused(
         "[runner]\n"
         "max_concurent = 4\n"
         "interval_seconds = 30\n"
@@ -225,35 +239,40 @@ def a_key_nobody_reads_is_named_with_its_line_and_the_key_it_was_meant_to_be() -
         "[web]\n"
         "nothing_like_it = 1\n"
     )
-    assert config.runner.max_concurrent == C.Runner.max_concurrent, "never refused, still ignored"
-    assert config.runner.interval_seconds == 30
-    assert config.unknown == (
-        (2, "runner.max_concurent", "max_concurrent"),
-        (5, "runer", "runner"),
-        (9, "notify.telegram.chatt", "chat"),
-        (15, "web.nothing_like_it", ""),
-    ), config.unknown
-    # A secret an older version wrote is the launch's to move, not a typo.
-    text = '[web]\npassword = "pw"\n[notify.telegram]\ntoken = "123:abc"\n'
-    assert schema.unknown(tomllib.loads(text), text) == []
+    assert said == [
+        "line 2: runner.max_concurent is not a key of config.toml "
+        "(did you mean runner.max_concurrent?) — ponos config converts a file an older version wrote",
+        "line 5: [runer] is not a table of config.toml "
+        "(did you mean runner?) — ponos config converts a file an older version wrote",
+        "line 9: notify.telegram.chatt is not a key of config.toml "
+        "(did you mean notify.telegram.chat?) — ponos config converts a file an older version wrote",
+        "line 11: [projects] is not a table of config.toml "
+        "— ponos config converts a file an older version wrote",
+        "line 15: web.nothing_like_it is not a key of config.toml "
+        "— ponos config converts a file an older version wrote",
+    ], said
+    # A secret an older version wrote is the launch's to move, not a typo: it
+    # is left out of the reading, its table with it when it was its only key.
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text(
+        '[web]\npassword = "pw"\n[notify.telegram]\ntoken = "123:abc"\n[openrouter]\nkey = "k"\n'
+    )
+    loaded = C.load(path, secrets={})
+    assert loaded.exposed == ("web.password", "notify.telegram.token", "openrouter.key")
 
 
 @case
-def doctor_warns_of_a_key_nobody_reads() -> None:
+def doctor_says_which_key_nobody_reads() -> None:
     from test_health import _doctor_said
 
     from ponos import __main__ as cli
-    from ponos import health
 
-    config = _config("[runner]\nmax_concurent = 4\n")
-    [check] = [check for check in health._settings(config) if check.code == "settings.keys"]
-    assert check.state == health.WARN
-    assert check.text(check.said) == (
-        "config.toml, line 2: runner.max_concurent is not a known key — did you mean max_concurrent?"
-    )
-    with _environment(PONOS_CONFIG=str(config.path)):
-        _, said = _doctor_said(cli.command_doctor, None)
-    assert "line 2: runner.max_concurent is not a known key" in said, said
+    path = Path(tempfile.mkdtemp()) / "config.toml"
+    path.write_text("[runner]\nmax_concurent = 4\n")
+    with _environment(PONOS_CONFIG=str(path)):
+        code, said = _doctor_said(cli.command_doctor, None)
+    assert code == 2
+    assert f"{path}, line 2: runner.max_concurent is not a key of config.toml" in said, said
 
 
 @case

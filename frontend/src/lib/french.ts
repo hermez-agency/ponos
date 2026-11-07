@@ -1177,21 +1177,10 @@ export const FRENCH: Record<string, string> = {
   "Unsaved changes": "Modifications non enregistrées",
   State: "État",
 
-  /* -- the two `name = value` tables, each a resource of its own -------------
-     `Projects`, `Project` and the two section blurbs are already said where
-     `web/settings.py` describes the file; only what the rows add is here. */
+  /* -- the `name = value` table, a resource of its own ----------------------
+     Its section blurb is already said where `web/settings.py` describes the
+     file; only what the rows add is here. */
   "Where it is": "Où il se trouve",
-  "Spelled as the project page is, or the ticket finds no repository.":
-    "Écrit comme la page du projet l'écrit, sinon le ticket ne trouve aucun dépôt.",
-  "The repository itself. Worktrees are made beside it, never in it.":
-    "Le dépôt lui-même. Les worktrees sont créés à côté, jamais dedans.",
-  "A row with no name maps nothing.": "Une ligne sans nom ne fait rien correspondre.",
-  "A project mapped to nothing is a row to remove.":
-    "Un projet qui ne mène nulle part est une ligne à retirer.",
-  "No mapping here — the project pages carry it.":
-    "Aucune correspondance ici — ce sont les pages de projet qui la portent.",
-  "add a project": "Ajouter un projet",
-  "Remove this project": "Retirer cette correspondance",
   Accounts: "Comptes",
   Owner: "Propriétaire",
   Account: "Compte",
@@ -1369,16 +1358,12 @@ export const FRENCH: Record<string, string> = {
   "Where this project's repository is on this machine. Empty: the page's Path property, then the clone found under the workspace root by its GitHub address.":
     "Où se trouve le dépôt de ce projet sur cette machine. Vide : la propriété Path de la page, puis le clone trouvé sous la racine de l'espace de travail par son adresse GitHub.",
   "Path": "Chemin",
-  "An older config.toml still says {{path}} under [projects].":
-    "Un ancien config.toml dit encore {{path}} sous [projects].",
   "Vault keys": "Clés du coffre",
   "The environment variables this project's sessions are given, and the vault item each is read from. Never the values: only where to read them.":
     "Les variables d'environnement que reçoivent les sessions de ce projet, et l'élément du coffre où chacune est lue. Jamais les valeurs : seulement où les lire.",
   "Keys": "Clés",
   "One per line: `NPM_TOKEN = hermez/npm`, or `NPM_TOKEN` alone to read it under its own name.":
     "Une par ligne : `NPM_TOKEN = hermez/npm`, ou `NPM_TOKEN` seul pour la lire sous son propre nom.",
-  "An older config.toml still grants {{keys}} under [vault.projects].":
-    "Un ancien config.toml accorde encore {{keys}} sous [vault.projects].",
   "Plan first": "Plan d'abord",
   "The first session proposes a plan and waits for your yes before writing any code.":
     "La première session propose un plan et attend votre oui avant d'écrire du code.",

@@ -1,4 +1,4 @@
-import { FolderGit2, GitPullRequest } from "lucide-react"
+import { GitPullRequest } from "lucide-react"
 import { type FormInterface } from "react-data-form"
 import {
   createResourceCollection,
@@ -16,18 +16,16 @@ import { currentSettings, publishSettings } from "@/lib/settings-store"
 import type { Pair } from "@/lib/types"
 import { adminOnly } from "@/lib/role"
 
-/* The `name = value` tables of `config.toml`, each as a resource of its own.
+/* The `name = value` table of `config.toml`, as a resource of its own.
  *
- * Every other section of the file is a list of keys somebody described; these
- * two are mappings you add rows to — `[projects]`, a project's name and a path,
- * and `[github]`, an owner and the account it is worked under — and rows are
- * what a resource is for. So they are declared here and hung under the settings
- * page as sub-resources: react-resource-view draws the table, the "add" dialog
- * and the confirmation before a row goes, and those sections stop being the one
- * place in the console with a hand-rolled table of inputs in them.
+ * Every other section of the file is a list of keys somebody described; this
+ * one is a mapping you add rows to — `[github]`, an owner and the account it is
+ * worked under — and rows are what a resource is for. So it is declared here and
+ * hung under the settings page as a sub-resource: react-resource-view draws the
+ * table, the "add" dialog and the confirmation before a row goes, and the section
+ * stops being the one place in the console with a hand-rolled table of inputs.
  *
- * Two tables, one shape, their own words: what changes from one to the other is
- * a sentence, so the difference is a `Words` and not a second file.
+ * Its words are a `Words`, so that another such table is a sentence away.
  *
  * There is no endpoint for one row: `/api/settings` takes a whole mapping and
  * answers with what it wrote. So a write here is the list as it should now be —
@@ -36,7 +34,7 @@ import { adminOnly } from "@/lib/role"
  */
 
 /** Which table of the file a resource here is. `Section.pairs`, server-side. */
-export type PairTable = "projects" | "github"
+export type PairTable = "github"
 
 /** A row as the views hold it: the mapping, and an identity to address it by. */
 export interface PairItem extends Pair {
@@ -74,28 +72,6 @@ interface Words {
    *  builds `Delete — <list>` as it declares the view — a sentence half in
    *  English wherever the console is read in French. */
   remove: string
-}
-
-const PROJECTS: Words = {
-  resource: "project-paths",
-  list: "Projects",
-  row: "Project",
-  icon: FolderGit2,
-  name: {
-    label: "Project",
-    placeholder: "Site vitrine",
-    description: "Spelled as the project page is, or the ticket finds no repository.",
-    missing: "A row with no name maps nothing.",
-  },
-  value: {
-    label: "Where it is",
-    placeholder: "~/workspace/that-repository",
-    description: "The repository itself. Worktrees are made beside it, never in it.",
-    missing: "A project mapped to nothing is a row to remove.",
-  },
-  empty: "No mapping here — the project pages carry it.",
-  add: "add a project",
-  remove: "Remove this project",
 }
 
 const GITHUB: Words = {
@@ -247,6 +223,5 @@ function pairResource(table: PairTable, words: Words) {
 
 /** The resource that draws one table, by the name `Section.pairs` gives it. */
 export const pairResources: Record<PairTable, ViewResource<PairItem>> = {
-  projects: pairResource("projects", PROJECTS),
   github: pairResource("github", GITHUB),
 }

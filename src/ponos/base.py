@@ -258,7 +258,7 @@ class Base(Chapters):
         self.announce_idle = announce_idle
         # The board `ponos.db` keeps — see store.py.
         self.client = store.open(config)
-        self.resolver = Resolver(config.runner.workspace_root, config.projects, config.github)
+        self.resolver = Resolver(config.runner.workspace_root, config.github)
         self.agent_label = f"ponos@{socket.gethostname()}"
         self._workspace: workspace_module.Workspace | None = None
         # The comments of a page, read once per run. Three things want them —
@@ -330,7 +330,7 @@ class Base(Chapters):
         """
         self.config = config
         self.dry_run = self.dry_run or config.runner.dry_run
-        self.resolver = Resolver(config.runner.workspace_root, config.projects, config.github)
+        self.resolver = Resolver(config.runner.workspace_root, config.github)
         self._workspace = None
         return True
 

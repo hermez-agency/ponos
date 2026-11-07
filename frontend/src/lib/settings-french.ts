@@ -429,9 +429,6 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Keep a failed ticket's work folder": "Garder le dossier de travail d'un ticket en échec",
   "Its worktree stays as the session left it, for you to look at. `ponos clean --force` removes them.":
     "Son worktree reste tel que la session l'a laissé, pour que vous l'examiniez. `ponos clean --force` les supprime.",
-  "Project folders": "Dossiers des projets",
-  "Which folder on this machine holds a project's repository. Only needed when it is not found on its own: a `path` or `github` property on the project page does the same, for every machine.":
-    "Quel dossier de cette machine contient le dépôt d'un projet. Utile seulement s'il n'est pas trouvé tout seul : une propriété `path` ou `github` sur la page du projet fait la même chose, pour toutes les machines.",
   "GitHub accounts": "Comptes GitHub",
   "Which `gh` account works for each GitHub owner, when this machine uses several — yours and a client's. Left, the owner as in the repository's URL; right, the account as `gh auth status` lists it. Sign each one in once with `gh auth login`. An owner not listed here is worked under the active account.":
     "Quel compte `gh` travaille pour chaque propriétaire GitHub, quand cette machine en utilise plusieurs — le vôtre et celui d'un client. À gauche le propriétaire tel qu'il apparaît dans l'URL du dépôt ; à droite le compte tel que `gh auth status` le liste. Connectez chacun une fois avec `gh auth login`. Un propriétaire absent d'ici est traité sous le compte actif.",

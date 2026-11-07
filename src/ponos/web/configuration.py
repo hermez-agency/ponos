@@ -119,20 +119,15 @@ class Configuration(Base):
             "vault": self._project_vault(bare),
         }
 
-    def _project_path(self, bare: str) -> dict[str, Any]:
-        """The path the project says its repository is at, and the file's, if it still says one."""
-        name = self._project_name(bare)
-        return {
-            "value": project_settings.path(bare),
-            "file": self.config.projects.get(name, "") if name else "",
-        }
+    @staticmethod
+    def _project_path(bare: str) -> dict[str, Any]:
+        """The path the project says its repository is at."""
+        return {"value": project_settings.path(bare)}
 
     def _project_vault(self, bare: str) -> dict[str, Any]:
-        """The keys the project's sessions are given, its own and those an older file still names."""
-        name = self._project_name(bare)
+        """The keys the project's sessions are given."""
         return {
             "entries": project_settings.vault(bare),
-            "file": self.config.vault.granted(name) if name else {},
             "provider": self.config.vault.provider,
         }
 
