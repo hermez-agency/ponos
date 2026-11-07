@@ -747,11 +747,8 @@ def _token_whereabouts(asking: Asking) -> str:
     configuration = asking.api.config
     if configuration.web.token:
         say: Callable[[str], str] = _words(asking.language())
-        kept = config_module.secrets_path(configuration.path)
-        if config_module.read_secrets(kept).get("PONOS_WEB_TOKEN", "").strip():
-            return say("<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>").format(
-                path=html.escape(str(kept))
-            )
+        if config_module.kept_secrets().get("PONOS_WEB_TOKEN", "").strip():
+            return say("<code>PONOS_WEB_TOKEN</code> of Ponos's vault")
         return say("the <code>PONOS_WEB_TOKEN</code> environment variable")
     return f"<code>{html.escape(str(state_dir() / 'web' / 'token'))}</code>"
 

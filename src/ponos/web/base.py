@@ -269,13 +269,15 @@ def _mtime(path: Path) -> float:
 
 
 def _stamp(path: Path) -> tuple[float, float]:
-    """When the configuration last changed — the file, or the secrets beside it.
+    """When the configuration last changed — the file, or Ponos's vault, where its secrets are.
 
-    A token is written to `secrets.env` alone: watching `config.toml` only, the
+    A token is written to the vault alone: watching `config.toml` only, the
     console kept the token it had before the first connection pasted one, and
     went on saying there was none until it was restarted.
     """
-    return _mtime(path), _mtime(config_module.secrets_path(path))
+    from .. import vault_store
+
+    return _mtime(path), _mtime(vault_store.path())
 
 
 def _subcommands() -> tuple[str, ...]:

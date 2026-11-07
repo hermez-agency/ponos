@@ -570,7 +570,7 @@ function SettingRow({ formInput, onChange, formInputComponent: Control }: FormGr
           className="text-muted-foreground mt-2 block font-mono text-[11px]"
           title={
             field.variable
-              ? t("Its variable, in secrets.env or the environment")
+              ? t("Its name, in Ponos's vault or the environment")
               : t("Its key in config.toml")
           }
         >

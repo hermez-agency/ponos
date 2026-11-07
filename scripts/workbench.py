@@ -192,10 +192,6 @@ def stage(
         "[runner]\nauto_update = false\n",
         encoding="utf-8",
     )
-    if token is not None:
-        # Beside the file, where a secret lives — config.toml holds none.
-        (here / "secrets.env").write_text(f"PONOS_WEB_TOKEN={token}\n", encoding="utf-8")
-        (here / "secrets.env").chmod(0o600)
     head = subprocess.run(
         ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True
     ).stdout.strip()
@@ -236,6 +232,18 @@ def stage(
         XDG_STATE_HOME=str(here / "state"),
         PYTHONPATH=str(ROOT / "src"),
     )
+    if token is not None:
+        # In the vault of this state, where a secret lives — config.toml holds none.
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; from ponos import config; "
+                "config.keep_secrets({'PONOS_WEB_TOKEN': sys.argv[1]})",
+                token,
+            ],
+            check=True,
+        )
 
 
 def serve(port: str) -> None:

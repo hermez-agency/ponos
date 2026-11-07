@@ -623,8 +623,8 @@ Three things it does that a form usually does not.
   see [The statuses](tickets.md#the-statuses).
 - **Your tokens stay on the machine.** A secret goes to the browser as *set, ending in
   …f3a2* and comes back only if you type a new one — an empty box means "leave it alone",
-  so forgetting one is a button of its own. What you type is written to `secrets.env`, not
-  to `config.toml`, and the field names its variable rather than a key of the file.
+  so forgetting one is a button of its own. What you type is sealed in Ponos's vault, never
+  written to `config.toml`, and the field names its variable rather than a key of the file.
 - **A save is all of it or none of it.** The edits are made on a copy beside the file, the
   copy is loaded — if it would not parse, or would leave a working installation unable to
   run, nothing moves — and only then does it take the file's place, in one rename and with
@@ -1072,9 +1072,9 @@ answers 404 to any path but those three on a request that came through Funnel.
 | --- | --- | --- |
 | `web.host` | `127.0.0.1` | what to bind. Anything else needs `PONOS_WEB_TOKEN`, or a sign-in, set |
 | `web.port` | `8787` | |
-| `PONOS_WEB_TOKEN` | | not a key of this file: the secret is in `secrets.env` or the environment (see [Configuration](configuration.md#configuration)). Unset: drawn once into `~/.local/state/ponos/web/token` |
+| `PONOS_WEB_TOKEN` | | not a key of this file: the secret is in Ponos's vault or the environment (see [Configuration](configuration.md#configuration)). Unset: drawn once into `~/.local/state/ponos/web/token` |
 | `web.email` | `""` | with a password: what the console asks for instead of the token |
-| `PONOS_WEB_PASSWORD` | | not a key of this file: the secret is in `secrets.env` or the environment, which wins (see [Configuration](configuration.md#configuration), and below) |
+| `PONOS_WEB_PASSWORD` | | not a key of this file: the secret is in Ponos's vault or the environment, which wins (see [Configuration](configuration.md#configuration), and below) |
 | `web.poll_seconds` | `15` | how often the console asks the board what changed (a two-minute overlapping window; the whole board every five minutes) — only while a browser is connected; a page asking for the board meanwhile (dashboard, goals, statistics) is served that last read, unless a write from the console came after it. `GET /api/board` answers that last read whatever its age, reads the board again behind the answer once it is older than this, and keeps it on disk so that a console just restarted answers at once; it carries only the 50 latest tickets of *Done* and of *Cancelled* — `hidden` counts the others, `?closed=all` gives them all. The console's own columns come from the event stream, whole |
 | `web.chat_timeout_minutes` | `20` | past this, a chat turn is killed |
 | `web.chat_model` | `""` | the model a new conversation starts on (`opus`…, or an OpenRouter slug); empty: `runner.model` |
@@ -1168,7 +1168,7 @@ these two lines say by hand:
 
 ```sh
 # config.toml, [web]:              email = "you@example.com"
-# secrets.env:                     PONOS_WEB_PASSWORD=the one you would actually remember
+# the console's Settings:          the password you would actually remember, sealed in the vault
 ```
 
 Or, on a server, without writing either of them down anywhere:
@@ -1177,7 +1177,7 @@ Or, on a server, without writing either of them down anywhere:
 PONOS_WEB_EMAIL=you@example.com PONOS_WEB_PASSWORD=… ponos service run
 ```
 
-The environment wins over the files, which is what makes it worth setting: a systemd
+The environment wins over the file and the vault, which is what makes it worth setting: a systemd
 drop-in or a container carries the credentials, and `config.toml` stays a file you can
 read out loud. Both halves are needed — an email without a password is somebody half-way
 through configuring one, and it is not a way in.
@@ -1192,9 +1192,10 @@ ends every one of them, the running console's included, by drawing a new key int
 over OAuth, which a new password alone does not. A wrong answer is counted against
 the address it came from, which waits longer after each — see *What is behind that port*.
 
-`secrets.env` keeps the password as a **scrypt digest** (`scrypt:n:r:p:salt:hash`), never as
-it is typed: the console's Settings write it that way, and a `secrets.env` from before is
-rewritten by the next launch — the same password signs in, nobody is asked to type it again.
+Ponos's vault keeps the password as a **scrypt digest** (`scrypt:n:r:p:salt:hash`), never as
+it is typed: the console's Settings write it that way, and the one a `secrets.env` from before
+held in clear is digested as the next launch moves it into the vault — the same password
+signs in, nobody is asked to type it again.
 `PONOS_WEB_PASSWORD` in the environment may hold the password or such a digest; one in clear
 is digested in memory when the console starts, and stays the unit's to keep.
 

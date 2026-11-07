@@ -10,6 +10,7 @@ from typing import Any, cast
 from support import ROOT, _environment, _Fresh, _saved, case
 
 from ponos import config as C
+from ponos import vault_store
 from ponos.web import answers
 from ponos.web import api as web_api
 from ponos.web import base as web_base
@@ -118,8 +119,7 @@ def the_test_button_tries_the_key_typed_or_the_one_saved_and_writes_nothing() ->
             # Accepted, and still not written: neither the provider nor the key.
             assert path.read_text(encoding="utf-8") == before
             assert api.config.claude.provider != "api_key"
-            secrets = C.secrets_path(path)
-            assert not secrets.exists() or "sk-ant" not in secrets.read_text(encoding="utf-8")
+            assert "ANTHROPIC_API_KEY" not in C.kept_secrets()
     finally:
         provider.api_key = original
 
@@ -169,7 +169,7 @@ def the_first_project_step_makes_the_workspace_folder_and_offers_its_repositorie
 
 @case
 def a_token_written_alone_is_read_by_the_console_without_a_restart() -> None:
-    """A token written to `secrets.env` alone is the console's at once.
+    """A token written to the vault alone is the console's at once.
 
     A console that only watched `config.toml` kept the token it started with,
     and the page that had just been told a key was saved went on without it.
@@ -184,10 +184,10 @@ def a_token_written_alone_is_read_by_the_console_without_a_restart() -> None:
         config = None
 
     console.chat = Chat()  # type: ignore[assignment]  # a double: no conversation
-    secrets = C.secrets_path(path)
-    C.write_secrets(secrets, {"PONOS_TELEGRAM_TOKEN": "123:pasted"})
-    later = secrets.stat().st_mtime + 2
-    os.utime(secrets, (later, later))
+    C.keep_secrets({"PONOS_TELEGRAM_TOKEN": "123:pasted"})
+    sealed = vault_store.path()
+    later = sealed.stat().st_mtime + 2
+    os.utime(sealed, (later, later))
     assert console.config.notify.telegram.get("token") == "123:pasted"
 
 

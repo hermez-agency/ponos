@@ -2151,55 +2151,49 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def secrets_out_of_config(say: Callable[[str], None] | None = None) -> None:
-    """Move the secrets `config.toml` still holds into `secrets.env`, and say so.
+    """Move the secrets `config.toml` and `secrets.env` still hold into Ponos's vault, and say so.
 
     Said on stderr, once — the launch that moves them is the only one that has
-    something to say. A move that cannot be made, a read-only file in an image,
-    is said at every launch instead, with the names to set: the runner ignores
-    what is left there, and would otherwise only report a missing token.
+    something to say. A move that cannot be made, a read-only file in an image
+    or a vault whose key is gone, is said at every launch instead, with the
+    names to set: the runner reads neither file for a secret, and would
+    otherwise only report a missing token.
 
-    The console's password, once in `secrets.env`, is replaced by its digest
-    there (`config.hash_password`): the same launch, for the same reason.
+    The console's password, in the vault, is kept as its digest
+    (`config.hash_password`): the same launch, for the same reason.
     """
     say = say or (lambda line: print(line, file=sys.stderr))
     path = config_module.config_path()
-    target = config_module.secrets_path(path)
+    legacy = config_module.legacy_secrets_path(path)
     try:
         moved = config_module.move_secrets(path)
-    except OSError as error:
+    except (OSError, vault.VaultError, sqlite3.Error) as error:
         moved = []
-        say(f"ponos: could not move the secrets out of {path}: {error.strerror or error}")
+        say(f"ponos: could not move the secrets into Ponos's vault: {error}")
     if moved:
         say(
-            f"ponos: moved {', '.join(moved)} out of {path} into {target} (0600) — "
-            "config.toml holds no secret any more"
+            f"ponos: moved {', '.join(moved)} into Ponos's vault — neither {path.name} "
+            f"nor {legacy.name} holds a secret any more"
         )
     try:
-        if config_module.hash_password(path):
+        if config_module.hash_password():
             say(
-                f"ponos: the console's password in {target} is kept as a scrypt digest now — "
-                "the same password signs in"
+                "ponos: the console's password in Ponos's vault is kept as a scrypt digest "
+                "now — the same password signs in"
             )
-    except OSError as error:
-        say(
-            f"ponos: could not replace the console's password in {target} by its digest: "
-            f"{error.strerror or error}"
-        )
+    except (vault.VaultError, sqlite3.Error, OSError) as error:
+        say(f"ponos: could not replace the console's password by its digest: {error}")
     left = config_module.exposed(config_module.read_raw(path))
     if left:
         names = ", ".join(
             f"{table}.{key} → {config_module.SECRETS[(table, key)]}" for table, key in left
         )
         say(
-            f"ponos: {path} still holds secrets, and they are ignored — set them in "
-            f"{target} or in the environment instead: {names}"
+            f"ponos: {path} still holds secrets, and they are ignored — set them in the "
+            f"console (Settings) or in the environment instead: {names}"
         )
-    try:
-        loose = target.stat().st_mode & 0o077
-    except OSError:
-        loose = 0
-    if loose:
-        say(f"ponos: {target} can be read by others — chmod 600 {target}")
+    if legacy.exists():
+        say(f"ponos: {legacy} still holds secrets in clear, and they are ignored")
 
 
 if __name__ == "__main__":

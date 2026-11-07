@@ -61,8 +61,9 @@ What an installation that had Notion still has to do, once:
 - take every `[notion]` table — `[notion]`, `[notion.pages]`, `[notion.properties]`,
   `[notion.status]` — out of `config.toml`: a file that still holds one is refused, and the
   runner and the console do not start until it is gone (`ponos doctor` names the line);
-- remove `PONOS_NOTION_TOKEN` from `secrets.env` (and from a compose file or a Dokploy
-  template): nothing reads it any more;
+- remove `PONOS_NOTION_TOKEN` from a compose file or a Dokploy template: nothing reads it
+  any more (one a `secrets.env` still held is sealed in Ponos's vault with the rest by the
+  next launch, and read by nobody);
 - nothing in `ponos.db`: the first start migrates it, after a copy of the file beside it
   (`ponos.db.v<N>.bak`), and drops the tables only the mirror used.
 

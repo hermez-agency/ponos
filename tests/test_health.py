@@ -898,19 +898,24 @@ def health_says_a_worktree_s_leftover_processes_in_one_line_and_stops_them(
 
 
 @case
-def health_says_where_the_secrets_are_and_who_can_read_them() -> None:
+def health_says_where_the_secrets_are_and_what_is_left_in_clear(vault_home: Path) -> None:
     from ponos import health
 
     config = _config("")
-    secrets = C.secrets_path(config.path)
-    C.write_secrets(secrets, {"PONOS_WEB_TOKEN": "tok"})
-    assert _verdicts(health._secrets(config)) == [("settings.secrets", "ok")]
-    secrets.chmod(0o644)
+    config.path.parent.mkdir(parents=True, exist_ok=True)
     found = health._secrets(config)
-    assert found[0].state == "error" and found[0].params["mode"] == "644"
+    assert _verdicts(found) == [("settings.secrets", "ok")] and "environment" in found[0].said
+    C.keep_secrets({"PONOS_WEB_TOKEN": "tok"})
+    found = health._secrets(config)
+    assert _verdicts(found) == [("settings.secrets", "ok")]
+    assert found[0].params["names"] == "PONOS_WEB_TOKEN", found[0].params
+    legacy = C.legacy_secrets_path(config.path)
+    legacy.write_text("PONOS_WEB_TOKEN=tok\n")
+    found = health._secrets(config)
+    assert _verdicts(found) == [("settings.secrets", "error")]
+    assert found[0].params["target"] == str(legacy)
     config.exposed = ("web.token",)
-    secrets.chmod(0o600)
-    assert _verdicts(health._secrets(config)) == [("settings.secrets", "error")]
+    assert _verdicts(health._secrets(config)) == [("settings.secrets", "error")] * 2
 
 
 @case

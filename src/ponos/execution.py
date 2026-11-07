@@ -639,8 +639,7 @@ class Execution(Base):
                     granted.setdefault(variable, f"ponos:{variable}")
         if not granted:
             return {}
-        stored = config_module.read_secrets(config_module.secrets_path(self.config.path))
-        found = vault.read(granted, self.config.vault.provider, stored)
+        found = vault.read(granted, self.config.vault.provider, config_module.kept_secrets())
         if found.values:
             self.say(f"    · secrets: {', '.join(sorted(found.values))}")
         for missing in found.missing:

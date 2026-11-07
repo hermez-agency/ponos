@@ -221,7 +221,7 @@ def landing(query: str) -> str:
 class SignIn:
     """An email, a password's digest, and what a browser that typed them is given.
 
-    `proof` is *derived* from the email and what `secrets.env` keeps for the
+    `proof` is *derived* from the email and what Ponos's vault keeps for the
     password rather than drawn at random: a console that restarts — and its unit
     restarts with the machine — does not sign you out, while changing the
     password signs out every browser that ever held a session. It is an HMAC
@@ -268,8 +268,8 @@ def sign_in(config: Config, secret: str) -> SignIn | None:
     proof = hmac.new(
         secret.encode(), f"{email.lower()}\n{password}".encode(), hashlib.sha256
     ).hexdigest()
-    # A password still in clear is the environment's — the file's is a digest
-    # since the launch that read it (`config.hash_password`). Digested here,
+    # A password still in clear is the environment's — the vault's is a digest
+    # (`config.edit`, `config.hash_password`). Digested here,
     # in memory, so that nothing past this line holds it as it was typed.
     digest = password if passwords.is_digest(password) else passwords.digest(password)
     return SignIn(email=email, digest=digest, proof=proof)
@@ -371,7 +371,8 @@ _FRENCH = {
     "This console needs its token. <code>ponos service run --print-token</code> prints it, "
     "and it is kept in {where}.": "Cette console demande son jeton. <code>ponos service run --print-token</code> "
     "l'affiche, et il est gardé dans {where}.",
-    "<code>PONOS_WEB_TOKEN</code> of <code>{path}</code>": "le <code>PONOS_WEB_TOKEN</code> de <code>{path}</code>",
+    "<code>PONOS_WEB_TOKEN</code> of Ponos's vault": "le <code>PONOS_WEB_TOKEN</code> du "
+    "coffre-fort de Ponos",
     "the <code>PONOS_WEB_TOKEN</code> environment variable": "la variable d'environnement <code>PONOS_WEB_TOKEN</code>",
     "The token this browser kept is not this console's: another console at this "
     "address may have replaced it.": "Le jeton gardé par ce navigateur n'est pas celui de cette console : une autre "
@@ -456,8 +457,8 @@ def _page(title: str, body: str, style: str = "", language: str = "en") -> str:
 def gate_page(language: str = "en", where: str = "", said: str = "") -> str:
     """Asked for the token — and told where to find it, as this machine has it.
 
-    `where` is the real place: the `PONOS_WEB_TOKEN` line of the `secrets.env`
-    in use, or the environment, when the token was chosen; else the file it was
+    `where` is the real place: the `PONOS_WEB_TOKEN` of Ponos's vault, or the
+    environment, when the token was chosen; else the file it was
     drawn into — under `$XDG_STATE_HOME` when that is set, which a path printed
     as a constant got wrong on every machine that sets it. `said` is why a token
     that was offered did not open the door, already in the page's language.

@@ -100,11 +100,11 @@ def _command(arguments: list[str], environment: dict[str, str] | None = None) ->
 
 @dataclass
 class Environment:
-    """The environment the runner was started with, then `secrets.env`.
+    """The environment the runner was started with, then Ponos's own secrets.
 
     The provider that needs nothing installed: a container is given its keys
-    by its compose file, and a machine by the same file the runner's own
-    secrets are kept in.
+    by its compose file, and a machine by the vault the runner's own secrets
+    are kept in — where a `secrets.env` from before it was moved, every line.
     """
 
     stored: dict[str, str]
@@ -172,7 +172,7 @@ class Bitwarden:
     """The Bitwarden CLI: an item's password, by its name or its id.
 
     `bw` answers only once unlocked, with `BW_SESSION` set — in the runner's
-    environment or in `secrets.env`, where `bw unlock --raw` puts it.
+    environment, or among Ponos's own secrets (moved there from `secrets.env`).
     """
 
     stored: dict[str, str]

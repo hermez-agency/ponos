@@ -4763,7 +4763,7 @@ export interface components {
             stated: boolean;
             value: string | number | boolean | string[] | null;
             preview?: string;
-            /** @description A secret's variable, in secrets.env or the environment — never config.toml. */
+            /** @description A secret's name, in Ponos's vault or the environment — never config.toml. */
             variable?: string;
             /** @description What a number counts — "seconds", "days" — drawn beside its box. */
             unit?: string;

@@ -1244,8 +1244,10 @@ def the_gate_says_where_this_machines_token_actually_is() -> None:
 
 
 @case
-def the_gate_says_a_chosen_token_lives_in_secrets_env_and_why_a_cookie_was_refused() -> None:
-    """The token left `config.toml` for `secrets.env`; the gate said otherwise.
+def the_gate_says_a_chosen_token_lives_in_the_vault_and_why_a_cookie_was_refused(
+    vault_home: Path,
+) -> None:
+    """The token left `config.toml` for Ponos's vault; the gate said otherwise.
 
     And a cookie is scoped by host, not by port: a test console beside 8787
     overwrites 8787's, and the gate came back with nothing to say why.
@@ -1276,21 +1278,18 @@ def the_gate_says_a_chosen_token_lives_in_secrets_env_and_why_a_cookie_was_refus
             return error.read().decode()
         raise AssertionError("the door opened")
 
-    previous = os.environ.pop(C.SECRETS_PATH_ENV, None)
     try:
         page = gate("/")
         assert "variable d'environnement <code>PONOS_WEB_TOKEN</code>" in page, page
         assert "web.token" not in page
         assert "n'est pas celui de cette console" not in page, "nothing was offered"
 
-        (folder / "secrets.env").write_text("PONOS_WEB_TOKEN=tok\n")
+        C.keep_secrets({"PONOS_WEB_TOKEN": "tok"})
         page = gate("/", cookie="another-consoles")
-        assert f"<code>{folder / 'secrets.env'}</code>" in page, page
+        assert "<code>PONOS_WEB_TOKEN</code> du coffre-fort de Ponos" in page, page
         assert "n'est pas celui de cette console" in page
         assert "jeton incorrect" in gate("/?token=nope")
     finally:
-        if previous is not None:
-            os.environ[C.SECRETS_PATH_ENV] = previous
         console.shutdown()
         console.server_close()
 

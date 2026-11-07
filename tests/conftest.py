@@ -53,6 +53,13 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None, object, o
         pytest.skip(str(skipped))
 
 
+@pytest.fixture(autouse=True)
+def _fresh_vault() -> Iterator[None]:
+    """`support.fresh_vault`, around every case pytest runs, as `support.call` does."""
+    with support.fresh_vault():
+        yield
+
+
 def _pytest_fixture(
     name: str, function: Callable[[Callable[..., None]], Iterator[Any]]
 ) -> Callable[..., Any]:

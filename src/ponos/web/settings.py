@@ -15,7 +15,7 @@ Three rules hold the whole thing together.
 - **A secret is never sent to the browser.** A token goes out as "set, ending in
   …f3a2" and comes back only when you type a new one. Clearing one is a gesture
   of its own, so that an empty field can keep meaning "leave it alone". Nor is
-  it written to `config.toml`: `config.edit` puts it in `secrets.env`.
+  it written to `config.toml`: `config.edit` seals it in Ponos's vault.
 - **Nothing the browser says is trusted.** Every value is checked here against
   the same rules the loader applies — the floors, the three merge methods, the
   three events — and the file itself is loaded before the save is allowed to
@@ -717,7 +717,7 @@ SECTIONS: tuple[Section, ...] = (
                 "token_item",
                 "text",
                 "Keep the token in a vault",
-                "Instead of `secrets.env`: where your vault holds it, e.g. `pass:ponos/github` "
+                "Instead of Ponos's vault: where another vault holds it, e.g. `pass:ponos/github` "
                 "or `keyring:ponos-github`. The token can also come from "
                 "`PONOS_GITHUB_TOKEN` in the environment.",
                 placeholder="pass:ponos/github",
@@ -1004,8 +1004,8 @@ def _from_environment(entry: Field, stored: dict[str, str]) -> str:
 
     Said on the page because a field the environment overrides is a field you
     can retype all day: the runner keeps reading the variable. A secret counts
-    only when the variable is what it actually uses — `secrets.env` wins for
-    most of them, see `config.secret`.
+    only when the variable is what it actually uses — the vault wins for most
+    of them, see `config.secret`.
     """
     if entry.kind == "secret":
         name = config_module.SECRETS[(entry.table, entry.key)]
@@ -1037,7 +1037,7 @@ def unavailable_for(needs: str, docker: local_ci.Docker) -> str:
 def describe(config: Config) -> dict[str, Any]:
     """Every setting, as the console draws it. No secret leaves in here."""
     raw = config_module.read_raw(config.path)
-    stored = config_module.read_secrets(config_module.secrets_path(config.path))
+    stored = config_module.kept_secrets()
     docker = local_ci.docker()
     sections = []
     for section in SECTIONS:
@@ -1056,7 +1056,7 @@ def describe(config: Config) -> dict[str, Any]:
             if entry.key.startswith(FORCED):
                 stated = _forced(raw, entry.key.removeprefix(FORCED))
             if entry.kind == "secret":
-                # Never the file's: what `secrets.env` holds is what was stated.
+                # Never the file's: what the vault holds is what was stated.
                 stated = stored.get(config_module.SECRETS[(entry.table, entry.key)])
             shown: dict[str, Any] = {
                 "name": entry.name,

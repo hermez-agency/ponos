@@ -24,10 +24,13 @@ state whole rather than an empty one.
 
 **Secrets are not in `config.toml`, and are never read from it.** That file is one you
 open, paste into a ticket, copy into an image or onto a shared volume — and a token goes
-wherever it goes. They live in the environment, or in **`~/.config/ponos/secrets.env`**,
-beside it (`PONOS_SECRETS` moves it): one `NAME=value` a line, the shape a shell's
-`source`, compose's `env_file` and systemd's `EnvironmentFile` all read, created `600`. It
-is the file the installer and the console's Settings write a secret to.
+wherever it goes. They live in **Ponos's vault** — `~/.local/state/ponos/vault.db`, where
+each one is sealed with AES-256-GCM, the vault of [Context → Vault](#ponoss-own-vault-context--vault) —
+or in the environment. The console's Settings and its first connection write a secret into
+the vault, and nowhere else; it stays apart from the vault's entries, so no project can be
+granted one and no session is ever handed it. Without the vault's key (the keyring,
+`PONOS_VAULT_KEY` or `~/.config/ponos/vault.key`) Ponos still starts, with the environment's
+secrets only, and `ponos doctor` says why the vault does not open.
 
 | Variable | What it is | Where it used to be |
 |---|---|---|
@@ -39,13 +42,21 @@ is the file the installer and the console's Settings write a secret to.
 | `OPENROUTER_API_KEY` | the OpenRouter key | `[openrouter] key` |
 | `PONOS_GITHUB_TOKEN` | the GitHub token of `[github_access]` | `[github_access] token` |
 
-When both have one, `secrets.env` wins — it is where the key you have just typed in the
+When both have one, the vault wins — it is where the key you have just typed in the
 console went, and it must not lose to one a compose file was started with weeks ago —
 except for the console's password, where the environment wins: that is how a unit file or a
-container claims a console before anybody opens it. A secret an older version left in
-`config.toml` is ignored; the next launch moves it into `secrets.env` (and out of
-`config.toml.bak`) and says so on stderr, or says, at every launch, which variable to set
-when it cannot. `ponos doctor` checks that neither file gives a secret away.
+container claims a console before anybody opens it. The environment stays a source of its
+own: it is how [Docker](server.md#docker) and the Dokploy template hand a server its
+secrets.
+
+A secret an older version left in `config.toml` is ignored; the next launch moves it into
+the vault (and out of `config.toml.bak`) and says so on stderr, or says, at every launch,
+which variable to set when it cannot. So does a **`secrets.env`** from before the vault —
+the `NAME=value` file beside `config.toml` where the secrets used to be kept in clear: the
+next launch seals every line of it in the vault, those [`[vault]`](#keys-a-ticket-may-use-the-vault)'s
+`env` provider reads included, and deletes the file. Nothing reads it any more, nor
+`PONOS_SECRETS`. A name the vault already holds is not overwritten. `ponos doctor` checks
+that neither file still holds a secret.
 
 **The file is checked as it is read.** Each table has its model (`src/ponos/schema.py`,
 pydantic): what a key may hold, its default, and the rules the runner always applied — a
@@ -138,7 +149,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `[projects]` | | no longer written here: a project's path is set in its Settings tab (*Repository path*). A `[projects]` table from an older file is still read |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |
 | `[vault]` | | what each project's sessions are given — see *Keys a ticket may use* below |
-| `OPENROUTER_API_KEY` | | not a key of this file: the secret is in `secrets.env` or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
+| `OPENROUTER_API_KEY` | | not a key of this file: the secret is in Ponos's vault or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
 
 ### What is a constant now
 
@@ -244,7 +255,7 @@ provider = "cli"        # or "api_key", or "openrouter"
 | `provider` | What it is | What goes with it |
 |---|---|---|
 | `"cli"` | Claude Code signed in as you, `claude auth login` once on that machine | Your subscription. The only one that keeps **Claude in Chrome**, and the only one whose credits come in windows worth [waiting for](credits.md#when-the-credits-run-out). |
-| `"api_key"` | An Anthropic key: `ANTHROPIC_API_KEY`, in `secrets.env` or the environment | Billed by the token. No browser, nothing to wait for. |
+| `"api_key"` | An Anthropic key: `ANTHROPIC_API_KEY`, in Ponos's vault or the environment | Billed by the token. No browser, nothing to wait for. |
 | `"openrouter"` | The OpenRouter key (below), `OPENROUTER_API_KEY` | The sessions run there, and a model is an OpenRouter slug. No browser, nothing to wait for. |
 
 An empty `provider` is a file written before the key existed: the sessions run on the CLI,
@@ -256,7 +267,7 @@ session, it would quietly take the place of the subscription.
 
 In the console the key is **Settings › Models and costs › Provider and default model ›
 Anthropic API key**, with the provider just above it — choose *Anthropic API key* there, or the
-sessions keep running on the CLI. The key is written to `secrets.env`, never to
+sessions keep running on the CLI. The key is sealed in Ponos's vault, never written to
 `config.toml`, and never comes back to the browser: the field says *set · ends …abcd*,
 typing a new one replaces it, and **Forget** removes it. **Test the connection** asks Anthropic whether
 the key works — the one just typed, or with an empty field the one the runner uses — and
@@ -274,7 +285,7 @@ models, on one subscription. An [OpenRouter](https://openrouter.ai/keys) key is 
 in front of every provider there is, and it reaches a session two ways.
 
 ```sh
-# ~/.config/ponos/secrets.env — or the environment
+# Settings › Models and costs (sealed in Ponos's vault) — or the environment
 OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
@@ -349,8 +360,8 @@ renewed ten minutes before it lapses; a session that runs longer is given a cred
 helper and a `gh` that fetch a new one themselves. The token is handed to `git` through
 its environment — never written into `.git/config` — and to `gh` and the sessions as
 `GH_TOKEN`, so every tool that already speaks `gh` keeps working. The app's key and its
-tokens are never shown, in the console, the logs or a ticket: the credentials are one line
-of `secrets.env` (`PONOS_GITHUB_APPS`), 0600 like the other secrets.
+tokens are never shown, in the console, the logs or a ticket: the credentials are one
+secret of Ponos's vault (`PONOS_GITHUB_APPS`), sealed like the others.
 
 A private app is installed on the account that owns it alone: your own repositories and an
 organisation's are **two apps**, connected one after the other (*Connect another account*).
@@ -379,7 +390,7 @@ expire on their own — an installation token lasts an hour, a personal one last
 you made it. The token suits one person and a first try.
 
 - **Where it is kept.** Never in `config.toml`, a ticket or a log: it is `PONOS_GITHUB_TOKEN`
-  in `secrets.env` (0600, what the console writes), or in the environment — which is how a
+  in Ponos's vault (what the console writes), or in the environment — which is how a
   container or Dokploy is given it — or an item of the vault you already use, with
   `[github_access] token_item = "pass:ponos/github"` (`keyring:…`, `bitwarden:…`; see *Keys a ticket may use: the vault*). Every value read is masked wherever the runner
   writes.
@@ -452,10 +463,10 @@ Leadz = ["LEADZ_DOKPLOY_TOKEN"]   # a list: each one read under its own name
 
 | `provider` | Reads | What it needs |
 | --- | --- | --- |
-| `env` (default) | the runner's environment, then `secrets.env` beside `config.toml` | nothing |
+| `env` (default) | the runner's environment, then Ponos's own secrets in its vault (where a `secrets.env` from before was moved) | nothing |
 | `keyring` | the GNOME keyring, or any Secret Service, through `secret-tool lookup` — a bare name is `service ponos username <name>`; `attr=value attr=value` finds any other item | `libsecret-tools`, and a keyring unlocked by your session |
 | `pass` | the first line of `pass show <item>` | `pass`, and a `gpg-agent` that has the passphrase |
-| `bitwarden` | `bw get password <item>`, by name or id | the Bitwarden CLI, unlocked: `BW_SESSION` in the environment or in `secrets.env` (`bw unlock --raw`) |
+| `bitwarden` | `bw get password <item>`, by name or id | the Bitwarden CLI, unlocked: `BW_SESSION` in the environment (`bw unlock --raw`) |
 
 Those keys reach the sessions of **that project's tickets, and nobody else's**, as
 environment variables. The prompt tells the session their names — never their values —
@@ -489,8 +500,8 @@ token that can do everything your account can.
    pass insert hermez-agency/npm
    # or, in the GNOME keyring:
    secret-tool store --label="Ponos · hermez-agency npm" service ponos username hermez-agency-npm
-   # or, with no vault at all, a line of ~/.config/ponos/secrets.env (kept 0600):
-   #   NPM_TOKEN=npm_…
+   # or, with no vault at all, an entry of Ponos's own (Context → Vault, below):
+   #   ponos vault set NPM_TOKEN --project Ponos
    ```
 
 3. Grant it to the project, in `~/.config/ponos/config.toml`:
@@ -514,7 +525,7 @@ Another provider — 1Password's `op read`, say — is one class in `src/ponos/v
 ### Ponos's own vault: Context → Vault
 
 On a machine with neither `secret-tool`, `pass` nor `bw`, every key used to end up in the
-environment or in `secrets.env`, in clear. The `ponos` provider is the vault that needs
+environment or in a `secrets.env`, in clear. The `ponos` provider is the vault that needs
 nothing installed: **Context → Vault** in the console (an admin's — a member or a reader
 does not see the page, and the API answers them 403), or `ponos vault` in a terminal.
 

@@ -1,0 +1,1 @@
+export{n as GithubPage}from"./github-page-B8T8r-Zd.js";

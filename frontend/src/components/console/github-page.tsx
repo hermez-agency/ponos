@@ -169,7 +169,7 @@ export function TokenForm({
         </li>
         <li>{t("Under Repository access, pick the repositories tickets may work on.")}</li>
         <li>{t("Needed: Contents and Pull requests on read and write, Metadata on read-only.")}</li>
-        <li>{t("Paste it here. It is checked, then kept in secrets.env — never in the configuration, never in a ticket.")}</li>
+        <li>{t("Paste it here. It is checked, then sealed in Ponos's vault — never in the configuration, never in a ticket.")}</li>
       </ol>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="github-token">{t("Access token")}</Label>
@@ -223,7 +223,9 @@ function HeldToken({ token, onGone }: { token: GithubToken; onGone: () => void }
           </Badge>
         </CardTitle>
         <CardDescription className="text-[13px]">
-          {t("Kept in {{source}}.", { source: token.source })}
+          {token.source === "vault"
+            ? t("Kept in Ponos's vault.")
+            : t("Kept in {{source}}.", { source: token.source })}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 px-5 pb-5 text-sm sm:px-6">
@@ -238,7 +240,7 @@ function HeldToken({ token, onGone }: { token: GithubToken; onGone: () => void }
           </Alert>
         ) : null}
         {token.check ? <Lacks check={token.check} /> : null}
-        {token.source === "secrets.env" ? (
+        {token.source === "vault" ? (
           <div>
             <ConfirmDialog
               title={t("Forget the token?")}
