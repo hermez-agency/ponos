@@ -301,6 +301,7 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home: Pat
             "list_memories",
             "list_library",
             "get_library_file",
+            "list_skills",
         }
         assert all(tool["annotations"]["readOnlyHint"] for tool in listed["result"]["tools"])
         me = _mcp_call(api, reader, "whoami")["structuredContent"]
@@ -409,6 +410,7 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
         "propose_memory",
         "list_library",
         "get_library_file",
+        "list_skills",
         "set_idea_state",
     ]
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]
@@ -1307,3 +1309,44 @@ def the_mcp_tab_reads_claude_mcp_list_without_its_keys_and_tests_the_401_a_live_
         overview["local"] == "http://127.0.0.1:8787/mcp"
         and overview["public"] == "https://p.example/mcp"
     )
+
+
+@case
+def the_console_lists_the_skills_with_those_of_the_repositories_and_the_clashes(
+    state_home: Path,
+) -> None:
+    import subprocess
+    import tempfile
+
+    from ponos import skills
+    from ponos.web import oauth as web_oauth
+
+    with tempfile.TemporaryDirectory() as folder, _board() as board:
+        repository = Path(folder) / "usine"
+        subprocess.run(["git", "init", "-q", str(repository)], check=True)
+        (repository / ".claude/skills/revue").mkdir(parents=True)
+        (repository / ".claude/skills/revue/SKILL.md").write_text(
+            "---\nname: revue\ndescription: Celle du dépôt.\n---\n", encoding="utf-8"
+        )
+        project = board.create_row(
+            "projects", "Usine", {"Repository": "user/usine", "Path": str(repository)}
+        )
+        skills.create("revue", "Celle de Ponos.", "x\n")
+        skills.create("libre", "Sans conflit.", "x\n", [project])
+        api = _ideas_api(board)
+
+        shown = api.skills()
+        by_name = {item["name"]: item for item in shown["skills"]}
+        assert [clash["project_name"] for clash in by_name["revue"]["conflicts"]] == ["Usine"]
+        assert by_name["libre"]["conflicts"] == [] and by_name["libre"]["scope_names"] == ["Usine"]
+        assert [(item["name"], item["project_name"]) for item in shown["repositories"]] == [
+            ("revue", "Usine")
+        ]
+
+        reader = web_oauth.Grant(client="c-2", name="lecteur", scopes=frozenset({"read"}))
+        listed = _mcp_call(api, reader, "list_skills")["structuredContent"]
+        assert [item["name"] for item in listed["skills"]] == ["libre", "revue"]
+        assert listed["skills"][1]["conflicts"] == ["Usine"]
+        assert listed["repositories"] == [
+            {"name": "revue", "description": "Celle du dépôt.", "project": "Usine"}
+        ]

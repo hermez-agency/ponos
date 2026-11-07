@@ -1658,6 +1658,54 @@ def library_delete(request: Request, identifier: int) -> Response:
     return answer(_api(request).library_delete(identifier))
 
 
+# -- the skills Ponos gives its sessions --------------------------------------------
+
+
+@router.get("/api/skills", response_model=answers.Skills)
+def skills_list(request: Request) -> Response:
+    return answer(_api(request).skills())
+
+
+@router.post("/api/skills", response_model=answers.SkillOpened)
+def skill_add(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
+    return answer(_api(request).skill_add(payload))
+
+
+@router.post("/api/skills/import", response_model=answers.SkillOpened)
+def skill_import(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
+    return answer(_api(request).skill_import(payload))
+
+
+@router.get("/api/skills/{identifier}", response_model=answers.SkillOpened)
+def skill_open(request: Request, identifier: int) -> Response:
+    return answer(_api(request).skill(identifier))
+
+
+@router.put("/api/skills/{identifier}", response_model=answers.SkillOpened)
+def skill_change(
+    request: Request, identifier: int, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).skill_change(identifier, payload))
+
+
+@router.delete("/api/skills/{identifier}", response_model=answers.Ok)
+def skill_delete(request: Request, identifier: int) -> Response:
+    _api(request).skill_delete(identifier)
+    return answer({"ok": True})
+
+
+@router.post("/api/skills/{identifier}/files", response_model=answers.SkillOpened)
+def skill_attach(
+    request: Request, identifier: int, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).skill_attach(identifier, payload))
+
+
+@router.delete("/api/skills/{identifier}/file", response_model=answers.SkillOpened)
+def skill_detach(request: Request, identifier: int, path: str) -> Response:
+    return answer(_api(request).skill_detach(identifier, path))
+
+
 @router.post("/api/schedules", response_model=answers.ScheduleNamed)
 def create_schedule(request: Request, payload: Fields = Body(default_factory=dict)) -> Response:
     return answer(_api(request).create_schedule(str(payload.get("name", "")), payload))
