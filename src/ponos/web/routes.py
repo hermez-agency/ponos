@@ -1454,6 +1454,16 @@ def remove_chat_attachment(request: Request, identifier: str, file: str) -> Resp
     return answer(_api(request).chat.get(identifier, blank=True).detach(file))
 
 
+@router.post(
+    "/api/chat/{identifier:attachment}/attachments/{file:attachment}/keep",
+    response_model=answers.LibraryKept,
+)
+def keep_chat_attachment(request: Request, identifier: str, file: str) -> Response:
+    """Keep a file dropped in a conversation in the library, where it does not expire."""
+    found = _api(request).chat.get(identifier, blank=True).attachment(file)
+    return answer(_api(request).library_keep(found.path, found.name))
+
+
 @router.post("/api/chat/{identifier:attachment}/queue/send", response_model=answers.ChatState)
 def send_queue(request: Request, identifier: str) -> Response:
     return answer(_api(request).chat.get(identifier, blank=True).release())
@@ -1647,6 +1657,26 @@ def memory_delete(request: Request, identifier: int) -> Response:
 @router.post("/api/memories/{identifier}/{action}", response_model=answers.Memories)
 def memory_decide(request: Request, identifier: int, action: str) -> Response:
     return answer(_api(request).memory_decide(identifier, action))
+
+
+# -- the library of reference files ------------------------------------------------
+
+
+@router.get("/api/library", response_model=answers.Library)
+def library_files(request: Request, project: str = "", tag: str = "", search: str = "") -> Response:
+    return answer(_api(request).library(project, tag, search))
+
+
+@router.put("/api/library/{identifier}", response_model=answers.Library)
+def library_change(
+    request: Request, identifier: int, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    return answer(_api(request).library_change(identifier, payload))
+
+
+@router.delete("/api/library/{identifier}", response_model=answers.Library)
+def library_delete(request: Request, identifier: int) -> Response:
+    return answer(_api(request).library_delete(identifier))
 
 
 @router.post("/api/schedules", response_model=answers.ScheduleNamed)

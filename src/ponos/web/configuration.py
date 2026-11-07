@@ -10,12 +10,14 @@ workspace or a property name changed is a different board.
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 from .. import (
     browser,
     diagnostic,
     idea_schedule,
+    library,
     local_ci,
     memory,
     notes,
@@ -479,3 +481,67 @@ class Configuration(Base):
         memory.set_option(memory.AUTO_ACCEPT, on)
         self.hub.publish("memory", auto_accept=on)
         return self.memories()
+
+    # -- the library of reference files ------------------------------------------
+
+    def library(self, project: str = "", tag: str = "", search: str = "") -> dict[str, Any]:
+        """The library, filtered; `project` keeps the files a session of that project is told."""
+        names = {
+            project_settings.key(item["id"]): str(item["name"])
+            for item in self.all_projects()["projects"]
+        }
+        shown = []
+        for item in library.listing(project=project, tag=tag, search=search):
+            shown.append(
+                {
+                    **{key: value for key, value in item.items() if key != "stored"},
+                    "path": str(library.path_of(item)),
+                    "project_names": [names.get(key, key) for key in item["projects"]],
+                }
+            )
+        count, total = library.used()
+        return {
+            "files": shown,
+            "tags": library.tags(),
+            "count": count,
+            "total": total,
+            "max_mb": self.config.web.library_max_mb,
+        }
+
+    def library_keep(self, path: Path, name: str) -> dict[str, Any]:
+        """Keep a conversation's attachment in the library, as it is."""
+        kept = library.keep_file(path, name, self.library_limit())
+        self.hub.publish("library", id=kept["id"])
+        return {**self.library(), "kept": self.library_shown(kept)}
+
+    def library_shown(self, item: dict[str, Any]) -> dict[str, Any]:
+        """A library file as the page reads it: no stored name, its path, its projects by name."""
+        names = {
+            project_settings.key(found["id"]): str(found["name"])
+            for found in self.all_projects()["projects"]
+        }
+        return {
+            **{key: value for key, value in item.items() if key != "stored"},
+            "path": str(library.path_of(item)),
+            "project_names": [names.get(key, key) for key in item["projects"]],
+        }
+
+    def library_limit(self) -> int:
+        return self.config.web.library_max_mb * 1024 * 1024
+
+    def library_change(self, identifier: int, payload: dict[str, Any]) -> dict[str, Any]:
+        name, description = payload.get("name"), payload.get("description")
+        library.edit(
+            identifier,
+            name=name if isinstance(name, str) else None,
+            description=description if isinstance(description, str) else None,
+            tag_list=payload.get("tags"),
+            project_list=payload.get("projects"),
+        )
+        self.hub.publish("library", id=identifier)
+        return self.library()
+
+    def library_delete(self, identifier: int) -> dict[str, Any]:
+        library.delete(identifier)
+        self.hub.publish("library", id=identifier)
+        return self.library()

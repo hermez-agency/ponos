@@ -119,6 +119,10 @@ const carrying = (body: Blob | string) => (request: Request) => fetch(new Reques
 /** Where a file of the conversation is served back from, for its thumbnail. */
 export const attachmentUrl = (id: string) => `/api/chat/attachments/${id}`
 
+/** Where a file of the library is served from: inline for a preview, or as a download. */
+export const libraryUrl = (id: number, download = false) =>
+  `/api/library/${id}/file${download ? "?download=1" : ""}`
+
 /* A body's fields with a default on the server are required in the schema's
  * types — openapi-typescript reads a default as a value always there — so a
  * call that may leave one out sends it as that default, the one the server
@@ -233,6 +237,33 @@ export const api = {
   importMemories: () => answer(client.POST("/api/memories/import")),
   memoryAutoAccept: (on: boolean) =>
     answer(client.POST("/api/memories/options", { body: { auto_accept: on } })),
+  /** The library of reference files — library.py. `project` keeps what that project's sessions are told. */
+  library: (query: { project?: string; tag?: string; search?: string } = {}) =>
+    answer(client.GET("/api/library", { params: { query } })),
+  uploadToLibrary: (
+    file: File,
+    details: { description?: string; tags?: string; projects?: string } = {}
+  ) =>
+    answer(
+      client.POST("/api/library/upload", {
+        params: { query: { name: file.name, ...details } },
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        fetch: carrying(file),
+      })
+    ),
+  changeLibraryFile: (id: number, values: Record<string, unknown>) =>
+    answer(
+      client.PUT("/api/library/{identifier}", { params: { path: { identifier: id } }, body: values })
+    ),
+  deleteLibraryFile: (id: number) =>
+    answer(client.DELETE("/api/library/{identifier}", { params: { path: { identifier: id } } })),
+  /** A file dropped in a conversation, kept in the library where it does not expire. */
+  keepAttachment: (chat: string, id: string) =>
+    answer(
+      client.POST("/api/chat/{identifier}/attachments/{file}/keep", {
+        params: { path: { identifier: chat, file: id } },
+      })
+    ),
   /** Ponos's own vault, without a value: an admin's. */
   vault: () => answer(client.GET("/api/vault")),
   vaultHistory: (id: string) =>

@@ -102,9 +102,8 @@ desktop = true                          # a desktop notification when a ticket f
 events = ["blocked", "failed", "done"]  # the moments worth a message
 digest = "off"                          # a summary of the period: "daily" or "weekly"
 
-# A reply on Telegram or Slack becomes a comment on the ticket. Anybody in the
-# chat can answer — and on Telegram run commands — unless allowed_users names
-# who may (ids or handles, a list or one comma-separated line).
+# A reply on Telegram or Slack becomes a comment on the ticket. Anybody in the chat can answer
+# (and on Telegram run commands) unless allowed_users names who may: ids or handles.
 [notify.telegram]
 chat = ""
 # allowed_users = []
@@ -118,6 +117,7 @@ host = "127.0.0.1"
 port = 8787
 url = ""      # the address the console is reached at, for the links in messages
 email = ""    # the sign-in e-mail (PONOS_WEB_EMAIL wins); the password is a secret
+library_max_mb = 50  # the most a file of Context → Library may weigh, in MB
 
 # Projects whose repository cannot be guessed: exact name = local path. Without
 # an entry the Repository is matched against the clones under workspace_root.

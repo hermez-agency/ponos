@@ -52,7 +52,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import ClientDisconnect
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .. import __version__, db, openrouter, tailscale, triggers, vault, voice
+from .. import __version__, db, library, openrouter, tailscale, triggers, vault, voice
 from .. import config as config_module
 from ..config import state_dir
 from . import (
@@ -1247,6 +1247,71 @@ def upload(request: Request, identifier: str, name: str = "") -> Response:
     except ClientDisconnect:
         return fail(400, "the file was not sent whole")
     return answer(said)
+
+
+@doors.post("/api/library/upload", response_model=answers.LibraryKept)
+def library_upload(
+    request: Request,
+    name: str = "",
+    description: str = "",
+    tags: str = "",
+    projects: str = "",
+) -> Response:
+    """One file for the library, as the raw body of the request — like an attachment.
+
+    `tags` and `projects` are comma lists; no project is every project.
+    """
+    try:
+        length = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        length = 0
+    api = _console(request).api
+    try:
+        kept = library.save(
+            name,
+            _Body(request),
+            length,
+            api.library_limit(),
+            description=description,
+            tag_list=tags,
+            project_list=[part for part in projects.split(",") if part.strip()],
+        )
+    except attachments.TooLarge as error:
+        return fail(413, str(error))
+    except ValueError as error:
+        return fail(400, str(error))
+    except OSError as error:
+        return fail(500, f"the file could not be kept: {error}")
+    except ClientDisconnect:
+        return fail(400, "the file was not sent whole")
+    api.hub.publish("library", id=kept["id"])
+    return answer({**api.library(), "kept": api.library_shown(kept)})
+
+
+@doors.get("/api/library/{identifier}/file", response_class=Response)
+def library_file(request: Request, identifier: int, download: str = "") -> Response:
+    """A file of the library, under the type of its extension and in a sandbox.
+
+    Inline for the preview (an image, a PDF), as a download when asked. Read
+    whole, like an attachment: `web.library_max_mb` bounds it.
+    """
+    try:
+        found = library.get(identifier)
+        body = library.path_of(found).read_bytes()
+    except (LookupError, OSError) as error:
+        return fail(404, str(error))
+    disposition = "attachment" if download else "inline"
+    extra = {"Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(found['name'])}"}
+    if found["type"] != "application/pdf":
+        extra["Content-Security-Policy"] = (
+            "sandbox; default-src 'none'; img-src 'self'; media-src 'self'"
+        )
+    elif not download:
+        # The one file the preview frames, from this page and no other: a PDF
+        # cannot be read from inside a sandbox, so it is framed by its origin.
+        extra["X-Frame-Options"] = "SAMEORIGIN"
+        extra["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'self'"
+    return _send(200, body, found["type"], extra)
 
 
 @doors.post("/api/chat/transcribe", response_model=answers.Transcribed)

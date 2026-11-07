@@ -283,6 +283,8 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Neither secret-tool nor PONOS_VAULT_KEY was there when the vault was made.": "Ni secret-tool ni PONOS_VAULT_KEY n'étaient là quand le coffre a été créé.",
   "Keep {{path}} out of the backups of the state directory, or give the key in PONOS_VAULT_KEY instead.": "Garde {{path}} hors des sauvegardes du répertoire d'état, ou donne plutôt la clé dans PONOS_VAULT_KEY.",
   "The vault's key is kept apart from it: {{where}}.": "La clé du coffre est gardée à part : {{where}}.",
+  Library: "Bibliothèque",
+  "{{count}} file(s), {{size}} kept; up to {{limit}} MB a file.": "{{count}} fichier(s), {{size}} gardés ; {{limit}} Mo au plus par fichier.",
   "Past their expiry date in the vault: {{names}}.": "Expirées dans le coffre : {{names}}.",
   "Replace the value in Context → Vault, or revoke the entry.": "Remplace la valeur dans Contexte → Coffre-fort, ou révoque l'entrée.",
   "Expiring within {{days}} days in the vault: {{names}}.": "Expirent dans moins de {{days}} jours dans le coffre : {{names}}.",

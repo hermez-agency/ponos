@@ -664,11 +664,12 @@ you open it:
 |---|---|
 | **Context** | the global context: the standing text every ticket is told first, for all the projects. Folded to a few lines, *See all* reads the rest, *Edit* writes it in place with the editor the brief uses; leaving with something typed asks first |
 | **Memory** | what Ponos remembers from one session to the next — see [Memory](#memory) below |
+| **Library** | reference files kept for the sessions — see [Library](#library) below |
 | **Vault** | Ponos's own vault — the keys, logins and notes the sessions are given, [kept encrypted](configuration.md#ponoss-own-vault-context--vault). An admin's: for a member or a reader the tab is not there, and the API answers 403 |
 
 The context used to sit beside the Projects page, and the vault was a tab of Settings; the
 Projects page no longer carries the context, and the old address `settings/vault` (and
-`?page=context`) leads to the new page. More tabs will join these three.
+`?page=context`) leads to the new page. More tabs will join these.
 
 #### Memory
 
@@ -704,6 +705,37 @@ Over MCP, `list_memories` (read) lists them and `propose_memory` (write) propose
 the others. The API is `GET /api/memories`, `POST /api/memories`, `PUT`/`DELETE
 /api/memories/<id>`, `POST /api/memories/<id>/accept` and `/refuse`, `POST /api/memories/import`;
 the acceptance setting (`POST /api/memories/options`) is an admin's.
+
+#### Library
+
+A console attachment belongs to one conversation and is kept `web.attachment_days` (7). The
+**Library** is the place for what has to stay: a charter, a contract, a brief, a quote, screenshots, a
+CV. Drop files on the tab or use *Add files*; each one has a **name**, a **description** (what it is,
+and when a session needs it), **tags** and a **scope** — all the projects, or the few that are ticked.
+The pencil renames it (the extension stays), describes and tags it and moves it to another scope; the
+arrow downloads it; the bin deletes it. Images and PDFs have a *Preview*. The list is searched by a
+word of the name, the description or the tags, and filtered by project (what that project's sessions are
+told) and by tag; *List* and *Thumbnails* are two views of it, and the choice is kept by the browser.
+Only the kinds of file a conversation takes are accepted (images, videos, pdf, txt, md, csv, json, docx,
+xlsx — never HTML or SVG, since the files are served back from the console's own origin).
+
+The files are in `~/.local/state/ponos/library/` (`0700`, never in a repository), their metadata in
+`ponos.db`, and nothing expires. A file may weigh `web.library_max_mb` (50 MB by default) at most;
+`ponos doctor` and the settings say how many files the library holds and the room they take.
+
+**What reaches the sessions.** A `# Reference files` block of the prompt lists the files in the scope
+of the ticket's project — their absolute path, their name and their description — within 3 000
+characters (the prompt says how many it left out). The session reads one from its path with the tool
+it reads source with; nothing is copied into the worktree. A file for project X is in no other
+project's prompt, and a ticket with no project is told the files for every project only.
+
+**From a conversation.** A file you sent in a conversation shows a bookmark when you point at it:
+*Keep in the library* copies it there, with no scope (all the projects), ready to be described.
+
+Over MCP, `list_library` (read) lists the files, for a project or a tag or a word, with their path, and
+`get_library_file` reads one file's metadata — never its content. The API is `GET /api/library`,
+`POST /api/library/upload?name=…` (the raw file as the body), `PUT`/`DELETE /api/library/<id>` and
+`GET /api/library/<id>/file[?download=1]`.
 
 ### Goals
 
@@ -1275,6 +1307,8 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `apply_solution` | Appliquer une solution | write | one of those choices: the decision and its instruction in the task's discussion, then the move — *ready*, *validated* or *done* |
 | `list_memories` | Mémoire | read | what Ponos remembers: facts with their type, scope, source and state (accepted, proposed, refused) |
 | `propose_memory` | Proposer un souvenir | write | a fact put to the person; it stays *proposed* — no session reads it — until accepted in Context → Memory |
+| `list_library` | Bibliothèque | read | the reference files kept for the sessions: name, description, tags, scope, type, size and path on this machine — the content is read from the path |
+| `get_library_file` | Un fichier de la bibliothèque | read | one file's metadata |
 | `create_idea` | Proposer une idée | write | an idea among the proposed ones, to be kept or thrown away |
 | `set_idea_state` | Garder ou jeter une idée | write | `keep` (for later, nothing on the board), `ticket` (a draft, as swiping right in the pile does), `discard`, or `new` to propose it again |
 

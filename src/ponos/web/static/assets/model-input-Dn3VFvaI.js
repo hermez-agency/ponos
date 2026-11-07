@@ -1,0 +1,1 @@
+export{n as ModelInputController}from"./model-input-BG9L-24j.js";

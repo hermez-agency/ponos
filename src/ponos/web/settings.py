@@ -355,6 +355,15 @@ SECTIONS: tuple[Section, ...] = (
                 "out; the token keeps working, for scripts.",
                 after="the console has to be restarted",
             ),
+            Field(
+                "web",
+                "library_max_mb",
+                "int",
+                "Library: largest file (MB)",
+                "The most a file of Context → Library may weigh. Those files are kept for "
+                "good and read by the sessions; a heavier one is refused before it is sent.",
+                minimum=1,
+            ),
         ),
     ),
     # -- source --------------------------------------------------------------

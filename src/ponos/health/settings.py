@@ -10,7 +10,7 @@ import sqlite3
 from datetime import datetime
 
 from .. import config as config_module
-from .. import idea_schedule, kinds, project_settings, speech, vault, vault_store, voice
+from .. import idea_schedule, kinds, library, project_settings, speech, vault, vault_store, voice
 from ..web import attempts
 from .check import ERROR, INFO, OK, WARN, Check, _check
 
@@ -619,6 +619,22 @@ def _console(config: config_module.Config) -> list[Check]:
             "Attachments",
             "Up to {{size}} MB a file, kept {{days}} days.",
             params={"size": str(web.attachment_max_mb), "days": str(web.attachment_days)},
+        )
+    )
+    # The library keeps its files for good, so the room it takes is said here:
+    # nothing else would tell somebody why the state directory grows.
+    count, size = library.used()
+    found.append(
+        _check(
+            "settings.library",
+            OK,
+            "Library",
+            "{{count}} file(s), {{size}} kept; up to {{limit}} MB a file.",
+            params={
+                "count": str(count),
+                "size": library.megabytes(size),
+                "limit": str(web.library_max_mb),
+            },
         )
     )
     openrouter = config.openrouter

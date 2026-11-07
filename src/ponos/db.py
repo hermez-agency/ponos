@@ -1131,6 +1131,27 @@ def _memories(connection: sqlite3.Connection) -> None:
     )
 
 
+def _library(connection: sqlite3.Connection) -> None:
+    # Les fichiers de référence que les sessions peuvent lire (library.py). Le
+    # fichier lui-même vit dans le dossier `library/` de l'état, sous `stored` ;
+    # `tags` et `projects` sont des listes JSON (`projects` vide : tous les projets).
+    connection.execute(
+        """
+        CREATE TABLE library_files (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            tags        TEXT NOT NULL DEFAULT '[]',
+            projects    TEXT NOT NULL DEFAULT '[]',
+            stored      TEXT NOT NULL,
+            size        INTEGER NOT NULL DEFAULT 0,
+            created     TEXT NOT NULL,
+            updated     TEXT NOT NULL
+        )
+        """
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1188,6 +1209,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _markdown_board_is_gone,
     _detached_sessions,
     _memories,
+    _library,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

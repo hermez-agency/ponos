@@ -1,5 +1,8 @@
 import * as React from "react"
+import { toast } from "sonner"
 import {
+  BookmarkPlusIcon,
+  CheckIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   FileIcon,
@@ -20,9 +23,10 @@ import {
   AttachmentTrigger,
 } from "@/components/ui/attachment"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
-import { attachmentUrl } from "@/lib/api"
+import { api, attachmentUrl, why } from "@/lib/api"
 import { extensionOf, humanSize, type Pending } from "@/lib/composer"
 import { useT } from "@/lib/i18n"
+import { openChatId } from "@/lib/open-chat"
 import type { Attached } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -145,6 +149,31 @@ export function PendingTile({ item, onRemove }: { item: Pending; onRemove: () =>
   )
 }
 
+/** One click to keep a file of the conversation in the library, where it does not expire. */
+function KeepButton({ item }: { item: Attached }) {
+  const t = useT()
+  const [kept, setKept] = React.useState(false)
+  const label = kept ? t("Kept in the library") : t("Keep in the library")
+  return (
+    <button
+      type="button"
+      data-slot="keep-in-library"
+      aria-label={`${label}: ${item.name}`}
+      title={label}
+      disabled={kept}
+      onClick={() => {
+        api
+          .keepAttachment(openChatId(), item.id)
+          .then(() => setKept(true))
+          .catch((error) => toast.error(t("The file could not be kept"), { description: why(error) }))
+      }}
+      className="bg-background/90 text-foreground absolute -top-2 -right-2 z-10 flex size-6 items-center justify-center rounded-full border opacity-0 shadow-xs transition-opacity group-focus-within/keep:opacity-100 group-hover/keep:opacity-100 focus-visible:opacity-100"
+    >
+      {kept ? <CheckIcon className="size-3.5" /> : <BookmarkPlusIcon className="size-3.5" />}
+    </button>
+  )
+}
+
 /** The files of a message already said: thumbnails that open in full. */
 export function AttachedGallery({ items, align }: { items: Attached[]; align: "start" | "end" }) {
   const t = useT()
@@ -152,9 +181,11 @@ export function AttachedGallery({ items, align }: { items: Attached[]; align: "s
   return (
     <>
       <AttachmentGroup className={cn("max-w-full flex-wrap items-center", align === "end" && "justify-end")}>
-        {items.map((item) =>
-          item.kind === "document" ? (
-            <Attachment key={item.id} size="sm" className="max-w-60 min-w-40">
+        {items.map((item) => (
+          <span key={item.id} className="group/keep relative inline-flex">
+            <KeepButton item={item} />
+            {item.kind === "document" ? (
+            <Attachment size="sm" className="max-w-60 min-w-40">
               <AttachmentMedia>
                 <DocumentIcon name={item.name} />
               </AttachmentMedia>
@@ -174,7 +205,6 @@ export function AttachedGallery({ items, align }: { items: Attached[]; align: "s
             </Attachment>
           ) : (
             <button
-              key={item.id}
               type="button"
               data-slot="attachment"
               aria-label={t("Open {{name}}", { name: item.name })}
@@ -184,8 +214,9 @@ export function AttachedGallery({ items, align }: { items: Attached[]; align: "s
             >
               <Still kind={item.kind} src={attachmentUrl(item.id)} name={item.name} />
             </button>
-          )
-        )}
+            )}
+          </span>
+        ))}
       </AttachmentGroup>
       <Dialog open={open !== null} onOpenChange={(next) => (next ? null : setOpen(null))}>
         <DialogContent

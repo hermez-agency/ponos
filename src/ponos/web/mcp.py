@@ -44,7 +44,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from .. import __version__, db, ideas, ids, journal, log, memory, state, store
+from .. import __version__, db, ideas, ids, journal, library, log, memory, state, store
 from .. import kinds as kinds_module
 from . import live
 from .oauth import READ, WRITE, Grant
@@ -457,6 +457,34 @@ TOOLS: list[dict[str, Any]] = [
             },
             ("text",),
         ),
+    },
+    {
+        "name": "list_library",
+        "title": "Bibliothèque",
+        "scope": READ,
+        "description": "Liste les fichiers de référence que Ponos garde (charte, contrat, cahier des "
+        "charges, captures…) : nom, description, étiquettes, portée (« tous » ou des projets), "
+        "type, taille et chemin sur cette machine. Avec « project », seuls les fichiers que les "
+        "sessions de ce projet reçoivent. Le contenu n'est pas renvoyé : lisez le fichier à son "
+        "chemin.",
+        "inputSchema": _schema(
+            {
+                "project": PROJECT_FILTER,
+                "tag": {"type": "string", "description": "Une étiquette."},
+                "search": {
+                    "type": "string",
+                    "description": "Un mot du nom, de la description ou des étiquettes.",
+                },
+            }
+        ),
+    },
+    {
+        "name": "get_library_file",
+        "title": "Un fichier de la bibliothèque",
+        "scope": READ,
+        "description": "Les métadonnées d'un fichier de la bibliothèque (id donné par list_library) : "
+        "nom, description, étiquettes, portée, type, taille, dates, chemin.",
+        "inputSchema": _schema({"id": {"type": "integer"}}, ("id",)),
     },
     {
         "name": "set_idea_state",
@@ -1126,6 +1154,34 @@ def list_memories(
     }
 
 
+def _library_file(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": item["id"],
+        "name": item["name"],
+        "description": item["description"],
+        "tags": item["tags"],
+        "scope": item["project_names"] or "tous",
+        "type": item["type"],
+        "size": item["size"],
+        "updated": item["updated"],
+        "path": item["path"],
+    }
+
+
+def list_library(api: Api, project: str = "", tag: str = "", search: str = "") -> dict[str, Any]:
+    scope = _project(api, project)["id"] if project else ""
+    shown = api.library(scope, tag, search)["files"][:LISTED_MOST]
+    return {"files": [_library_file(item) for item in shown]}
+
+
+def get_library_file(api: Api, id: int) -> dict[str, Any]:
+    try:
+        found = library.get(int(id))
+    except LookupError as error:
+        raise ToolError(str(error)) from error
+    return _library_file(api.library_shown(found))
+
+
 def propose_memory(
     api: Api, text: str, kind: str = "preference", project: str = ""
 ) -> dict[str, Any]:
@@ -1159,4 +1215,6 @@ HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "set_idea_state": set_idea_state,
     "list_memories": list_memories,
     "propose_memory": propose_memory,
+    "list_library": list_library,
+    "get_library_file": get_library_file,
 }

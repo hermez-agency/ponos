@@ -53,6 +53,33 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Accept the proposals without waiting": "Accepter les propositions sans attendre",
   "A session's proposal then reaches the next prompts at once; you read it afterwards.":
     "La proposition d'une session atteint alors tout de suite les prompts suivants ; tu la relis après coup.",
+  // The Library page (components/console/library-page.tsx).
+  "The file was not saved": "Le fichier n'a pas été enregistré",
+  Tags: "Étiquettes",
+  "What it is, and when a session needs it": "Ce que c'est, et quand une session en a besoin",
+  "Tags, separated by commas": "Étiquettes, séparées par des virgules",
+  "Scope: none ticked means every project": "Portée : aucun projet coché veut dire tous les projets",
+  "A file of the library": "Un fichier de la bibliothèque",
+  "“{{name}}” is in the library": "« {{name}} » est dans la bibliothèque",
+  "“{{name}}” could not be kept": "« {{name}} » n'a pas pu être gardé",
+  Preview: "Aperçu",
+  Download: "Télécharger",
+  "File deleted": "Fichier supprimé",
+  "Reference files kept for the sessions: a charter, a contract, a brief. A session is told the path of those for its project and reads them from there.":
+    "Fichiers de référence gardés pour les sessions : une charte, un contrat, un cahier des charges. Une session reçoit le chemin de ceux de son projet et les lit à cet endroit.",
+  "Sending…": "Envoi…",
+  "Add files": "Ajouter des fichiers",
+  "Search the library": "Chercher dans la bibliothèque",
+  "Filter by project": "Filtrer par projet",
+  "Filter by tag": "Filtrer par étiquette",
+  "Every project": "Tous les projets",
+  "Every tag": "Toutes les étiquettes",
+  Thumbnails: "Vignettes",
+  "Drop files here": "Dépose des fichiers ici",
+  "No file matches.": "Aucun fichier ne correspond.",
+  "The library is empty.": "La bibliothèque est vide.",
+  "{{count}} file(s), {{size}} in all; up to {{limit}} MB a file (web.library_max_mb).":
+    "{{count}} fichier(s), {{size}} en tout ; {{limit}} Mo au plus par fichier (web.library_max_mb).",
   // The Vault page (components/console/vault-page.tsx).
   "API key / token": "Clé d'API / jeton",
   "Login + password": "Login + mot de passe",
@@ -607,6 +634,9 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Sign-in password": "Mot de passe de connexion",
   "`PONOS_WEB_PASSWORD` wins over it. Changing it signs every browser out; the token keeps working, for scripts.":
     "`PONOS_WEB_PASSWORD` l'emporte. Le changer déconnecte tous les navigateurs ; le jeton continue de marcher, pour les scripts.",
+  "Library: largest file (MB)": "Bibliothèque : fichier le plus lourd (Mo)",
+  "The most a file of Context → Library may weigh. Those files are kept for good and read by the sessions; a heavier one is refused before it is sent.":
+    "Le poids maximal d'un fichier de Contexte → Bibliothèque. Ces fichiers sont gardés pour de bon et lus par les sessions ; un fichier plus lourd est refusé avant l'envoi.",
   "Send a dictated message right away": "Envoyer un message dicté aussitôt",
   "Off: the transcription waits in the field, to be read over first. Dictation needs the OpenRouter key.":
     "Désactivé : la transcription attend dans le champ, pour être relue d'abord. La dictée demande la clé OpenRouter.",

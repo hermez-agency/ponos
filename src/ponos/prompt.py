@@ -890,6 +890,7 @@ def build(
     workers: int = 0,
     notes: Iterable[str] = (),
     memories: Iterable[str] = (),
+    library: Iterable[str] = (),
 ) -> str:
     scope, frame, heading, aim, role, discussion = _frames(
         project,
@@ -904,6 +905,7 @@ def build(
         goal_due,
         notes,
         memories,
+        library,
     )
     rules = permissions(allowed, ask, owners)
     text = template.format(
@@ -1116,6 +1118,7 @@ def _frames(
     goal_due: str = "",
     notes: Iterable[str] = (),
     memories: Iterable[str] = (),
+    library: Iterable[str] = (),
 ) -> tuple[str, str, str, str, str, str]:
     """The blocks that surround a ticket, widest first. Shared by both prompts."""
     # A ticket may have no project at all: the sentence has to read either way.
@@ -1147,6 +1150,17 @@ def _frames(
             "# What you remember\n\n"
             "Kept from earlier sessions and conversations; they hold unless the ticket says otherwise.\n\n"
             + "\n".join(f"- {fact}" for fact in remembered)
+            + "\n\n"
+        )
+    # The reference files kept for this project — see library.py: paths on this
+    # machine, read with the same tool as source, never copied into the worktree.
+    shelf = [line.strip() for line in library if line.strip()]
+    if shelf:
+        heading += (
+            "# Reference files\n\n"
+            "Kept for this project; read one from its path when the ticket needs it. "
+            "They are not in the repository: do not copy them in.\n\n"
+            + "\n".join(f"- {line}" for line in shelf)
             + "\n\n"
         )
     # The goal the ticket serves: the intent of the task, so after the project

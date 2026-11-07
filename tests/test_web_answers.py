@@ -64,6 +64,7 @@ def every_route_that_answers_json_names_its_shape() -> None:
         "get /api/browser/live/{identifier}/screen",
         "get /api/chat/attachments/{identifier}",
         "get /api/files/{file_id}",
+        "get /api/library/{identifier}/file",
         "get /api/projects/{project_id}/image/{slot}",
         "get /api/spending.csv",
         "get /api/tickets/{ticket_id}/previews/{name}",

@@ -1577,6 +1577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chat/{identifier}/attachments/{file}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Chat Attachment
+         * @description Keep a file dropped in a conversation in the library, where it does not expire.
+         */
+        post: operations["keep_chat_attachment_api_chat__identifier__attachments__file__keep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chat/{identifier}/queue/send": {
         parameters: {
             query?: never;
@@ -1900,6 +1920,41 @@ export interface paths {
         /** Memory Decide */
         post: operations["memory_decide_api_memories__identifier___action__post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Library Files */
+        get: operations["library_files_api_library_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Library Change */
+        put: operations["library_change_api_library__identifier__put"];
+        post?: never;
+        /** Library Delete */
+        delete: operations["library_delete_api_library__identifier__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2386,6 +2441,51 @@ export interface paths {
          *     in the query, the bytes are streamed to disk — never held.
          */
         post: operations["upload_api_chat__identifier__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Library Upload
+         * @description One file for the library, as the raw body of the request — like an attachment.
+         *
+         *     `tags` and `projects` are comma lists; no project is every project.
+         */
+        post: operations["library_upload_api_library_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/{identifier}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Library File
+         * @description A file of the library, under the type of its extension and in a sandbox.
+         *
+         *     Inline for the preview (an image, a PDF), as a download when asked. Read
+         *     whole, like an attachment: `web.library_max_mb` bounds it.
+         */
+        get: operations["library_file_api_library__identifier__file_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3571,6 +3671,47 @@ export interface components {
         Launched: {
             status: string;
             message: string;
+        };
+        Library: {
+            files: components["schemas"]["LibraryFile"][];
+            /** @description Every tag in use. */
+            tags: string[];
+            /** @description Files in the library, whatever the filters. */
+            count: number;
+            /** @description Bytes the library takes. */
+            total: number;
+            /** @description The most a file may weigh. */
+            max_mb: number;
+        };
+        /** @description One reference file of the library — see library.py. */
+        LibraryFile: {
+            id: number;
+            name: string;
+            description: string;
+            tags: string[];
+            /** @description The ids of the projects it is for; empty for every project. */
+            projects: string[];
+            project_names: string[];
+            /** @description image, video or document. */
+            kind: string;
+            type: string;
+            size: number;
+            created: string;
+            updated: string;
+            /** @description Where a session reads it on this machine. */
+            path: string;
+        };
+        LibraryKept: {
+            files: components["schemas"]["LibraryFile"][];
+            /** @description Every tag in use. */
+            tags: string[];
+            /** @description Files in the library, whatever the filters. */
+            count: number;
+            /** @description Bytes the library takes. */
+            total: number;
+            /** @description The most a file may weigh. */
+            max_mb: number;
+            kept: components["schemas"]["LibraryFile"];
         };
         Line: {
             /** @default  */
@@ -8757,6 +8898,38 @@ export interface operations {
             };
         };
     };
+    keep_chat_attachment_api_chat__identifier__attachments__file__keep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryKept"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     send_queue_api_chat__identifier__queue_send_post: {
         parameters: {
             query?: never;
@@ -9428,6 +9601,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Memories"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_files_api_library_get: {
+        parameters: {
+            query?: {
+                project?: string;
+                tag?: string;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Library"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_change_api_library__identifier__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Library"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_delete_api_library__identifier__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Library"];
                 };
             };
             /** @description Validation Error */
@@ -10241,6 +10515,71 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Attached"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_upload_api_library_upload_post: {
+        parameters: {
+            query?: {
+                name?: string;
+                description?: string;
+                tags?: string;
+                projects?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryKept"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_file_api_library__identifier__file_get: {
+        parameters: {
+            query?: {
+                download?: string;
+            };
+            header?: never;
+            path: {
+                identifier: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
