@@ -44,6 +44,7 @@ from . import (
     adoption,
     blocks,
     browser,
+    db,
     diagnostic,
     generated,
     git,
@@ -60,6 +61,7 @@ from . import (
     project_settings,
     resources,
     session,
+    skills,
     state,
     stopping,
     store,
@@ -814,6 +816,7 @@ class Execution(Base):
             self._note_worktree(job, worktree)
             if failure := self._prepare_worktree(job):
                 return failure
+            self._place_skills(job)
 
         # The ticket's own session: written down so that a restart carries it on.
         job.adoptable = True
@@ -922,6 +925,22 @@ class Execution(Base):
             note=f"{said.say('plan-heading')}\n\n{planning.clipped(plan)}",
             outcome=outcome,
         )
+
+    def _place_skills(self, job: Job) -> None:
+        """The skills Ponos gives this project, put in the worktree for its session — see skills.py."""
+        if self.dry_run:
+            return
+        try:
+            placed = skills.install(job.workdir, job.project.notion_id)
+        except (OSError, *db.ERRORS) as error:
+            logger.warning("skills not placed in %s: %s", job.workdir, error)
+            return
+        if placed.placed:
+            self.say(f"    · skills placed: {', '.join(placed.placed)}")
+        if placed.kept_from_repository:
+            self.say(
+                f"    · skills the repository already has, kept: {', '.join(placed.kept_from_repository)}"
+            )
 
     def _prepare_worktree(self, job: Job) -> dict[str, Any] | None:
         """The project's setup command, run in the fresh worktree before any session.

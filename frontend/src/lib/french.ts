@@ -2040,6 +2040,9 @@ export const FRENCH: Record<string, string> = {
   "The file could not be kept": "Le fichier n'a pas pu être gardé",
   "Reference files kept for the sessions, for all the projects or some.":
     "Fichiers de référence gardés pour les sessions, pour tous les projets ou pour certains.",
+  Skills: "Skills",
+  "The Claude Code skills Ponos gives its sessions, for all of them or for some projects.":
+    "Les skills Claude Code que Ponos donne à ses sessions, à toutes ou à certains projets.",
   "What Ponos remembers from one session to the next, for all the projects or one.":
     "Ce que Ponos retient d'une session à l'autre, pour tous les projets ou pour un seul.",
   "What every ticket is told, for all the projects.": "Ce que reçoit chaque ticket, pour tous les projets.",

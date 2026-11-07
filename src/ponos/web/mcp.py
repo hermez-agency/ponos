@@ -487,6 +487,16 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": _schema({"id": {"type": "integer"}}, ("id",)),
     },
     {
+        "name": "list_skills",
+        "title": "Skills",
+        "scope": READ,
+        "description": "Liste les skills Claude Code que Ponos donne à ses sessions (Contexte › "
+        "Skills) : leur nom, leur description, leur portée (« global » ou des projets) et leur état "
+        "(actif ou non), puis, en lecture seule, celles que les dépôts des projets fournissent déjà. "
+        "Une skill de Ponos du même nom qu'une skill du dépôt n'est pas posée : celle du dépôt gagne.",
+        "inputSchema": _schema({"project": PROJECT_FILTER}),
+    },
+    {
         "name": "set_idea_state",
         "title": "Garder ou jeter une idée",
         "scope": WRITE,
@@ -1195,6 +1205,37 @@ def propose_memory(
     return {"id": made["id"], "status": made["status"], "text": made["text"]}
 
 
+def list_skills(api: Api, project: str = "") -> dict[str, Any]:
+    wanted = _project(api, project)["id"] if project else ""
+    listed = api.skills()
+    kept = [
+        item
+        for item in listed["skills"]
+        if not wanted or not item["scope"] or wanted in [key for key in item["scope"]]
+    ]
+    return {
+        "skills": [
+            {
+                "name": item["name"],
+                "description": item["description"],
+                "scope": item["scope_names"] or "global",
+                "enabled": item["enabled"],
+                "conflicts": [clash["project_name"] for clash in item["conflicts"]],
+            }
+            for item in kept[:LISTED_MOST]
+        ],
+        "repositories": [
+            {
+                "name": item["name"],
+                "description": item["description"],
+                "project": item["project_name"],
+            }
+            for item in listed["repositories"]
+            if not wanted or item["project"] == wanted
+        ][:LISTED_MOST],
+    }
+
+
 def _short(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
@@ -1214,6 +1255,7 @@ HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "create_idea": create_idea,
     "set_idea_state": set_idea_state,
     "list_memories": list_memories,
+    "list_skills": list_skills,
     "propose_memory": propose_memory,
     "list_library": list_library,
     "get_library_file": get_library_file,

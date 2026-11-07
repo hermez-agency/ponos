@@ -1152,6 +1152,35 @@ def _library(connection: sqlite3.Connection) -> None:
     )
 
 
+def _skills(connection: sqlite3.Connection) -> None:
+    # Les skills Claude Code données aux sessions (skills.py). `scope` est une
+    # liste JSON de clés de projets, vide pour toutes les sessions ; le SKILL.md
+    # est une ligne de `skill_files` comme les fichiers à côté de lui.
+    connection.execute(
+        """
+        CREATE TABLE skills (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL UNIQUE,
+            description TEXT NOT NULL DEFAULT '',
+            enabled     INTEGER NOT NULL DEFAULT 1,
+            scope       TEXT NOT NULL DEFAULT '[]',
+            created     TEXT NOT NULL,
+            updated     TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE skill_files (
+            skill   INTEGER NOT NULL,
+            path    TEXT NOT NULL,
+            content BLOB NOT NULL,
+            PRIMARY KEY (skill, path)
+        )
+        """
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1210,6 +1239,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _detached_sessions,
     _memories,
     _library,
+    _skills,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

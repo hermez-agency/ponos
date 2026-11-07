@@ -166,6 +166,8 @@ SERIES = {
 SERIES_PROJECT = ("000000000000000000000000005e0caf", "Studio", "🎨")
 PAUSED = "00000000000000000000000000005ed1"
 DUE = "00000000000000000000000000005ed2"
+# Where Newsletter's clone is, once `main` has made it: the skills its repository holds.
+CLONED: list[str] = []
 PROJECTS = {
     "0000000000000000000000000000cafe": "Website",
     "0000000000000000000000000000beef": "Newsletter",
@@ -263,6 +265,8 @@ def board(seed: workbench.Seed, doomed: bool = False) -> None:
         seed.write("tickets", page, "A short brief.")
     for id, name in PROJECTS.items():
         page = {"id": id, "title": name, "Repository": f"example/{name.lower()}"}
+        if name == "Newsletter" and CLONED:
+            page["Path"] = CLONED[0]
         seed.write("projects", page, f"The brief of {name}.")
     for number, (id, name) in enumerate(DOOMED.items() if doomed else ()):
         page = {"id": id, "title": name, "Repository": f"example/{name.lower().replace(' ', '-')}"}
@@ -412,6 +416,21 @@ def bell_of() -> None:
     db.close()
 
 
+def cloned_repository(here: Path) -> str:
+    """A clone for Newsletter that holds one skill of its own: the read-only list's row, and a clash."""
+    import subprocess
+
+    repository = here / "newsletter"
+    folder = repository / ".claude" / "skills" / "revue"
+    folder.mkdir(parents=True)
+    (folder / "SKILL.md").write_text(
+        "---\nname: revue\ndescription: Reviews a pull request the way Newsletter does.\n---\n\nReview.\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q", str(repository)], check=True)
+    return str(repository)
+
+
 def memory_of() -> None:
     """What Ponos remembers: one kept fact, and two proposals waiting.
 
@@ -488,6 +507,7 @@ def main() -> None:
     )
     if not fresh:
         seed = workbench.Seed()
+        CLONED.append(cloned_repository(here))
         if mode == "accounts":
             accounts_board(seed)
         elif mode == "series":
