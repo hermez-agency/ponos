@@ -171,6 +171,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `github_access.mode`, `github_access.token_item` | `""` | how GitHub is reached without `gh` — see *Connect GitHub* below |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |
 | `[vault]` | | what each project's sessions are given — see *Keys a ticket may use* below |
+| `install.extras` | `[]` | the optional extras every version's environment is built with — `"voice"` (Piper) and `"browser"` (Playwright); `ponos extras add voice` installs one and writes the line, and every update keeps it — see [Optional extras](installation.md#optional-extras-voice-browser) |
 | `OPENROUTER_API_KEY` | | not a key of this file: the secret is in Ponos's vault or the environment (see the secrets above) — one key in front of every other provider, see *Every other model* below |
 
 ### What is a constant now
@@ -626,11 +627,11 @@ Brevo — used to run in **Claude in Chrome**, your own Chrome: it had to be ope
 extension connected and the right account active, two sessions in it stepped on each
 other, and a sign-in form stopped the ticket until somebody typed the password. Ponos now
 has a browser of its own: **Chromium driven by Playwright**, on the machine Ponos runs on,
-without a window unless you ask for one. Install it once, into Ponos's Python —
+without a window unless you ask for one. Install it once —
 `ponos doctor` prints the two commands for yours:
 
 ```sh
-python -m pip install 'playwright>=1.64.1'   # the `browser` extra
+ponos extras add browser   # the `browser` extra: Playwright, kept by every update
 python -m playwright install chromium
 ```
 

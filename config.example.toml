@@ -122,3 +122,11 @@ mode = ""
 # "pass:hermez/npm". Which keys each project is given is set in its Settings tab.
 [vault]
 provider = "env"
+
+# The optional extras of pyproject.toml every version's environment is built
+# with — "voice" (Piper, the console's voice) and "browser" (Playwright). An
+# update makes a new environment for each version: an extra installed by hand
+# in the old one would be lost, so it is declared here. `ponos extras add voice`
+# installs it and writes this line; `ponos extras list` shows where each stands.
+[install]
+extras = []

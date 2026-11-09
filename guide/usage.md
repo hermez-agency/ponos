@@ -35,6 +35,9 @@ ponos clean --force --days <n>  # and drop the session logs older than that many
 ponos update       # move the installation to the newest version
 ponos update --check         # what is available, changing nothing
 ponos update --environment   # make the .venv of the version in use again
+ponos extras list            # the optional extras (voice, browser): installed and declared?
+ponos extras add voice       # install one in the environment in use, and keep it through updates
+ponos extras remove voice    # stop keeping it, and uninstall it
 ponos service on   # write the units, (re)start the daemon and the console — the sessions in flight carry on
 ponos service off  # stop the daemon, the console and the Tailscale doors
 ponos service status         # the state of ponos.service, ponos-web.service and ponos-tailscale.service

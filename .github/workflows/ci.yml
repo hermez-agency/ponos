@@ -158,7 +158,10 @@ jobs:
       - name: requirements.txt est l'export du lockfile
         run: |
           uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt
-          git diff --exit-code -- requirements.txt
+          for extra in voice browser; do
+            uv export --frozen --no-dev --no-emit-project --extra "$extra" --format requirements-txt -o "requirements-$extra.txt"
+          done
+          git diff --exit-code -- requirements.txt requirements-voice.txt requirements-browser.txt
 
       - name: Les deux suites, sous pytest
         run: uv run pytest --cov=src/ponos --cov-report=term:skip-covered --cov-fail-under=80

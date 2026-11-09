@@ -1405,6 +1405,47 @@ def _remake_environment() -> int:
     return 0
 
 
+def command_extras(args: argparse.Namespace) -> int:
+    """`ponos extras list|add|remove`: the optional extras of the environment in use.
+
+    Declared in `[install] extras`, so that the next update builds its environment
+    with them: installed by hand, they would be gone with the version.
+    """
+    if config_module.in_container():
+        bad(update_module.CONTAINER)
+        return 1
+    version = update_module.installed_version()
+    if version is None:
+        bad(f"{update_module.app_dir()} was not installed by install.sh: it has no environment")
+        return 1
+    offered = environment.available(version)
+    declared = environment.declared() or []
+    if args.action == "list":
+        lost = environment.failures(version)
+        there = set(environment.present(version, [version]))
+        for extra in offered:
+            line = f"{extra}: {'installed' if extra in there else 'not installed'}"
+            line += ", declared" if extra in declared else ", not declared"
+            (bad if extra in lost else ok)(f"{line}{' — ' + lost[extra] if extra in lost else ''}")
+        return 0
+    if not args.extra:
+        bad(f"which extra? ({', '.join(offered)})")
+        return 1
+    if args.action == "add":
+        problem = environment.add(version, args.extra)
+        if problem:
+            bad(problem)
+            return 1
+        ok(f"the `{args.extra}` extra is installed, and every update will keep it")
+        return 0
+    problem = environment.remove(version, args.extra)
+    if problem:
+        bad(problem)
+        return 1
+    ok(f"the `{args.extra}` extra is removed")
+    return 0
+
+
 def command_open(args: argparse.Namespace) -> int:
     """Handle a ponos:// link. The desktop calls this on a click."""
     try:
@@ -2016,6 +2057,13 @@ def _add_setup_commands(subparsers: argparse._SubParsersAction[argparse.Argument
         "--convert", action="store_true", help="convert the file if it needs it, never open it"
     )
     configure.set_defaults(function=command_config)
+
+    extras = subparsers.add_parser(
+        "extras", help="the optional extras of the environment (voice, browser): list, add, remove"
+    )
+    extras.add_argument("action", choices=("list", "add", "remove"), help="what to do")
+    extras.add_argument("extra", nargs="?", default="", help="voice, browser…")
+    extras.set_defaults(function=command_extras)
 
     updating = subparsers.add_parser("update", help="move the installation to the newest version")
     updating.add_argument(

@@ -136,7 +136,7 @@ def without_piper_the_voice_says_why_and_nothing_breaks() -> None:
         try:
             speech.synthesize(settings, "Bonjour.", "fr")
         except speech.Unavailable as error:
-            assert "piper-tts" in str(error)
+            assert "ponos extras add voice" in str(error)
         else:
             raise AssertionError("a voice spoke with no Piper")
     finally:

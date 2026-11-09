@@ -520,6 +520,7 @@ ADMIN_WRITES = (
     "/api/health/fix",
     "/api/mcp/",
     "/api/disk/clean",
+    "/api/extras/",
     "/api/ideas/schedule",
     "/api/vault",
     "/api/browser",

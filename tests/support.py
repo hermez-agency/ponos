@@ -653,8 +653,8 @@ def _installable() -> Iterator[tuple[Callable[..., str], Path, str]]:
         # process instead: the test stays offline, and as fast as it was.
         made = environment.create
 
-        def create(app: Path, base: str | None = None) -> str:
-            problem = made(app, base)
+        def create(app: Path, base: str | None = None, source: Path | None = None) -> str:
+            problem = made(app, base, source)
             borrowed = [path for path in sys.path if path.endswith("-packages")]
             for site in (app / environment.VENV / "lib").glob("python*/site-packages"):
                 (site / "borrowed.pth").write_text("\n".join(borrowed), encoding="utf-8")

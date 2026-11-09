@@ -708,8 +708,12 @@ export const FRENCH: Record<string, string> = {
   "The voice could not speak": "La voix n'a pas pu parler",
   "The voice is not available": "La voix n'est pas disponible",
   "Voice is off: speech.enabled is false": "La voix est désactivée : speech.enabled est faux",
-  "Voice needs Piper: install the `voice` extra (pip install piper-tts)":
-    "La voix demande Piper : installez l'extra `voice` (pip install piper-tts)",
+  "Voice needs Piper: run `ponos extras add voice`":
+    "La voix demande Piper : lancez `ponos extras add voice`",
+  "Install the voice": "Installer la voix",
+  "Installing the voice…": "Installation de la voix…",
+  "The voice is installed": "La voix est installée",
+  "The voice could not be installed": "La voix n'a pas pu être installée",
   "Transcribing…": "Transcription…",
   Stop: "Arrêter",
   "The workspace is answering": "L'espace de travail répond",

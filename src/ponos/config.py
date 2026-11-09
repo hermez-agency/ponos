@@ -807,6 +807,17 @@ class Vault:
 
 
 @dataclass
+class Install:
+    """`[install]`: the extras of `pyproject.toml` each version's environment is built with.
+
+    Declared rather than guessed: an environment is made anew for every version,
+    and what was added to the one before by hand would be gone. See environment.py.
+    """
+
+    extras: tuple[str, ...] = ()
+
+
+@dataclass
 class Config:
     runner: Runner
     path: Path
@@ -820,6 +831,7 @@ class Config:
     review: Review = field(default_factory=Review)
     permissions: Permissions = field(default_factory=Permissions)
     vault: Vault = field(default_factory=Vault)
+    install: Install = field(default_factory=Install)
     # The board's vocabulary — its columns, statuses and types: see `PROPERTIES`.
     board: BoardNames = field(default_factory=BoardNames)
     # `[github]`: which of your GitHub accounts each owner is worked under, as
@@ -1443,6 +1455,7 @@ def load(path: Path | None = None, *, secrets: dict[str, str] | None = None) -> 
         review=Review(),
         permissions=Permissions(**file.permissions.model_dump()),
         vault=_vault(file.vault),
+        install=Install(extras=file.install.extras),
         github=dict(file.github),
         github_access=_github_access(file.github_access, stored),
         exposed=tuple(f"{table}.{key}" for table, key in exposed(raw)),

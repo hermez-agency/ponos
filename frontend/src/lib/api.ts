@@ -602,6 +602,9 @@ export const api = {
   testPush: (endpoint: string) => answer(client.POST("/api/push/test", { body: { endpoint } })),
   disk: () => answer(client.GET("/api/disk")),
   clean: () => answer(client.POST("/api/disk/clean")),
+  /** `ponos extras add`: an optional extra (the voice's Piper) installed and declared. */
+  installExtra: (extra: string) =>
+    answer(client.POST("/api/extras/{extra}", { params: { path: { extra } } })),
   mcp: () => answer(client.GET("/api/mcp")),
   triggers: () => answer(client.GET("/api/triggers")),
   /* The answer holds the key: the only time it is said. */

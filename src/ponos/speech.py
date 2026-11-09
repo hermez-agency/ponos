@@ -90,7 +90,7 @@ def refusal(settings: config_module.Speech) -> str:
     if not settings.enabled:
         return "Voice is off: speech.enabled is false"
     if not available():
-        return "Voice needs Piper: install the `voice` extra (pip install piper-tts)"
+        return "Voice needs Piper: run `ponos extras add voice`"
     return ""
 
 

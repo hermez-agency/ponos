@@ -41,7 +41,7 @@ def _voice(settings: config_module.Speech) -> list[Check]:
                 title,
                 "Piper is not installed: the voice mode and the Listen buttons are greyed out.",
                 steps=[
-                    "Install the `voice` extra: `pip install piper-tts` in Ponos's environment."
+                    "Run `ponos extras add voice`: it installs Piper and every update keeps it."
                 ],
             )
         ]
