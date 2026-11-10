@@ -1403,7 +1403,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/tickets/{ticket_id}/document": {
+    "/api/tickets/{ticket_id}/result": {
         parameters: {
             query?: never;
             header?: never;
@@ -1412,8 +1412,31 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set Ticket Document */
-        post: operations["set_ticket_document_api_tickets__ticket_id__document_post"];
+        /**
+         * Set Ticket Result
+         * @description A new version of the ticket's result, written by hand — see results.py.
+         */
+        post: operations["set_ticket_result_api_tickets__ticket_id__result_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tickets/{ticket_id}/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revise Ticket
+         * @description « Request a change »: the instruction on the ticket, and the ticket back to work.
+         */
+        post: operations["revise_ticket_api_tickets__ticket_id__revise_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2656,7 +2679,7 @@ export interface components {
             who: string;
             email: string;
             /** @enum {string} */
-            action: "created" | "moved" | "told" | "decided" | "priority" | "on" | "goal" | "launched";
+            action: "created" | "moved" | "told" | "decided" | "priority" | "on" | "goal" | "launched" | "result" | "revise";
             /** @description The column moved to, the choice made, the priority set. */
             detail: string;
         };
@@ -4463,6 +4486,16 @@ export interface components {
             project_name: string;
             repository: string;
         };
+        /** @description One version of a ticket's result — see results.py. */
+        ResultVersion: {
+            version: number;
+            text: string;
+            /** @description Who wrote it: `session`, `edit` (a hand in the console), `migration`. */
+            source: string;
+            /** @description The account that retouched it, empty for a session. */
+            author: string;
+            at: string;
+        };
         Role: {
             /** @default  */
             role: string;
@@ -5266,6 +5299,8 @@ export interface components {
              *     history.
              */
             estimate?: components["schemas"]["Estimate"] | null;
+            /** @description The first lines of its result, in plain words — empty before one: see results.py. */
+            excerpt?: string;
         };
         TicketChoices: {
             type?: components["schemas"]["Choice"][];
@@ -5356,12 +5391,21 @@ export interface components {
              *     history.
              */
             estimate?: components["schemas"]["Estimate"] | null;
+            /** @description The first lines of its result, in plain words — empty before one: see results.py. */
+            excerpt?: string;
             /** @description The page's blocks, flattened the way the runner reads them. */
             content: string;
             /** @description The page's first part, the one a session is told — see ticket_page.py. */
             mission: string;
-            /** @description Its second part, « What was done »: the last report, then the history — empty before any session. */
-            done: string;
+            /**
+             * @description What the ticket delivers — the post, the report, the summary of a change: its
+             *     last version, empty before a session rendered one. See results.py.
+             */
+            result: string;
+            /** @description Every version of the result, the newest first. */
+            results: components["schemas"]["ResultVersion"][];
+            /** @description « What was done »: the last session's report, then the history — empty before any session. */
+            journal: string;
             /** @description The model it runs on: the last session's own word, then the column, then the defaults. */
             model_in_use?: components["schemas"]["ModelInUse"];
             /** @description The prompt run at every change of the ticket's status, empty for none. */
@@ -5370,11 +5414,6 @@ export interface components {
             previews?: components["schemas"]["PreviewShot"][];
             /** @description On a ready or draft ticket only: the line its card no longer draws — see `_notes`. */
             earlier?: components["schemas"]["Earlier"];
-        };
-        TicketDocument: {
-            id: string;
-            /** @description The document as it now stands: the ticket's part « What was done ». */
-            done: string;
         };
         TicketGoal: {
             id: string;
@@ -5390,6 +5429,13 @@ export interface components {
             id: string;
             /** @description The score it now has, from 0 to 100. */
             priority: number;
+        };
+        TicketResult: {
+            id: string;
+            /** @description The result as it now stands: its last version. */
+            result: string;
+            /** @description Every version, the newest first. */
+            results: components["schemas"]["ResultVersion"][];
         };
         Title: {
             /** @default  */
@@ -8621,7 +8667,7 @@ export interface operations {
             };
         };
     };
-    set_ticket_document_api_tickets__ticket_id__document_post: {
+    set_ticket_result_api_tickets__ticket_id__result_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8632,9 +8678,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["Text"];
             };
         };
         responses: {
@@ -8644,7 +8688,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TicketDocument"];
+                    "application/json": components["schemas"]["TicketResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revise_ticket_api_tickets__ticket_id__revise_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Text"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Decided"];
                 };
             };
             /** @description Validation Error */

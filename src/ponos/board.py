@@ -541,16 +541,18 @@ class Board(Base):
         What the runner wrote under « What was done » stays out: the comments
         already carry each session's report, and a page read whole handed the
         next session every earlier one again (ticket_page.py). `done` adds the
-        last report under the mission, for the one session whose work it is:
-        the publication of a text that report holds.
+        result under the mission — the last report, for a ticket from before
+        results had a part of their own — for the one session whose work it
+        is: the publication of that text.
         """
         try:
             text = self.client.blocks_text(ticket.page.id, live=False)
         except store.StoreError:
             return ""
         parts = ticket_page.split(text)
-        if done and parts.report:
-            return f"{parts.mission}\n\n---\n\n{parts.report}".strip()
+        delivered = parts.result or parts.report
+        if done and delivered:
+            return f"{parts.mission}\n\n---\n\n{delivered}".strip()
         return parts.mission
 
     def cancelled_column(self) -> bool:

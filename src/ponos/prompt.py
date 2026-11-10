@@ -115,6 +115,13 @@ runner writes there itself. Say, in this order and each in a few lines, leaving 
 out what has nothing to say: **What changed**, **To validate** (the choices \
 you made that someone should confirm), **Checked** (what you ran and what it \
 said), **Not checked**, **What remains**. No heading above them.
+7. Above that report, write the ticket's result, between a line `<result>` and \
+a line `</result>`, each on its own: what the ticket page shows first, to \
+somebody who will not read the diff. What changed and why, in a few short \
+paragraphs or a list, in plain words — for the person who uses it rather than \
+for the reviewer. The runner adds the pull request, its CI and the files \
+touched under it: do not repeat them. No result block is reported as a missing \
+result.
 {language}
 End with a final line, exactly one of these two. It is read on a phone, as a \
 notification, so it is one sentence of under 200 characters and it is cut where \
@@ -148,11 +155,13 @@ Ponos.
 search the web where the answer depends on facts you cannot know. Prefer \
 primary sources.
 2. Write the deliverable to a file named `ANSWER.md` in your working directory. \
-That file is what gets published to the ticket, so it must stand on its own: no \
-"as discussed above", no reference to this prompt.
+That file is the ticket's result: shown first on its page, copied and \
+downloaded as it is. So it is the deliverable alone and must stand on its own: \
+no "here is the post", no note on how you worked, no "as discussed above", no \
+reference to this prompt.
 3. Write it in the language the ticket is written in.
 4. Markdown, and only what the console renders: headings, bullet and numbered lists, \
-checkboxes, quotes, code fences, links, bold and italic. No HTML, no tables.
+checkboxes, quotes, code fences, tables, links, images, bold and italic. No HTML.
 5. **Match the shape of what is asked, not a default shape.** A procedure wants \
 ordered steps with costs, durations and where each one happens. A short piece — \
 a post, an email, a headline — wants the text itself, ready to copy, respecting \
@@ -164,6 +173,9 @@ them and cite the source. Say what could not be verified rather than filling \
 the gap.
 7. If the request is too ambiguous to answer usefully, do not pad: write no \
 `ANSWER.md` and explain what is missing.
+8. Your answer itself — not `ANSWER.md` — is the ticket's journal: before the \
+final line, say in a few lines what you did, what you checked and what you \
+could not, and what is left. No heading.
 {language}
 End with a final line, exactly one of these two. It is read on a phone, as a \
 notification, so it is one sentence of under 200 characters and it is cut where \
@@ -512,6 +524,30 @@ Somebody accepts them in the console before any session reads them:
 MEMORY: <person|preference|project|reference> | <project|global> | <the fact>
 """
 
+# What a session is told of the result its ticket already delivered: « Request
+# a change » sends a ticket back with an instruction in its comments, and an
+# instruction about a text the session cannot read is one it cannot follow.
+# The mission alone is still what it is asked; this is what it starts from.
+CURRENT_RESULT = """
+# The result this ticket already delivered
+
+This ticket delivered the result below (version {version}). When the comments \
+above ask for a change to it, start from it: change what is asked, keep the rest \
+as it is, and hand back the whole result again — `ANSWER.md` on a ticket without \
+a repository, the `<result>` block on a code ticket. It is kept as a new version; \
+this one stays.
+
+<current-result>
+{text}
+</current-result>
+"""
+
+
+def current_result(text: str, version: int) -> str:
+    """The result a ticket already has, for its next session — or nothing."""
+    return CURRENT_RESULT.format(text=text.strip(), version=version) if text.strip() else ""
+
+
 # What a session is told when it is picked back up where an exhausted quota left
 # it. Deliberately not the whole prompt again: this session has the ticket, the
 # brief and the context already, and resending them would cost on every turn
@@ -547,7 +583,9 @@ WRITE_UP_DOCUMENT = (
 )
 WRITE_UP_CODE = (
     "write your report as your answer: what you did and where — in the repository, "
-    "or outside it, in a service, a dashboard, a board — and what came of it."
+    "or outside it, in a service, a dashboard, a board — and what came of it; above "
+    "it, between a line `<result>` and a line `</result>`, the ticket's result: what "
+    "changed and why, in plain words."
 )
 
 
@@ -663,10 +701,26 @@ describes: write no `ANSWER.md`, and end on `RESULT: blocked` with the \
 question. An action taken on a guess is one somebody has to undo by hand.
 - Do what the ticket asks and nothing else — above all nothing irreversible it \
 does not name.
-- `ANSWER.md` is the log of what you did: every action, in order — where (the \
-site, the account, the page), what you changed, with the value before and after \
-when there is one, and what came back. End it with what you checked afterwards \
-to be sure it took.
+- `ANSWER.md` is what was really done, with its evidence: every action, in \
+order — where (the site, the account, the page), what you changed, with the \
+value before and after when there is one, and what came back —, the proofs \
+(screenshots, URLs, identifiers created, never a secret), what you checked \
+afterwards to be sure it took, and last, under a heading of its own, what is \
+left for a person to do by hand.
+"""
+
+# What a text is told, on top of the document frame: the shape of its result.
+WRITING = """\
+# This ticket is a text
+
+- When it asks for a text to use — a post, an article, an email, a page —, \
+`ANSWER.md` is that text, final and ready to use as it is: the post exactly as \
+it will be published, the email as it will be sent. No title saying what it \
+is, no comment around it, no "feel free to adjust".
+- When it asks for an audit, a review or a diagnosis, `ANSWER.md` is the \
+structured report: a summary of a few lines, then the findings, each with its \
+severity, its evidence (where, what you read or ran) and its recommendation, \
+the most serious first.
 """
 
 # What a publication is told on its first pass. The second is DELIVERY, once a
@@ -836,7 +890,7 @@ def kind(kind: str, repository: object = "") -> str:
     a text about a codebase still wants to read that codebase — it just does not
     get to change it.
     """
-    section = {"external": EXTERNAL, "publication": PREPARE}.get(kind, "")
+    section = {"writing": WRITING, "external": EXTERNAL, "publication": PREPARE}.get(kind, "")
     if kind == "diagnostic":
         # Its own section comes after the frame (diagnostic.py), and it has no
         # code to ask for: a diagnostic that needs one writes a fix ticket.

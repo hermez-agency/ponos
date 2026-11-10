@@ -1231,6 +1231,49 @@ def _skills(connection: sqlite3.Connection) -> None:
     )
 
 
+def _tickets_have_a_result(connection: sqlite3.Connection) -> None:
+    # Un ticket en trois parties (results.py) : la mission, le résultat — le
+    # livrable, versionné dans `ticket_results` — et le journal, ce que
+    # `report` tenait. La partie « Ce qui a été fait » de chaque ticket est
+    # découpée une fois : ce que la session a rendu, sur un ticket fini, devient
+    # sa première version ; le reste, et tout ce qui ne se démêle pas, reste au
+    # journal. Une copie du fichier est prise avant (`_back_up`).
+    from . import results
+
+    connection.execute("ALTER TABLE tickets RENAME COLUMN report TO journal")
+    connection.execute("ALTER TABLE tickets ADD COLUMN result TEXT NOT NULL DEFAULT ''")
+    connection.execute(
+        """
+        CREATE TABLE ticket_results (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket   TEXT NOT NULL REFERENCES tickets (id) ON DELETE CASCADE,
+            version  INTEGER NOT NULL,
+            text     TEXT NOT NULL,
+            source   TEXT NOT NULL DEFAULT 'session',
+            author   TEXT NOT NULL DEFAULT '',
+            note     TEXT NOT NULL DEFAULT '',
+            at       TEXT NOT NULL,
+            UNIQUE (ticket, version)
+        )
+        """
+    )
+    rows = connection.execute(
+        "SELECT id, journal, edited_at FROM tickets WHERE journal != ''"
+    ).fetchall()
+    for ticket, done, edited in rows:
+        result, journal = results.legacy(done)
+        if not result:
+            continue
+        connection.execute(
+            "UPDATE tickets SET result = ?, journal = ? WHERE id = ?", (result, journal, ticket)
+        )
+        connection.execute(
+            "INSERT INTO ticket_results (ticket, version, text, source, at) "
+            "VALUES (?, 1, ?, 'migration', ?)",
+            (ticket, result, edited),
+        )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1291,6 +1334,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _library,
     _notion_is_gone,
     _skills,
+    _tickets_have_a_result,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

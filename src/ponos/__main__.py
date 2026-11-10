@@ -44,6 +44,7 @@ from . import (
     subtypes,
     systemd,
     ticket_page,
+    tickets,
     vault,
     vault_store,
     voice,
@@ -891,6 +892,40 @@ def command_logs(args: argparse.Namespace) -> int:
         return 0
     finally:
         handle.close()
+
+
+def command_show(args: argparse.Namespace) -> int:
+    """One ticket, its mission, its result and its journal — or, with --result, its result alone.
+
+    The result alone is written as it is, with nothing around it, so that it
+    can be piped: `ponos show a49e1a7b --result | wl-copy`.
+    """
+    probe = args.ticket.strip().rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0].replace("-", "")
+    found = [
+        record
+        for record in tickets.listing()
+        if probe and (record.id == probe or (len(probe) >= 8 and record.id.endswith(probe)))
+    ]
+    if len(found) != 1:
+        said = "No ticket" if not found else f"{len(found)} tickets"
+        print(f"{said} for {args.ticket}", file=sys.stderr)
+        return 1
+    record = found[0]
+    if args.result:
+        if not record.result.strip():
+            print(f"No result rendered for {record.title}", file=sys.stderr)
+            return 1
+        print(record.result.strip())
+        return 0
+    print(f"{BOLD}{record.title}{RESET}  {DIM}#{short_id(record.id)} · {record.status}{RESET}")
+    for heading, text in (
+        ("Mission", record.mission),
+        ("Result", record.result),
+        ("Journal", record.journal),
+    ):
+        if text.strip():
+            print(f"\n{BOLD}{heading}{RESET}\n\n{text.strip()}")
+    return 0
 
 
 def _render(line: str) -> str:
@@ -2026,6 +2061,13 @@ def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     history.add_argument("--since", help="with --csv: first day, 2026-10-01 (default: 30 days ago)")
     history.add_argument("--to", help="with --csv: last day (default: today)")
     history.set_defaults(function=command_history)
+
+    showing = subparsers.add_parser(
+        "show", help="a ticket's mission, result and journal (--result: the result alone)"
+    )
+    showing.add_argument("ticket", help="the ticket's ID, in any form")
+    showing.add_argument("--result", action="store_true", help="print the result alone, as it is")
+    showing.set_defaults(function=command_show)
 
     logs = subparsers.add_parser("logs", help="show a session's log (-f to follow)")
     logs.add_argument("ticket", nargs="?", help="the ticket's ID, in any form")

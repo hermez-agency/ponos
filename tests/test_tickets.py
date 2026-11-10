@@ -16,7 +16,7 @@ def a_ticket_is_written_and_read_back_with_its_two_parts(state_home: Path) -> No
     )
     assert len(made.id) == 32 and "-" not in made.id
     assert made.status == "draft" and made.priority == 70 and made.plan_first is True
-    assert made.report == "" and made.created_at == made.edited_at
+    assert made.journal == "" and made.result == "" and made.created_at == made.edited_at
     assert tickets.get(made.id) == made
     assert tickets.get("0" * 32) is None
 

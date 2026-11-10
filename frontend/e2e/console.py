@@ -66,6 +66,14 @@ workbench.relaunch()
 TOKEN = "e2e"
 LONG = "000000000000000000000000000abcde"
 ASKING = "00000000000000000000000000000a5c"
+# A writing ticket done: its post is its result, apart from its journal.
+WRITTEN = ("0000000000000000000000000000b0a7", "Write a LinkedIn post")
+# The same, for the test that retouches its result: the other reads it untouched.
+RETOUCHED = ("0000000000000000000000000000b0a8", "Write another LinkedIn post")
+POST = (
+    "Three things shipping small taught me.\n\n"
+    "1. **Small** pull requests get read.\n2. Often beats big.\n3. Alone is fine."
+)
 NEWER = "f" * 40
 GESTURES = {
     "0000000000000000000000000000d0e0": ("A finished ticket", "done"),
@@ -224,6 +232,10 @@ def board(seed: workbench.Seed, doomed: bool = False) -> None:
     )
     long = {"id": LONG, "title": "A long ticket", "statut": "ready", "Priorité": 90}
     seed.write("tickets", long, brief)
+    for id, title in (WRITTEN, RETOUCHED):
+        page = {"id": id, "title": title, "statut": "done", "Type": "Rédaction"}
+        seed.write("tickets", page, "A post about shipping small, for LinkedIn.")
+        _result_of(id, POST, "**Result:** ✅ post written\n\nI read it twice before handing it back.")
     asking = {
         "id": ASKING,
         "title": "A ticket with a question",
@@ -300,6 +312,14 @@ def board(seed: workbench.Seed, doomed: bool = False) -> None:
                 timespec="minutes"
             )
         seed.write("schedules", page, "Send it.")
+
+
+def _result_of(ticket: str, result: str, journal: str) -> None:
+    """A ticket's result, kept as a session keeps it, and its journal — see results.py."""
+    from ponos import tickets
+
+    tickets.update(ticket, journal=journal)
+    tickets.set_result(ticket, result)
 
 
 def series_board(seed: workbench.Seed) -> None:

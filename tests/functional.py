@@ -637,9 +637,12 @@ if (here / ".git").exists():
                     "-c", "commit.gpgsign=false", "commit", "-m", "Écrit par la fausse session"],
                    cwd=here, check=True, capture_output=True)
     said = "CAVEAT: pas essayé sur mobile\\nRESULT: ok — un fichier écrit et commité"
+    # The ticket's result, between its tags, when `FAKE_CLAUDE_RESULT` gives one.
+    if os.environ.get("FAKE_CLAUDE_RESULT"):
+        said = "<result>\\n" + os.environ["FAKE_CLAUDE_RESULT"] + "\\n</result>\\n" + said
 else:
     (here / "ANSWER.md").write_text("La réponse.", encoding="utf-8")
-    said = "RESULT: ok — la réponse est dans ANSWER.md"
+    said = "J'ai relu deux sources.\\nRESULT: ok — la réponse est dans ANSWER.md"
 
 emit({"type": "assistant", "message": {"content": [{"type": "text", "text": said}]}})
 emit({"type": "result", "subtype": "success", "is_error": False, "result": said,
@@ -1214,6 +1217,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
             "FAKE_CLAUDE_REVIEW_NOTHING": "",
             "FAKE_CLAUDE_BROWSE": "",
             "FAKE_CLAUDE_DIAGNOSE": "",
+            "FAKE_CLAUDE_RESULT": "",
             **{name: str(path) for name, path in logs.items()},
         }
         with _environ(environment):
@@ -1357,6 +1361,42 @@ def a_code_ticket_comes_back_as_a_pull_request_with_nothing_but_an_access_token(
         )
         for path in Path(os.environ["XDG_CONFIG_HOME"]).rglob("*"):
             assert not path.is_file() or token not in path.read_text(errors="replace"), path
+
+
+@case
+def a_code_ticket_s_result_is_its_summary_with_the_files_and_the_diff(machine: Bench) -> None:
+    """The session's result block, and what only the runner knows under it."""
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
+
+    with _environ({"FAKE_CLAUDE_RESULT": "Le titre de l'entête dit enfin le nom du site."}):
+        machine.run()
+
+    record = tickets.get(ticket)
+    assert record is not None
+    assert record.result.startswith("Le titre de l'entête dit enfin le nom du site."), record.result
+    assert "FAKE.md" in record.result and "1 file changed" in record.result, record.result
+    opened = machine.pull_requests()[0]["url"]
+    assert record.result.endswith(f"({opened}/files)"), record.result
+    assert "Le titre de l'entête" not in record.journal, record.journal
+    assert "<result>" not in record.journal
+
+
+@case
+def a_code_ticket_without_a_result_says_so_rather_than_passing_for_done(machine: Bench) -> None:
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
+
+    machine.run()
+
+    record = tickets.get(ticket)
+    assert record is not None
+    assert record.result == "", record.result
+    said = machine.board.said(ticket)[-1]
+    assert "No result rendered" in said or "Aucun résultat rendu" in said, said
+    assert "Aucun résultat rendu" in record.journal or "No result rendered" in record.journal
 
 
 @case
@@ -1763,6 +1803,12 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: 
     assert machine.status(ticket) == "done", machine.status(ticket)
     assert "La réponse." in machine.board.body(ticket), machine.board.body(ticket)
     assert results[0]["blocks"] > 0
+    # The deliverable is the ticket's result, and the session's own words its
+    # journal: neither is mixed into the other — see results.py.
+    record = tickets.get(ticket)
+    assert record is not None and record.result == "La réponse.", record
+    assert "J'ai relu deux sources." in record.journal and "La réponse." not in record.journal
+    assert [one.source for one in tickets.results(ticket)] == ["session"]
 
     assert not machine.git_calls(), machine.git_calls()
     assert not machine.pull_requests(), "a document ticket opened a pull request"
@@ -1774,6 +1820,30 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: 
     state = Path(os.environ["XDG_STATE_HOME"]) / "ponos"
     assert not (state / "worktrees").exists(), "a document ticket made a worktree"
     assert not list((state / "scratch").glob("*")), "its scratch directory was left behind"
+
+
+@case
+def a_change_asked_on_a_result_is_run_from_the_result_it_had(machine: Bench) -> None:
+    """« Request a change »: the instruction in the comments, the result in the prompt."""
+    project = machine.project("Lettre d'information", None)
+    ticket = machine.ticket("Rédiger l'édito", "Deux paragraphes sur l'automne.", project)
+    machine.run()
+    tickets.set_result(ticket, "Premier jet, retouché.", source="edit", author="Léa")
+
+    machine.board.comment(ticket, "Modification demandée sur le résultat — plus court.")
+    machine.move(ticket, "ready")
+    machine.run()
+
+    prompt = machine.sessions()[-1]["prompt"]
+    assert "<current-result>\nPremier jet, retouché.\n</current-result>" in prompt, prompt
+    assert "plus court." in prompt
+    kept = tickets.results(ticket)
+    assert [(one.version, one.source) for one in kept] == [
+        (3, "session"),
+        (2, "edit"),
+        (1, "session"),
+    ], kept
+    assert kept[0].text == "La réponse."
 
 
 def _diagnosed_repository(machine: Bench) -> tuple[Path, str]:

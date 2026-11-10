@@ -4,45 +4,86 @@
 
 From the discussion on a ticket to *Done*: the statuses, the review, *Validated*, and the tickets that come back on their own.
 
-## A ticket's page: the mission, and what was done
+## A ticket's page: the mission, the result, and the journal
 
-Every ticket's page has two parts, under two headings, and the same two for every ticket
-— in the console, in the MCP, in `ponos.db`:
+Every ticket has three parts, the same for every ticket — in the console, in the MCP, in
+`ponos.db` (three columns of `tickets`, `mission`, `result` and `journal`):
 
 ```markdown
 ## Mission
 
-Remove the banner from the dashboard header.
+Write a LinkedIn post about shipping small.
+
+## Résultat
+
+Three things shipping small taught me.
+
+1. Small pull requests get read. …
 
 ## Ce qui a été fait
 
-**Résultat** : ✅ banner removed from the template and its stylesheet
+**Résultat** : ✅ post written
 
-**Pull request** : https://github.com/you/site/pull/12
-
-**What changed** — … **To validate** — … **Checked** — … **Not checked** — …
-**What remains** — …
+I compared three angles and kept the shortest; not checked: the length on mobile.
 
 ### Historique
 
-- 2026-11-06 09:00 · 12 minutes · 1,50 $ · ✅ https://github.com/you/site/pull/12 · [session](…)
-- 2026-11-06 14:20 · 4 minutes · 0,40 $ · ✅ the header test renamed · [session](…)
+- 2026-11-06 09:00 · 12 minutes · 1,50 $ · ✅ post written · [session](…)
 ```
 
 - **Mission** is yours — or the agent's that created the ticket. Ponos never rewrites it,
   and it is the only part of the page a session is told, with the answers in the
   comments: a ticket sent back to *Ready* does not hand its next session the reports of
   the last ones, nor old answers to take for instructions.
-- **What was done** (« Ce qui a été fait ») is Ponos's. It is rewritten at the end of every
-  session, **replaced and never stacked**: the result in one sentence, the pull request,
-  the session's own report — what changed, the choices to validate, what was checked and
-  what was not, what remains —, then what is left to check. A ticket that asks for a text
-  has the text there. A session that did no work — out of credit, put back in the queue,
-  cut by the network — keeps the last report and only adds its line.
-- **The history**, at the bottom, is one line per session: date, duration, cost, result,
-  and a link to the session in the console's live tab, where every step is (with `[web]
-  url` set). It is read from the run journal of `ponos.db`, which is where the part is
-  written from — the format is the ticket's, not the board's.
+- **Result** is what the ticket delivers, ready to use: the post as it will be published,
+  the article, the email; the audit's report — findings, severity, evidence,
+  recommendations; for an external action, what was really done, its proofs and what is
+  left for a person to do; for a code ticket, what changed and why in plain words, then
+  the files the branch touches and the link to its diff, the pull request, its CI and the
+  before/after captures beside it. A ticket without a repository writes it to `ANSWER.md`;
+  a code session writes it in its last message, between a line `<result>` and a line
+  `</result>`. **Every result is a version**: kept in `ticket_results`, never overwritten —
+  by a session, by a hand in the console, by a session asked for a change. A code session
+  that hands back no result is not taken for finished all the same: « No result rendered »
+  is added to what is left to check, and the page says so.
+- **What was done** (« Ce qui a été fait ») is the journal, and it is Ponos's. It is
+  rewritten at the end of every session, **replaced and never stacked**: the outcome in
+  one sentence, the pull request, the session's own report — what changed, the choices to
+  validate, what was checked and what was not, what remains —, then what is left to
+  check. A session that did no work — out of credit, put back in the queue, cut by the
+  network — keeps the last report and only adds its line.
+- **The history**, at the bottom of the journal, is one line per session: date, duration,
+  cost, result, and a link to the session in the console's live tab, where every step is
+  (with `[web] url` set). It is read from the run journal of `ponos.db`.
+
+**Opening a ticket in the console** shows the mission, then the result. The mission folds
+once there is a result — its first line stays, a click away from the rest. The result is
+drawn as Markdown (headings, lists, tables, code, images) with what one does with a
+deliverable:
+
+- **Copy** — the text (without its Markdown marks, to paste into LinkedIn or an email) or
+  the Markdown;
+- **Download** — `.md`, and `.pdf` for a text or a report (the browser's print, « Save as
+  PDF »);
+- **Edit** — retouch it by hand; saved as a new version, and **Version n** lists them all,
+  shows an earlier one in place, and makes it the result again;
+- **Request a change** — an instruction written on the ticket, and the ticket back in
+  *Ready*: its next session reads it with the result as it stands (every session of a
+  ticket that has one is handed it, to start from), and what it hands back is a new
+  version, the one before kept.
+
+The discussion, the live session, *Decide* and the **Journal** are the other tabs; what the
+ticket cost, its model and its session are under them, not above. A card in review,
+validated or done shows the first lines of its result, and so do the notifications of
+its end (Telegram, Slack, the phone's push). `ponos show <ticket>` prints the three parts,
+`ponos show <ticket> --result` the result alone; the MCP's `get_task` answers `mission`,
+`result` and `journal` apart.
+
+**Tickets from before.** The migration that brought the result (it copies `ponos.db`
+beside itself first, `ponos.db.v<n>.bak`) cut every « What was done » once: on a ticket
+that ended ✅, what the session handed over — `ANSWER.md`, or its report — became the
+first version of the result, and the runner's lines and the history stayed the journal.
+Anything it could not tell apart stayed journal, whole.
 
 The questions of a blocked ticket stay in the comments: that is where they are answered.
 The headings are written in the language of `runner.language` and recognised in either,

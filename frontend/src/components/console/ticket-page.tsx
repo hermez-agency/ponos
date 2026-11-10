@@ -15,13 +15,11 @@ import { Link, useCurrentViewResourceContext } from "react-resource-view"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConsole, useSteps } from "@/hooks/use-console"
-import { ApiError, api, why } from "@/lib/api"
+import { ApiError, why } from "@/lib/api"
 import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
-import { PreviewPairs } from "@/components/console/preview-pairs"
 import { useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import type { TicketDetail } from "@/lib/types"
@@ -46,6 +44,7 @@ import { TicketDecision } from "./ticket-decision-panel"
 import { TicketAudit } from "./ticket-audit"
 import { TicketOn } from "./ticket-on"
 import { TicketEstimate } from "./ticket-estimate"
+import { TicketMission, TicketResult } from "./ticket-result"
 import { TicketTime } from "./ticket-time"
 import {
   SEED,
@@ -228,93 +227,6 @@ export function TicketPage() {
   )
 }
 
-/* A ticket's page in its two parts (ticket_page.py): the mission somebody
- * wrote — the one part a session is told — and what was done, which Ponos
- * rewrites at the end of every session, its history under it. Apart, so that
- * what stands done is read at a glance rather than dug out of the brief. */
-function TicketParts({
-  ticket,
-  mission,
-  done,
-  onSaved,
-}: {
-  ticket: string
-  mission: string
-  done: string
-  onSaved: () => void
-}) {
-  const t = useT()
-  const [text, setText] = React.useState<string | null>(null)
-  const [saving, setSaving] = React.useState(false)
-  const [problem, setProblem] = React.useState("")
-  const save = () => {
-    if (text === null) return
-    setSaving(true)
-    setProblem("")
-    api.setDocument(ticket, text).then(
-      () => {
-        setSaving(false)
-        setText(null)
-        onSaved()
-      },
-      (error) => {
-        setSaving(false)
-        setProblem(why(error))
-      }
-    )
-  }
-  return (
-    <div className="flex flex-col gap-6">
-      <section data-slot="ticket-mission" className="flex flex-col gap-2">
-        <Eyebrow>{t("Mission")}</Eyebrow>
-        {mission.trim() ? (
-          <Markdown text={mission} />
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            {t("The page is empty: the title is the whole brief.")}
-          </p>
-        )}
-      </section>
-      <section data-slot="ticket-done" className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <Eyebrow>{t("What was done")}</Eyebrow>
-          {canAct() && text === null ? (
-            <Button variant="ghost" size="sm" onClick={() => setText(done)}>
-              {t("Edit")}
-            </Button>
-          ) : null}
-        </div>
-        {text !== null ? (
-          <div className="flex flex-col gap-2">
-            <Textarea
-              data-slot="ticket-document"
-              aria-label={t("What was done")}
-              className="min-h-64 font-mono text-sm"
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-            />
-            {problem ? <p className="text-destructive text-sm">{problem}</p> : null}
-            <div className="flex gap-2">
-              <Button size="sm" disabled={saving} onClick={save}>
-                {t("Save")}
-              </Button>
-              <Button variant="outline" size="sm" disabled={saving} onClick={() => setText(null)}>
-                {t("Cancel")}
-              </Button>
-            </div>
-          </div>
-        ) : done.trim() ? (
-          <Markdown text={done} />
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            {t("Nothing yet: Ponos writes this part at the end of every session.")}
-          </p>
-        )}
-      </section>
-    </div>
-  )
-}
-
 /* The brief of the ticket on screen, read once per opening.
  *
  * Read again when the board says the ticket was edited while the page is
@@ -325,7 +237,9 @@ function useBrief(page: TicketDetail | undefined) {
     id: string
     content?: string
     mission?: string
-    done?: string
+    result?: string
+    results?: TicketDetail["results"]
+    journal?: string
     model?: TicketDetail["model_in_use"]
     previews?: TicketDetail["previews"]
     problem?: string
@@ -349,7 +263,9 @@ function useBrief(page: TicketDetail | undefined) {
           id,
           content: detail.content,
           mission: detail.mission,
-          done: detail.done,
+          result: detail.result,
+          results: detail.results,
+          journal: detail.journal,
           model: detail.model_in_use,
           previews: detail.previews,
         }),
@@ -364,7 +280,9 @@ function useBrief(page: TicketDetail | undefined) {
   return {
     content: mine?.content,
     mission: mine?.mission,
-    done: mine?.done,
+    result: mine?.result,
+    results: mine?.results,
+    journal: mine?.journal,
     model: mine?.model,
     previews: mine?.previews,
     problem: mine?.problem,
@@ -570,14 +488,15 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
  * `talking` says the discussion held is this ticket's, and not still the last
  * one's.
  */
-const TABS = ["brief", "discussion", "live", "decide"] as const
+const TABS = ["result", "discussion", "live", "decide", "journal"] as const
 type Tab = (typeof TABS)[number]
 
 const isTab = (value: string | null | undefined): value is Tab => TABS.includes(value as Tab)
 
-/** A tab named in an address, as it is called now: Unblock was folded into the discussion. */
+/** A tab named in an address, as it is called now: Unblock was folded into the
+ * discussion, and the Brief became the mission and its result. */
 const tabNamed = (value: string | null): Tab | undefined =>
-  value === "unblock" ? "discussion" : isTab(value) ? value : undefined
+  value === "unblock" ? "discussion" : value === "brief" ? "result" : isTab(value) ? value : undefined
 
 /** The query string with its tab said again, under `key` — the rest of it left exactly as written. */
 function withTab(searchStr: string, tab: Tab, key: string): string {
@@ -638,7 +557,7 @@ function TicketTabs({
   const action = actionOf(ticket.column)
   const [addressed, address] = useAddressedTab(ticket.id)
   const [tab, setTab] = React.useState<Tab>(
-    () => addressed ?? (running ? "live" : waiting ? "discussion" : "brief")
+    () => addressed ?? (running ? "live" : waiting ? "discussion" : "result")
   )
   const picked = React.useRef(Boolean(addressed))
   // Left by itself when the decision was sent: still free to follow a session that starts.
@@ -653,7 +572,7 @@ function TicketTabs({
     [address]
   )
   React.useEffect(() => {
-    if (waiting && !picked.current) setTab((was) => (was === "brief" ? "discussion" : was))
+    if (waiting && !picked.current) setTab((was) => (was === "result" ? "discussion" : was))
   }, [waiting])
   // The way back, or forward, to the same ticket on another tab.
   React.useEffect(() => {
@@ -678,28 +597,25 @@ function TicketTabs({
 
   return (
     <>
-    <TicketSummary
-      ticket={{ ...ticket, model_in_use: brief.model }}
-      onSession={() => show("live", true)}
-    />
     <Tabs
       value={tab}
       onValueChange={(value) => {
         if (isTab(value)) show(value, true)
       }}
-      className="mt-4 gap-4"
+      className="gap-4"
     >
       {/* The whole width on a phone, three equal thirds: a tab list sized to
           its words leaves the third one to be scrolled to. */}
       {/* The ticket's gestures on the tabs' line, at its end: a row of their
           own, for a "…" that most tickets hold alone, was a line lost. */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b">
-      <TabsList className="h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0 sm:w-fit">
+      <TabsList className="scroll-thin h-auto w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 sm:w-fit">
         <TabsTrigger
-          value="brief" data-slot="ticket-brief-tab"
+          value="result" data-slot="ticket-result-tab"
           className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
-          {t("Brief")}
+          {/* What it opens on: the mission, and its result once there is one. */}
+          {t(brief.result?.trim() ? "Result" : "Mission")}
         </TabsTrigger>
         <TabsTrigger
           value="discussion" data-slot="ticket-talk-tab"
@@ -744,47 +660,51 @@ function TicketTabs({
             />
           </TabsTrigger>
         ) : null}
+        <TabsTrigger
+          value="journal" data-slot="ticket-journal-tab"
+          className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          {t("Journal")}
+        </TabsTrigger>
       </TabsList>
       <TicketActions ticket={ticket} className="ml-auto pb-1" />
       </div>
 
-      <TabsContent value="brief">
-        <section>
-          <div>
-            {brief.content === undefined ? (
-              brief.problem !== undefined ? (
-                <EmptyState
-                  robot="error"
-                  title={t("This ticket could not be read.")}
-                  action={
-                    <Button variant="outline" size="sm" onClick={brief.again}>
-                      <RotateCw />
-                      {t("Try again")}
-                    </Button>
-                  }
-                >
-                  {brief.problem || t("The server gave no reason.")}
-                </EmptyState>
-              ) : (
-                <div className="flex flex-col gap-2" aria-busy="true">
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-5/6" />
-                  <Skeleton className="h-3 w-2/3" />
-                </div>
-              )
-            ) : (
-              <TicketParts
-                ticket={ticket.id}
-                mission={brief.mission ?? brief.content}
-                done={brief.done ?? ""}
-                onSaved={brief.again}
-              />
-            )}
+      <TabsContent value="result">
+        {brief.content === undefined ? (
+          <BriefPending brief={brief} />
+        ) : (
+          <div className="flex flex-col gap-6">
+            <TicketMission
+              key={brief.result?.trim() ? "folded" : "open"}
+              mission={brief.mission ?? brief.content}
+              folded={Boolean(brief.result?.trim())}
+            />
+            <TicketResult
+              ticket={ticket}
+              result={brief.result ?? ""}
+              versions={brief.results ?? []}
+              journal={brief.journal ?? ""}
+              previews={brief.previews}
+              onSaved={brief.again}
+            />
           </div>
-          <PreviewPairs ticket={ticket.id} shots={brief.previews} />
-          {canAct() ? <TicketOn ticket={ticket} /> : null}
-          <TicketAudit ticket={ticket} />
+        )}
+      </TabsContent>
+      <TabsContent value="journal">
+        <section data-slot="ticket-journal" className="flex flex-col gap-2">
+          {brief.content === undefined ? (
+            <BriefPending brief={brief} />
+          ) : brief.journal?.trim() ? (
+            <Markdown text={brief.journal} />
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              {t("Nothing yet: Ponos writes this part at the end of every session.")}
+            </p>
+          )}
         </section>
+        {canAct() ? <TicketOn ticket={ticket} /> : null}
+        <TicketAudit ticket={ticket} />
       </TabsContent>
       <TabsContent value="discussion">
         <React.Suspense fallback={null}>
@@ -800,7 +720,37 @@ function TicketTabs({
         </TabsContent>
       ) : null}
     </Tabs>
+    {/* What it is, what it cost, which model: under what it delivered, not above it. */}
+    <TicketSummary
+      ticket={{ ...ticket, model_in_use: brief.model }}
+      onSession={() => show("live", true)}
+    />
     </>
+  )
+}
+
+/* The brief not read yet: why, and the way to ask again — or the lines it will fill. */
+function BriefPending({ brief }: { brief: ReturnType<typeof useBrief> }) {
+  const t = useT()
+  return brief.problem !== undefined ? (
+    <EmptyState
+      robot="error"
+      title={t("This ticket could not be read.")}
+      action={
+        <Button variant="outline" size="sm" onClick={brief.again}>
+          <RotateCw />
+          {t("Try again")}
+        </Button>
+      }
+    >
+      {brief.problem || t("The server gave no reason.")}
+    </EmptyState>
+  ) : (
+    <div className="flex flex-col gap-2" aria-busy="true">
+      <Skeleton className="h-3 w-full" />
+      <Skeleton className="h-3 w-5/6" />
+      <Skeleton className="h-3 w-2/3" />
+    </div>
   )
 }
 

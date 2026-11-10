@@ -60,6 +60,7 @@ from . import (
     progress,
     project_settings,
     resources,
+    results,
     session,
     skills,
     state,
@@ -67,6 +68,7 @@ from . import (
     store,
     subtypes,
     ticket_page,
+    tickets,
     vault,
     vault_store,
     worktree_setup,
@@ -332,6 +334,17 @@ class Execution(Base):
             + (self._planned(job) if subtype else "")
             + self._browser_prompt(job)
             + self._diagnostic_prompt(job)
+            + self._result_prompt(job)
+        )
+
+    def _result_prompt(self, job: Job) -> str:
+        """The result the ticket already delivered, to start a change from — see results.py."""
+        try:
+            versions = tickets.results(job.ticket.page.id)
+        except db.ERRORS:
+            return ""
+        return (
+            prompt_module.current_result(versions[0].text, versions[0].version) if versions else ""
         )
 
     def _diagnostic_prompt(self, job: Job) -> str:
@@ -1434,11 +1447,12 @@ class Execution(Base):
         assert project.path is not None
         # The pushed commits are what answers the reviewers' threads on GitHub.
         self.answer_reviews(ticket, outcome.answer, changed=True)
+        outcome, result = self._code_result(job, outcome, pull_request)
         forced, refused, later = self._merge_forced(job, pull_request)
         merged = bool(forced and not refused)
         git.remove_worktree(project.path, job.workdir)
         self._code_moved(job, outcome, pull_request, merged, refused, later)
-        self._code_told(job, outcome, commits, pull_request, forced, refused, later)
+        self._code_told(job, outcome, commits, pull_request, forced, refused, later, result)
         return {
             "ticket": ticket.title,
             "id": ticket.id,
@@ -1454,6 +1468,34 @@ class Execution(Base):
             "seconds": round(outcome.seconds, 1),
             "cost_usd": outcome.cost_usd,
         }
+
+    def _code_result(
+        self, job: Job, outcome: session.Outcome, pull_request: str
+    ) -> tuple[session.Outcome, str]:
+        """The result of a code ticket: the session's own, and the files its branch touches.
+
+        Read from the worktree before it goes. A session that wrote none is
+        not taken for finished all the same: it is said, as a line to check,
+        and the ticket keeps the result it had. See results.py.
+        """
+        said = self.voice
+        written, _ = results.extract(outcome.answer)
+        if not written:
+            missing = said.say("no-result")
+            self.say(f"    ! {job.ticket.title}: no result rendered")
+            outcome = replace(outcome, caveats=[*outcome.caveats, missing])
+            if (run := self._journals.get(job.ticket.id)) is not None:
+                run.caveats = outcome.caveats
+            return outcome, ""
+        appendix = results.code_appendix(
+            git.diff_stat(job.workdir, job.base),
+            pull_request,
+            files=said.say("result-files"),
+            diff=said.say("result-diff"),
+        )
+        text = f"{written}\n\n{appendix}".strip()
+        self._write_result(job.ticket, text)
+        return outcome, text
 
     def _merge_forced(self, job: Job, pull_request: str) -> tuple[str, str, bool]:
         """Force validated: the merge that moving the ticket to validated would
@@ -1530,6 +1572,7 @@ class Execution(Base):
         forced: str,
         refused: str,
         later: bool,
+        result: str = "",
     ) -> None:
         """The report of a delivered branch: on the ticket, in the log, on your phone."""
         ticket = job.ticket
@@ -1578,6 +1621,7 @@ class Execution(Base):
             facts=placed,
             summary=outcome.summary,
             pull_request=pull_request,
+            result=result,
         )
 
     # -- a ticket that has none -------------------------------------------------
@@ -1617,7 +1661,9 @@ class Execution(Base):
             return switched
 
         answer_file = job.workdir / "ANSWER.md"
-        content = _answer(job.workdir)
+        # The deliverable is ANSWER.md; a session that wrote it in its message
+        # instead, between the lines of a code session's result, is read there.
+        content = _answer(job.workdir) or results.extract(outcome.answer)[0]
 
         # Answered and finished, but said as a stop: read, rather than asked
         # again — see `_answered_anyway`. In review, since it said blocked.
@@ -1775,21 +1821,20 @@ class Execution(Base):
         """
         ticket = job.ticket
         said = self.voice
-        # The text is what the session did: the report of the ticket's part
-        # « What was done », written now — a page that refuses it fails the
-        # ticket — and again, with its line of history, when the run is closed.
-        run = self._journals.get(ticket.id)
-        if run is not None:
-            run.answer = content
+        # The text is the ticket's result, a version of its own; the session's
+        # message, the report of its part « What was done » — written now, a
+        # page that refuses either fails the ticket, and the report again, with
+        # its line of history, when the run is closed. See results.py.
         try:
-            blocks = self._write_done(
+            self._write_result(ticket, content, strict=True)
+            self._write_done(
                 ticket,
                 ticket_page.report(
                     said,
                     status="done",
                     summary=outcome.summary,
                     pull_request=pull_request,
-                    answer=content,
+                    answer=outcome.answer,
                 ),
                 strict=True,
             )
@@ -1804,6 +1849,7 @@ class Execution(Base):
                 ),
                 outcome=outcome,
             )
+        blocks = len([part for part in content.split("\n\n") if part.strip()])
 
         shutil.rmtree(job.workdir, ignore_errors=True)
         # A publication is only prepared: it waits in review for you to read it,
@@ -1831,7 +1877,7 @@ class Execution(Base):
         verdict = (
             "waiting" if forced else "prepared" if prepared else "review" if review else "read"
         )
-        self._text_told(job, outcome, blocks, verdict, following, note)
+        self._text_told(job, outcome, blocks, verdict, following, note, content)
         return {
             "ticket": ticket.title,
             "id": ticket.id,
@@ -1893,6 +1939,7 @@ class Execution(Base):
         verdict: str,
         following: str,
         note: str,
+        content: str = "",
     ) -> None:
         """The report of a text written into its page: on the ticket, in the log, on your phone."""
         ticket = job.ticket
@@ -1926,4 +1973,5 @@ class Execution(Base):
             project=job.project.name,
             facts=placed,
             summary=outcome.summary,
+            result=content,
         )

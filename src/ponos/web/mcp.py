@@ -195,8 +195,9 @@ TOOLS: list[dict[str, Any]] = [
         "name": "get_task",
         "title": "Détail d'une tâche",
         "scope": READ,
-        "description": "Renvoie le détail d'une tâche : sa description (le brief et le compte "
-        "rendu des sessions), les derniers échanges de sa discussion (ce que Ponos a dit, ce que "
+        "description": "Renvoie le détail d'une tâche : sa mission (le brief), son résultat (le "
+        "livrable : le texte, le rapport, le résumé du changement) et son journal (le compte "
+        "rendu des sessions), à part l'un de l'autre, les derniers échanges de sa discussion (ce que Ponos a dit, ce que "
         "vous avez répondu) et la question en attente s'il y en a une, sa pull request, son coût, "
         "sa session (identifiant, durée, modèle) et ses dernières exécutions. À appeler avant de "
         "répondre à une tâche bloquée, pour lire la question et les options proposées.",
@@ -911,7 +912,9 @@ def get_task(api: Api, task: str) -> dict[str, Any]:
     ]
     return {
         **_task(card),
-        "description": _short(detail.get("content") or "", DESCRIPTION_LIMIT),
+        "mission": _short(detail.get("mission") or "", DESCRIPTION_LIMIT),
+        "result": _short(detail.get("result") or "", DESCRIPTION_LIMIT),
+        "journal": _short(detail.get("journal") or "", DESCRIPTION_LIMIT),
         "question": messages[-1]["text"] if talk["waiting"] and messages else "",
         "conversation": messages,
         "session": {

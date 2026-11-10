@@ -145,12 +145,20 @@ export const api = {
     answer(
       client.POST("/api/tickets/{ticket_id}/launch", { params: { path: { ticket_id: ticket } }, body: { force } })
     ),
-  /** The ticket's document: its part « What was done », written by hand. */
-  setDocument: (ticket: string, content: string) =>
+  /** The ticket's result, retouched by hand: a new version, the earlier ones kept. */
+  setResult: (ticket: string, text: string) =>
     answer(
-      client.POST("/api/tickets/{ticket_id}/document", {
+      client.POST("/api/tickets/{ticket_id}/result", {
         params: { path: { ticket_id: ticket } },
-        body: { content },
+        body: { text },
+      })
+    ),
+  /** « Request a change »: the instruction on the ticket, and the ticket back in ready. */
+  revise: (ticket: string, text: string) =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/revise", {
+        params: { path: { ticket_id: ticket } },
+        body: { text },
       })
     ),
   /** A score from 0 to 100; empty is the middle one, 50. */

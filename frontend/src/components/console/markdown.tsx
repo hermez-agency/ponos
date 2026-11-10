@@ -227,6 +227,16 @@ export function Markdown({ text, className }: { text: string; className?: string
             return <hr key={index} className="border-border my-3 border-t" />
           case "attached":
             return <Attached key={index} block={block} />
+          case "image":
+            return (
+              <img
+                key={index}
+                src={block.src}
+                alt={block.alt}
+                loading="lazy"
+                className="max-h-[32rem] max-w-full rounded-lg border object-contain"
+              />
+            )
           default:
             return (
               <p key={index} className="whitespace-pre-wrap">

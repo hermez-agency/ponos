@@ -32,6 +32,7 @@ from . import (
     channels,
     conversation,
     credits,
+    db,
     journal,
     log,
     notifications,
@@ -40,10 +41,12 @@ from . import (
     provider,
     push,
     resources,
+    results,
     session,
     state,
     store,
     ticket_page,
+    tickets,
 )
 from . import config as config_module
 from . import question as question_module
@@ -96,6 +99,23 @@ class Reports(Base):
             if not values:
                 return
         self._write(ticket, values)
+
+    def _write_result(self, ticket: Ticket, text: str, *, strict: bool = False) -> bool:
+        """A new version of the ticket's result, written by its session — see results.py.
+
+        Commentary, like the journal, unless `strict`: for a text whose
+        deliverable the result is, the error is then the caller's. Whether a
+        version was kept: not when it says what the last one said.
+        """
+        if self.dry_run or not text.strip():
+            return False
+        try:
+            return tickets.set_result(ticket.page.id, text, source="session") is not None
+        except (*db.ERRORS, ValueError) as error:
+            if strict:
+                raise store.StoreError(str(error)) from error
+            self.say(f"    ! {ticket.title}: its result was not written: {error}")
+            return False
 
     def _claim(self, ticket: Ticket, **values: object) -> bool:
         """Write the status that takes a ticket, and say whether it took.
@@ -384,6 +404,7 @@ class Reports(Base):
         facts: tuple[object, ...] = (),
         summary: str = "",
         pull_request: str = "",
+        result: str = "",
     ) -> None:
         """One moment of a ticket, said everywhere it is worth saying.
 
@@ -407,10 +428,17 @@ class Reports(Base):
         ticket again — `project` and the session's `summary` — in
         `Voice.desktop`'s words, one notification per ticket, and the pull request goes on a button of its own. It stays on
         screen for a question only, which is the one thing waiting for you.
+
+        `result` is the ticket's deliverable: its first lines go under the rest,
+        everywhere, so that the post or the report is read where it is told.
         """
         said = self.voice
         headline = said.headline(verdict, ticket.title)
         title, text = said.desktop(verdict, ticket.title, project=project, summary=summary or body)
+        opening = results.excerpt(result)
+        if opening:
+            text = f"{text}\n\n{opening}"
+            body = f"{body}\n\n{opening}"
         if not self.dry_run:
             # The bell in the console, which keeps what the screen and the phone
             # only say once. `code` is the cause of a stop, when it is one. A

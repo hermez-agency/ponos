@@ -155,7 +155,7 @@ def a_type_somebody_chose_takes_a_repository_ticket_off_its_repository() -> None
         assert kinds.worked_in(project, kind).name == "Site"
     assert "prepare it, do not publish it" in prompt.kind("publication")
     assert "Stop at the first doubt" in prompt.kind("external")
-    assert prompt.kind("writing") == "" and prompt.kind("code") == ""
+    assert prompt.kind("writing") == prompt.WRITING and prompt.kind("code") == ""
     assert "/repo: read it" in prompt.kind("writing", Path("/repo"))
 
 

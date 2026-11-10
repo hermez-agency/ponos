@@ -19,6 +19,8 @@ ponos logs -f      # follow the running session (--follow)
 ponos logs <ticket>          # the last session of that ticket (--raw: the raw JSON stream)
 ponos logs <ticket> --runs   # the ticket's runs, from the local journal
 ponos logs --service         # the runner's and the console's own log, ponos.log
+ponos show <ticket>          # its mission, its result and its journal
+ponos show <ticket> --result # the result alone, as it is — to pipe into a clipboard or a file
 ponos status       # daemon, console, places taken and free per project, the queue and why each waits, recent tickets
 ponos history      # what has been handled, with the pull requests (-n, --number: how many)
 ponos history --csv --project <name> --month 2026-10   # every session of a project and what it cost, as CSV (--since, --to: another period)

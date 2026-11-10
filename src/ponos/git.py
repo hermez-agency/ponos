@@ -856,6 +856,15 @@ def branch_diff(worktree: Path, base: str) -> str:
     return ""
 
 
+def diff_stat(worktree: Path, base: str) -> str:
+    """`git diff --stat` of the branch against where it left its base — "" when git cannot say."""
+    for reference in (f"origin/{base}", base):
+        result = git(["diff", "--no-color", "--stat=100", f"{reference}...HEAD"], worktree)
+        if result.ok:
+            return result.out
+    return ""
+
+
 def unpushed(worktree: Path) -> int:
     """Commits of this worktree that no remote-tracking branch holds.
 
