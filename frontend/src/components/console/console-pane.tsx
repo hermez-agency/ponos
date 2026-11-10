@@ -16,6 +16,7 @@ import { connectionFor, ponosOf } from "@/lib/agui"
 import { api, why } from "@/lib/api"
 import { currentLanguage, useT } from "@/lib/i18n"
 import { cents, money } from "@/lib/numbers"
+import { isAdmin } from "@/lib/role"
 import { wordsOf } from "@/lib/voice-mode"
 import type { Attached } from "@/lib/types"
 import { clock } from "@/lib/worktime"
@@ -229,6 +230,15 @@ function Talk({
   const speaker = useSpeaker({
     onError: (error) => toast.error(t("The voice could not speak"), { description: why(error) }),
   })
+  const installVoice = async () => {
+    const id = toast.loading(t("Installing the voice…"))
+    try {
+      await api.installExtra("voice")
+      toast.success(t("The voice is installed"), { id })
+    } catch (error) {
+      toast.error(t("The voice could not be installed"), { id, description: why(error) })
+    }
+  }
   const voiceReady = Boolean(chat?.speech?.ready && chat?.dictation?.ready)
   const voice = useVoiceMode({
     ready: voiceReady,
@@ -321,7 +331,12 @@ function Talk({
           dictation={
             chat?.dictation ?? { ready: false, why: t("Dictation is not available"), send: false }
           }
-          tools={<VoiceModeButton on={voice.mode !== "off"} blocked={voice.blocked} onToggle={voice.toggle} />}
+          tools={<VoiceModeButton
+              on={voice.mode !== "off"}
+              blocked={voice.blocked}
+              onToggle={voice.toggle}
+              onInstall={chat?.speech?.installable && isAdmin() ? () => void installVoice() : undefined}
+            />}
         />
       </div>
     </>

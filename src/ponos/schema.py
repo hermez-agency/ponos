@@ -326,6 +326,18 @@ class VaultTable(Table):
     )
 
 
+def _extras(value: object) -> tuple[str, ...]:
+    """The extras a list names, lowercased, once each; a string reads as a one-item list."""
+    words = [value] if isinstance(value, str) else _words(value)
+    return tuple(dict.fromkeys(name for item in words if (name := str(item).strip().lower())))
+
+
+class InstallTable(Table):
+    """`[install]`: the optional extras of `pyproject.toml` every version is given."""
+
+    extras: Annotated[tuple[str, ...], BeforeValidator(_extras)] = ()
+
+
 class GithubAccessTable(Table):
     mode: Annotated[str, _one_of(GITHUB_MODES)] = ""
     token_item: Text = ""
@@ -348,6 +360,7 @@ class File(Table):
     budget: BudgetTable = Field(default_factory=BudgetTable)
     permissions: PermissionsTable = Field(default_factory=PermissionsTable)
     vault: VaultTable = Field(default_factory=VaultTable)
+    install: InstallTable = Field(default_factory=InstallTable)
     github: Annotated[dict[str, str], AfterValidator(_owners)] = Field(default_factory=dict)
     github_access: GithubAccessTable = Field(default_factory=GithubAccessTable)
 

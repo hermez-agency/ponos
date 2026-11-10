@@ -107,7 +107,7 @@ def install_commands() -> list[str]:
     """What installs the browser into the Python that runs Ponos."""
     python = sys.executable or "python3"
     return [
-        f"{python} -m pip install 'playwright>=1.64.1'",
+        "ponos extras add browser",
         f"{python} -m playwright install chromium",
     ]
 

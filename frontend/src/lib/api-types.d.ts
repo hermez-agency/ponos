@@ -2183,6 +2183,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/extras/{extra}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Extra
+         * @description `ponos extras add`, from the console: install the extra and declare it (an admin's).
+         */
+        post: operations["install_extra_api_extras__extra__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/disk/clean": {
         parameters: {
             query?: never;
@@ -4981,6 +5001,11 @@ export interface components {
             ready: boolean;
             /** @description Why the voice cannot be offered (off, or Piper absent); empty when it can. */
             why: string;
+            /**
+             * @description Piper is the one missing: the `voice` extra can be installed from the console.
+             * @default false
+             */
+            installable: boolean;
         };
         /** @description What of a reply is worth saying aloud, a sentence per item. */
         SpeechPlan: {
@@ -10260,6 +10285,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Idea"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_extra_api_extras__extra__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                extra: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */

@@ -306,6 +306,24 @@ def _environment() -> list[Check]:
             )
         ]
     state, said = environment.diagnose(version)
+    lost = environment.failures(version) if state == "ok" else {}
+    if lost:
+        return [
+            _check(
+                "machine.environment",
+                WARN,
+                title,
+                "The environment is in place, but the extra {{extras}} could not be installed "
+                "into it: {{why}}",
+                steps=["Run `ponos extras add {{extra}}` to try again."],
+                params={
+                    "extras": ", ".join(lost),
+                    "extra": next(iter(lost)),
+                    "why": "; ".join(lost.values()),
+                },
+                evidence=said,
+            )
+        ]
     if state == "ok":
         return [
             _check(

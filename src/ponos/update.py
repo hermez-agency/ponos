@@ -349,6 +349,9 @@ def between_runs(
     healed = heal_environment()
     if healed:
         say(f"  ! {healed}")
+    lacking = heal_extras(notify)
+    if lacking:
+        say(f"  ! {lacking}")
     if not settings.auto_update or not due(settings.update_interval_seconds):
         return
     status = check(channel=settings.update_channel)
@@ -389,6 +392,9 @@ def install_newer(
     healed = heal_environment()
     if healed:
         say(f"  ! {healed}")
+    lacking = heal_extras(notify)
+    if lacking:
+        say(f"  ! {lacking}")
     if not settings.auto_update:
         return False
     status = check(channel=settings.update_channel)
@@ -424,6 +430,26 @@ def heal_environment() -> str:
         return ""
     problem = environment.ensure(app.resolve())
     return f"no environment for this version yet: {problem}" if problem else ""
+
+
+def heal_extras(notify: Callable[[str, str], None]) -> str:
+    """The declared extras the version in use lacks, installed now — or said.
+
+    A version an older Ponos installed was made without the extras (Piper), and
+    a new one whose extra could not be installed is the better version without
+    it: this says which, once as a notification and on every pass as the line
+    `ponos doctor` repeats. "" when nothing is missing.
+    """
+    app = app_dir()
+    if not app.is_symlink():
+        return ""
+    lost, fresh = environment.sync(app.resolve())
+    if not lost:
+        return ""
+    said = environment.describe_failures(lost)
+    if fresh:
+        notify("Ponos: an extra is missing", said)
+    return said
 
 
 def describe(status: Status) -> str:
@@ -634,7 +660,7 @@ def _prepare(previous: Path, version: Path, commit: str) -> str:
     except (OSError, shutil.Error, subprocess.SubprocessError) as error:
         _remove(staging)
         return f"the new version could not be copied: {error}"
-    problem = environment.create(version)
+    problem = environment.create(version, source=previous)
     if problem:
         return problem
     return verify(version)

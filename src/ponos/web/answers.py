@@ -1038,6 +1038,8 @@ class Speaking(Shape):
     ready: bool
     why: str
     """Why the voice cannot be offered (off, or Piper absent); empty when it can."""
+    installable: bool = False
+    """Piper is the one missing: the `voice` extra can be installed from the console."""
 
 
 class SpeechPlan(Shape):

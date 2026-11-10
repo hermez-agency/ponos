@@ -848,3 +848,151 @@ def the_update_endpoint_answers_only_this_machine_and_the_console_page() -> None
         ("100.64.0.3", False),
     ):
         assert web_app.is_local(address) is local, address
+
+
+# -- the optional extras, declared and kept by every update ---------------------
+
+# An installer that "installs" a package called fake-extra when it is given the
+# extra's file: a dist-info and a module in the environment's site-packages. A
+# Python script: the PATH of these tests holds nothing a shell script would call.
+_FAKE_UV = """#!{python}
+import os, sys, pathlib
+arguments = sys.argv[1:]
+with open(os.environ["FAKE_UV_LOG"], "a") as log:
+    log.write(" ".join(arguments) + "\\n")
+python = arguments[arguments.index("--python") + 1]
+requirements = arguments[arguments.index("-r") + 1]
+if requirements.endswith("-fakeextra.txt"):
+    site = next(pathlib.Path(python).parent.parent.glob("lib/python*/site-packages"))
+    (site / "fake_extra-1.0.dist-info").mkdir()
+    (site / "fake_extra-1.0.dist-info" / "METADATA").write_text(
+        "Metadata-Version: 2.1\\nName: fake-extra\\nVersion: 1.0\\n"
+    )
+    (site / "fake_extra.py").write_text("READY = True\\n")
+"""
+
+
+def _with_extra(work: Path) -> None:
+    """A version that offers the `fakeextra` extra, as pyproject.toml and its export say."""
+    (work / "requirements.txt").write_text("a-package==1.0\n", encoding="utf-8")
+    (work / "requirements-fakeextra.txt").write_text(
+        "a-package==1.0\nfake-extra==1.0\n", encoding="utf-8"
+    )
+    (work / "pyproject.toml").write_text(
+        '[project]\nname = "x"\n[project.optional-dependencies]\nfakeextra = ["fake-extra>=1"]\n',
+        encoding="utf-8",
+    )
+
+
+def _has_module(version: Path) -> bool:
+    from ponos import environment
+
+    done = subprocess.run(
+        [
+            str(environment.python(version)),
+            "-I",
+            "-c",
+            "import importlib.util as u; raise SystemExit(u.find_spec('fake_extra') is None)",
+        ],
+        capture_output=True,
+    )
+    return done.returncode == 0
+
+
+@contextmanager
+def _fake_installer() -> Iterator[Path]:
+    from ponos import environment
+
+    with tempfile.TemporaryDirectory() as directory:
+        script = Path(directory) / "uv"
+        script.write_text(_FAKE_UV.replace("{python}", sys.executable), encoding="utf-8")
+        script.chmod(0o755)
+        log = Path(directory) / "log"
+        os.environ["FAKE_UV_LOG"] = str(log)
+        original = environment.uv
+        environment.uv = lambda: str(script)
+        try:
+            yield log
+        finally:
+            environment.uv = original
+            os.environ.pop("FAKE_UV_LOG", None)
+
+
+@case
+def an_update_installs_the_declared_extras_into_the_new_environment(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
+    """Piper installed by hand disappeared at every update: the environment is made anew.
+
+    With `[install] extras` the new version's environment holds the extra
+    before `app` points at it, and an extra that cannot be installed is said
+    without refusing the update.
+    """
+    from ponos import environment
+
+    commit, app, _first = installation
+    with _fake_installer() as log:
+        path = C.config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('[install]\nextras = ["fakeextra"]\n', encoding="utf-8")
+        second = commit("two", _with_extra)
+        assert update.install(update.check(app, "main"), 600, app) == ""
+        assert _head(app) == second
+        assert _has_module(app.resolve()), "the new environment was built without the extra"
+        assert "-fakeextra.txt" in log.read_text()
+        assert environment.failures(app.resolve()) == {}
+
+        # An extra the version does not offer: the update is made, the lack is said.
+        path.write_text('[install]\nextras = ["fakeextra", "nothing"]\n', encoding="utf-8")
+        third = commit("three")
+        assert update.install(update.check(app, "main"), 600, app) == ""
+        assert _head(app) == third and _has_module(app.resolve())
+        lost = environment.failures(app.resolve())
+        assert list(lost) == ["nothing"] and "no `nothing` extra" in lost["nothing"], lost
+        assert "`nothing` extra is not installed" in environment.describe_failures(lost)
+
+
+@case
+def an_extra_installed_by_hand_is_declared_and_kept_by_the_next_update(
+    installation: tuple[Callable[..., str], Path, str],
+) -> None:
+    """The user's Piper: installed by hand, no line in the config — it must survive.
+
+    The first update that finds the environment in use holding an extra
+    declares it, and installs it into the new one. When the update was made by
+    the code before, which declared nothing, the first pass of the new code
+    reads it from the version kept for going back.
+    """
+    from ponos import environment
+
+    commit, app, _first = installation
+    with _fake_installer():
+        commit("two", _with_extra)
+        assert update.install(update.check(app, "main"), 600, app) == ""
+        current = app.resolve()
+        assert environment.declared() is None and not _has_module(current)
+        # By hand, as `pip install piper-tts` did.
+        site = next((current / environment.VENV / "lib").glob("python*/site-packages"))
+        (site / "fake_extra.py").write_text("READY = True\n", encoding="utf-8")
+        (site / "fake_extra-1.0.dist-info").mkdir()
+        (site / "fake_extra-1.0.dist-info" / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: fake-extra\nVersion: 1.0\n", encoding="utf-8"
+        )
+        assert _has_module(current)
+
+        commit("three")
+        assert update.install(update.check(app, "main"), 600, app) == ""
+        assert environment.declared() == ["fakeextra"], "the extra in use was not declared"
+        assert _has_module(app.resolve()), "the update erased the extra"
+
+        # Updated by code that declared nothing: the extra is gone from the version in
+        # use, the version kept for going back still has it.
+        C.config_path().unlink()
+        site = next((app.resolve() / environment.VENV / "lib").glob("python*/site-packages"))
+        shutil.rmtree(site / "fake_extra-1.0.dist-info")
+        (site / "fake_extra.py").unlink()
+        assert not _has_module(app.resolve())
+        lost, fresh = environment.sync(app.resolve())
+        assert lost == {} and fresh
+        assert environment.declared() == ["fakeextra"] and _has_module(app.resolve())
+        assert environment.sync(app.resolve()) == ({}, False), "checked again at every pass"

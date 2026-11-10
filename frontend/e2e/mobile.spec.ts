@@ -242,7 +242,8 @@ test("the version, the last read and the two buttons are behind More", async ({ 
   })
   const reread = drawer.getByRole("button", { name: "Resynchronise now" })
   await reread.click()
-  await expect(page.getByText("Board read again")).toBeVisible()
+  // Exact: the button's own tooltip, still closing, says "…board read again…".
+  await expect(page.getByText("Board read again", { exact: true })).toBeVisible()
   await expect(reread).toBeEnabled()
   await reread.click()
   await expect.poll(() => reads).toBe(1)

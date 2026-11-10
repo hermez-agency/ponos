@@ -142,6 +142,19 @@ installing, restarting — and the page reloads by itself from the new version:
   `ponos doctor` has a *Python environment* line under *Machine* — there, its interpreter runs, and each
   package of `requirements.txt` imports — and when it is not, the command that mends it:
   `ponos update --environment`;
+- **the optional extras are declared.** The environment of a new version is built from
+  scratch, so a package added by hand to the one before (`pip install piper-tts`) was
+  gone at the next update. `[install] extras` in `config.toml` lists the extras of
+  `pyproject.toml` that every environment gets — `voice` (Piper) and `browser`
+  (Playwright) — and each version ships `requirements-<extra>.txt`, the same export as
+  `requirements.txt` with the extra and its hashes. The update installs them in the new
+  environment *before* the daemon switches to it. One that cannot be installed does not
+  stop the update: `ponos doctor`, the console's health band and a notification say which
+  is missing and why, and `ponos extras add <extra>` tries again. The first update onto this
+  code declares the extras already installed in the environment in use or in the version
+  kept for going back, so an installation that had Piper keeps it. The voices
+  (`~/.cache/ponos/voices`) are outside the versions, as before.
+  See [Optional extras](#optional-extras-voice-browser).
 - **the page chooses nothing.** `POST /api/update` takes no command, no version and no
   path; it asks the remote again, under the lock, for the newest version of the configured
   channel. It answers only a request from this machine carrying the console's guard header
@@ -190,3 +203,17 @@ association, the icons, the launcher and the installed versions.
 
 `TR_PURGE=1` also removes the configuration, the logs and the history (`ponos.db`
 included). Branches already pushed are never touched.
+
+## Optional extras (voice, browser)
+
+Two features need a package the base installation does not carry: `voice` (`piper-tts`,
+the console's voice) and `browser` (`playwright`, Ponos's own browser).
+
+```sh
+ponos extras list          # each extra: installed? declared?
+ponos extras add voice     # install it in the environment in use and write [install] extras
+ponos extras remove voice  # stop keeping it, and uninstall it
+```
+
+An extra added this way is kept by every update (see above). Do not `pip install` it by
+hand: the next version's environment would not have it.

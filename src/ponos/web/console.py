@@ -393,7 +393,11 @@ class Chats:
                 ),
                 "send": self.config.web.send_after_transcription,
             },
-            "speech": {"ready": not why, "why": why},
+            "speech": {
+                "ready": not why,
+                "why": why,
+                "installable": self.config.speech.enabled and not speech.available(),
+            },
             "running": self.running(),
             "limit": self.limit,
         }

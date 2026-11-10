@@ -843,7 +843,7 @@ def the_console_speaks_a_sentence_and_plans_a_reply_and_says_why_it_cannot() -> 
             assert chat.state()["speech"]["ready"] is False
             assert "Piper" in chat.state()["speech"]["why"]
             code, body, _ = post("/api/chat/speak", {"text": "Bonjour.", "lang": "fr"})
-            assert code == 503 and "piper-tts" in json.loads(body)["error"], body
+            assert code == 503 and "ponos extras add voice" in json.loads(body)["error"], body
 
             speech.available = original
             with _piper():

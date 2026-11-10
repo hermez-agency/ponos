@@ -28,6 +28,7 @@ and FastAPI runs such a route on a thread of its own — which is what
 from __future__ import annotations
 
 import hmac
+import importlib
 import json
 import logging
 import queue
@@ -46,6 +47,7 @@ from starlette.convertors import Convertor, register_url_convertor
 
 from .. import (
     browser,
+    environment,
     journal,
     notifications,
     page_files,
@@ -53,6 +55,7 @@ from .. import (
     push,
     speech,
     store,
+    update,
     vault,
     vault_store,
     voice,
@@ -1783,6 +1786,20 @@ def ticket_idea(request: Request, number: int) -> Response:
 @router.post("/api/ideas/{number:int}/reopen", response_model=answers.Idea)
 def reopen_idea(request: Request, number: int) -> Response:
     return answer(_api(request).reopen_idea(number))
+
+
+@router.post("/api/extras/{extra}", response_model=answers.Ok)
+def install_extra(extra: str) -> Response:
+    """`ponos extras add`, from the console: install the extra and declare it (an admin's)."""
+    version = update.installed_version()
+    if version is None:
+        return fail(409, "this Ponos was not installed by install.sh: it has no environment")
+    problem = environment.add(version, extra)
+    if problem:
+        return fail(502, problem)
+    # The console runs in the environment it has just installed into.
+    importlib.invalidate_caches()
+    return answer({"ok": True})
 
 
 @router.post("/api/disk/clean", response_model=answers.Cleaned)

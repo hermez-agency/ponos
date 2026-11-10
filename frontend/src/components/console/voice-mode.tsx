@@ -17,11 +17,14 @@ export function VoiceModeButton({
   on,
   blocked,
   onToggle,
+  onInstall,
 }: {
   on: boolean
   /** Why it is greyed out, or nothing. */
   blocked: string
   onToggle: () => void
+  /** Piper is what is missing and this person may install it: the tooltip offers the button. */
+  onInstall?: () => void
 }) {
   const t = useT()
   const label = on ? t("Leave voice mode") : t("Voice mode")
@@ -47,6 +50,11 @@ export function VoiceModeButton({
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-64">
         {blocked || label}
+        {blocked && onInstall ? (
+          <Button type="button" size="sm" className="mt-2 w-full" data-slot="install-voice" onClick={onInstall}>
+            {t("Install the voice")}
+          </Button>
+        ) : null}
       </TooltipContent>
     </Tooltip>
   )

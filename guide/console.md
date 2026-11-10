@@ -432,11 +432,12 @@ what Ponos says.
   stays displayed. Use a headset in voice mode: through loudspeakers the voice reaches the
   microphone and can end up interrupting itself.
 
-*Setting it up.* Piper is optional, the `voice` extra: install it in the environment of the
-version in use — `uv pip install --python ~/.local/share/ponos/app/.venv/bin/python piper-tts`
-(or `pip install piper-tts` in that `.venv`) — and restart the console. An update gives a
-version a `.venv` of its own (see [Installation](installation.md)), so run the command again
-after one. In Docker, run it in the container, or add it to your own image. `[speech]` in
+*Setting it up.* Piper is optional, the `voice` extra: `ponos extras add voice` installs it
+in the environment of the version in use and declares it (`[install] extras`), so that every
+update gives the next version's environment Piper too — see
+[Optional extras](installation.md#optional-extras-voice-browser). When it is missing, the
+greyed-out voice button offers *Install the voice* (an admin's button) which does the same.
+In Docker, add it to your own image. `[speech]` in
 `config.toml` (Settings → Models → Voice) switches it on or off (`enabled`), names the voice
 of each language (`voice_fr`, `fr_FR-siwis-medium` by default, `fr_FR-upmc-medium` is
 another; `voice_en`, `en_US-lessac-medium`) and the pace (`speed`, 100 is normal). The

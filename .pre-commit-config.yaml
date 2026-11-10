@@ -39,10 +39,10 @@ repos:
       # Rewritten in place, with the CI's very command: a diff fails the hook,
       # and the file left behind is the one to stage.
       - id: requirements-export
-        name: requirements.txt is the export of uv.lock
-        entry: uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt --quiet
+        name: requirements.txt and requirements-<extra>.txt are the export of uv.lock
+        entry: sh -c 'uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt --quiet && for extra in voice browser; do uv export --frozen --no-dev --no-emit-project --extra "$extra" --format requirements-txt -o "requirements-$extra.txt" --quiet; done'
         language: system
-        files: ^(pyproject\.toml|uv\.lock|requirements\.txt)$
+        files: ^(pyproject\.toml|uv\.lock|requirements(-[a-z]+)?\.txt)$
         pass_filenames: false
 
       - id: static-built-from-frontend
