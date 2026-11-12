@@ -300,6 +300,31 @@ class Discussion(Base):
             "created": [ticket["id"] for ticket in created],
         }
 
+    def revise(self, page_id: str, instruction: str, who: str = "") -> dict[str, Any]:
+        """« Request a change » on a ticket's result: the instruction, then back to work.
+
+        Written as a decision is — on the thread, relayed — so that the session
+        the move starts reads it; its result is a new version, the one before
+        kept (results.py). Not while a session is on it: that one would not
+        read it.
+        """
+        instruction = redaction.masked(str(instruction or "").strip())
+        if not instruction:
+            raise ValueError("say what to change")
+        settings = self.config.board
+        page = self.reader.get(page_id) or self.runner.client.page(page_id)
+        status = str(store.read(page, settings.prop("status")) or "")
+        column = _columns(settings).get(status, "draft")
+        if column in ("running", "ready"):
+            raise ValueError(f"the ticket is {column}: ask for the change once it is back")
+        said = self.runner.voice
+        relayed = _relayed(said, said.say("relayed-console"), who)
+        lines = [f"{relayed}.", said.say("told-revise", text=instruction)]
+        self._say_on(page_id, lines, self.runner.client.comments(page_id))
+        moved = self.set_status(page_id, "ready", status)
+        self.watch.nudge()
+        return {**moved, "column": "ready", "told": lines[1:], "created": []}
+
     def _waiting(self, page_id: str) -> tuple[store.Page, str, list[store.Comment]]:
         """A card that waits on you: its page, its column, what was said on it."""
         settings = self.config.board

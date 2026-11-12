@@ -577,6 +577,45 @@ def a_blocked_ticket_travels_with_its_question_and_its_link() -> None:
 
 
 @case
+def a_finished_ticket_travels_with_the_first_lines_of_its_result() -> None:
+    sent: list[dict[str, Any]] = []
+    runner = Runner.__new__(Runner)
+    runner._journals = {}
+    runner.config = _config(
+        '[notify]\ndesktop = false\n\n[notify.telegram]\ntoken = "123:abc"\nchat = "42"\n'
+    )
+    runner.dry_run = False
+    runner.quiet = True
+    ticket = type(
+        "T",
+        (),
+        {
+            "page": store.Page(id=TICKET, url="https://board.invalid/t", title="Post LinkedIn"),
+            "id": TICKET,
+            "title": "Post LinkedIn",
+            "url": "https://board.invalid/t",
+        },
+    )()
+    original = channels.announce
+    channels.announce = lambda settings, text, **rest: sent.append({"text": text, **rest})  # type: ignore[assignment]  # a double: what was sent is kept
+    try:
+        with _state_home():
+            runner._tell(
+                "done",
+                ticket,
+                "read",
+                "In the page",
+                result="# Trois choses\n\n**Petit**, souvent.\n\nSeul.\n\nLa quatrième ligne.",
+            )
+    finally:
+        channels.announce = original
+    assert len(sent) == 1
+    text = sent[0]["text"]
+    assert "Trois choses\nPetit, souvent.\nSeul." in text, text
+    assert "La quatrième ligne." not in text and "**" not in text
+
+
+@case
 def nothing_is_sent_anywhere_during_a_dry_run() -> None:
     sent: list[str] = []
     runner = Runner.__new__(Runner)

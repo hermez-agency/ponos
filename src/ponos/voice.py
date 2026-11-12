@@ -1528,6 +1528,19 @@ _SAID: dict[str, dict[str, str]] = {
     "page-mission": {"en": "Mission", "fr": "Mission"},
     "page-done": {"en": "What was done", "fr": "Ce qui a été fait"},
     "page-history": {"en": "History", "fr": "Historique"},
+    "page-result-heading": {"en": "Result", "fr": "Résultat"},
+    "no-result": {
+        "en": "No result rendered: the session wrote no <result> block, the page shows none.",
+        "fr": "Aucun résultat rendu : la session n'a pas écrit de bloc <result>, la page n'en montre pas.",
+    },
+    "result-files": {"en": "Files touched", "fr": "Fichiers touchés"},
+    "result-diff": {"en": "View the diff", "fr": "Voir le diff"},
+    "told-revise": {
+        "en": "Change requested on the result — {text} Keep what is not asked to change; "
+        "the result you hand back is a new version of it.",
+        "fr": "Modification demandée sur le résultat — {text} Garde ce qui n'est pas demandé ; "
+        "le résultat rendu en est une nouvelle version.",
+    },
     "page-done-empty": {
         "en": "Nothing yet: Ponos rewrites this part at the end of every session.",
         "fr": "Rien encore : Ponos réécrit cette partie à la fin de chaque session.",

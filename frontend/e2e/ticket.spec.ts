@@ -59,7 +59,7 @@ test("a ticket opened by its address, before the board is there, is read once to
   expect(reads).toHaveLength(1)
 })
 
-test("a ticket's page says its type, model and cost on its brief, and the other two are tabs", async ({ page }) => {
+test("a ticket's page says its type, model and cost under its mission, and the others are tabs", async ({ page }) => {
   const reads = await counted(page)
   await page.goto(`/?view=console/tickets/read/${LONG}`)
   await expect(page.getByText("Part 40")).toBeAttached()
@@ -68,14 +68,14 @@ test("a ticket's page says its type, model and cost on its brief, and the other 
   const summary = page.locator('[data-slot="ticket-summary"]')
   await expect(summary.getByText("Ticket", { exact: true })).toBeVisible()
 
-  // A ticket neither running nor waiting opens on its brief.
+  // A ticket neither running nor waiting opens on its mission — its result, once it has one.
   const tabs = page.getByRole("tablist")
-  await expect(tabs.getByRole("tab")).toHaveText(["Brief", "Discussion", "Live"])
-  await expect(tabs.getByRole("tab", { name: "Brief" })).toHaveAttribute("aria-selected", "true")
+  await expect(tabs.getByRole("tab")).toHaveText(["Mission", "Discussion", "Live", "Journal"])
+  await expect(tabs.getByRole("tab", { name: "Mission" })).toHaveAttribute("aria-selected", "true")
   await expect(page.getByRole("tabpanel")).toContainText("Part 40")
 
   // From the keyboard, as a tab list is: the arrows move from one to the next.
-  await tabs.getByRole("tab", { name: "Brief" }).focus()
+  await tabs.getByRole("tab", { name: "Mission" }).focus()
   await page.keyboard.press("ArrowRight")
   await expect(tabs.getByRole("tab", { name: "Discussion" })).toBeFocused()
   await page.keyboard.press("ArrowRight")
@@ -108,7 +108,7 @@ test("a ticket with sessions says the model the last one announced, as provider/
 test("a ticket that waits on an answer shows the 15 minutes it worked and why the clock is stopped", async ({ page }) => {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await page.goto("/?view=console/tickets/read/00000000000000000000000000000a5c")
-  await page.getByRole("tab", { name: "Brief" }).click()
+  await page.getByRole("tab", { name: "Journal" }).click()
   const time = page.locator('[data-slot="ticket-time"]')
   // Ten minutes, an hour of waiting, five more: the hour is not in it.
   await expect(time).toHaveText("15 min")

@@ -4,10 +4,11 @@
 The runner, the console, the MCP and the CLI reach it through `ledger.py`, a
 `store.Store` that serves the tickets from these tables.
 
-**The two parts of the page are two columns.** `mission` is what you write and
-`report` is what Ponos rewrites when it is done; they are not one Markdown
-body cut at a heading, because the report is rewritten without ever having to
-read the mission back.
+**The three parts of a ticket are three columns.** `mission` is what you write,
+`result` what the ticket delivers — the last version of `ticket_results`, see
+results.py — and `journal` what Ponos rewrites at the end of every session;
+they are not one Markdown body cut at headings, because each is rewritten
+without ever having to read the others back.
 
 **The id is a UUID, dashes removed.** Every other table of this file names a
 ticket that way (`runs.ticket`, `history.ticket`…).
@@ -35,7 +36,8 @@ _TEXT = (
     "kind",
     "subtype",
     "mission",
-    "report",
+    "result",
+    "journal",
     "pull_request",
     "session",
     "agent",
@@ -64,7 +66,8 @@ class Record:
     kind: str = ""
     subtype: str = ""
     mission: str = ""
-    report: str = ""
+    result: str = ""
+    journal: str = ""
     pull_request: str = ""
     session: str = ""
     agent: str = ""
@@ -86,6 +89,18 @@ class Record:
     created_at: str = ""
     edited_at: str = ""
     after: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Version:
+    """One version of a ticket's result — see results.py."""
+
+    version: int
+    text: str
+    source: str = "session"
+    author: str = ""
+    note: str = ""
+    at: str = ""
 
 
 @dataclass
@@ -244,6 +259,7 @@ def update(ticket: str, **values: Any) -> Record | None:
 def delete(ticket: str) -> bool:
     ticket = _key(ticket)
     with db.transaction() as connection:
+        connection.execute("DELETE FROM ticket_results WHERE ticket = ?", (ticket,))
         return connection.execute("DELETE FROM tickets WHERE id = ?", (ticket,)).rowcount > 0
 
 
@@ -269,6 +285,52 @@ def comments(ticket: str) -> list[Remark]:
             for row in connection.execute(
                 "SELECT id, ticket, text, at, author, discussion FROM ticket_comments "
                 "WHERE ticket = ? ORDER BY id",
+                (_key(ticket),),
+            )
+        ]
+
+
+def set_result(
+    ticket: str, text: str, *, source: str = "session", author: str = "", note: str = ""
+) -> Version | None:
+    """Keep a new version of a ticket's result, and make it the ticket's.
+
+    Never overwrites: the earlier versions stay in `ticket_results`. A text
+    the same as the last version is not kept twice — None then, and None for
+    a ticket that is not here.
+    """
+    ticket = _key(ticket)
+    text = text.strip()
+    with db.transaction() as connection:
+        row = connection.execute("SELECT result FROM tickets WHERE id = ?", (ticket,)).fetchone()
+        if row is None:
+            return None
+        last = connection.execute(
+            "SELECT MAX(version) FROM ticket_results WHERE ticket = ?", (ticket,)
+        ).fetchone()[0]
+        if row[0] == text and (last or not text):
+            return None
+        version = int(last or 0) + 1
+        at = _now()
+        connection.execute(
+            "INSERT INTO ticket_results (ticket, version, text, source, author, note, at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (ticket, version, text, source, author, note, at),
+        )
+        connection.execute(
+            "UPDATE tickets SET result = ?, edited_at = ? WHERE id = ?", (text, at, ticket)
+        )
+    return Version(version, text, source, author, note, at)
+
+
+def results(ticket: str) -> list[Version]:
+    """Every version of a ticket's result, the newest first."""
+    with db.transaction(immediate=False) as connection:
+        return [
+            Version(*row)
+            for row in connection.execute(
+                "SELECT version, text, source, author, note, at FROM ticket_results "
+                "WHERE ticket = ? ORDER BY version DESC",
                 (_key(ticket),),
             )
         ]

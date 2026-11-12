@@ -161,10 +161,11 @@ def every_frame_says_how_many_workers_its_tests_may_take() -> None:
 
 
 @case
-def only_an_external_action_and_a_publication_add_a_section() -> None:
+def a_text_an_external_action_and_a_publication_add_a_section() -> None:
     assert prompt.kind("external") == prompt.EXTERNAL
     assert prompt.kind("publication") == prompt.PREPARE
-    assert prompt.kind("writing") == "" and prompt.kind("code") == "" and prompt.kind("") == ""
+    assert prompt.kind("writing") == prompt.WRITING
+    assert prompt.kind("code") == "" and prompt.kind("") == ""
 
 
 @case

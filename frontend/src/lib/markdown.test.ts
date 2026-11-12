@@ -155,3 +155,13 @@ test("a file a page carried is read as its block, and ends a list", () => {
     block,
   } satisfies Block)
 })
+
+test("an image alone on its line is drawn, and one from nowhere stays its text", () => {
+  assert.deepEqual(blocks("![avant](https://x.dev/a.png)"), [
+    { kind: "image", alt: "avant", src: "https://x.dev/a.png" },
+  ])
+  assert.deepEqual(blocks('![](/api/previews/a/b.png "capture")'), [
+    { kind: "image", alt: "", src: "/api/previews/a/b.png" },
+  ])
+  assert.equal(blocks("![x](javascript:alert(1))")[0]?.kind, "paragraph")
+})

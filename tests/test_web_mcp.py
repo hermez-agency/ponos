@@ -85,6 +85,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         detail = _mcp_call(api, grant, "get_task", task=task["short"])["structuredContent"]
         assert "Dokploy ou Vercel" in detail["question"]
         assert detail["conversation"][-1]["from"] == "ponos"
+        assert {"mission", "result", "journal"} <= set(detail) and "description" not in detail
 
         created = _mcp_call(
             api,

@@ -1278,13 +1278,25 @@ def set_ticket_on(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/document", response_model=answers.TicketDocument)
-def set_ticket_document(
-    request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
+@router.post("/api/tickets/{ticket_id:page}/result", response_model=answers.TicketResult)
+def set_ticket_result(
+    request: Request, ticket_id: str, payload: Text = Body(default_factory=Text)
 ) -> Response:
-    done = _api(request).set_document(ticket_id, str(payload.get("content", "")))
-    _done(request, ticket_id, "document")
+    """A new version of the ticket's result, written by hand — see results.py."""
+    who = _who(request)
+    done = _api(request).set_result(ticket_id, payload.text, who.name if who else "")
+    _done(request, ticket_id, "result")
     return answer(done)
+
+
+@router.post("/api/tickets/{ticket_id:page}/revise", response_model=answers.Decided)
+def revise_ticket(
+    request: Request, ticket_id: str, payload: Text = Body(default_factory=Text)
+) -> Response:
+    """« Request a change »: the instruction on the ticket, and the ticket back to work."""
+    revised = _api(request).revise(ticket_id, payload.text, who=_signed(request))
+    _done(request, ticket_id, "revise")
+    return answer(revised)
 
 
 @router.post("/api/tickets/{ticket_id:page}/priority", response_model=answers.TicketPriority)

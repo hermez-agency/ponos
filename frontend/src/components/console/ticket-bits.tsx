@@ -324,7 +324,16 @@ function useCiOpen(failed: boolean) {
 /* Where a review's checks stand, as an icon and a colour: on the card it is
  * the whole of it, and the detail adds each check and the link to GitHub's
  * page. Nothing for a pull request without checks — `ci` is null then. */
-export function TicketCi({ ci, detailed = false }: { ci?: Ci | null; detailed?: boolean }) {
+export function TicketCi({
+  ci,
+  detailed = false,
+  slot = "ticket-ci",
+}: {
+  ci?: Ci | null
+  detailed?: boolean
+  /** Its `data-slot`: another one where the same checks are said a second time on a page. */
+  slot?: string
+}) {
   useT()
   const [open, choose] = useCiOpen(ci?.state === "failed")
   if (!ci) return null
@@ -343,7 +352,7 @@ export function TicketCi({ ci, detailed = false }: { ci?: Ci | null; detailed?: 
   ) : null
   if (!detailed) {
     return (
-      <div className="flex flex-wrap items-center gap-1.5" data-slot="ticket-ci" data-state={ci.state}>
+      <div className="flex flex-wrap items-center gap-1.5" data-slot={slot} data-state={ci.state}>
         {badge}
         {retried}
       </div>

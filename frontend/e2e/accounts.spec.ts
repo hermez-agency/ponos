@@ -156,6 +156,8 @@ test("a member validates a ticket in review, and the comment on it says who", as
 
   // And the ticket's own history, from the console, says it too.
   await member.goto(page_of(VALIDATED))
+  // Under the Journal, with what the sessions said.
+  await member.locator('[data-slot="ticket-journal-tab"]').click()
   const audit = member.locator('[data-slot="ticket-audit"]')
   await expect(audit).toContainText("Léa")
   await expect(audit).toContainText("validated it")

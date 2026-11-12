@@ -26,10 +26,11 @@ schedule is created unticked unless its « Turn on right away » box is ticked. 
 console that holds Markdown — that context, the standing one, a project's brief, a new ticket —
 is a rich editor rather than a text area.
 
-**A ticket's page is in two parts.** The Mission, which you write, and « What was done »,
-which Ponos rewrites when a session ends. A document or an external ticket delivers into
-that second part: its result is shown on the ticket's page in the console, where *Edit* lets
-you correct it, and the next session of the ticket writes it again from its own report.
+**A ticket's page is in three parts.** The Mission, which you write; the Result, what the
+ticket delivers — the post, the report, the summary of a change —, which the page opens on,
+to copy, download, retouch or send back with an instruction, every version kept; and
+« What was done », the journal Ponos rewrites when a session ends. See [A ticket's
+page](tickets.md#a-tickets-page-the-mission-the-result-and-the-journal).
 
 **A project has a picture.** A cover — the banner across its page — and an icon — an emoji
 or a small image in front of its title — are the thumbnail in the list of projects and the
@@ -444,7 +445,7 @@ resolution follow the same rule. Turn it on to get the behaviour above unchanged
 A run used to say nothing between *In progress* and the pull request. Now it narrates,
 in two places that answer two different questions — and neither of them is the ticket's
 page, which holds the mission and what was done (see
-[A ticket's page: the mission, and what was done](tickets.md#a-tickets-page-the-mission-and-what-was-done)).
+[A ticket's page: the mission, the result, and the journal](tickets.md#a-tickets-page-the-mission-the-result-and-the-journal)).
 
 - **The `Progress` column** carries the last step, on a ten-second cadence, so a glance
   at the board — from a phone, without opening anything — shows which ticket is on

@@ -1,4 +1,4 @@
-"""A ticket's page, in two parts: the mission somebody wrote, and what was done.
+"""A ticket's page, in parts: the mission somebody wrote, its result, and what was done.
 
 Every session used to append a folded block to the end of the page — the steps,
 then the report — and a ticket run three times ended on three of them: nobody
@@ -17,6 +17,10 @@ rendering of it, so that whatever holds the ticket next keeps it as it is:
   from the run journal of ponos.db, which is where the step-by-step detail
   stays.
 
+Between the two, since the result became a part of its own (results.py), the
+deliverable under « Result »: written by `tickets.set_result` alone, and only
+read here.
+
 The second part is found by its heading, in either language the runner speaks,
 and runs to the end of the page: the runner writes it last and appends nothing
 after it. A page without it is all mission — which is what a ticket written
@@ -33,6 +37,7 @@ from datetime import datetime
 from typing import Any
 
 from . import question as question_module
+from . import results as results_module
 from . import voice as voice_module
 
 # How the two parts and the history are headed, in every language the runner
@@ -40,6 +45,7 @@ from . import voice as voice_module
 # before `runner.language` changed.
 MISSION = voice_module.every("page-mission")
 DONE = voice_module.every("page-done")
+RESULT = voice_module.every("page-result-heading")
 HISTORY = voice_module.every("page-history")
 
 # A heading line of Markdown: one to three hashes, as `markdown.plain` writes
@@ -77,10 +83,15 @@ def is_heading(line: str, titles: Iterable[str]) -> bool:
 
 @dataclass
 class Parts:
-    """A page read as its two parts. `done` is everything under its heading."""
+    """A page read as its parts. `done` is everything under its heading — the journal.
+
+    `result` is the ticket's deliverable, between the mission and the journal
+    when it has one (see results.py).
+    """
 
     mission: str = ""
     done: str = ""
+    result: str = ""
 
     @property
     def report(self) -> str:
@@ -111,10 +122,11 @@ def split(text: str) -> Parts:
     written before the format had one — is the mission whole.
     """
     mission, done = _cut(text, DONE)
+    mission, result = _cut(mission, RESULT)
     lines = mission.splitlines()
     if lines and is_heading(lines[0], MISSION):
         mission = "\n".join(lines[1:]).strip()
-    return Parts(mission, done)
+    return Parts(mission, done, result)
 
 
 def mission(text: str) -> str:
@@ -168,7 +180,8 @@ def report(
     lines = [words.say("page-result", text=f"{mark} {words.brief(result, 300)}")]
     if pull_request:
         lines.append(words.say("page-pull-request", url=pull_request))
-    told = question_module.prose(answer)
+    # The result has a part of its own: the report keeps what is around it.
+    told = question_module.prose(results_module.without(answer))
     if told:
         lines.append(told)
     if status == "blocked":

@@ -260,6 +260,8 @@ class Ticket(Shape):
     estimate: Estimate | None = omitted()
     """On a ready or draft ticket only: what it is likely to cost and take — null without enough
     history."""
+    excerpt: str = omitted()
+    """The first lines of its result, in plain words — empty before one: see results.py."""
 
 
 class ModelInUse(Shape):
@@ -283,8 +285,13 @@ class TicketDetail(Ticket):
     """The page's blocks, flattened the way the runner reads them."""
     mission: str
     """The page's first part, the one a session is told — see ticket_page.py."""
-    done: str
-    """Its second part, « What was done »: the last report, then the history — empty before any session."""
+    result: str
+    """What the ticket delivers — the post, the report, the summary of a change: its
+    last version, empty before a session rendered one. See results.py."""
+    results: list[ResultVersion]
+    """Every version of the result, the newest first."""
+    journal: str
+    """« What was done »: the last session's report, then the history — empty before any session."""
     model_in_use: ModelInUse = omitted()
     """The model it runs on: the last session's own word, then the column, then the defaults."""
     on: str = omitted()
@@ -416,10 +423,24 @@ class TicketOn(Shape):
     """The prompt now run at every change of status, empty once removed."""
 
 
-class TicketDocument(Shape):
+class ResultVersion(Shape):
+    """One version of a ticket's result — see results.py."""
+
+    version: int
+    text: str
+    source: str
+    """Who wrote it: `session`, `edit` (a hand in the console), `migration`."""
+    author: str
+    """The account that retouched it, empty for a session."""
+    at: str
+
+
+class TicketResult(Shape):
     id: str
-    done: str
-    """The document as it now stands: the ticket's part « What was done »."""
+    result: str
+    """The result as it now stands: its last version."""
+    results: list[ResultVersion]
+    """Every version, the newest first."""
 
 
 class TicketPriority(Shape):
@@ -2512,7 +2533,18 @@ class AuditEntry(Shape):
     who: str
     """The name, as it was then; empty for the token."""
     email: str
-    action: Literal["created", "moved", "told", "decided", "priority", "on", "goal", "launched"]
+    action: Literal[
+        "created",
+        "moved",
+        "told",
+        "decided",
+        "priority",
+        "on",
+        "goal",
+        "launched",
+        "result",
+        "revise",
+    ]
     detail: str
     """The column moved to, the choice made, the priority set."""
 

@@ -626,6 +626,15 @@ const TicketCardBody = React.memo(function TicketCardBody({
           <Marked text={ticket.progress} words={words} />
         </p>
       ) : null}
+      {/* What it delivered, once it has: the first lines of its result. */}
+      {ticket.excerpt && ["review", "validated", "done"].includes(ticket.column) ? (
+        <p
+          data-slot="card-excerpt"
+          className="border-border text-foreground/80 line-clamp-3 border-l-2 pl-2 text-xs leading-relaxed whitespace-pre-line break-words"
+        >
+          {ticket.excerpt}
+        </p>
+      ) : null}
 
       <TicketActions ticket={ticket} className="-mx-1" />
       <TicketFoot ticket={ticket} />

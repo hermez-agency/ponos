@@ -25,6 +25,7 @@ from .. import (
     board_journal,
     ci,
     credits,
+    db,
     dependencies,
     disk,
     estimates,
@@ -40,12 +41,14 @@ from .. import (
     subtypes,
     ticket_page,
     timestamps,
+    vault,
     worktime,
 )
 from .. import attempts as attempts_module
 from .. import goals as goals_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
+from .. import results as results_module
 from .. import tickets as tickets_module
 from .. import transitions as transitions_module
 from ..config import BoardNames, state_dir
@@ -557,6 +560,8 @@ class Tickets(Base):
             # Why it stopped, from the board's « Blocage » column; `_causes`
             # falls back on the history, and keeps it on a stopped card only.
             "block": blocks.describe(blocks.known(store.read(page, settings.prop("block")))),
+            # The first lines of what it delivers, for the card — see results.py.
+            "excerpt": results_module.excerpt(str(page.raw.get("result") or "")),
         }
 
     def ticket(self, page_id: str) -> dict[str, Any]:
@@ -625,7 +630,8 @@ class Tickets(Base):
             **card,
             "content": content,
             "mission": parts.mission,
-            "done": parts.done,
+            "journal": parts.done,
+            **_results(page_id, parts.result),
             "on": str(store.read(page, settings.prop("on")) or ""),
             "previews": preview.listing(page_id),
         }
@@ -733,22 +739,21 @@ class Tickets(Base):
         self.watch.nudge()
         return {"id": page_id.replace("-", ""), "priority": score}
 
-    def set_document(self, page_id: str, text: str) -> dict[str, Any]:
-        """Write the ticket's document: the part « What was done », which a document ticket delivers.
+    def set_result(self, page_id: str, text: str, who: str = "") -> dict[str, Any]:
+        """Retouch a ticket's result: a new version, the earlier ones kept — see results.py.
 
-        A document or external ticket ends with its result there (see
-        `execution._execute_document`); this is the hand that corrects it.
-        The next session of the ticket writes the part again, from its own report.
+        The hand that corrects what a session delivered. `who` is the account
+        that wrote it, said beside the version.
         """
+        if not text.strip():
+            raise ValueError("a result cannot be empty")
+        if tickets_module.get(page_id) is None:
+            raise LookupError(f"no ticket with id {page_id}")
+        tickets_module.set_result(page_id, vault.mask(text), source="edit", author=who)
         client = self.runner.client
-        heading = self.runner.voice.say("page-done")
-        client.replace_section(page_id, ticket_page.DONE, f"## {heading}\n\n{text.strip()}")
         self.reader.hold(client.page(page_id))
         self.watch.nudge()
-        return {
-            "id": page_id.replace("-", ""),
-            "done": ticket_page.split(client.blocks_text(page_id)).done,
-        }
+        return {"id": page_id.replace("-", ""), **_results(page_id)}
 
     def transitions(self, page_id: str) -> dict[str, Any]:
         """The executions of one ticket's « On » prompt, newest first."""
@@ -1088,3 +1093,28 @@ def _phases(tickets: list[dict[str, Any]]) -> None:
 def _status(settings: BoardNames, key: str) -> str:
     """What a column writes: the board's word for it."""
     return settings.state(key)
+
+
+def _results(page_id: str, result: str = "") -> dict[str, Any]:
+    """A ticket's result and its versions, newest first — see results.py.
+
+    `result` is what the page says when the ledger has no version of it: a
+    board double in the tests, a page of before.
+    """
+    try:
+        versions = tickets_module.results(page_id)
+    except db.ERRORS:
+        versions = []
+    return {
+        "result": versions[0].text if versions else result,
+        "results": [
+            {
+                "version": one.version,
+                "text": one.text,
+                "source": one.source,
+                "author": one.author,
+                "at": one.at,
+            }
+            for one in versions
+        ],
+    }

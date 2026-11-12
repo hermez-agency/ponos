@@ -9,10 +9,11 @@ pretending to be a refactor. So the tickets keep that shape on the way out
 into columns), and everything that is not a ticket goes on to `pages.py`
 untouched: projects, agents, goals, schedules, the standing context.
 
-**The two parts of a page are two columns.** A body read is the mission and the
-report under their headings; a body written (`replace_markdown`,
-`replace_section`, `append_markdown`) is cut again at the same headings
-(`ticket_page.split`). The steps of a session are in the run journal, and the
+**The three parts of a page are three columns.** A body read is the mission,
+the result and the journal under their headings; a body written
+(`replace_markdown`, `replace_section`, `append_markdown`) is cut again at the
+same headings (`ticket_page.split`), and gives back the mission and the journal
+— a result is only ever a new version (`tickets.set_result`). The steps of a session are in the run journal, and the
 progress is a column.
 """
 
@@ -275,6 +276,8 @@ class Ledger:
             "created_time": record.created_at,
             "last_edited_time": record.edited_at,
             "properties": properties,
+            # Not a property of the board: what the card shows of the result.
+            "result": record.result,
         }
         return Page(record.id, url, record.title, properties, raw)
 
@@ -308,20 +311,26 @@ class Ledger:
     def _body(self, record: tickets.Record) -> str:
         words = self.words
         text = f"## {words.say('page-mission')}\n\n{record.mission.strip()}"
-        if record.report.strip():
-            text += f"\n\n## {words.say('page-done')}\n\n{record.report.strip()}"
+        if record.result.strip():
+            text += f"\n\n## {words.say('page-result-heading')}\n\n{record.result.strip()}"
+        if record.journal.strip():
+            text += f"\n\n## {words.say('page-done')}\n\n{record.journal.strip()}"
         return text
 
     def _rewrite(self, record: tickets.Record, markdown: str) -> None:
-        """Cut a whole page back into its two parts and keep them."""
+        """Cut a whole page back into its parts, and keep the mission and the journal.
+
+        The result is not written here: a new version of it is a gesture of its
+        own (`tickets.set_result`), never the side effect of a page rewritten.
+        """
         # The database is a door like the others: see vault.py.
         parts = ticket_page.split(vault.mask(markdown))
         done = parts.done
         for words in voice_module.every("page-done-empty"):
             if done.strip().strip("*").strip() == words:
                 done = ""
-        if parts.mission != record.mission or done != record.report:
-            self._write(lambda: tickets.update(record.id, mission=parts.mission, report=done))
+        if parts.mission != record.mission or done != record.journal:
+            self._write(lambda: tickets.update(record.id, mission=parts.mission, journal=done))
 
     @staticmethod
     def _write(action: Any) -> Any:

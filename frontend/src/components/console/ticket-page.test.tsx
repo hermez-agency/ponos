@@ -129,7 +129,9 @@ function ticket(change: Partial<TicketDetail> = {}): TicketDetail {
     edited: "2026-10-01T10:00:00.000Z",
     content: "",
     mission: "",
-    done: "",
+    result: "",
+    results: [],
+    journal: "",
     ...change,
   }
 }
@@ -252,8 +254,8 @@ describe("the tabs", () => {
   test("a ticket neither running nor waiting opens on its brief, and the tab picked is written in the address", async () => {
     const user = userEvent.setup()
     drawn(ticket())
-    expect(tabs()).toEqual(["Brief", "Discussion", "Live"])
-    expect(selected()).toBe("Brief")
+    expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Journal"])
+    expect(selected()).toBe("Mission")
 
     await user.click(screen.getByRole("tab", { name: "Live" }))
     expect(selected()).toBe("Live")
@@ -272,7 +274,7 @@ describe("the tabs", () => {
     expect(selected()).toBe("Discussion")
     expect(screen.getByLabelText("a question is waiting for you")).toBeTruthy()
     // No tab of its own to unblock it: the question is answered in the discussion.
-    expect(tabs()).toEqual(["Brief", "Discussion", "Live"])
+    expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Journal"])
   })
 
   test("the discussion's tab counts what was said, not the lines saying it could not be read", () => {
@@ -291,12 +293,12 @@ describe("the tabs", () => {
   test("a ticket in review has a Decide tab, which goes once the decision is sent", async () => {
     const user = userEvent.setup()
     drawn(ticket({ column: "review" }))
-    expect(tabs()).toEqual(["Brief", "Discussion", "Live", "Decide"])
+    expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Decide", "Journal"])
     expect(screen.getByLabelText("your decision is awaited")).toBeTruthy()
 
     await user.click(screen.getByRole("tab", { name: /Decide/ }))
     await user.click(screen.getByRole("button", { name: "the decision, sent" }))
-    await waitFor(() => expect(tabs()).toEqual(["Brief", "Discussion", "Live"]))
+    await waitFor(() => expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Journal"]))
     expect(selected()).toBe("Discussion")
   })
 
@@ -310,6 +312,75 @@ describe("the tabs", () => {
     expect(selected()).toMatch(/^Decide/)
     expect(world.replace).toHaveBeenLastCalledWith("/?tab=decide")
     expect(screen.queryByRole("button", { name: "Your decision is awaited" })).toBeNull()
+  })
+})
+
+describe("the result", () => {
+  const POST = "Trois choses apprises en livrant **Ponos**.\n\n1. Petit.\n2. Souvent."
+  const done = (change: Partial<TicketDetail> = {}) =>
+    ({
+      content: "## Mission\n\nÉcris un post LinkedIn.",
+      mission: "Écris un post LinkedIn.",
+      result: POST,
+      results: [
+        { version: 2, text: POST, source: "edit", author: "Léa", at: "2026-11-02T10:00:00Z" },
+        { version: 1, text: "Premier jet.", source: "session", author: "", at: "2026-11-01T10:00:00Z" },
+      ],
+      journal: "**Résultat** : ✅ post écrit\n\nJ'ai relu deux fois.",
+      ...change,
+    }) as unknown as { content: string }
+
+  test("a ticket with a result opens on it, its mission folded above and the journal apart", async () => {
+    const user = userEvent.setup()
+    drawn(ticket({ column: "done", type: "Writing" }), Promise.resolve(done()))
+    const result = await screen.findByText("Ponos")
+    expect(selected()).toBe("Result")
+    expect(tabs()).toEqual(["Result", "Discussion", "Live", "Journal"])
+    const body = result.closest<HTMLElement>('[data-slot="ticket-result-body"]')!
+    expect(body.textContent).toContain("Trois choses apprises")
+    // The session's account is not mixed into the post.
+    expect(screen.getByRole("tabpanel").textContent).not.toContain("J'ai relu deux fois.")
+    const mission = screen.getByRole("button", { name: "Mission" })
+    expect(mission.getAttribute("aria-expanded")).toBe("false")
+    await user.click(mission)
+    expect(mission.getAttribute("aria-expanded")).toBe("true")
+
+    await user.click(screen.getByRole("tab", { name: "Journal" }))
+    expect(screen.getByRole("tabpanel").textContent).toContain("J'ai relu deux fois.")
+    // The facts are under the tabs, not above them.
+    const summary = document.querySelector('[data-slot="ticket-summary"]')!
+    expect(screen.getByRole("tablist").compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test("an earlier version is shown in place of the last, and said to be one", async () => {
+    const user = userEvent.setup()
+    drawn(ticket({ column: "done" }), Promise.resolve(done()))
+    await user.click(await screen.findByRole("button", { name: "Version 2" }))
+    await user.click(await screen.findByRole("menuitem", { name: /Version 1/ }))
+    expect(screen.getByText("Premier jet.")).toBeTruthy()
+    expect(document.querySelector('[data-slot="ticket-result-older"]')?.textContent).toContain("by a session")
+    await user.click(screen.getByRole("button", { name: "Back to the latest" }))
+    expect(screen.queryByText("Premier jet.")).toBeNull()
+  })
+
+  test("a session that ran and rendered nothing is said so, rather than passing for done", async () => {
+    drawn(ticket({ column: "review" }), Promise.resolve(done({ result: "", results: [] })))
+    expect(await screen.findByText(/No result rendered/)).toBeTruthy()
+    expect(tabs()[0]).toBe("Mission")
+  })
+
+  test("a code ticket's result shows its pull request and the way to its diff", async () => {
+    drawn(
+      ticket({ column: "review", type: "Code", pull_request: "https://github.com/hermez/ponos/pull/385" }),
+      Promise.resolve(done())
+    )
+    const diff = await screen.findByRole("link", { name: /View the diff/ })
+    const card = diff.closest<HTMLElement>('[data-slot="ticket-result-pr"]')!
+    expect(within(card).getByRole("link", { name: "PR #385" })).toBeTruthy()
+    expect(within(card).getByText("open, waiting for your review")).toBeTruthy()
+    expect(within(card).getByRole("link", { name: /View the diff/ }).getAttribute("href")).toBe(
+      "https://github.com/hermez/ponos/pull/385/files"
+    )
   })
 })
 

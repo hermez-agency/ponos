@@ -28,6 +28,7 @@ export type Block =
   | { kind: "rule" }
   | { kind: "paragraph"; text: string }
   | { kind: "attached"; file: string; label: string; block: string }
+  | { kind: "image"; alt: string; src: string }
 
 /** How deep a list item sits: two spaces is a level, a tab is a level. */
 function depth(line: string): number {
@@ -169,6 +170,12 @@ export function blocks(text: string): Block[] {
       continue
     }
     counting = []
+    // An image alone on its line — a capture in a result: drawn, not read as its source.
+    const image = /^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)$/.exec(trimmed)
+    if (image && reachable(image[2])) {
+      out.push({ kind: "image", alt: image[1], src: image[2] })
+      continue
+    }
     const attached = ATTACHED.exec(trimmed)
     if (attached) {
       out.push({ kind: "attached", file: attached[1], label: attached[2] ?? "", block: attached[3] })
