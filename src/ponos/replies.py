@@ -179,7 +179,11 @@ class Replies(Base):
             language=self.voice.instruction(reply=True),
         )
 
-        discussion = thread.last.discussion_id
+        # A comment that names no discussion is a thread of one, keyed by its
+        # own id (`conversation.threads`). The answer goes into that id: posted
+        # with no discussion it would be a thread of its own, the question would
+        # stay the last word of its thread, and every pass would answer it again.
+        discussion = thread.last.discussion_id or thread.comments[0].id
         resumed = self.threads.session_of(page_id, discussion) if discussion else ""
         outcome = self._reply_session(
             text,
