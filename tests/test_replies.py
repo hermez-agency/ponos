@@ -268,6 +268,29 @@ def answering_a_comment_writes_in_its_thread_and_nowhere_else(state_home: Path) 
 
 
 @case
+def a_comment_outside_any_discussion_is_answered_once(state_home: Path) -> None:
+    """Answered into a discussion of its own, the question would stay the last
+    word of its thread — and every pass would answer it again, at a session each."""
+    loose = [_said("@ponos tu peux relire ?", thread="", ident="41")]
+    with _no_session() as calls:
+        runner = _talking({"pone": loose})
+        client = _TalkingClient({"pone": loose})
+        runner.client = client  # type: ignore[assignment]  # a fake: a page and its thread
+        runner.dry_run = False
+        runner._workspace = workspace.Workspace(tickets="db", projects="projects", agents="agents")
+        runner.converse()
+
+        page, text, discussion = client.posted[0]
+        assert discussion == "41", "under the comment it answers"
+        client.pages["pone"] = [*loose, _said(text, by=ME, thread=discussion, ident="42")]
+        runner._comments.clear()
+        assert runner._pending(ME) == [], "answered, so no longer waiting"
+        assert runner.converse() == []
+
+    assert len(calls) == 1
+
+
+@case
 def a_second_question_lands_in_the_same_conversation(state_home: Path) -> None:
     with _no_session() as calls:
         runner = _talking({"pone": REPLIED_TO})
