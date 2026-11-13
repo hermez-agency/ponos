@@ -392,6 +392,60 @@ def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home: Path) -
         assert "X" not in [task.title for task in board.query("tickets")], "nothing created"
 
 
+@case
+def an_mcp_client_ties_tasks_to_a_goal_and_unties_one(state_home: Path) -> None:
+    """Several tasks to a goal, one released: before and after said, an unknown name refuses all."""
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        launch = board.create_row("goals", "Lancer la v1", {"Statut": "actif"})
+        board.create_row("goals", "Ranger", {"Statut": "actif"})
+        tickets = [board.create_row("tickets", name, {}) for name in ("Un", "Deux", "Trois")]
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+
+        tied = _mcp_call(api, grant, "set_task_goal", tasks=tickets[:2], goal="lancer la v1")
+        assert not tied["isError"], tied
+        rows = tied["structuredContent"]["tasks"]
+        assert [(row["title"], row["before"], row["after"]) for row in rows] == [
+            ("Un", "", "Lancer la v1"),
+            ("Deux", "", "Lancer la v1"),
+        ], rows
+        for ticket in tickets[:2]:
+            assert store.read(board.page(ticket), "Objectif") == [launch]
+        assert store.read(board.page(tickets[2]), "Objectif") == []
+        goals = {
+            g["name"]: g for g in _mcp_call(api, grant, "list_goals")["structuredContent"]["goals"]
+        }
+        assert goals["Lancer la v1"]["progress"]["total"] == 2, goals
+
+        # Short id, moved to another goal (by id), with the goal it leaves said.
+        api._goals_at = 0.0
+        other = goals["Ranger"]["id"]
+        moved = _mcp_call(api, grant, "set_task_goal", tasks=[tickets[0][:8]], goal=other)
+        assert not moved["isError"], moved
+        (row,) = moved["structuredContent"]["tasks"]
+        assert (row["before"], row["after"]) == ("Lancer la v1", "Ranger"), row
+
+        # Released: an empty goal.
+        api._goals_at = 0.0
+        freed = _mcp_call(api, grant, "set_task_goal", tasks=[tickets[1]], goal="")
+        assert not freed["isError"], freed
+        (row,) = freed["structuredContent"]["tasks"]
+        assert (row["before"], row["after"]) == ("Lancer la v1", ""), row
+        assert store.read(board.page(tickets[1]), "Objectif") == []
+
+        # Unknown goal, unknown task, no task: refused, and nothing written.
+        for bad in (
+            {"tasks": [tickets[2]], "goal": "Conquérir le monde"},
+            {"tasks": [tickets[2], "f" * 32], "goal": "Ranger"},
+            {"tasks": [], "goal": "Ranger"},
+            {"tasks": [tickets[2]]},
+        ):
+            assert _mcp_call(api, grant, "set_task_goal", **bad)["isError"], bad
+        assert store.read(board.page(tickets[2]), "Objectif") == []
+
+
 # -- deciding on a card that waits on you -------------------------------------
 
 
@@ -687,6 +741,7 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
         "list_goals",
         "create_goal",
         "update_goal",
+        "set_task_goal",
         "create_task",
         "list_schedules",
         "create_schedule",
@@ -707,6 +762,7 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
     assert writes == [
         "create_goal",
         "update_goal",
+        "set_task_goal",
         "create_task",
         "create_schedule",
         "update_schedule",
