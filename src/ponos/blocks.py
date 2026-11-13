@@ -255,6 +255,19 @@ _CAUSES = (
         "push-refused",
     ),
     _cause(
+        "merge.agent-files",
+        "merge",
+        "ponos",
+        "answer",
+        "ask",
+        ("Agent files committed", "Fichiers d'agent commités"),
+        (
+            "A commit adds .claude/, skills-lock.json or CLAUDE.md: they leave the branch before the push.",
+            "Un commit ajoute .claude/, skills-lock.json ou CLAUDE.md : ils sortent de la branche avant le push.",
+        ),
+        "agent-files-refused",
+    ),
+    _cause(
         "merge.no-pr",
         "merge",
         "user",
@@ -585,6 +598,8 @@ _HEARD: tuple[tuple[str, str], ...] = (
     ("fermee au lieu d'etre fusionnee", "merge.pr-closed"),
     ("no pull request", "merge.no-pr"),
     ("aucune pull request", "merge.no-pr"),
+    ("commits agent files", "merge.agent-files"),
+    ("commite des fichiers d'agent", "merge.agent-files"),
     ("push was refused", "merge.push-refused"),
     ("pushing them was refused", "merge.push-refused"),
     ("push a ete refuse", "merge.push-refused"),

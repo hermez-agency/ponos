@@ -216,7 +216,9 @@ if log:
              "permission_mode": args[args.index("--permission-mode") + 1]
              if "--permission-mode" in args else "",
              "base_url": os.environ.get("ANTHROPIC_BASE_URL", ""),
-             "skills": sorted(os.listdir(".claude/skills")) if os.path.isdir(".claude/skills") else []}
+             "skills": sorted(os.listdir(".claude/skills")) if os.path.isdir(".claude/skills") else [],
+             "claude_md": Path("CLAUDE.md").read_text(encoding="utf-8")
+             if os.path.isfile("CLAUDE.md") else ""}
         ) + "\\n")
 
 
@@ -632,7 +634,9 @@ if (here / ".git").exists():
     for name, text in also.items():
         (here / name).parent.mkdir(parents=True, exist_ok=True)
         (here / name).write_text(text, encoding="utf-8")
-    subprocess.run(["git", "add", "FAKE.md", *also], cwd=here, check=True, capture_output=True)
+    # `-f`: a file the worktree's exclusions leave out is committed all the
+    # same, as a session typing `git add -f` would.
+    subprocess.run(["git", "add", "-f", "FAKE.md", *also], cwd=here, check=True, capture_output=True)
     subprocess.run(["git", "-c", "user.name=Fake Claude", "-c", "user.email=fake@example.invalid",
                     "-c", "commit.gpgsign=false", "commit", "-m", "Écrit par la fausse session"],
                    cwd=here, check=True, capture_output=True)
@@ -1529,6 +1533,59 @@ def a_skill_made_for_a_project_is_in_the_worktree_of_its_next_session_and_of_no_
     for branch in machine.branches(repository):
         assert not any(".claude/skills" in name for name in machine.files_on(repository, branch))
     db.close()
+
+
+@case
+def a_repository_with_only_agents_md_is_read_by_its_session_and_its_branch_carries_no_agent_file(
+    machine: Bench,
+) -> None:
+    """AGENTS.md is the convention: the session reads it through a CLAUDE.md Ponos
+    puts in the worktree, gets Ponos's skills there, and none of it is pushed."""
+    from ponos import skills
+
+    repository = machine.repository("site")
+    (repository / "AGENTS.md").write_text("Un cas par module.\n", encoding="utf-8")
+    _git(["add", "AGENTS.md"], repository)
+    _git(["commit", "-m", "les instructions"], repository)
+    _git(["push", "origin", "main"], repository)
+    site = machine.project("Site", repository)
+    skills.create("pour-tous", "Pour tous.", "# Tous\n")
+    machine.ticket("Corriger l'entête", "Le titre est faux.", site)
+
+    results = machine.run()
+
+    assert [result["status"] for result in results] == ["done"], results
+    [call] = [call for call in machine.sessions() if "Corriger l'entête" in call["prompt"]]
+    assert call["claude_md"] == "@AGENTS.md\n", call
+    assert call["skills"] == ["pour-tous"], call
+    branch = results[0]["branch"]
+    files = machine.files_on(repository, branch)
+    assert "FAKE.md" in files and "AGENTS.md" in files, files
+    assert not {"CLAUDE.md", ".claude", "skills-lock.json"} & set(files), files
+    db.close()
+
+
+@case
+def a_branch_that_commits_agent_files_is_not_pushed_and_the_ticket_says_why(
+    machine: Bench,
+) -> None:
+    """A session that forces `.claude/` into a commit: nothing reaches the remote."""
+    repository = machine.repository("site")
+    project = machine.project("Site", repository)
+    ticket = machine.ticket("Corriger l'entête", "Le titre est faux, corrige-le.", project)
+    leaked = {"Le titre est faux, corrige-le.": {".claude/settings.local.json": "{}\n"}}
+
+    with _environ({"FAKE_CLAUDE_ALSO": json.dumps(leaked)}):
+        results = machine.run()
+
+    assert results and results[0]["code"] == "merge.agent-files", results
+    assert machine.status(ticket) == "blocked", machine.status(ticket)
+    assert machine.board.value(ticket, "Blocage") == "merge.agent-files"
+    said = "\n".join(machine.board.said(ticket))
+    assert ".claude/settings.local.json" in said, said
+    pushed = [name for name in machine.branches(repository) if name.startswith("ticket/")]
+    assert not pushed, f"the branch reached the remote: {pushed}"
+    assert not machine.pull_requests(), "a branch with agent files was opened as a pull request"
 
 
 @case

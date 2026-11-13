@@ -94,8 +94,8 @@ nobody to talk to: no one can answer a question while the session runs.
 {kind}
 # What is expected
 
-1. Read the repository before writing: its conventions, its CLAUDE.md or \
-AGENTS.md if it has one, the neighbouring code. Your change must read like the rest. \
+1. Read the repository before writing: its conventions, its AGENTS.md or \
+CLAUDE.md if it has one (AGENTS.md wins when it has both), the neighbouring code. Your change must read like the rest. \
 Then write your plan as a todo list (TodoWrite) and tick it off as you go: the \
 board shows how far you are from it.
 2. Implement what is asked, and nothing more. No opportunistic refactoring, no \
@@ -388,7 +388,7 @@ changesets keep every entry from both sides.
 `GIT_EDITOR=true git rebase --continue`, as many times as git stops. Keep the \
 branch's commits and their messages, and add nothing the conflict does not need.
 4. Then run the project's checks — build, typecheck, lint, tests: whatever the \
-repository defines, in its CLAUDE.md or AGENTS.md, its package.json, its \
+repository defines, in its AGENTS.md or CLAUDE.md, its package.json, its \
 Makefile, its CI workflow. If one fails because of the merge, fix it in a \
 commit of its own and run it again, three attempts at most. A check that already \
 fails on `origin/{base}` is not yours to fix: say so.
@@ -1146,7 +1146,7 @@ def review(
     return REVIEW.format(
         title=title.strip(),
         body=body.strip() or "(no description)",
-        instructions=instructions.strip() or "(none: the repository has no CLAUDE.md or AGENTS.md)",
+        instructions=instructions.strip() or "(none: the repository has no AGENTS.md or CLAUDE.md)",
         base=base,
         diff=diff.strip(),
         cut="\nThe diff was cut there, being too long: read the rest in the worktree.\n"

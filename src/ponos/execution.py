@@ -42,6 +42,7 @@ from typing import Any
 
 from . import (
     adoption,
+    agent_files,
     blocks,
     browser,
     db,
@@ -896,6 +897,8 @@ class Execution(Base):
         commits = git.commits_ahead(job.workdir, job.base)
         shots = self._previews(job)
         if self.config.runner.push:
+            if refused := self._agent_files_refused(job, outcome):
+                return refused
             if failure := self._push_branch(job, outcome, force=worktree.reused or replayed):
                 return failure
             if self.config.runner.open_pull_request:
@@ -943,6 +946,13 @@ class Execution(Base):
         """The skills Ponos gives this project, put in the worktree for its session — see skills.py."""
         if self.dry_run:
             return
+        try:
+            # Before anything is placed: the files below are kept out of
+            # commits from the start — see agent_files.py.
+            if agent_files.prepare(job.workdir):
+                self.say(f"    · {agent_files.CLAUDE} pointing to {agent_files.INSTRUCTIONS}")
+        except OSError as error:
+            logger.warning("agent files not prepared in %s: %s", job.workdir, error)
         try:
             placed = skills.install(job.workdir, job.project.page_id)
         except (OSError, *db.ERRORS) as error:
@@ -1387,6 +1397,27 @@ class Execution(Base):
             self.say(f"    · replayed onto {start}")
             job.notes.append(said.say("rebased-onto", base=start))
         return replayed
+
+    def _agent_files_refused(self, job: Job, outcome: session.Outcome) -> dict[str, Any] | None:
+        """The branch kept from the push when a commit adds an agent tool's files — see agent_files.py."""
+        found = agent_files.committed(job.workdir, job.base)
+        if not found:
+            return None
+        said = self.voice
+        paths = ", ".join(f"`{path}`" for path in found)
+        self.say(f"    · agent files committed, not pushed: {', '.join(found)}")
+        return self._fail(
+            job.ticket,
+            said.say("agent-files-refused"),
+            "\n".join(found),
+            code="merge.agent-files",
+            blocked=True,
+            question=said.say("agent-files-detail", paths=paths, branch=job.branch),
+            note=self._filed(
+                job, outcome, said.say("agent-files-detail", paths=paths, branch=job.branch)
+            ),
+            outcome=outcome,
+        )
 
     def _push_branch(
         self, job: Job, outcome: session.Outcome, *, force: bool

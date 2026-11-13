@@ -561,6 +561,34 @@ default, *Sign commits and pull requests as Claude* in **Settings › Code**:
 `claude.attribution = true` puts Claude Code's own behaviour back: nothing is passed,
 nothing is taken out, and `~/.claude/settings.json` decides again.
 
+## No agent tool's files in the repository
+
+A repository's instructions are what make its sessions reliable, but `CLAUDE.md`,
+`skills-lock.json` and `.claude/` name the tool in repositories that may be public. Ponos's
+convention is **`AGENTS.md`**, a name most coding agents read, and nothing that belongs to
+Claude Code is committed:
+
+- **Instructions.** When the worktree has an `AGENTS.md` and no `CLAUDE.md`, Ponos writes a
+  one-line `CLAUDE.md` in it, `@AGENTS.md` — Claude Code's import — so the session reads the
+  instructions all the same; that file is never committed, and goes when `AGENTS.md` does. A
+  repository that has both keeps them as they are: the ticket's prompt and the
+  [read before the pull request](#read-once-before-the-pull-request) take `AGENTS.md` first.
+- **Skills** come from Ponos — [Context › Skills](console.md#skills), for every session or for
+  some projects — written in the worktree outside git. A repository needs neither
+  `.claude/skills/` nor `skills-lock.json`.
+- **Left out of commits.** Before a session starts, Ponos adds to the repository's
+  `.git/info/exclude` — a file of the local clone, shared by its worktrees, never pushed — a
+  block that leaves out `/.claude/`, `/skills-lock.json`, `/CLAUDE.md` and `/CLAUDE.local.md`.
+  The project's `.gitignore` is not touched, and a file the repository already tracks is not
+  affected by it.
+- **Refused at the push.** An exclusion does not stop a `git add -f`. Before pushing, Ponos
+  reads every commit of the branch: one that *adds* a path under `.claude/`, a
+  `skills-lock.json`, a `CLAUDE.md` or a `CLAUDE.local.md` keeps the branch on this machine,
+  and the ticket is blocked on « Agent files committed » (`merge.agent-files`), the paths named
+  in its journal. Taking them out of the branch's history and answering pushes again. Changing
+  or removing a `CLAUDE.md` the repository already tracks is allowed — renaming it to
+  `AGENTS.md` is how a repository moves to the convention.
+
 ## Ten tickets on one repository
 
 The base branch does not wait for a session. Ten tickets aimed at one repository means ten
