@@ -42,11 +42,13 @@ import json
 import logging
 import re
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from .. import __version__, db, estimates, ideas, ids, journal, library, log, memory, state, store
+from .. import goals as goals_module
 from .. import kinds as kinds_module
+from .. import priority as priority_module
 from .. import schedules as schedules_module
 from . import accounts, live
 from .oauth import READ, WRITE, Grant
@@ -105,6 +107,9 @@ apply_solution, qui sert aussi à décider d'une tâche en review.
 la console, ou vous le demande, et le démon la lance dès qu'une place se libère. \
 create_task accepte aussi un modèle (model) et un prompt « on », que Ponos exécute \
 à chaque changement de statut de la tâche : de quoi préparer des tâches enchaînées.
+- Les objectifs (list_goals) se créent et se modifient ici (create_goal, update_goal), par le \
+même circuit que la console ; un objectif se désactive (active=false), il ne se supprime pas : \
+aucun outil ne le fait.
 - Une récurrence créée ici (create_schedule) naît toujours désactivée, quoi qu'on demande : \
 la personne la relit et l'active depuis la console, où elle porte un badge « à relire » \
 jusque-là. update_schedule en change les champs, jamais l'activation. Aucun outil ne \
@@ -181,6 +186,34 @@ SCHEDULE_FIELDS: dict[str, Any] = {
         "minimum": 0,
         "maximum": 100,
         "description": "De 0 à 100, comme create_task. 50 par défaut.",
+    },
+}
+
+GOAL_FIELDS: dict[str, Any] = {
+    "description": {"type": "string", "description": "La description de l'objectif."},
+    "criterion": {
+        "type": "string",
+        "description": "Le critère d'atteinte : à quoi l'on voit que l'objectif est atteint.",
+    },
+    "due": {
+        "type": "string",
+        "description": "L'échéance, au format AAAA-MM-JJ (vide pour l'effacer).",
+    },
+    "priority": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "De 0 à 100, comme create_task.",
+    },
+    "projects": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Les projets concernés, par leur nom ou leur identifiant (tels que "
+        "list_projects les renvoie) ; remplace la liste actuelle.",
+    },
+    "active": {
+        "type": "boolean",
+        "description": "Actif (travaillé) ou non (atteint, abandonné, en pause).",
     },
 }
 
@@ -307,6 +340,36 @@ TOOLS: list[dict[str, Any]] = [
         "abandonnées mises à part, et le nombre de tâches par statut). À appeler pour connaître "
         "le nom exact d'un objectif avant create_task, ou pour « où en est l'objectif X ? ».",
         "inputSchema": _schema(),
+    },
+    {
+        "name": "create_goal",
+        "title": "Créer un objectif",
+        "scope": WRITE,
+        "description": "Crée un objectif, par le même circuit que la console (mêmes règles) : "
+        "un nom, et si l'on veut une description, un critère d'atteinte, une échéance, une "
+        "priorité (0 à 100), les projets concernés et l'état (actif par défaut). Renvoie "
+        "l'identifiant. Pour y rattacher une tâche, create_task prend son nom. Aucun outil ne "
+        "supprime un objectif : c'est la personne, depuis la console.",
+        "inputSchema": _schema(
+            {"name": {"type": "string", "description": "Le nom de l'objectif."}, **GOAL_FIELDS},
+            ("name",),
+        ),
+    },
+    {
+        "name": "update_goal",
+        "title": "Modifier un objectif",
+        "scope": WRITE,
+        "description": "Modifie un objectif (identifiant ou nom donné par list_goals), par le "
+        "même circuit que la console : seuls les champs donnés changent. Le désactiver est "
+        "permis (active=false) ; le supprimer ne l'est pas.",
+        "inputSchema": _schema(
+            {
+                "goal": {"type": "string", "description": "L'identifiant ou le nom de l'objectif."},
+                "name": {"type": "string", "description": "Le nouveau nom."},
+                **GOAL_FIELDS,
+            },
+            ("goal",),
+        ),
     },
     {
         "name": "create_task",
@@ -1183,6 +1246,56 @@ def _idea(shown: dict[str, Any]) -> dict[str, Any]:
 # -- writing ------------------------------------------------------------------
 
 
+def _goal_values(api: Api, fields: dict[str, Any]) -> dict[str, Any]:
+    """What the console's form would send: the projects by their pages, the state as a status."""
+    values: dict[str, Any] = {}
+    for key, value in fields.items():
+        if key == "due":
+            text = str(value or "").strip()
+            if text:
+                try:
+                    date.fromisoformat(text)
+                except ValueError:
+                    raise ToolError(
+                        f"Échéance « {text} » invalide : le format est AAAA-MM-JJ."
+                    ) from None
+            values["due"] = text
+        elif key == "priority":
+            try:
+                values["priority"] = priority_module.given(value)
+            except ValueError as error:
+                raise ToolError(str(error)) from None
+        elif key == "projects":
+            values["projects"] = [_project(api, str(one))["id"] for one in value or []]
+        elif key == "active":
+            offered = api.goals()["statuses"]
+            on = [one for one in offered if one.strip().lower() in goals_module.ACTIVE]
+            off = [one for one in offered if one.strip() and one not in on]
+            values["status"] = (on or ["Actif"])[0] if value else (off or ["Inactif"])[0]
+        else:
+            values[key] = value
+    return values
+
+
+def create_goal(api: Api, name: str, **fields: Any) -> dict[str, Any]:
+    if not name.strip():
+        raise ToolError("Un objectif a besoin d'un nom.")
+    values = _goal_values(api, fields)
+    created = api.create_goal(name, values)
+    return {"id": created["id"], "name": created["name"], "active": fields.get("active", True)}
+
+
+def update_goal(api: Api, goal: str, **fields: Any) -> dict[str, Any]:
+    wanted = _goal(api, goal)
+    if not fields:
+        raise ToolError("Rien à modifier : donnez au moins un champ.")
+    if "name" in fields and not str(fields["name"]).strip():
+        raise ToolError("Un objectif a besoin d'un nom.")
+    api.save_goal(wanted["id"], _goal_values(api, fields))
+    rows: list[dict[str, Any]] = list_goals(api)["goals"]
+    return next(one for one in rows if one["id"] == wanted["id"])
+
+
 def create_task(
     api: Api,
     title: str,
@@ -1609,6 +1722,8 @@ HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "list_goals": list_goals,
     "create_task": create_task,
     "list_schedules": list_schedules,
+    "create_goal": create_goal,
+    "update_goal": update_goal,
     "create_schedule": create_schedule,
     "update_schedule": update_schedule,
     "launch_task": launch_task,
