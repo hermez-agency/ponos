@@ -20,6 +20,16 @@ without a session bus, a missing `notify-send` — none of that is a reason for 
 ticket to fail. A click that leads nowhere is not either, so every step of the
 clickable path falls back to the plain notification.
 
+Quiet, but not mute: which way each notification went, and why it fell back,
+is written to `ponos.log` (`ponos logs --service`), and so is what the child
+saw afterwards — the identifier the desktop gave, a `gdbus` that refused, the
+action clicked and what opening it answered, the hour run out. A notification
+that never showed up used to be reconstructed by hand from `/proc`, the
+remembered identifiers and `dbus-monitor`; the journal now says it. The child
+has its standard output thrown away, so it opens the journal itself. All of it
+goes to the file only: the runner's standard output is what it says to you,
+and a notification already said it on screen.
+
 One ticket, one notification: a ticket that asks, is answered, then finishes
 would otherwise leave three lines on screen — and on a lock screen, a dozen
 that all read "Ponos". The child remembers the identifier its ticket's last
@@ -30,6 +40,7 @@ still waiting on the old one is let go, so a click is never answered twice.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -39,7 +50,11 @@ import sys
 import threading
 from pathlib import Path
 
-from . import config
+from . import config, log
+
+# By name, not `__name__`: the child runs this file as `__main__`, a logger
+# outside the `ponos` tree that `log.setup` gives the journal to.
+logger = logging.getLogger("ponos.notify")
 
 APP = "Ponos"
 BUS = "org.freedesktop.Notifications"
@@ -56,6 +71,9 @@ ACTION = "Open the ticket"
 # process per ticket, kept for days, is a worse bargain than a click nobody made
 # within the hour.
 LIFETIME = 3600
+
+# How long the child waits on `xdg-open` to say what it answered: see `_opened`.
+OPENING = 30
 
 # Ponos's own mark, rather than the information sign every application has: the
 # logo cut out on a transparent background, which ships with the runner — the
@@ -88,17 +106,29 @@ def send(
     says so by its icon without refusing to go away. `buttons` are more places
     to go than the ticket — a label and an address each.
     """
-    if link and _hand_over(
-        title, body, urgent=urgent, warning=warning, link=link, action=action, buttons=buttons
-    ):
-        return True
-    return _plain(title, body, urgent=urgent, warning=warning, key=link)
+    fallen = "no link to follow"
+    if link:
+        fallen = _hand_over(
+            title, body, urgent=urgent, warning=warning, link=link, action=action, buttons=buttons
+        )
+        if not fallen:
+            logger.info("notify: %r sent by dbus+follow (%s)", title, link, extra=log.FILE_ONLY)
+            return True
+    failed = _plain(title, body, urgent=urgent, warning=warning, key=link)
+    if failed:
+        logger.info(
+            "notify: %r sent by nothing (%s; %s)", title, fallen, failed, extra=log.FILE_ONLY
+        )
+        return False
+    logger.info("notify: %r sent by notify-send (%s)", title, fallen, extra=log.FILE_ONLY)
+    return True
 
 
-def _plain(title: str, body: str, *, urgent: bool, warning: bool = False, key: str = "") -> bool:
+def _plain(title: str, body: str, *, urgent: bool, warning: bool = False, key: str = "") -> str:
+    """`notify-send`, and why it could not — "" when it was sent."""
     binary = shutil.which("notify-send")
     if not binary:
-        return False
+        return "notify-send is missing"
     try:
         subprocess.run(
             [
@@ -118,9 +148,9 @@ def _plain(title: str, body: str, *, urgent: bool, warning: bool = False, key: s
             timeout=10,
             capture_output=True,
         )
-        return True
-    except (OSError, subprocess.SubprocessError):
-        return False
+        return ""
+    except (OSError, subprocess.SubprocessError) as error:
+        return f"notify-send failed: {error}"
 
 
 def _icon(warning: bool) -> str:
@@ -138,16 +168,18 @@ def _hand_over(
     action: str = ACTION,
     warning: bool = False,
     buttons: tuple[tuple[str, str], ...] = (),
-) -> bool:
-    """Give the notification to a child that outlives this run.
+) -> str:
+    """Give the notification to a child that outlives this run — and say why not.
 
     The child is this very module, run as one: it posts the notification, waits
     for the click, and opens the link. `PYTHONPATH` carries our own `src` to it
     so that it can import us however the parent was started — from the installed
-    copy, from a checkout, or from a test.
+    copy, from a checkout, or from a test. "" when it was handed over, otherwise
+    the reason it was not, for the journal.
     """
-    if not all(shutil.which(tool) for tool in ("gdbus", "dbus-monitor", "xdg-open")):
-        return False
+    missing = [tool for tool in ("gdbus", "dbus-monitor", "xdg-open") if not shutil.which(tool)]
+    if missing:
+        return f"{', '.join(missing)} missing"
     environment = dict(os.environ)
     environment[KEY] = link
     root = str(Path(__file__).resolve().parents[1])
@@ -172,9 +204,9 @@ def _hand_over(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        return True
-    except (OSError, subprocess.SubprocessError):
-        return False
+        return ""
+    except (OSError, subprocess.SubprocessError) as error:
+        return f"the child could not be started: {error}"
 
 
 # -- the child ----------------------------------------------------------------
@@ -196,6 +228,9 @@ def follow(
     only known once the notification is posted and a signal missed is a click
     lost. Anything that goes wrong on the way falls back to the plain
     notification: being told late is the point, being told never is not.
+
+    Every step is written to the journal with the ticket's address, the one
+    thing that tells two children apart in it.
     """
     # A button is known by its place, which is all the desktop hands back.
     places = {"default": link, **{f"open-{index}": url for index, (_, url) in enumerate(buttons)}}
@@ -219,28 +254,77 @@ def follow(
     if not identifier or watcher is None:
         if watcher:
             watcher.terminate()
-        _plain(title, body, urgent=urgent, warning=warning, key=key)
+        why = "the notification was not posted" if watcher else "dbus-monitor could not start"
+        failed = _plain(title, body, urgent=urgent, warning=warning, key=key)
+        logger.info(
+            "notify: %s: %s, fell back on notify-send (%s)",
+            link,
+            why,
+            failed or "sent",
+            extra=log.FILE_ONLY,
+        )
         return
+    logger.info("notify: %s: posted as %s, followed", link, identifier, extra=log.FILE_ONLY)
     _remember(key, identifier, previous)
+    expired = threading.Event()
+
+    def expire() -> None:
+        expired.set()
+        watcher.terminate()
+
     # A daemon timer, so that the click that comes first ends the child rather
     # than leaving it to sit out the hour it was given.
-    deadline = threading.Timer(LIFETIME, watcher.terminate)
+    deadline = threading.Timer(LIFETIME, expire)
     deadline.daemon = True
     deadline.start()
     try:
-        target = places.get(_clicked(watcher, identifier), "")
+        clicked = _clicked(watcher, identifier)
+        if not clicked:
+            logger.info(
+                "notify: %s: %s",
+                link,
+                f"no click within {LIFETIME} s, no longer followed"
+                if expired.is_set()
+                else "closed without a click",
+                extra=log.FILE_ONLY,
+            )
+        target = places.get(clicked, "")
+        if clicked and not target:
+            logger.info("notify: %s: %r clicked, nowhere to go", link, clicked, extra=log.FILE_ONLY)
         if target:
-            subprocess.Popen(
+            logger.info(
+                "notify: %s: %r clicked, xdg-open %s", link, clicked, target, extra=log.FILE_ONLY
+            )
+            opened = subprocess.Popen(
                 ["xdg-open", target],
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-    except (OSError, subprocess.SubprocessError):
-        pass
+            _opened(link, opened)
+    except (OSError, subprocess.SubprocessError) as error:
+        logger.info("notify: %s: xdg-open could not be run: %s", link, error, extra=log.FILE_ONLY)
     finally:
         deadline.cancel()
         watcher.terminate()
+
+
+def _opened(link: str, opened: subprocess.Popen[bytes]) -> None:
+    """What `xdg-open` answered — waited for a while, since nothing else waits on it.
+
+    Some desktops hand the address to a browser already open and return at
+    once; others run the browser itself and return when it closes. The child
+    has nothing left to do but say how it went, so it waits a little, and says
+    it is still running rather than sitting there for the browser's lifetime.
+    """
+    try:
+        code = opened.wait(timeout=OPENING)
+    except subprocess.TimeoutExpired:
+        logger.info(
+            "notify: %s: xdg-open still running after %s s", link, OPENING, extra=log.FILE_ONLY
+        )
+        return
+    logger.info("notify: %s: xdg-open returned %s", link, code, extra=log.FILE_ONLY)
 
 
 def _memory() -> Path:
@@ -355,10 +439,20 @@ def _post(
             capture_output=True,
             text=True,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as error:
+        logger.info("notify: %s: gdbus could not be run: %s", key, error, extra=log.FILE_ONLY)
         return ""
     found = re.search(r"uint32 (\d+)", answer.stdout)
-    return found.group(1) if found else ""
+    if not found:
+        logger.info(
+            "notify: %s: gdbus refused the notification (exit %s): %s",
+            key,
+            answer.returncode,
+            answer.stderr.strip() or answer.stdout.strip() or "nothing said",
+            extra=log.FILE_ONLY,
+        )
+        return ""
+    return found.group(1)
 
 
 def _text(value: str) -> str:
@@ -399,6 +493,8 @@ def _clicked(watcher: subprocess.Popen[str], identifier: str) -> str:
 
 
 if __name__ == "__main__":  # the detached child, started by `send`
+    # Its standard output goes nowhere: the journal is all it can say things in.
+    log.setup()
     follow(
         sys.argv[1],
         sys.argv[2],

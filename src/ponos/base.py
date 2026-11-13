@@ -32,6 +32,7 @@ from . import (
     channels,
     conversation,
     journal,
+    log,
     notify,
     provider,
     resources,
@@ -474,6 +475,16 @@ class Base(Chapters):
         link: str = "",
         pull_request: str = "",
     ) -> None:
+        if not self.config.notify.desktop and not self.dry_run:
+            # Said once a day, not once a ticket: a switch left off for weeks
+            # is otherwise only found by reading config.toml.
+            today = datetime.now().date().isoformat()
+            if self.__dict__.get("_desktop_off_said") != today:
+                self.__dict__["_desktop_off_said"] = today
+                logger.info(
+                    "notify: desktop notifications are off (notify.desktop = false)",
+                    extra=log.FILE_ONLY,
+                )
         if self.config.notify.desktop and not self.dry_run:
             opening = self.voice.say("open-ticket")
             # A desktop draws the default action as a click on the notification,

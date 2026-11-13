@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -996,6 +1000,228 @@ def a_ticket_that_speaks_again_replaces_its_notification_instead_of_stacking(
     assert launched[0][launched[0].index("--hint") + 1] == (
         "string:x-canonical-private-synchronous:https://board.invalid/t"
     )
+
+
+@contextmanager
+def _journal() -> Iterator[list[str]]:
+    """What the runner wrote to its journal meanwhile, as the lines it said."""
+    said: list[str] = []
+
+    class Kept(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            said.append(record.getMessage())
+
+    handler = Kept()
+    logging.getLogger("ponos").addHandler(handler)
+    try:
+        yield said
+    finally:
+        logging.getLogger("ponos").removeHandler(handler)
+
+
+def _one(said: list[str], fragment: str) -> str:
+    """The single line of the journal that holds `fragment`."""
+    found = [line for line in said if fragment in line]
+    assert len(found) == 1, (fragment, said)
+    return found[0]
+
+
+@case
+def the_journal_says_which_way_each_desktop_notification_went() -> None:
+    """The 13/11 diagnosis rebuilt the path by hand: `/proc`, the identifiers, `dbus-monitor`."""
+    with _journal() as said, _notifying():
+        notify.send("Blocked · t", "Which?", link="https://board.invalid/t")
+    assert _one(said, "sent by") == (
+        "notify: 'Blocked · t' sent by dbus+follow (https://board.invalid/t)"
+    )
+
+    with _journal() as said, _notifying(missing="dbus-monitor"):
+        notify.send("Blocked · t", "Which?", link="https://board.invalid/t")
+    assert (
+        _one(said, "sent by") == "notify: 'Blocked · t' sent by notify-send (dbus-monitor missing)"
+    )
+
+    with _journal() as said, _notifying():
+        notify.send("Ponos updated", "0.4.0")
+    assert _one(said, "sent by").endswith("sent by notify-send (no link to follow)")
+
+    def refused(command: list[str], **rest: Any) -> None:
+        raise OSError("no such file")
+
+    with _journal() as said, _notifying() as launched:
+        subprocess.Popen = refused  # type: ignore[assignment, misc]  # a double: a child that cannot start, put back by `_notifying`
+        assert notify.send("t", "b", link="https://board.invalid/t")
+    assert launched[0][0] == "/usr/bin/notify-send"
+    assert "sent by notify-send (the child could not be started: no such file)" in _one(
+        said, "sent by"
+    )
+
+    with _journal() as said, _notifying(missing="notify-send"):
+        assert notify.send("t", "b") is False
+    assert _one(said, "sent by").endswith(
+        "sent by nothing (no link to follow; notify-send is missing)"
+    )
+    assert len(said) == 1, "one line a notification"
+
+
+class _Watcher:
+    """`dbus-monitor` as `follow` reads it: lines, then nothing once terminated."""
+
+    def __init__(self, *lines: str, hold: bool = False) -> None:
+        self.ended = threading.Event()
+        self.lines = lines
+        self.hold = hold
+        self.stdout = self._read()
+
+    def _read(self) -> Iterator[str]:
+        yield from self.lines
+        if self.hold:
+            self.ended.wait(5)
+
+    def terminate(self) -> None:
+        self.ended.set()
+
+
+@contextmanager
+def _following(
+    watcher: _Watcher | None, *, posted: str = "7", code: int = 0
+) -> Iterator[tuple[list[str], list[list[str]]]]:
+    """`follow` with its desktop replaced: the watcher, the identifier, `xdg-open`."""
+    opened: list[list[str]] = []
+
+    class Opened:
+        def __init__(self, command: list[str], **rest: Any) -> None:
+            opened.append(command)
+
+        def wait(self, timeout: float | None = None) -> int:
+            return code
+
+    originals = (notify._watch, notify._post, notify._plain, subprocess.Popen)
+    notify._watch = lambda: watcher  # type: ignore[assignment, return-value]  # a double: the signals of the case
+    notify._post = lambda *args, **rest: posted  # a double: the desktop's identifier
+    notify._plain = lambda *args, **rest: ""  # a double: notify-send sent it
+    subprocess.Popen = Opened  # type: ignore[assignment, misc]  # a double: what was opened is kept
+    try:
+        with _journal() as said:
+            yield said, opened
+    finally:
+        notify._watch, notify._post, notify._plain, subprocess.Popen = originals  # type: ignore[misc]  # the real ones, put back
+
+
+_INVOKED = "signal ... interface=org.freedesktop.Notifications; member=ActionInvoked\n"
+_CLOSED = "signal ... interface=org.freedesktop.Notifications; member=NotificationClosed\n"
+
+
+@case
+def the_child_says_what_was_clicked_and_what_opening_it_answered(state_home: Path) -> None:
+    link = "https://board.invalid/t"
+    pull = "https://github.com/o/r/pull/42"
+    watcher = _Watcher(_INVOKED, "   uint32 7\n", '   string "open-0"\n')
+    with _following(watcher, code=3) as (said, opened):
+        notify.follow(link, "t", "b", urgent=False, buttons=(("See the PR", pull),))
+    assert opened == [["xdg-open", pull]]
+    assert said == [
+        f"notify: {link}: posted as 7, followed",
+        f"notify: {link}: 'open-0' clicked, xdg-open {pull}",
+        f"notify: {link}: xdg-open returned 3",
+    ]
+
+    with _following(_Watcher(_CLOSED, "   uint32 7\n", "   uint32 2\n")) as (said, opened):
+        notify.follow(link, "t", "b", urgent=False)
+    assert opened == []
+    assert said[-1] == f"notify: {link}: closed without a click"
+
+
+@case
+def the_child_says_when_its_hour_ran_out(state_home: Path) -> None:
+    original = notify.LIFETIME
+    notify.LIFETIME = 0
+    try:
+        with _following(_Watcher(hold=True)) as (said, opened):
+            notify.follow("https://board.invalid/t", "t", "b", urgent=False)
+    finally:
+        notify.LIFETIME = original
+    assert opened == []
+    assert said[-1] == "notify: https://board.invalid/t: no click within 0 s, no longer followed"
+
+
+@case
+def a_notification_gdbus_refused_is_written_with_what_gdbus_said(state_home: Path) -> None:
+    original = subprocess.run
+
+    def run(command: list[str], **rest: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            command, 1, "", "Error: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown\n"
+        )
+
+    subprocess.run = run  # type: ignore[assignment]  # a double: gdbus refusing
+    try:
+        with _journal() as said:
+            assert notify._post("t", "b", urgent=False, key="https://board.invalid/t") == ""
+    finally:
+        subprocess.run = original
+    assert said == [
+        "notify: https://board.invalid/t: gdbus refused the notification (exit 1): "
+        "Error: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown"
+    ]
+
+    with _following(_Watcher(), posted="") as (said, opened):
+        notify.follow("https://board.invalid/t", "t", "b", urgent=False)
+    assert said == [
+        "notify: https://board.invalid/t: the notification was not posted, "
+        "fell back on notify-send (sent)"
+    ]
+    with _following(None) as (said, opened):
+        notify.follow("https://board.invalid/t", "t", "b", urgent=False)
+    assert said == [
+        "notify: https://board.invalid/t: dbus-monitor could not start, "
+        "fell back on notify-send (sent)"
+    ]
+
+
+@case
+def the_detached_child_writes_to_ponos_log(state_home: Path) -> None:
+    """Its standard output is thrown away: the journal is the only place it is heard."""
+    empty = Path(tempfile.mkdtemp())
+    environment = {
+        **os.environ,
+        "PATH": str(empty),  # no dbus-monitor, no notify-send
+        "PYTHONPATH": str(ROOT / "src"),
+    }
+    subprocess.run(
+        [sys.executable, "-m", "ponos.notify", "https://board.invalid/t", "t", "b", "normal"],
+        env=environment,
+        check=True,
+        timeout=60,
+    )
+    written = (state_home / "logs" / "ponos.log").read_text()
+    assert (
+        "notify: https://board.invalid/t: dbus-monitor could not start, "
+        "fell back on notify-send (notify-send is missing)" in written
+    ), written
+
+
+@case
+def switched_off_desktop_notifications_are_said_once_a_day() -> None:
+    """On 13/11 `desktop = false` had been there since 2/10, and only config.toml said so."""
+    runner = Runner.__new__(Runner)
+    runner.config = _config("[notify]\ndesktop = false\n")
+    runner.dry_run = False
+    original = notify.send
+    notify.send = lambda *args, **rest: _never_sent()  # a double: never called
+    try:
+        with _journal() as said:
+            runner._notify("t", "b")
+            runner._notify("t", "b")
+            runner.__dict__["_desktop_off_said"] = "2026-01-01"
+            runner._notify("t", "b")
+    finally:
+        notify.send = original
+    assert said == ["notify: desktop notifications are off (notify.desktop = false)"] * 2, said
+
+
+def _never_sent() -> bool:
+    raise AssertionError("a switched-off notification was sent")
 
 
 @case
