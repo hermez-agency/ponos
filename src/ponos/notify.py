@@ -30,6 +30,16 @@ has its standard output thrown away, so it opens the journal itself. All of it
 goes to the file only: the runner's standard output is what it says to you,
 and a notification already said it on screen.
 
+The daemon may have been started before the desktop session, by the user's
+systemd at boot: it then has the session bus but no display, and keeps that
+environment across the `exec` of every update. `xdg-open` inherits it — enough
+to hand an address to a browser already open, not to open a window of its own.
+So the opening borrows what the session has given the user manager since:
+`DISPLAY`, `WAYLAND_DISPLAY` and the desktop's names, only those, and only when
+the child lacks them. With them goes the activation token GNOME sends just
+before the click: without it, Wayland opens the page behind every other window
+and the click seems to have done nothing.
+
 One ticket, one notification: a ticket that asks, is answered, then finishes
 would otherwise leave three lines on screen — and on a lock screen, a dozen
 that all read "Ponos". The child remembers the identifier its ticket's last
@@ -82,6 +92,10 @@ OPENING = 30
 # checkout or an install that lost it falls back on the system's icons, never on
 # no notification.
 ICON = Path(__file__).resolve().parent / "icons" / "ponos-256.png"
+
+# What a window needs to be drawn on the desktop of the session — what the
+# daemon lacks when systemd started it before that session: see `_session`.
+GRAPHICAL = ("DISPLAY", "WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP", "XDG_SESSION_TYPE")
 
 # Which ticket a notification is about, handed to the detached child through its
 # environment so that its command line stays what an older parent also sends.
@@ -278,7 +292,7 @@ def follow(
     deadline.daemon = True
     deadline.start()
     try:
-        clicked = _clicked(watcher, identifier)
+        clicked, token = _clicked(watcher, identifier)
         if not clicked:
             logger.info(
                 "notify: %s: %s",
@@ -293,10 +307,16 @@ def follow(
             logger.info("notify: %s: %r clicked, nowhere to go", link, clicked, extra=log.FILE_ONLY)
         if target:
             logger.info(
-                "notify: %s: %r clicked, xdg-open %s", link, clicked, target, extra=log.FILE_ONLY
+                "notify: %s: %r clicked, xdg-open %s%s",
+                link,
+                clicked,
+                target,
+                " with an activation token" if token else "",
+                extra=log.FILE_ONLY,
             )
             opened = subprocess.Popen(
                 ["xdg-open", target],
+                env=_opening(link, token),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -307,6 +327,55 @@ def follow(
     finally:
         deadline.cancel()
         watcher.terminate()
+
+
+def _opening(link: str, token: str) -> dict[str, str]:
+    """The environment `xdg-open` runs in: ours, with the display and the click's token.
+
+    What the process already has, it keeps — the session's values only fill
+    what is missing. The token goes under both names: `XDG_ACTIVATION_TOKEN`
+    for Wayland, `DESKTOP_STARTUP_ID` for an X11 session.
+    """
+    environment = dict(os.environ)
+    missing = [name for name in GRAPHICAL if not environment.get(name)]
+    if missing:
+        session = _session()
+        taken = [name for name in missing if session.get(name)]
+        environment.update({name: session[name] for name in taken})
+        if taken:
+            logger.info(
+                "notify: %s: %s taken from systemd", link, ", ".join(taken), extra=log.FILE_ONLY
+            )
+    if token:
+        environment["XDG_ACTIVATION_TOKEN"] = token
+        environment["DESKTOP_STARTUP_ID"] = token
+    return environment
+
+
+def _session() -> dict[str, str]:
+    """The graphical variables the user manager holds — {} when it cannot say.
+
+    The desktop session imports them into `systemctl --user` once it is up,
+    which is after a daemon started at boot was given its environment.
+    """
+    try:
+        answer = subprocess.run(
+            ["systemctl", "--user", "show-environment"],
+            check=False,
+            timeout=5,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if answer.returncode != 0:
+        return {}
+    found = {}
+    for line in answer.stdout.splitlines():
+        name, equal, value = line.partition("=")
+        if equal and name in GRAPHICAL and value:
+            found[name] = value
+    return found
 
 
 def _opened(link: str, opened: subprocess.Popen[bytes]) -> None:
@@ -466,30 +535,39 @@ def _text(value: str) -> str:
     return f'"{value}"'
 
 
-def _clicked(watcher: subprocess.Popen[str], identifier: str) -> str:
-    """Which action of that notification was clicked — "" when it was dismissed.
+def _clicked(watcher: subprocess.Popen[str], identifier: str) -> tuple[str, str]:
+    """Which action of that notification was clicked, and the token that came with it.
 
-    `dbus-monitor` writes a signal over several lines — its name on the first,
-    its arguments underneath — so the name is held until an identifier turns up
-    under it, and the action's key is the string on the line after. Identifiers
-    are handed out by the desktop and never shared, so one that matches is ours
-    and no other application's.
+    ("", "") when it was dismissed. `dbus-monitor` writes a signal over several
+    lines — its name on the first, its arguments underneath — so the name is
+    held until an identifier turns up under it, and the action's key is the
+    string on the line after. Identifiers are handed out by the desktop and
+    never shared, so one that matches is ours and no other application's.
+
+    GNOME sends `ActivationToken` just before `ActionInvoked`, its token the
+    string under our identifier: kept, for the window the click opens to be
+    raised. A desktop that sends none gives "".
     """
     signal = ""
-    invoked = False
+    awaited = ""  # the signal of ours whose string comes on the next line
+    token = ""
     assert watcher.stdout is not None  # opened with stdout=PIPE, see `_watch`
     for line in watcher.stdout:
-        if invoked:
+        if awaited:
             found = re.search(r'string "(.*)"', line)
-            return found.group(1) if found else "default"
+            if awaited == "ActionInvoked":
+                return (found.group(1) if found else "default"), token
+            token = found.group(1) if found else token
+            awaited = ""
+            continue
         if "member=" in line:
             signal = line.rsplit("member=", 1)[-1].strip()
         elif line.strip() == f"uint32 {identifier}":
-            if signal == "ActionInvoked":
-                invoked = True
+            if signal in ("ActionInvoked", "ActivationToken"):
+                awaited = signal
             elif signal == "NotificationClosed":
-                return ""
-    return "default" if invoked else ""
+                return "", ""
+    return ("default", token) if awaited == "ActionInvoked" else ("", "")
 
 
 if __name__ == "__main__":  # the detached child, started by `send`

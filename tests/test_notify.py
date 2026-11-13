@@ -793,7 +793,7 @@ def only_a_click_opens_the_page_and_a_dismissal_never_does() -> None:
         "   uint32 7\n",
         '   string "default"\n',
     )
-    assert notify._clicked(clicked, "7") == "default"
+    assert notify._clicked(clicked, "7") == ("default", ""), "no token: GNOME before 46"
 
     button = watching(
         "signal ... interface=org.freedesktop.Notifications; member=ActivationToken\n",
@@ -803,21 +803,37 @@ def only_a_click_opens_the_page_and_a_dismissal_never_does() -> None:
         "   uint32 7\n",
         '   string "open-0"\n',
     )
-    assert notify._clicked(button, "7") == "open-0", "which button, not only that one was"
+    assert notify._clicked(button, "7") == ("open-0", "token"), "which button, and its token"
 
     dismissed = watching(
         "signal ... interface=org.freedesktop.Notifications; member=NotificationClosed\n",
         "   uint32 7\n",
         "   uint32 2\n",
     )
-    assert not notify._clicked(dismissed, "7")
+    assert notify._clicked(dismissed, "7") == ("", "")
 
     somebody_else = watching(
         "signal ... interface=org.freedesktop.Notifications; member=ActionInvoked\n",
         "   uint32 9\n",
         '   string "default"\n',
     )
-    assert not notify._clicked(somebody_else, "7"), "another application's notification"
+    assert notify._clicked(somebody_else, "7") == ("", ""), "another application's notification"
+
+    theirs_then_ours = watching(
+        "signal ... interface=org.freedesktop.Notifications; member=ActivationToken\n",
+        "   uint32 9\n",
+        '   string "not-ours"\n',
+        "signal ... interface=org.freedesktop.Notifications; member=ActivationToken\n",
+        "   uint32 7\n",
+        '   string "gnome-shell/Ponos/1234-5-salva_TIME0"\n',
+        "signal ... interface=org.freedesktop.Notifications; member=ActionInvoked\n",
+        "   uint32 7\n",
+        '   string "default"\n',
+    )
+    assert notify._clicked(theirs_then_ours, "7") == (
+        "default",
+        "gnome-shell/Ponos/1234-5-salva_TIME0",
+    ), "the token of our notification, never another application's"
 
 
 @case
@@ -1082,22 +1098,37 @@ class _Watcher:
         self.ended.set()
 
 
+environments: list[dict[str, str]] = []
+
+
 @contextmanager
 def _following(
-    watcher: _Watcher | None, *, posted: str = "7", code: int = 0
+    watcher: _Watcher | None,
+    *,
+    posted: str = "7",
+    code: int = 0,
+    session: dict[str, str] | None = None,
 ) -> Iterator[tuple[list[str], list[list[str]]]]:
-    """`follow` with its desktop replaced: the watcher, the identifier, `xdg-open`."""
+    """`follow` with its desktop replaced: the watcher, the identifier, `xdg-open`.
+
+    The session's environment is replaced too, by `session` — what
+    `systemctl --user show-environment` would have said — and the environment
+    each opening was given is kept in `environments`.
+    """
     opened: list[list[str]] = []
+    environments.clear()
 
     class Opened:
         def __init__(self, command: list[str], **rest: Any) -> None:
             opened.append(command)
+            environments.append(rest.get("env") or {})
 
         def wait(self, timeout: float | None = None) -> int:
             return code
 
-    originals = (notify._watch, notify._post, notify._plain, subprocess.Popen)
+    originals = (notify._watch, notify._post, notify._plain, subprocess.Popen, notify._session)
     notify._watch = lambda: watcher  # type: ignore[assignment, return-value]  # a double: the signals of the case
+    notify._session = lambda: dict(session or {})  # a double: the user manager's environment
     notify._post = lambda *args, **rest: posted  # a double: the desktop's identifier
     notify._plain = lambda *args, **rest: ""  # a double: notify-send sent it
     subprocess.Popen = Opened  # type: ignore[assignment, misc]  # a double: what was opened is kept
@@ -1105,7 +1136,7 @@ def _following(
         with _journal() as said:
             yield said, opened
     finally:
-        notify._watch, notify._post, notify._plain, subprocess.Popen = originals  # type: ignore[misc]  # the real ones, put back
+        notify._watch, notify._post, notify._plain, subprocess.Popen, notify._session = originals  # type: ignore[misc]  # the real ones, put back
 
 
 _INVOKED = "signal ... interface=org.freedesktop.Notifications; member=ActionInvoked\n"
@@ -1130,6 +1161,109 @@ def the_child_says_what_was_clicked_and_what_opening_it_answered(state_home: Pat
         notify.follow(link, "t", "b", urgent=False)
     assert opened == []
     assert said[-1] == f"notify: {link}: closed without a click"
+
+
+_GRAPHICAL = ("DISPLAY", "WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP", "XDG_SESSION_TYPE")
+
+
+@contextmanager
+def _without_a_display() -> Iterator[None]:
+    """The daemon started before the desktop session: a bus, and no display."""
+    kept = {name: os.environ.pop(name) for name in _GRAPHICAL if name in os.environ}
+    try:
+        yield
+    finally:
+        for name in _GRAPHICAL:
+            os.environ.pop(name, None)
+        os.environ.update(kept)
+
+
+@case
+def a_click_opens_its_page_on_the_display_and_in_front(state_home: Path) -> None:
+    """A daemon started before GNOME has no display; the desktop's token raises the window.
+
+    `xdg-open` inherits the daemon's environment, which systemd gave it before
+    the session imported `DISPLAY` and `WAYLAND_DISPLAY`: a browser that has to
+    open a window has nowhere to draw it. And under Wayland a window opened
+    without the token GNOME handed over with the click stays behind the others.
+    """
+    link = "https://board.invalid/t"
+    watcher = _Watcher(
+        "signal ... interface=org.freedesktop.Notifications; member=ActivationToken\n",
+        "   uint32 7\n",
+        '   string "gnome-shell/Ponos/1234"\n',
+        _INVOKED,
+        "   uint32 7\n",
+        '   string "default"\n',
+    )
+    session = {
+        "DISPLAY": ":0",
+        "WAYLAND_DISPLAY": "wayland-0",
+        "XDG_CURRENT_DESKTOP": "ubuntu:GNOME",
+        "XDG_SESSION_TYPE": "wayland",
+        "PATH": "/somewhere/else",
+    }
+    with _without_a_display(), _following(watcher, session=session) as (said, opened):
+        os.environ["XDG_SESSION_TYPE"] = "x11"  # what the process has, it keeps
+        notify.follow(link, "t", "b", urgent=False)
+    assert opened == [["xdg-open", link]]
+    given = environments[0]
+    assert given["XDG_ACTIVATION_TOKEN"] == "gnome-shell/Ponos/1234"
+    assert given["DESKTOP_STARTUP_ID"] == "gnome-shell/Ponos/1234"
+    assert given["DISPLAY"] == ":0"
+    assert given["WAYLAND_DISPLAY"] == "wayland-0"
+    assert given["XDG_CURRENT_DESKTOP"] == "ubuntu:GNOME"
+    assert given["XDG_SESSION_TYPE"] == "x11", "only what is missing is taken"
+    assert given["PATH"] == os.environ["PATH"], "nothing but the four"
+    assert (
+        f"notify: {link}: DISPLAY, WAYLAND_DISPLAY, XDG_CURRENT_DESKTOP taken from systemd" in said
+    )
+    assert f"notify: {link}: 'default' clicked, xdg-open {link} with an activation token" in said
+
+    # A user manager that does not answer opens all the same, as before.
+    plain = _Watcher(_INVOKED, "   uint32 7\n", '   string "default"\n')
+    with _without_a_display(), _following(plain) as (said, opened):
+        notify.follow(link, "t", "b", urgent=False)
+    assert opened == [["xdg-open", link]]
+    assert "DISPLAY" not in environments[0]
+    assert "XDG_ACTIVATION_TOKEN" not in environments[0]
+
+
+@case
+def the_graphical_session_is_read_from_the_user_manager() -> None:
+    original = subprocess.run
+    asked: list[list[str]] = []
+
+    def run(command: list[str], **rest: Any) -> subprocess.CompletedProcess[str]:
+        asked.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            "DISPLAY=:0\nWAYLAND_DISPLAY=wayland-0\nXDG_CURRENT_DESKTOP=ubuntu:GNOME\n"
+            "HOME=/home/someone\nLANG=fr_FR.UTF-8\n",
+            "",
+        )
+
+    subprocess.run = run  # type: ignore[assignment]  # a double: systemctl answering
+    try:
+        found = notify._session()
+    finally:
+        subprocess.run = original
+    assert asked == [["systemctl", "--user", "show-environment"]]
+    assert found == {
+        "DISPLAY": ":0",
+        "WAYLAND_DISPLAY": "wayland-0",
+        "XDG_CURRENT_DESKTOP": "ubuntu:GNOME",
+    }
+
+    def refused(command: list[str], **rest: Any) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("systemctl")
+
+    subprocess.run = refused  # type: ignore[assignment]  # a double: no systemd at all
+    try:
+        assert notify._session() == {}
+    finally:
+        subprocess.run = original
 
 
 @case
