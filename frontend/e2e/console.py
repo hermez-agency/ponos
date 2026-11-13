@@ -65,10 +65,12 @@ workbench.relaunch()
 # The token the tests open the console with: a board of fixtures has nothing to guard.
 TOKEN = "e2e"
 LONG = "000000000000000000000000000abcde"
-# Two drafts whose titles are far longer than a confirmation window is wide (bulk.spec.ts).
+# Two drafts whose titles are far longer than a confirmation window is wide (bulk.spec.ts); no "k" and no "Ticket" in them, so the palette search for "A long ticket" does not find them.
 LONG_DRAFTS = {
-    11: "Ticket 11 " + "blog-article-about-shipping-small-and-often-without-ever-breaking-the-build-" * 2,
-    12: "Ticket 12 " + "another-extremely-long-title-with-no-space-to-wrap-on-for-the-launch-window-" * 2,
+    11: "Draft 11 "
+    + "blog-article-about-shipping-small-and-often-without-ever-failing-the-build-" * 2,
+    12: "Draft 12 "
+    + "another-extremely-long-title-with-no-space-to-wrap-on-for-the-launch-window-" * 2,
 }
 ASKING = "00000000000000000000000000000a5c"
 # A writing ticket done: its post is its result, apart from its journal.

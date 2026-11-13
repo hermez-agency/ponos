@@ -56,7 +56,7 @@ for (const [name, viewport] of [
 ] as const) {
   test(`the launch window keeps long titles and its buttons inside its frame (${name})`, async ({ page }) => {
     await open(page)
-    const long = (n: number) => page.locator("[data-ticket-card]").filter({ hasText: `Ticket ${n} ` }).first()
+    const long = (n: number) => page.locator("[data-ticket-card]").filter({ hasText: `Draft ${n} ` }).first()
     await long(11).scrollIntoViewIfNeeded()
     await long(11).hover()
     await long(11).getByRole("checkbox").click()
