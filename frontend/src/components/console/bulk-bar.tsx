@@ -254,7 +254,9 @@ export function BulkBar() {
           <ul className="scroll-thin bg-muted/40 max-h-48 overflow-y-auto rounded-lg border px-3 py-2 text-xs">
             {launched.map((ticket) => (
               <li key={ticket.id} className="flex items-baseline justify-between gap-3 py-0.5">
-                <span className="min-w-0 truncate">{titleOf(ticket)}</span>
+                <span className="line-clamp-2 min-w-0 break-words" title={titleOf(ticket)}>
+                  {titleOf(ticket)}
+                </span>
                 <TicketEstimate estimate={ticket.estimate} className="text-muted-foreground shrink-0 tabular-nums" />
               </li>
             ))}

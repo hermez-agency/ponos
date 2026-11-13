@@ -49,3 +49,37 @@ test("drafts picked by their box and a click are launched from one window, once 
   await expect(bar).toBeHidden()
   await expect(card(page, "Ticket 2")).not.toHaveAttribute("data-selected", "true")
 })
+
+for (const [name, viewport] of [
+  ["desktop", { width: 1440, height: 900 }],
+  ["mobile", { width: 390, height: 800 }],
+] as const) {
+  test(`the launch window keeps long titles and its buttons inside its frame (${name})`, async ({ page }) => {
+    await open(page)
+    const long = (n: number) => page.locator("[data-ticket-card]").filter({ hasText: `Draft ${n} ` }).first()
+    await long(11).scrollIntoViewIfNeeded()
+    await long(11).hover()
+    await long(11).getByRole("checkbox").click()
+    await long(12).scrollIntoViewIfNeeded()
+    await long(12).hover()
+    await long(12).getByRole("checkbox").click()
+    // Picked on the wide board, asked on the narrow one: the window is what is measured.
+    await page.setViewportSize(viewport)
+    await page.getByRole("toolbar", { name: "Selected tickets" }).getByRole("button", { name: "Make ready" }).click()
+
+    const dialog = page.getByRole("alertdialog")
+    await expect(dialog).toContainText("Launch 2 tickets?")
+    const frame = (await dialog.boundingBox())!
+    const inside = async (locator: ReturnType<Page["locator"]>) => {
+      const box = (await locator.boundingBox())!
+      expect(box.x).toBeGreaterThanOrEqual(frame.x - 1)
+      expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width + 1)
+    }
+    await inside(dialog.locator("ul"))
+    for (const item of await dialog.locator("li").all()) await inside(item)
+    await inside(dialog.getByRole("button", { name: "Cancel" }))
+    await inside(dialog.getByRole("button", { name: /^Launch 2 tickets/ }))
+    await dialog.getByRole("button", { name: "Cancel" }).click()
+    await page.keyboard.press("Escape")
+  })
+}

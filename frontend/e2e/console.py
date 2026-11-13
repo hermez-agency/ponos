@@ -65,6 +65,13 @@ workbench.relaunch()
 # The token the tests open the console with: a board of fixtures has nothing to guard.
 TOKEN = "e2e"
 LONG = "000000000000000000000000000abcde"
+# Two drafts whose titles are far longer than a confirmation window is wide (bulk.spec.ts); no "k" and no "Ticket" in them, so the palette search for "A long ticket" does not find them.
+LONG_DRAFTS = {
+    11: "Draft 11 "
+    + "blog-article-about-shipping-small-and-often-without-ever-failing-the-build-" * 2,
+    12: "Draft 12 "
+    + "another-extremely-long-title-with-no-space-to-wrap-on-for-the-launch-window-" * 2,
+}
 ASKING = "00000000000000000000000000000a5c"
 # A writing ticket done: its post is its result, apart from its journal.
 WRITTEN = ("0000000000000000000000000000b0a7", "Write a LinkedIn post")
@@ -265,7 +272,8 @@ def board(seed: workbench.Seed, doomed: bool = False) -> None:
     page = {"id": id, "title": title, "statut": "progress", "Model": model}
     seed.write("tickets", page, "A short brief.")
     for number in range(1, 13):
-        page = {"id": f"{number:032d}", "title": f"Ticket {number}", "statut": "draft"}
+        title = LONG_DRAFTS.get(number, f"Ticket {number}")
+        page = {"id": f"{number:032d}", "title": title, "statut": "draft"}
         seed.write("tickets", page, "A short brief.")
     for id, (title, status) in GESTURES.items():
         page = {"id": id, "title": title, "statut": status}
