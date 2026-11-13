@@ -1,5 +1,5 @@
 import * as React from "react"
-import { act, render, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -146,6 +146,8 @@ function drawn(page: TicketDetail | undefined, brief: Promise<{ content: string 
 }
 
 const tabs = () => screen.getAllByRole("tab").map((tab) => tab.textContent)
+/** The tabs' names, without what a badge says beside them. */
+const names = () => tabs().map((name) => name?.replace(/writing now|your decision is awaited|a question is waiting for you/, ""))
 const selected = () => screen.getAllByRole("tab").find((tab) => tab.getAttribute("aria-selected") === "true")?.textContent
 
 beforeEach(() => {
@@ -290,15 +292,50 @@ describe("the tabs", () => {
     expect(selected()).toBe("Discussion")
   })
 
+  test("a ticket not finished has its mission and no result; an address naming the result opens the mission", () => {
+    for (const column of ["draft", "ready", "running", "blocked"] as const) {
+      world.searchStr = "?tab=result"
+      world.replace = vi.fn()
+      drawn(ticket({ column }))
+      expect(names()).toEqual(["Mission", "Discussion", "Live", "Journal"])
+      expect(selected()).toBe("Mission")
+      expect(world.replace).toHaveBeenLastCalledWith("/?tab=mission")
+      cleanup()
+    }
+  })
+
+  test("an old address naming the brief opens the mission", () => {
+    world.searchStr = "?tab=brief"
+    drawn(ticket({ column: "done" }))
+    expect(selected()).toBe("Mission")
+  })
+
+  test("the Result tab comes, first, when the ticket goes into review under the reader — who stays where they are", () => {
+    world.context = { data: ticket({ column: "running" }), fetchData: vi.fn() }
+    const read = vi.fn(() => new Promise<{ content: string }>(() => {}))
+    world.read = read
+    world.open = ticket({ column: "running" })
+    const { rerender } = render(<TicketPage />)
+    expect(names()).toEqual(["Mission", "Discussion", "Live", "Journal"])
+    expect(selected()).toMatch(/^Live/)
+
+    world.open = ticket({ column: "review" })
+    rerender(<TicketPage />)
+    expect(names()).toEqual(["Result", "Mission", "Discussion", "Live", "Decide", "Journal"])
+    expect(selected()).toBe("Live")
+    // Its page is read again: the result it just wrote is what the tab shows.
+    expect(read).toHaveBeenCalledTimes(2)
+  })
+
   test("a ticket in review has a Decide tab, which goes once the decision is sent", async () => {
     const user = userEvent.setup()
     drawn(ticket({ column: "review" }))
-    expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Decide", "Journal"])
+    expect(tabs()).toEqual(["Result", "Mission", "Discussion", "Live", "Decide", "Journal"])
     expect(screen.getByLabelText("your decision is awaited")).toBeTruthy()
 
     await user.click(screen.getByRole("tab", { name: /Decide/ }))
     await user.click(screen.getByRole("button", { name: "the decision, sent" }))
-    await waitFor(() => expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Journal"]))
+    await waitFor(() => expect(tabs()).toEqual(["Result", "Mission", "Discussion", "Live", "Journal"]))
     expect(selected()).toBe("Discussion")
   })
 
@@ -330,20 +367,22 @@ describe("the result", () => {
       ...change,
     }) as unknown as { content: string }
 
-  test("a ticket with a result opens on it, its mission folded above and the journal apart", async () => {
+  test("a ticket with a result opens on it, the mission in a tab of its own and the journal apart", async () => {
     const user = userEvent.setup()
     drawn(ticket({ column: "done", type: "Writing" }), Promise.resolve(done()))
     const result = await screen.findByText("Ponos")
     expect(selected()).toBe("Result")
-    expect(tabs()).toEqual(["Result", "Discussion", "Live", "Journal"])
+    expect(tabs()).toEqual(["Result", "Mission", "Discussion", "Live", "Journal"])
     const body = result.closest<HTMLElement>('[data-slot="ticket-result-body"]')!
     expect(body.textContent).toContain("Trois choses apprises")
-    // The session's account is not mixed into the post.
+    // Neither the session's account nor the mission is mixed into the post.
     expect(screen.getByRole("tabpanel").textContent).not.toContain("J'ai relu deux fois.")
-    const mission = screen.getByRole("button", { name: "Mission" })
-    expect(mission.getAttribute("aria-expanded")).toBe("false")
-    await user.click(mission)
-    expect(mission.getAttribute("aria-expanded")).toBe("true")
+    expect(screen.getByRole("tabpanel").textContent).not.toContain("Écris un post LinkedIn.")
+
+    await user.click(screen.getByRole("tab", { name: "Mission" }))
+    expect(screen.getByRole("tabpanel").textContent).toContain("Écris un post LinkedIn.")
+    expect(screen.getByRole("tabpanel").textContent).not.toContain("Trois choses apprises")
+    expect(world.replace).toHaveBeenLastCalledWith("/?tab=mission")
 
     await user.click(screen.getByRole("tab", { name: "Journal" }))
     expect(screen.getByRole("tabpanel").textContent).toContain("J'ai relu deux fois.")
@@ -366,7 +405,38 @@ describe("the result", () => {
   test("a session that ran and rendered nothing is said so, rather than passing for done", async () => {
     drawn(ticket({ column: "review" }), Promise.resolve(done({ result: "", results: [] })))
     expect(await screen.findByText(/No result rendered/)).toBeTruthy()
-    expect(tabs()[0]).toBe("Mission")
+    expect(selected()).toBe("Result")
+  })
+
+  test("the mission is drawn open, under one title, without the heading it was written with", async () => {
+    world.searchStr = "?tab=mission"
+    drawn(ticket({ column: "ready" }), Promise.resolve(done({ mission: "## Mission\n\nÉcris un post LinkedIn." })))
+    expect(await screen.findByText("Écris un post LinkedIn.")).toBeTruthy()
+    const panel = screen.getByRole("tabpanel")
+    expect(panel.textContent?.match(/Mission/g)).toHaveLength(1)
+    expect(within(panel).queryByRole("heading")).toBeNull()
+    expect(within(panel).queryByRole("button")).toBeNull()
+  })
+
+  test("a code ticket that wrote no result shows its pull request and what changed in its place", async () => {
+    drawn(
+      ticket({ column: "review", type: "Code", pull_request: "https://github.com/hermez/ponos/pull/385" }),
+      Promise.resolve(
+        done({
+          result: "",
+          results: [],
+          journal:
+            "**Result:** ✅ two tabs\n\n**Pull request:** https://github.com/hermez/ponos/pull/385\n\nThe mission and the result each have their tab.\n\n### History\n\n- 2026-11-06 · 12 minutes",
+        })
+      )
+    )
+    await waitFor(() => expect(document.querySelector('[data-slot="ticket-result-pr"]')).not.toBeNull())
+    const card = document.querySelector<HTMLElement>('[data-slot="ticket-result-pr"]')!
+    expect(within(card).getByRole("link", { name: "PR #385" })).toBeTruthy()
+    const said = document.querySelector<HTMLElement>('[data-slot="ticket-result-changes"]')!
+    expect(said.textContent).toContain("The mission and the result each have their tab.")
+    expect(said.textContent).not.toContain("12 minutes")
+    expect(screen.queryByText(/No result rendered/)).toBeNull()
   })
 
   test("a code ticket's result shows its pull request and the way to its diff", async () => {

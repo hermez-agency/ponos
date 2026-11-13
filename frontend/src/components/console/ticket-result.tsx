@@ -1,6 +1,5 @@
 import * as React from "react"
 import {
-  ChevronDown,
   CopyIcon,
   Download,
   ExternalLink,
@@ -23,55 +22,43 @@ import { Textarea } from "@/components/ui/textarea"
 import { api, why } from "@/lib/api"
 import { copy } from "@/lib/copy"
 import { useT } from "@/lib/i18n"
-import { fileName, isDocument, plainText } from "@/lib/result"
+import { changes, fileName, isDocument, missionText, plainText } from "@/lib/result"
 import { canAct } from "@/lib/role"
 import type { ResultVersion, TicketDetail } from "@/lib/types"
-import { cn } from "@/lib/utils"
 
 import { Eyebrow } from "./frame"
 import { Markdown } from "./markdown"
 import { PreviewPairs } from "./preview-pairs"
 import { TicketCi, when } from "./ticket-bits"
 
-/* A ticket opened: its mission, then its result.
+/* A ticket opened: its result, in a tab of its own, and its mission in another.
  *
  * The result — the post, the audit, the summary of a change — used to sit in
  * the part « What was done », under the runner's line about the session and
  * above its history: to copy the post, you selected around the rest. It is a
- * part of its own now (results.py), the first thing the page shows, with what
- * one does with a deliverable: copy it, download it, retouch it, send it back
- * with an instruction. What the sessions said of themselves is the Journal tab.
+ * part of its own now (results.py), the first thing the page shows once the
+ * work is over, with what one does with a deliverable: copy it, download it,
+ * retouch it, send it back with an instruction. What the sessions said of
+ * themselves is the Journal tab.
  *
- * The mission comes first, folded once there is a result: read once, it is
- * what the result answers, not what you came to read.
+ * The mission and the result shared one tab for a while, the mission folded
+ * above once there was a result — a tab called « Mission », then « Result »,
+ * over a block called « Mission » over a text headed « Mission ». Each has its
+ * tab now (see `TicketTabs`): the mission whole, under one title.
  */
 
-export function TicketMission({ mission, folded }: { mission: string; folded: boolean }) {
+export function TicketMission({ mission }: { mission: string }) {
   const t = useT()
-  const [open, setOpen] = React.useState(!folded)
-  const empty = !mission.trim()
+  const text = missionText(mission)
   return (
-    <section data-slot="ticket-mission" data-open={open} className="flex flex-col gap-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((was) => !was)}
-        className="text-muted-foreground hover:text-foreground flex w-fit cursor-pointer items-center gap-1"
-      >
-        <ChevronDown className={cn("size-3.5 transition-transform", !open && "-rotate-90")} />
-        <Eyebrow>{t("Mission")}</Eyebrow>
-      </button>
-      {open ? (
-        empty ? (
-          <p className="text-muted-foreground text-sm">
-            {t("The page is empty: the title is the whole brief.")}
-          </p>
-        ) : (
-          <Markdown text={mission} />
-        )
-      ) : empty ? null : (
-        // Folded, it still says what it was: its first line, a click away from the rest.
-        <p className="text-muted-foreground line-clamp-1 text-sm">{plainText(mission).split("\n")[0]}</p>
+    <section data-slot="ticket-mission" className="flex flex-col gap-2">
+      <Eyebrow>{t("Mission")}</Eyebrow>
+      {text ? (
+        <Markdown text={text} />
+      ) : (
+        <p className="text-muted-foreground text-sm">
+          {t("The page is empty: the title is the whole brief.")}
+        </p>
       )}
     </section>
   )
@@ -301,6 +288,17 @@ export function TicketResult({
           <div ref={drawn} data-slot="ticket-result-body" className="bg-card rounded-xl border px-4 py-3">
             <Markdown text={body} />
           </div>
+        ) : ticket.pull_request ? (
+          // A change that wrote no result of its own still has one: its pull
+          // request, and what the session said it changed.
+          <>
+            <PullRequestCard ticket={ticket} />
+            {changes(journal) ? (
+              <div data-slot="ticket-result-changes" className="bg-card rounded-xl border px-4 py-3">
+                <Markdown text={changes(journal)} />
+              </div>
+            ) : null}
+          </>
         ) : journal.trim() && !running ? (
           <p className="text-tr-amber flex items-center gap-1.5 text-sm" data-slot="ticket-no-result">
             <TriangleAlert className="size-4" />
@@ -313,7 +311,7 @@ export function TicketResult({
         )
       ) : null}
 
-      {ticket.pull_request ? <PullRequestCard ticket={ticket} /> : null}
+      {ticket.pull_request && body.trim() ? <PullRequestCard ticket={ticket} /> : null}
       <PreviewPairs ticket={ticket.id} shots={previews} />
     </section>
   )

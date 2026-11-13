@@ -67,3 +67,47 @@ export function isDocument(type: string, kind: string): boolean {
   if (said) return !/^code$/.test(said)
   return kind !== "code"
 }
+
+/** The columns where the work is over, for now: the ticket has its Result tab there. */
+const FINISHED = ["review", "validated", "done"]
+
+/** Whether a ticket in `column` has finished its work — the moment its result is one to read. */
+export function isFinished(column: string): boolean {
+  return FINISHED.includes(column)
+}
+
+// A heading of Markdown, its words apart: « ## 1. Mission : » says « mission ».
+const HEADING = /^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/
+const said = (line: string): string | undefined => {
+  const found = HEADING.exec(line)
+  return found
+    ? found[1]
+        .replace(/^\s*\d+[.)]\s*/, "")
+        .replace(/^[*_\s]+|[*_\s:]+$/g, "")
+        .toLowerCase()
+    : undefined
+}
+
+/** The mission as its tab draws it: without a heading « Mission » on top.
+ *
+ * The server drops the one the page's template opens with (`ticket_page.split`),
+ * but a mission written by an agent often opens on its own — under a tab, and a
+ * title, that both say it already. Dropped where it is drawn only: the page keeps it. */
+export function missionText(mission: string): string {
+  const lines = mission.replace(/\r\n/g, "\n").split("\n")
+  let start = 0
+  while (start < lines.length && (!lines[start].trim() || said(lines[start]) === "mission")) start++
+  return lines.slice(start).join("\n").trim()
+}
+
+/** What a session said it changed, out of the journal: its report without the
+ * history under it, nor the pull request's line — its card is drawn beside. */
+export function changes(journal: string): string {
+  const lines = journal.replace(/\r\n/g, "\n").split("\n")
+  const end = lines.findIndex((line) => ["history", "historique"].includes(said(line) ?? ""))
+  return (end < 0 ? lines : lines.slice(0, end))
+    .filter((line) => !/^\s*\*\*(Pull request)\s*:?\*\*\s*:?/i.test(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}

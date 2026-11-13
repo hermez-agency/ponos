@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 /* The « On » prompt, where it can be found: a field of the creation dialog,
- * and a section of the ticket's first tab — written, changed, emptied.
+ * and a section of the ticket's Mission tab — written, changed, emptied.
  *
  * The writes are caught on their way out rather than made, so the board the
  * other tests read keeps the tickets it was made with.
@@ -30,10 +30,10 @@ test("a new ticket is created with an On prompt", async ({ page }) => {
   expect(sent[0]).toMatchObject({ title: "Chain it", on: "When it is done, create the deployment ticket." })
 })
 
-test("the On prompt of a ticket is written, found again and emptied from its first tab", async ({ page }) => {
+test("the On prompt of a ticket is written, found again and emptied from its Mission tab", async ({ page }) => {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await page.goto(ASKING)
-  await page.getByRole("tab", { name: /^(Mission|Result)/ }).click()
+  await page.getByRole("tab", { name: /^Mission/ }).click()
   const section = page.locator('[data-slot="ticket-on"]')
   await expect(section.getByText("Automation", { exact: true })).toBeVisible()
   const box = section.getByRole("textbox", { name: "Prompt on status change" })
@@ -44,7 +44,7 @@ test("the On prompt of a ticket is written, found again and emptied from its fir
   // Found again, from the server, on a fresh load of the page — with its badge.
   await page.reload()
   await expect(page.locator('[data-slot="ticket-on-badge"]')).toBeVisible()
-  await page.getByRole("tab", { name: /^(Mission|Result)/ }).click()
+  await page.getByRole("tab", { name: /^Mission/ }).click()
   await expect(box).toHaveValue("If it goes to done, create the follow-up.")
 
   // Emptied: the prompt is removed, and the badge with it.
@@ -53,6 +53,6 @@ test("the On prompt of a ticket is written, found again and emptied from its fir
   await expect(page.getByText("Prompt removed")).toBeVisible()
   await page.reload()
   await expect(page.locator('[data-slot="ticket-on-badge"]')).toHaveCount(0)
-  await page.getByRole("tab", { name: /^(Mission|Result)/ }).click()
+  await page.getByRole("tab", { name: /^Mission/ }).click()
   await expect(box).toHaveValue("")
 })

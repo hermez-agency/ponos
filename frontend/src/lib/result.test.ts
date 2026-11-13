@@ -3,7 +3,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { fileName, isDocument, plainText } from "./result.ts"
+import { changes, fileName, isDocument, isFinished, missionText, plainText } from "./result.ts"
 
 test("the text copied is the post without its marks, lines and lists kept", () => {
   const post = "# Titre\n\nTrois choses **apprises** en _livrant_ :\n\n* petit\n- [x] souvent\n\n> seul\n\n---\n\nVoir [le site](https://hermez.dev)."
@@ -29,4 +29,23 @@ test("a report is a document, a change is not", () => {
   assert.equal(isDocument("Code", "code"), false)
   assert.equal(isDocument("", "document"), true)
   assert.equal(isDocument("", "code"), false)
+})
+
+test("the work is over in review, once validated and done — not before, nor cancelled", () => {
+  for (const column of ["review", "validated", "done"]) assert.equal(isFinished(column), true)
+  for (const column of ["draft", "ready", "running", "blocked", "paused", "cancelled"]) assert.equal(isFinished(column), false)
+})
+
+test("the mission is drawn without the heading that says it again", () => {
+  assert.equal(missionText("## Mission\n\n## Contexte\nUn texte."), "## Contexte\nUn texte.")
+  assert.equal(missionText("\n# 1. Mission :\n\n### **Mission**\n\nÉcris."), "Écris.")
+  assert.equal(missionText("## Missions passées\n\nRien."), "## Missions passées\n\nRien.")
+  assert.equal(missionText("Écris.\n\n## Mission\nplus bas"), "Écris.\n\n## Mission\nplus bas")
+})
+
+test("the changes are the journal's report, without its history nor the pull request's line", () => {
+  const journal =
+    "**Result:** ✅ done\n\n**Pull request:** https://github.com/h/p/pull/1\n\nWhat changed: a tab.\n\n### History\n\n- 2026-11-06 · 12 minutes"
+  assert.equal(changes(journal), "**Result:** ✅ done\n\nWhat changed: a tab.")
+  assert.equal(changes("**Pull request** : https://x\n\nUn onglet.\n\n### Historique\n\n- ligne"), "Un onglet.")
 })
