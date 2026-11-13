@@ -16,6 +16,7 @@ top: `-k` to run one case, `-x`, `--durations`, coverage, and `-n auto`.
 from __future__ import annotations
 
 import inspect
+import os
 from collections.abc import Callable, Generator, Iterator
 from typing import Any
 
@@ -27,6 +28,10 @@ import support
 # since a few cases read it before any fixture would run. Each xdist worker
 # imports this file, and so gets directories of its own.
 support.isolate()
+# Nor the desktop of the machine running the suite: a case that built its own
+# `Config`, without `support`'s `notify=C.Notify(desktop=False)`, would
+# otherwise post a real notification on its session bus.
+os.environ.pop("DBUS_SESSION_BUS_ADDRESS", None)
 
 
 def pytest_pycollect_makeitem(
