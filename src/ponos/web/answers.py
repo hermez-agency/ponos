@@ -911,6 +911,11 @@ class Schedule(Shape):
     """What its tickets are born as, by their keys — `code`, `bug` — empty to let them be
     guessed."""
     subtype: str = omitted()
+    goal: str = omitted()
+    """The name of the goal its tickets serve, empty for none."""
+    goal_id: str = omitted()
+    goal_lost: bool = omitted()
+    """It points at a goal that is deleted or over: its tickets are born without one."""
     problem: str
     """What stops this schedule being acted on, in the words `doctor` prints."""
     review: bool
@@ -2114,6 +2119,12 @@ class GoalTicket(Shape):
     """The key of the board's column it stands in, as `Goal.tickets` counts it."""
 
 
+class GoalSchedule(Shape):
+    id: str
+    name: str
+    active: bool
+
+
 class Goal(Shape):
     """One row of the goals database, and how far its tickets have gone."""
 
@@ -2139,6 +2150,8 @@ class Goal(Shape):
     from the board, not read off a rollup. A column with none is not a key."""
     linked: list[GoalTicket] = omitted()
     """The tickets pointing at it, as the form lists them and its page draws them."""
+    recurrences: list[GoalSchedule] = omitted()
+    """The schedules whose tickets serve it, as its page lists them."""
 
 
 class Goals(Shape):

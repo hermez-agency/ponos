@@ -1878,3 +1878,45 @@ def the_console_lists_the_skills_with_those_of_the_repositories_and_the_clashes(
         assert listed["repositories"] == [
             {"name": "revue", "description": "Celle du dépôt.", "project": "Usine"}
         ]
+
+
+@case
+def a_schedule_serves_a_goal_by_name_or_id_and_says_when_it_is_gone(state_home: Path) -> None:
+    """`goal` on create_schedule and update_schedule, as create_task takes it: a name or an
+    id, empty to let it go. The goal's page lists the schedule, and a goal deleted is signalled."""
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+        goal = api.create_goal("Hermez se voit", {})["id"]
+
+        made = _mcp_call(
+            api, grant, "create_schedule", name="Blog", cadence="Daily", goal="hermez se voit"
+        )
+        assert not made["isError"], made
+        schedule = made["structuredContent"]["id"]
+        (one,) = _mcp_call(api, grant, "list_schedules")["structuredContent"]["schedules"]
+        assert one["goal"] == "Hermez se voit" and one["goal_lost"] is False
+        row = api.goals()["goals"][0]
+        assert row["recurrences"] == [{"id": schedule, "name": "Blog", "active": False}]
+
+        refused = _mcp_call(api, grant, "update_schedule", schedule=schedule, goal="Nulle part")
+        assert refused["isError"] and "Hermez se voit" in refused["content"][0]["text"]
+        assert api.schedule(schedule)["goal_id"] == goal
+
+        # Deleted: the schedule is still there, and says its goal is not.
+        api.delete_goal(goal)
+        gone = api.schedule(schedule)
+        assert gone["goal_lost"] is True and gone["problem"] == ""
+        (listed,) = _mcp_call(api, grant, "list_schedules")["structuredContent"]["schedules"]
+        assert listed["goal_lost"] is True
+
+        # An empty string lets it go; an id points at a goal as well as its name.
+        other = api.create_goal("Autre", {})["id"]
+        by_id = _mcp_call(api, grant, "update_schedule", schedule=schedule, goal=other)
+        assert by_id["structuredContent"]["goal"] == "Autre"
+        cleared = _mcp_call(api, grant, "update_schedule", schedule=schedule, goal="")
+        assert cleared["structuredContent"]["goal"] == ""
+        assert api.schedule(schedule)["goal_id"] == ""
+        assert api.goals()["goals"][0]["recurrences"] == []

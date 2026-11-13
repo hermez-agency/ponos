@@ -83,6 +83,9 @@ if TYPE_CHECKING:
         # goals.py
         def _goal_index(self) -> dict[str, dict[str, Any]]: ...
 
+        # schedules.py
+        def schedules(self) -> dict[str, Any]: ...
+
         # discussion.py
         def brief(self) -> str: ...
 

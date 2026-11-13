@@ -468,6 +468,11 @@ def _schedule_page(page_id: str, **values: Any) -> store.Page:
             "Project": {"type": "relation", "relation": [{"id": "p-northwind"}]},
             "Priorité": {"type": "number", "number": 40},
             **(
+                {"Objectif": {"type": "relation", "relation": [{"id": values["goal"]}]}}
+                if values.get("goal")
+                else {}
+            ),
+            **(
                 {"Type": {"type": "select", "select": {"name": values["type"]}}}
                 if values.get("type")
                 else {}

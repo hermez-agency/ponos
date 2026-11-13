@@ -1,1 +1,5 @@
+<<<<<<<< HEAD:src/ponos/web/static/assets/project-schedules-CSZL7XOn.js
 import{r as e}from"./react-CFebUx29.js";import{Ct as t,u as n}from"./views-CnGdT3Cj.js";import{m as r}from"./console-B79w8ngi.js";var i=e();function a({project:e}){return(0,i.jsx)(n,{resource:r,resourceAction:t.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
+========
+import{r as e}from"./react-CFebUx29.js";import{Ct as t,u as n}from"./views-CnGdT3Cj.js";import{m as r}from"./console-BriNyrhv.js";var i=e();function a({project:e}){return(0,i.jsx)(n,{resource:r,resourceAction:t.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
+>>>>>>>> bea83eb7 (feat: une récurrence peut servir un objectif — chaque ticket qui en naît y est rattaché (champ Objectif de la console, récurrences listées sur la page de l'objectif, goal dans les outils MCP create_schedule, update_schedule et list_schedules)):src/ponos/web/static/assets/project-schedules-DG0kCVLb.js

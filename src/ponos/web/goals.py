@@ -131,6 +131,7 @@ class Goals(Base):
                         "column": ticket["column"],
                     }
                 )
+        recurring = self._goal_schedules()
         rows = []
         for page in pages:
             if not page.title:
@@ -154,6 +155,7 @@ class Goals(Base):
                     "project_ids": [one.replace("-", "") for one in linked if one in projects],
                     "tickets": counts.get(bare, {}),
                     "linked": serving.get(bare, []),
+                    "recurrences": recurring.get(bare, []),
                 }
             )
         return {
@@ -161,6 +163,26 @@ class Goals(Base):
             "statuses": self._goal_statuses(),
             "configured": bool(self.runner.workspace.goals),
         }
+
+    def _goal_schedules(self) -> dict[str, list[dict[str, Any]]]:
+        """The schedules whose tickets serve each goal, by the goal's page id.
+
+        From the rows the schedules page holds: a goal's page lists the
+        schedules that serve it without asking the board for them again. A
+        workspace with no Schedules database, or one that cannot be read, has
+        none to list — the goals are the page, not its schedules.
+        """
+        try:
+            rows: list[dict[str, Any]] = self.schedules()["schedules"]
+        except store.StoreError:
+            return {}
+        serving: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            if row["goal_id"]:
+                serving.setdefault(row["goal_id"], []).append(
+                    {"id": row["id"], "name": row["name"], "active": row["active"]}
+                )
+        return serving
 
     def _held_goal_pages(self) -> list[store.Page]:
         """The goals' pages as last read: read there and then only when none are held.

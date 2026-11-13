@@ -46,7 +46,7 @@ import {
   SegmentsInputController,
   TimeInputController,
 } from "@/components/console/recurrence-dialog-lazy"
-import { PillsInputController, ProjectInputController } from "@/components/console/new-ticket-lazy"
+import { GoalOfInputController, PillsInputController, ProjectInputController } from "@/components/console/new-ticket-lazy"
 import { PriorityInputController } from "@/components/console/priority"
 import { recordWindow, useOpensOverTheList } from "@/components/console/record-window"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -120,6 +120,8 @@ export interface ScheduleWrite {
   subtype?: string
   /** The page of the project its tickets are for, written as `project`: empty, they come back as documents. */
   project_id?: string
+  /** The page of the goal its tickets serve, written as `goal`: empty, they serve none. */
+  goal_id?: string
   body?: string
 }
 
@@ -451,6 +453,8 @@ const fields: FormInterface["inputs"] = {
     controller: ProjectInputController,
     getValueOptions: projectChoices,
   },
+  // The goal every ticket it makes serves: none unless chosen.
+  goal_id: { label: "Goal", controller: GoalOfInputController },
   // The page body, and the part of a schedule that says what to do: every
   // occurrence is born with it copied under its first line.
   body: {
@@ -1008,6 +1012,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         type: patch.type ?? "",
         subtype: patch.subtype ?? "",
         ...(patch.project_id === undefined ? {} : { project: patch.project_id }),
+        ...(patch.goal_id === undefined ? {} : { goal: patch.goal_id }),
         ...(patch.body === undefined ? {} : { body: patch.body }),
       })
       const fresh = await load()
@@ -1027,6 +1032,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         type: fresh.type ?? "",
         subtype: fresh.subtype ?? "",
         project: fresh.project_id ?? "",
+        ...(fresh.goal_id ? { goal: fresh.goal_id } : {}),
         ...(fresh.body ? { body: fresh.body } : {}),
       })
       // The server writes a new row unticked, whatever it is sent; "Turn on

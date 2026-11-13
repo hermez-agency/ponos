@@ -3486,6 +3486,8 @@ export interface components {
             };
             /** @description The tickets pointing at it, as the form lists them and its page draws them. */
             linked?: components["schemas"]["GoalTicket"][];
+            /** @description The schedules whose tickets serve it, as its page lists them. */
+            recurrences?: components["schemas"]["GoalSchedule"][];
         };
         GoalChoice: {
             value: string;
@@ -3517,6 +3519,11 @@ export interface components {
             written: string[];
             /** @description Those the board refused, each with why: the others were written all the same. */
             failed: components["schemas"]["GoalTicketFailed"][];
+        };
+        GoalSchedule: {
+            id: string;
+            name: string;
+            active: boolean;
         };
         GoalTicket: {
             id: string;
@@ -4639,6 +4646,11 @@ export interface components {
              */
             type?: string;
             subtype?: string;
+            /** @description The name of the goal its tickets serve, empty for none. */
+            goal?: string;
+            goal_id?: string;
+            /** @description It points at a goal that is deleted or over: its tickets are born without one. */
+            goal_lost?: boolean;
             /** @description What stops this schedule being acted on, in the words `doctor` prints. */
             problem: string;
             /** @description Written by an MCP client and not yet turned on: the console asks for a read. */
@@ -4689,6 +4701,11 @@ export interface components {
              */
             type?: string;
             subtype?: string;
+            /** @description The name of the goal its tickets serve, empty for none. */
+            goal?: string;
+            goal_id?: string;
+            /** @description It points at a goal that is deleted or over: its tickets are born without one. */
+            goal_lost?: boolean;
             /** @description What stops this schedule being acted on, in the words `doctor` prints. */
             problem: string;
             /** @description Written by an MCP client and not yet turned on: the console asks for a read. */

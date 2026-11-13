@@ -191,6 +191,11 @@ SCHEDULE_FIELDS: dict[str, Any] = {
         "du mois (1 à 31).",
     },
     "project": PROJECT_FILTER,
+    "goal": {
+        "type": "string",
+        "description": "L'objectif que servent les tickets nés de la récurrence : son nom (tel que "
+        "list_goals le renvoie) ou son identifiant. Une chaîne vide retire l'objectif.",
+    },
     "description": {
         "type": "string",
         "description": "La mission, en Markdown : le brief copié sous chaque ticket né.",
@@ -553,7 +558,7 @@ TOOLS: list[dict[str, Any]] = [
         "title": "Récurrences",
         "scope": READ,
         "description": "Liste les récurrences de Ponos (les tickets qui reviennent seuls) : nom, "
-        "identifiant, projet, cadence, jour et heure, prochaine et dernière occurrence, état "
+        "identifiant, projet, objectif servi, cadence, jour et heure, prochaine et dernière occurrence, état "
         "(activée ou non), mission (le brief de chaque ticket), type, modèle, priorité, et si "
         "les tickets naissent en brouillon ou prêts (toujours « ready » : ils partent au "
         "démon dès leur naissance). Une récurrence « à relire » a été écrite par un client MCP "
@@ -1604,6 +1609,9 @@ def _schedule_line(row: dict[str, Any], body: str | None = None) -> dict[str, An
         "id": row["id"],
         "name": row["name"],
         "project": row["project"],
+        # Empty for none; the tickets are born without it once that goal is gone or over.
+        "goal": row["goal"],
+        "goal_lost": row["goal_lost"],
         "cadence": row["cadence"],
         "day": row["day"],
         "at": row["at"],
@@ -1639,6 +1647,8 @@ def _schedule_values(api: Api, fields: dict[str, Any]) -> dict[str, Any]:
             values["body"] = value
         elif key == "project":
             values["project"] = _project(api, value)["id"] if value else ""
+        elif key == "goal":
+            values["goal"] = _goal(api, value)["id"] if str(value or "").strip() else ""
         else:
             values[key] = value
     return values

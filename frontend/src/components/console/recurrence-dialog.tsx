@@ -279,6 +279,7 @@ export function RecurrenceFields() {
         <Summary data={data} original={form.originalData as Record<string, unknown> | undefined} />
       </Section>
       <WithProjects>{field("project_id")}</WithProjects>
+      {field("goal_id")}
       <div className="grid gap-4 sm:grid-cols-2">
         {field("model")}
         {field("priority")}

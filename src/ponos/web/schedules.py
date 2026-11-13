@@ -39,7 +39,7 @@ class Schedules(Base):
         """Change one row of the Schedules database from the console.
 
         Only the columns a schedule is *written* in — the cadence, the hour,
-        the day, the tick, and the five a ticket inherits. Never `Next`
+        the day, the tick, and the six a ticket inherits. Never `Next`
         or `Last`: those are what a pass writes back, and a console that let you
         edit them would let you make an occurrence happen twice.
         """
@@ -83,6 +83,9 @@ class Schedules(Base):
             written[settings.prop("subtype")] = subtypes.option(subtype) if subtype else ""
         if "project" in values:
             written[settings.prop("project")] = [values["project"]] if values["project"] else []
+        # The goal its tickets serve, by its page: empty lets it go.
+        if "goal" in values:
+            written[settings.prop("goal")] = [values["goal"]] if values["goal"] else []
         if "name" in values and str(values["name"]).strip():
             written[self.runner.client.title_property(database)] = str(values["name"]).strip()
         if not written and "body" not in values:
@@ -97,6 +100,9 @@ class Schedules(Base):
             state.reviewed(page_id)
         self._drop_schedules()
         self.hub.publish("schedules", saved=page_id)
+        if "goal" in values:
+            # A goal's page lists the schedules that serve it.
+            self.hub.publish("goals", saved=values["goal"] or "")
         return {"id": page_id.replace("-", "")}
 
     def create_schedule(self, name: str, values: dict[str, Any]) -> dict[str, Any]:
@@ -331,6 +337,13 @@ class Schedules(Base):
             state.occurrences(wanted),
         )
 
+    def _goal_of(self, schedule: schedules_module.Schedule) -> dict[str, Any]:
+        """The goal a schedule points at as the goals' index holds it; none for a goal that is gone."""
+        if not schedule.goal:
+            return {}
+        wanted = schedule.goal.replace("-", "")
+        return next((goal for goal in self._goal_index().values() if goal["id"] == wanted), {})
+
     def _schedule(
         self, schedule: schedules_module.Schedule, projects: dict[str, Any]
     ) -> dict[str, Any]:
@@ -341,6 +354,7 @@ class Schedules(Base):
         """
         next_at = schedules_module.upcoming(schedule, datetime.now().astimezone())
         review = state.schedules_to_review()
+        goal = self._goal_of(schedule)
         return {
             "id": schedule.page.id.replace("-", ""),
             "name": schedule.name,
@@ -365,6 +379,11 @@ class Schedules(Base):
             "type": self.config.board.kind_of(schedule.kind),
             "subtype": subtypes.of(schedule.subtype),
             "problem": schedule.problem,
+            "goal": goal.get("name", ""),
+            "goal_id": schedule.goal.replace("-", ""),
+            # The goal it points at is deleted or over: its tickets are born
+            # without one, and the page says so.
+            "goal_lost": bool(schedule.goal) and not goal.get("active", False),
             # Written by an MCP client and never turned on: a person reads it first.
             "review": schedule.page.id.replace("-", "") in review,
         }

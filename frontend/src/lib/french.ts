@@ -931,6 +931,8 @@ export const FRENCH: Record<string, string> = {
   "Ticket title": "Titre du ticket",
   "Weekly dependency review": "Revue hebdomadaire des dépendances",
   "A schedule needs a name": "Une récurrence a besoin d'un nom",
+  "Its goal is gone or over: its tickets are born without one.":
+    "Son objectif a disparu ou est terminé : ses tickets naissent sans objectif.",
   "When?": "Quand ?",
   "Every hour": "Chaque heure",
   "Every day": "Chaque jour",

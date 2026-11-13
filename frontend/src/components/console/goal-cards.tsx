@@ -44,6 +44,7 @@ import { carrying } from "@/lib/resource-view"
 import type { Goal } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
+import { scheduleHref } from "@/resources/schedules"
 import { ON_TICKETS, goalHref, goals, goalsHref, goalsOnce, useGoals, type GoalItem } from "@/resources/goals"
 import { boardHref, ticketHref, tickets } from "@/resources/tickets"
 
@@ -355,6 +356,7 @@ function GoalWhole({ goal, reread }: { goal: Goal; reread: () => void }) {
       ) : null}
       <Progress goal={goal} />
       <GoalTickets goal={goal} />
+      <GoalSchedules goal={goal} />
       <div className="flex flex-wrap items-center gap-2">
         <ResourceViewButton action={ActionList.update} id={goal.id}>
           <span data-slot="goal-edit" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
@@ -427,6 +429,33 @@ function GoalTickets({ goal }: { goal: Goal }) {
       ) : (
         <p className="text-muted-foreground text-sm">{t("No ticket serves this goal yet.")}</p>
       )}
+    </section>
+  )
+}
+
+/* The schedules whose tickets serve this goal, under its tickets: each a way to
+ * its page. Nothing at all for a goal no schedule serves. */
+function GoalSchedules({ goal }: { goal: Goal }) {
+  const t = useT()
+  const serving = goal.recurrences ?? []
+  if (!serving.length) return null
+  return (
+    <section className="flex flex-col gap-2" data-slot="goal-schedules">
+      <h3 className="text-sm font-medium">{t("Schedules")}</h3>
+      <ul className="overflow-hidden rounded-md border">
+        {serving.map((one) => (
+          <li
+            key={one.id}
+            data-goal-schedule={one.id}
+            className="flex min-w-0 items-baseline gap-2 border-b px-3 py-2 text-sm last:border-b-0"
+          >
+            <Link to={scheduleHref(one.id)} className="truncate hover:underline" title={one.name}>
+              {one.name}
+            </Link>
+            {one.active ? null : <span className="text-muted-foreground shrink-0 text-xs">{t("Paused")}</span>}
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
