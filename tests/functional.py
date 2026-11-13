@@ -1164,6 +1164,12 @@ CONFIGURATION = """# Written by tests/functional.py — a whole installation, in
 [runner]
 workspace_root = "{workspace}"
 {settings}
+
+# `notify` in SETTINGS only reaches `config.runner`, after `notify.desktop` was
+# made from the file: said here, or a ticket's notification is handed to a
+# detached child that writes ponos.log into this directory while it is removed.
+[notify]
+desktop = false
 """
 
 

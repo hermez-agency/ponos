@@ -1099,14 +1099,6 @@ export const FRENCH: Record<string, string> = {
 
   /* -- the standing context --------------------------------------------------- */
   Context: "Contexte",
-  "Global context": "Contexte global",
-  "Sent to Ponos in every ticket, for all the projects":
-    "Envoyé à Ponos dans chaque ticket, pour tous les projets",
-  "See all": "Voir tout",
-  Fold: "Replier",
-  "Write the context": "Écrire le contexte",
-  "Nothing is written yet, so the tickets are told nothing about who the work is for.":
-    "Rien n'est écrit pour l'instant : les tickets ne savent rien de pour qui le travail est fait.",
   "The changes made to the global context are not saved.":
     "Les modifications du contexte global ne sont pas enregistrées.",
   "Inherits the global context ↑": "Hérite du contexte global ↑",

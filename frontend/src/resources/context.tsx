@@ -8,6 +8,7 @@ import {
   type TabDefinition,
 } from "react-resource-view"
 
+import { t } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import { isAdmin } from "@/lib/role"
 
@@ -164,7 +165,7 @@ export const context = createViewResource<ContextItem>(CONTEXT, {
     },
     getItem: async () => {
       tellTheTabs()
-      return { data: { id: THE_PAGE, name: "Context", "@id": "/api/context-page", "@type": CONTEXT } }
+      return { data: { id: THE_PAGE, name: t("Context"), "@id": "/api/context-page", "@type": CONTEXT } }
     },
     createItem: async () => {
       throw new Error("the context page is not created")

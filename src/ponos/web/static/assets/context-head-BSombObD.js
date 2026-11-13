@@ -1,0 +1,1 @@
+import{r as e}from"./react-CFebUx29.js";import{pr as t}from"./ui-BcdEoTgI.js";import{Rr as n,Xa as r}from"./console-B79w8ngi.js";var i=e();function a(){let e=r();return(0,i.jsx)(`div`,{"data-slot":`context-page-head`,children:(0,i.jsx)(n,{icon:t,title:e(`Context`),blurb:e(`Everything a session is given besides its ticket`)})})}export{a as ContextHead};

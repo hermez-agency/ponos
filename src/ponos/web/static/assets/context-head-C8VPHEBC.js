@@ -1,1 +1,0 @@
-import{r as e}from"./react-CFebUx29.js";import{pr as t}from"./ui-BcdEoTgI.js";import{Rr as n,Xa as r}from"./console-BU2mh2j5.js";var i=e();function a(){let e=r();return(0,i.jsx)(n,{icon:t,title:e(`Context`),blurb:e(`Everything a session is given besides its ticket`)})}export{a as ContextHead};

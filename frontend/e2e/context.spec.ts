@@ -2,9 +2,8 @@ import { expect, test, type Page } from "@playwright/test"
 
 /* The Context page: the standing context and the vault, as tabs.
  *
- * What is tested is the way a person goes: the page opens on a folded preview
- * of the context, "See all" reads the rest, "Edit" writes it in place with the editor the
- * brief uses, a save reaches the board, leaving with something typed asks first,
+ * What is tested is the way a person goes: the page opens on the editor the
+ * brief uses, already open, a save reaches the board, leaving with something typed asks first,
  * and the old address leads here rather than to the board.
  */
 
@@ -31,20 +30,22 @@ const block = (page: Page) => page.locator('[data-slot="context-block"]')
 test.describe("at 1440px", () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test("the context is folded, read in full and edited in place", async ({ page }) => {
+  test("the context opens in the editor, is edited in place and saved", async ({ page }) => {
     await open(page)
-    await expect(block(page).getByText("Sent to Ponos in every ticket, for all the projects")).toBeVisible()
+    await expect(block(page).getByText("What every ticket is told, for all the projects.")).toBeVisible()
+    await expect(block(page).locator(".ProseMirror")).toBeVisible()
     await expect(block(page).getByText("Rule number 1 of the house.")).toBeVisible()
+    await expect(block(page).getByRole("button", { name: "See all" })).toHaveCount(0)
+    await expect(block(page).getByRole("button", { name: "Edit" })).toHaveCount(0)
+    // One title: the page's head, and the breadcrumb says it once.
+    await expect(page.getByText("Global context")).toHaveCount(0)
+    await expect(page.getByText("What every ticket is told, for all the projects.").locator("visible=true")).toHaveCount(1)
+    // "Context" as a title once (the page's head), and once in the breadcrumb.
+    await expect(page.getByText("Context", { exact: true }).locator("visible=true")).toHaveCount(4) // menu, breadcrumb, head, tab
+    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" })
+    await expect(crumbs.getByText("Context", { exact: true }).locator("visible=true")).toHaveCount(1)
+    await expect(crumbs.locator("li:visible")).toHaveCount(2)
 
-    // Folded: a few lines.
-    const folded = (await block(page).boundingBox())!
-    expect(folded.height).toBeLessThan(260)
-
-    await block(page).getByRole("button", { name: "See all" }).click()
-    await expect(block(page).getByText("Rule number 12 of the house.")).toBeInViewport()
-    await block(page).getByRole("button", { name: "Fold" }).click()
-
-    await block(page).getByRole("button", { name: "Edit" }).click()
     const save = block(page).getByRole("button", { name: "Save", exact: true })
     await expect(save).toBeDisabled()
     await block(page).locator(".ProseMirror").click()
@@ -60,23 +61,21 @@ test.describe("at 1440px", () => {
 
     await save.click()
     await expect(page.getByText("The context is saved")).toBeVisible()
-    await expect(block(page).locator(".ProseMirror")).toBeHidden()
+    await expect(block(page).locator(".ProseMirror")).toBeVisible()
 
     // Written to the board, not just drawn.
     const saved = await (await page.request.get("/api/context")).json()
     expect(saved.text).toContain("Always in French.")
     await page.reload()
-    await block(page).getByRole("button", { name: "See all" }).click()
     await expect(block(page).getByText("Always in French.")).toBeVisible()
   })
 
-  test("an empty context says so, with a button to write it", async ({ page }) => {
+  test("an empty context shows the empty editor", async ({ page }) => {
     await open(page)
     await write(page, "")
     await page.reload()
-    await expect(block(page).getByText(/Nothing is written yet/)).toBeVisible()
-    await block(page).getByRole("button", { name: "Write the context" }).click()
     await expect(block(page).locator(".ProseMirror")).toBeVisible()
+    await expect(block(page).getByRole("button", { name: "Save", exact: true })).toBeDisabled()
   })
 
   test("five tabs, the address carries the tab, and the Projects page no longer holds the context", async ({ page }) => {
