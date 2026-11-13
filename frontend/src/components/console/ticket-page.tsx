@@ -9,6 +9,7 @@ import {
   MessageCircleQuestion,
   RotateCw,
   Scale,
+  Zap,
 } from "lucide-react"
 import { ActionList } from "react-data-form"
 import { Link, useCurrentViewResourceContext } from "react-resource-view"
@@ -240,6 +241,7 @@ function useBrief(page: TicketDetail | undefined) {
     result?: string
     results?: TicketDetail["results"]
     journal?: string
+    on?: string
     model?: TicketDetail["model_in_use"]
     previews?: TicketDetail["previews"]
     problem?: string
@@ -266,6 +268,7 @@ function useBrief(page: TicketDetail | undefined) {
           result: detail.result,
           results: detail.results,
           journal: detail.journal,
+          on: detail.on,
           model: detail.model_in_use,
           previews: detail.previews,
         }),
@@ -283,6 +286,7 @@ function useBrief(page: TicketDetail | undefined) {
     result: mine?.result,
     results: mine?.results,
     journal: mine?.journal,
+    on: mine?.on,
     model: mine?.model,
     previews: mine?.previews,
     problem: mine?.problem,
@@ -616,6 +620,13 @@ function TicketTabs({
         >
           {/* What it opens on: the mission, and its result once there is one. */}
           {t(brief.result?.trim() ? "Result" : "Mission")}
+          {brief.on?.trim() ? (
+            <Zap
+              data-slot="ticket-on-badge"
+              className="text-tr-amber size-3.5"
+              aria-label={t("has an automation prompt")}
+            />
+          ) : null}
         </TabsTrigger>
         <TabsTrigger
           value="discussion" data-slot="ticket-talk-tab"
@@ -688,6 +699,7 @@ function TicketTabs({
               previews={brief.previews}
               onSaved={brief.again}
             />
+            <TicketOn ticket={{ ...ticket, on: brief.on ?? "" }} />
           </div>
         )}
       </TabsContent>
@@ -703,7 +715,6 @@ function TicketTabs({
             </p>
           )}
         </section>
-        {canAct() ? <TicketOn ticket={ticket} /> : null}
         <TicketAudit ticket={ticket} />
       </TabsContent>
       <TabsContent value="discussion">

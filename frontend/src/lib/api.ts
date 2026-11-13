@@ -351,6 +351,8 @@ export const api = {
     goal?: string
     /** « Plan d'abord »: its first session proposes a plan and waits for a yes. */
     plan?: boolean
+    /** The prompt run at every change of its status; empty for none. */
+    on?: string
   }) =>
     answer(
       client.POST("/api/tickets", {

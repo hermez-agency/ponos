@@ -29,4 +29,5 @@ export const PillsInputController = lazily("PillsInputController") as InputContr
 export const ProjectInputController = lazily("ProjectInputController") as InputControllerComponentInterface
 export const GoalInputController = lazily("GoalInputController") as InputControllerComponentInterface
 export const PlanInputController = lazily("PlanInputController") as InputControllerComponentInterface
+export const OnInputController = lazily("OnInputController") as InputControllerComponentInterface
 export const WithProjects = lazily("WithProjects")

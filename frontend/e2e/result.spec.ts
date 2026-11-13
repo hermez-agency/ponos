@@ -49,7 +49,7 @@ test("a result retouched by hand is a new version, the one before kept", async (
   await page.getByRole("button", { name: "Edit" }).click()
   const editor = page.locator('[data-slot="ticket-result-editor"]')
   await editor.fill("Two things shipping small taught me.")
-  await page.getByRole("button", { name: "Save" }).click()
+  await page.getByRole("button", { name: "Save", exact: true }).click()
   const body = page.locator('[data-slot="ticket-result-body"]')
   await expect(body).toHaveText("Two things shipping small taught me.")
 

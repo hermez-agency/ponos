@@ -46,6 +46,7 @@ import {
   NewTicketFields,
   NewTicketFoot,
   PillsInputController,
+  OnInputController,
   PlanInputController,
   ProjectInputController,
   SegmentedInputController,
@@ -194,6 +195,8 @@ export interface TicketWrite {
   goal?: string
   /** « Plan d'abord »: a plan, and a yes, before any code. */
   plan?: boolean
+  /** The prompt run at every change of its status; empty for none. */
+  on?: string
 }
 
 const item = (ticket: Ticket | TicketDetail): TicketItem => ({
@@ -426,6 +429,12 @@ const createForm: FormInterface = {
       // The box says its own name beside it: the field's label is for the screen reader.
       className: "[&_[data-slot=field-label]]:sr-only",
       hidden: () => !currentBoard()?.plan,
+    },
+    // The prompt run at every change of status: written here, kept on the page.
+    on: {
+      label: "Automation (On)",
+      defaultValue: "",
+      controller: OnInputController,
     },
     // Said by the button that sends the form: "Save as draft" or "Launch the ticket".
     ready: { defaultValue: true, hidden: () => true },
@@ -1373,6 +1382,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
         subtype: String(fresh.subtype ?? ""),
         goal: String(fresh.goal ?? ""),
         plan: fresh.plan === true,
+        on: String(fresh.on ?? ""),
       }),
     rollback: () => dropTicket(card.id),
     failure: t("The ticket could not be created"),
