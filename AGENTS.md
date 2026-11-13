@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Ce fichier oriente Claude Code (ou tout agent) dans ce dépôt. La documentation
+Ce fichier oriente un agent de code dans ce dépôt. La documentation
 fait référence — ne la duplique pas ici et ne la résume pas :
 
 - `README.md` — l'accueil, court (moins de 30 Ko, un test le vérifie) : ce que
@@ -310,6 +310,11 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   cardona.digital ; seul un ticket dédié les passe sur un domaine Hermez. De
   même, les préfixes `TR_*` des identifiants techniques : un audit ne les
   remonte pas.
+- **Aucun fichier propre à un outil d'agent n'est commité.** Les instructions
+  sont dans `AGENTS.md` ; les skills dont les sessions ont besoin (`release`,
+  `shadcn`) viennent de Ponos, Contexte › Skills, portée Ponos. `.claude/`,
+  `skills-lock.json` et `CLAUDE.md` ne sont pas suivis, et le runner refuse de
+  pousser une branche qui les ajoute (`agent_files.py`).
 - **Plus de filet de migration.** Personne d'autre n'utilise Ponos, et
   l'installation de cette machine est migrée : le code qui ne servait qu'à
   reprendre une installation d'avant (le nom `ticket-runner`, les anciens

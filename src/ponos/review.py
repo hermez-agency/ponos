@@ -49,8 +49,9 @@ MOST = 8
 # in its prompt. Past it, it is told so, and reads the rest in the worktree.
 DIFF_LIMIT = 80_000
 INSTRUCTIONS_LIMIT = 20_000
-# Where a repository says how it is worked on, in the order they are read.
-INSTRUCTIONS = ("CLAUDE.md", "AGENTS.md")
+# Where a repository says how it is worked on, in the order they are read:
+# AGENTS.md first — in a repository that has both, it is the one that counts.
+INSTRUCTIONS = ("AGENTS.md", "CLAUDE.md")
 
 # The verdict line, with whatever Markdown a session puts around a line it is
 # proud of: `**REVIEW: ok**`, `> REVIEW: blocking`.

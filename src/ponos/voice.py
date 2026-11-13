@@ -576,6 +576,18 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "the commits are there, but pushing them was refused",
         "fr": "les commits sont là, mais leur push a été refusé",
     },
+    "agent-files-refused": {
+        "en": "the branch commits agent files, so it was not pushed",
+        "fr": "la branche commite des fichiers d'agent, elle n'a donc pas été poussée",
+    },
+    "agent-files-detail": {
+        "en": "These paths are Claude Code's, not the project's, and no pull request carries "
+        "them: {paths}. Take them out of the branch's commits (its history included) and "
+        "answer to push again — the branch `{branch}` is kept here.",
+        "fr": "Ces chemins sont à Claude Code, pas au projet, et aucune pull request ne les "
+        "porte : {paths}. Retirez-les des commits de la branche (historique compris) puis "
+        "répondez pour relancer le push — la branche `{branch}` est conservée ici.",
+    },
     "push-refused-detail": {
         "en": "The branch `{branch}` is kept here, so nothing is lost.",
         "fr": "La branche `{branch}` est conservée ici, donc rien n'est perdu.",

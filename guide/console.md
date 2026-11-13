@@ -754,7 +754,8 @@ at most, a skill 100 files and 5 MB.
 **What reaches a session.** When a ticket's session starts on a repository, the active skills whose
 scope covers its project are written in its worktree, under `.claude/skills/<name>/` — the worktree of
 the ticket only, never the project's own checkout. Each folder carries a `.gitignore` made of `*`, so
-that the skills are in no commit and no pull request. A worktree picked up again has its skills
+that the skills are in no commit and no pull request — and `.claude/` as a whole is left out of
+commits besides ([No agent tool's files in the repository](tickets.md#no-agent-tools-files-in-the-repository)). A worktree picked up again has its skills
 redone, and a skill disabled since is removed from it. Another project's skills are never there.
 
 **The repository wins.** A skill the repository already provides (`.claude/skills/<name>` in the
