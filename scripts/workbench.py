@@ -189,7 +189,10 @@ def stage(
     """
     config = here / "config.toml"
     config.write_text(
-        "[runner]\nauto_update = false\n",
+        # No desktop notification either: one from a console of fixtures lands
+        # on your real desktop, about a ticket that does not exist, linked to
+        # the real console's port.
+        "[runner]\nauto_update = false\n\n[notify]\ndesktop = false\n",
         encoding="utf-8",
     )
     head = subprocess.run(
@@ -224,6 +227,9 @@ def stage(
     (here / "home").mkdir()
     # Nor the key of the vault of the console you run for yourself.
     os.environ.pop("PONOS_VAULT_KEY", None)
+    # Nor its desktop: with no session bus, even a configuration that turned
+    # the notifications back on would have nowhere to post them.
+    os.environ.pop("DBUS_SESSION_BUS_ADDRESS", None)
     os.environ.update(
         PATH=f"{bin}{os.pathsep}{os.environ.get('PATH', '')}",
         HOME=str(here / "home"),
