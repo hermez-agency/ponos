@@ -2224,3 +2224,28 @@ def an_unsigned_pull_request_is_opened_without_the_signature() -> None:
     with _git_answering(run=existing, token_for=lambda *_, **__: ""):
         assert git_module.unsign_pull_request("https://github.com/x/y/pull/7")
     assert edited[-1] == ["gh", "pr", "edit", "https://github.com/x/y/pull/7", "--body", "Done."]
+
+
+@case
+def the_logs_ceiling_spares_the_tickets_in_use(state_home: Path) -> None:
+    """The ticket: `logs/` never goes over `log_max_mb`; the logs of a ticket that
+    is running, blocked, in review or validated stay even past it, and the
+    service journal with them."""
+    pages = [
+        _aged_page("page-aaaaaaa1", "blocked", 1),
+        _aged_page("page-aaaaaaa2", "done", 1),
+        _aged_page("page-aaaaaaa3", "validated", 1),
+    ]
+    logs = state_home / "logs"
+    blocked = _aged(logs / "20261101-000001-aaaaaaa1.jsonl", 20, directory=False)
+    validated = _aged(logs / "20261101-000002-aaaaaaa3.jsonl", 19, directory=False)
+    done = _aged(logs / "20261101-000003-aaaaaaa2.jsonl", 10, directory=False)
+    service = _aged(logs / "ponos.log", 30, directory=False)
+    for path in (blocked, validated, done, service):
+        path.write_bytes(b"x" * 600_000)
+    runner = _tidying(pages)
+    runner.config.runner.log_max_mb = 1
+    found = runner.rotate_logs()
+    assert found is not None and found.removed == 1 and found.blocked
+    assert not done.exists()
+    assert blocked.exists() and validated.exists() and service.exists()

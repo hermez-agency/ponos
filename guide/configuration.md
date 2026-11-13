@@ -146,6 +146,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `runner.interval_seconds` | `1800` | the daemon's safety net: it looks at the whole board — ready column, validated column, CI, reviews, merged pull requests, the mirror — at least this often, whatever woke it in between. A ticket made ready is started within seconds whatever this says; read again when the file changes |
 | `runner.max_concurrent` | `2` | tickets handled side by side — an empty place is filled from the board without waiting for anything to end |
 | `runner.timeout_minutes` | `30` | past this, the session is killed and the ticket fails |
+| `runner.log_max_mb` | `4096` | the most `logs/` may hold, service journal included; past it the oldest logs are removed down to 90 % of it, never those of a ticket in use — see [What `clean` removes](usage.md#what-clean-removes-and-what-it-refuses-to) |
 | `runner.wait_for_credits` | `true` | a spent subscription window puts the runner to sleep instead of failing tickets — see [When the credits run out](credits.md#when-the-credits-run-out) |
 | `runner.model` | `""` | `"opus"`, `"sonnet"`… empty = the CLI's default |
 | `runner.language` | `""` | `"fr"` to be answered in French — see [The language it answers in](board.md#the-language-it-answers-in) |

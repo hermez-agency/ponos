@@ -1,0 +1,1 @@
+export{n as ProjectHead,i as ProjectPage}from"./project-page-C_6L30AH.js";

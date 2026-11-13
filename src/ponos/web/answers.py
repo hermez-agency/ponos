@@ -1686,6 +1686,7 @@ class Disk(Shape):
     measured_at: str
     tidied_at: str
     retention_days: int
+    logs_max_mb: int
     clean_done_worktrees: bool
 
 

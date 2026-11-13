@@ -65,6 +65,8 @@ STOP_GRACE_SECONDS = 60.0
 # place the limit did not count, and an adopted session needs a thread to be
 # followed in whatever the limit now says.
 THREADS = 64
+# How often the upkeep looks at the size of logs/ — see rotation.py.
+LOG_ROTATION_SECONDS = 3600
 
 
 @dataclass
@@ -122,6 +124,7 @@ class Scheduler(adoption.Adoption):
         self._heard = -1
         self._ending_at: tuple[str, float] | None = None
         self._upkeeping = threading.Lock()
+        self._rotated_at = 0.0
         pool = ThreadPoolExecutor(max_workers=THREADS, thread_name_prefix="tr-place")
         for ticket_id, project, title, work in self.orphans():
             self._occupy(pool, Place("ticket", ticket_id, title, project), work)
@@ -427,6 +430,7 @@ class Scheduler(adoption.Adoption):
             self.sweep()
             self.close_merged()
             self.tidy()
+            self._rotate_logs()
         results += self.born()
         settled, fresh = self.delivering(self._carried)
         results += settled
@@ -439,6 +443,16 @@ class Scheduler(adoption.Adoption):
             self._said += results
         if fresh:
             self.say(f"  ↺ {len(fresh)} ticket(s) validated — carried out at the next free place")
+
+    def _rotate_logs(self) -> None:
+        """The logs' ceiling, at the start and then once an hour — in the upkeep, never in a place."""
+        if time.time() - self._rotated_at < LOG_ROTATION_SECONDS:
+            return
+        self._rotated_at = time.time()
+        try:
+            self.rotate_logs()
+        except Exception:
+            logger.exception("the logs could not be rotated")
 
     def _quiet(self, upkeep: threading.Thread) -> bool:
         """Whether all that is in flight is sessions a restart carries on, and the upkeep idle."""

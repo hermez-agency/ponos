@@ -209,6 +209,7 @@ class RunnerTable(Table):
     interval_seconds: AtLeast1 = Runner.interval_seconds
     max_concurrent: AtLeast1 = Runner.max_concurrent
     timeout_minutes: AtLeast1 = Runner.timeout_minutes
+    log_max_mb: AtLeast1 = Runner.log_max_mb
     wait_for_credits: bool = Runner.wait_for_credits
 
     model: Text = Runner.model

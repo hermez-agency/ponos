@@ -51,6 +51,7 @@ hundred tickets, and at a ten-second cadence that is a rate limit for nothing.
 from __future__ import annotations
 
 import fnmatch
+import logging
 import os
 import shutil
 import time
@@ -58,11 +59,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from . import db, git, leftovers, state, store
+from . import db, git, leftovers, rotation, state, store
 from .base import Base
 from .config import cache_dir, state_dir
 from .ticket import short_id
 from .web import oauth
+
+logger = logging.getLogger(__name__)
 
 DAY = 86400
 
@@ -265,6 +268,49 @@ class Tidied:
 
 class Cleanup(Base):
     """The daily tidy of the state directory."""
+
+    def rotate_logs(self) -> rotation.Rotation | None:
+        """Keep `logs/` under `runner.log_max_mb` — see rotation.py. None when nothing was asked of it.
+
+        The board is read only when the folder is over the ceiling, and a board
+        that cannot be read stops the rotation: which logs are in use is
+        something only the board says, and a log removed on a guess is gone.
+        """
+        cap = self.config.runner.log_max_mb * 1024 * 1024
+        held = rotation.size()
+        if held <= cap:
+            found = rotation.Rotation(at=time.time(), cap=cap, size=held)
+            rotation.keep(found)
+            return found
+        try:
+            pages = self.client.query(self.database)
+        except store.StoreError as error:
+            self.say(f"  ! logs not rotated: the board could not be read — {error}")
+            return None
+        status = self.config.board.prop("status")
+        keeping = {
+            self.config.board.state(name) for name in ("running", "blocked", "review", "validated")
+        }
+        protected = {short_id(ticket) for ticket in state.going()}
+        protected |= {short_id(page.id) for page in pages if store.read(page, status) in keeping}
+        found = rotation.rotate(cap, protected)
+        rotation.keep(found)
+        if found.removed:
+            logger.info(
+                "logs rotated: %d file(s) removed, %s freed, %s left (ceiling %s)",
+                found.removed,
+                human(found.freed),
+                human(found.size),
+                human(cap),
+            )
+        if found.blocked:
+            logger.warning(
+                "logs/ holds %s, over its %s ceiling, and what is left belongs to tickets in"
+                " use: nothing more is removed (runner.log_max_mb)",
+                human(found.size),
+                human(cap),
+            )
+        return found
 
     def tidy(self, *, now: bool = False) -> Tidied | None:
         """Apply the retention, once a day — or `now`, when the console asks.

@@ -366,6 +366,16 @@ SECTIONS: tuple[Section, ...] = (
                 minimum=1,
                 unit="minutes",
             ),
+            Field(
+                "runner",
+                "log_max_mb",
+                "int",
+                "Logs: ceiling",
+                "The most the logs folder may hold. Past it, the oldest session logs are "
+                "removed, down to 90 % of it — never those of a ticket in use.",
+                minimum=1,
+                unit="MB",
+            ),
         ),
     ),
     Section(

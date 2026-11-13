@@ -3161,6 +3161,7 @@ export interface components {
             measured_at: string;
             tidied_at: string;
             retention_days: number;
+            logs_max_mb: number;
             clean_done_worktrees: boolean;
             removed: number;
             logs: number;
@@ -3306,6 +3307,7 @@ export interface components {
             measured_at: string;
             tidied_at: string;
             retention_days: number;
+            logs_max_mb: number;
             clean_done_worktrees: boolean;
         };
         /** @description Whether Docker is installed on the runner's machine, and whether its daemon answers. */

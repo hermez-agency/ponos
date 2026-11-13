@@ -141,6 +141,17 @@ and named. A branch is deleted only when a remote holds all its commits. A
 folder under `worktrees/` that no repository knows, with no `.git` and no ticket
 on the board, goes like an orphan scratch directory.
 
+Apart from that daily tidy, `logs/` has a ceiling of its own: `runner.log_max_mb`
+(4 096 MB). At the daemon's start and then at most once an hour, a folder over it
+loses its oldest files — by modification date, the service journal's rotated
+`ponos.log.N` included — down to 90 % of the ceiling. The logs of a ticket a session
+is working on, or that is running, blocked, in review or validated, and the live
+`ponos.log`, are never removed: when only those remain over the ceiling, the journal
+says so (WARNING) and so does `ponos doctor`, which also shows the folder's size.
+Each rotation is noted in `ponos.log` (files, size freed); a log that was removed is
+reported as "removed by the rotation" by `ponos logs <id>` and by the console, and
+`ponos.db` keeps the run, its outcome and its cost.
+
 The same tidy empties the temporary folders — each session works in a `TMPDIR`
 of its own under `~/.cache/ponos/tmp`, removed when it ends, and what is left
 after `tmp_retention_hours` goes, with the old `tmp*` folders of `~/.cache` and

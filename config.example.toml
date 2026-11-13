@@ -20,6 +20,7 @@ workspace_root = "~/workspace"   # where the repositories are cloned and found
 interval_seconds = 1800          # the daemon looks at the whole board at least this often
 max_concurrent = 2               # sessions at once
 timeout_minutes = 30             # one session
+log_max_mb = 4096                # the most logs/ may hold; the oldest session logs go past it
 language = ""                    # of the reports: "fr", "en"; empty is English
 app_language = ""                # of the console; empty follows language, then the browser
 model = ""                       # a session's model; empty is the CLI's own

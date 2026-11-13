@@ -69,6 +69,7 @@ class Upkeep(Base):
                 else ""
             ),
             "retention_days": settings.log_retention_days,
+            "logs_max_mb": settings.log_max_mb,
             "clean_done_worktrees": settings.clean_done_worktrees,
         }
 

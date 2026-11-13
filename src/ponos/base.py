@@ -51,6 +51,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from . import question as question_module
+    from . import rotation
     from .board import InHand
     from .cleanup import Tidied
     from .projects import Project
@@ -126,6 +127,7 @@ if TYPE_CHECKING:
 
         # cleanup.py
         def tidy(self, *, now: bool = False) -> Tidied | None: ...
+        def rotate_logs(self) -> rotation.Rotation | None: ...
 
         # delivery.py
         def validated_column(self) -> bool: ...

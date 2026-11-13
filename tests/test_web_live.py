@@ -106,6 +106,21 @@ def a_ticket_finds_its_own_session_and_tells_what_the_agent_said_from_what_it_di
 
 
 @case
+def a_log_the_rotation_removed_is_said_so(state_home: Path) -> None:
+    api = _bare_api(_TalkClient([]))
+    try:
+        api.log("20260830-120000-1a2b3c4d.jsonl")
+    except LookupError as error:
+        assert "removed by the rotation" in str(error), error
+    else:
+        raise AssertionError("a missing log must be reported")
+    try:
+        api.log("whatever.jsonl")
+    except LookupError as error:
+        assert "no such log" in str(error), error
+
+
+@case
 def a_session_log_is_tailed_forward_and_never_twice() -> None:
     hub = web_live.Hub()
     with tempfile.TemporaryDirectory() as directory:
