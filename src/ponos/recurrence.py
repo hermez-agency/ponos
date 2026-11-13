@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from . import priority, state, store, ticket_page
+from . import goals, priority, state, store, ticket_page
 from . import schedules as schedules_module
 from . import voice as voice_module
 from .base import Base
@@ -215,6 +215,10 @@ class Recurrence(Base):
         writes its answer in the page and goes to done, its pull request opened
         by hand and lost to the board.
 
+        The goal it serves, if it has one and that goal still stands, is written
+        the way a ticket created with a goal has it. One deleted, over or in the
+        trash is skipped without a word: the ticket is born without it.
+
         A schedule that fails takes only itself down: the pass says so and moves
         on to the next one. `strict`, for a launch somebody asked for: the
         failure is raised to them instead.
@@ -232,6 +236,11 @@ class Recurrence(Base):
         ):
             if value:
                 values[settings.prop(key)] = value
+        if schedule.goal and goals.resolve(self.client, schedule.goal):
+            # Through the column a ticket written with a goal uses. A goal that
+            # is gone, in the trash or over is not served: the ticket is born
+            # without one and the schedule goes on.
+            values[settings.prop("goal")] = [schedule.goal]
         if not schedule.kind and self._untyped(schedule):
             values[settings.prop("type")] = settings.kind("code")
         # Always written: a ticket a schedule makes says its score on the board,

@@ -314,6 +314,8 @@ def shape(settings: BoardNames) -> dict[str, dict[str, str]]:
             prop("subtype"): "select",
             prop("last_ticket"): "relation",
             prop("project"): "relation",
+            # The goal every ticket it makes serves, when it serves one.
+            prop("goal"): "relation",
         },
         # A goal is a name, what meets it and when. The tickets point at the
         # goal, never the other way round: `Api.goals` counts them.

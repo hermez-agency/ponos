@@ -420,3 +420,50 @@ def a_dry_run_keeps_no_occurrence(state_home: Path) -> None:
     runner = _recurring([_schedule_page("s-1", next=stale)], dry_run=True)
     runner.recur()
     assert state.occurrences("s-1") == []
+
+
+def _goal_page(page_id: str, status: str = "") -> store.Page:
+    return store.Page(
+        id=page_id,
+        url="",
+        title="Hermez se voit",
+        properties={"Statut": {"type": "select", "select": {"name": status}}} if status else {},
+    )
+
+
+@case
+def a_schedule_that_serves_a_goal_makes_tickets_that_serve_it() -> None:
+    """The goal goes into the column a ticket created with a goal has, whether the
+    occurrence comes from a pass or from the button — and a schedule with none writes none."""
+    stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    runner = _recurring(
+        [_schedule_page("s-1", next=stale, goal="g-1"), _schedule_page("s-2", next=stale)],
+        tickets={"g-1": _goal_page("g-1")},
+    )
+    assert len(runner.recur()) == 2
+    (_, served), (_, free) = _schedules(runner).created
+    assert served["Objectif"] == ["g-1"]
+    assert "Objectif" not in free
+
+    runner.launch("s-1")
+    assert _schedules(runner).created[-1][1]["Objectif"] == ["g-1"]
+
+
+@case
+def a_goal_that_is_gone_or_over_leaves_the_schedule_running_without_it() -> None:
+    """Deleted (no page), in the trash or marked reached: the ticket is born all the
+    same, serving nothing."""
+    stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    trashed = _goal_page("g-2")
+    trashed.raw["in_trash"] = True
+    runner = _recurring(
+        [
+            _schedule_page("s-1", next=stale, goal="g-gone"),
+            _schedule_page("s-2", next=stale, goal="g-2"),
+            _schedule_page("s-3", next=stale, goal="g-3"),
+        ],
+        tickets={"g-2": trashed, "g-3": _goal_page("g-3", "Atteint")},
+    )
+    assert len(runner.recur()) == 3
+    for _, values in _schedules(runner).created:
+        assert "Objectif" not in values

@@ -47,6 +47,7 @@ vi.mock("@/resources/tickets", () => ({
   ticketHref: (id: string) => `/tickets/${id}`,
   tickets: { name: "tickets" },
 }))
+vi.mock("@/resources/schedules", () => ({ scheduleHref: (id: string) => `/schedules/${id}` }))
 vi.mock("@/lib/board-store", () => ({ useBoard: () => ({ columns: [], tickets: [] }) }))
 vi.mock("./record-window", () => ({ useOpensOverTheList: () => ({ to: "", onClick: () => {} }) }))
 
@@ -71,6 +72,29 @@ describe("a goal's page", () => {
     const dialog = await screen.findByRole("alertdialog")
     expect(dialog.textContent).toContain("The goal is deleted.")
     expect(dialog.textContent).toContain("Its tickets stay where they are")
+  })
+})
+
+describe("the schedules a goal's page lists", () => {
+  test("lists those that serve it, each a way to its page, and says a paused one is", () => {
+    world.goal = {
+      ...goal(""),
+      recurrences: [
+        { id: "s1", name: "Article de blog", active: true },
+        { id: "s2", name: "Revue", active: false },
+      ],
+    }
+    render(<GoalPage />)
+    expect(screen.getByRole("link", { name: "Article de blog" }).getAttribute("href")).toBe("/schedules/s1")
+    const rows = document.querySelectorAll("[data-goal-schedule]")
+    expect(rows).toHaveLength(2)
+    expect(rows[1].textContent).toContain("Paused")
+  })
+
+  test("draws nothing for a goal no schedule serves", () => {
+    world.goal = goal("")
+    render(<GoalPage />)
+    expect(document.querySelector("[data-slot=goal-schedules]")).toBeNull()
   })
 })
 

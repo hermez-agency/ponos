@@ -16,6 +16,7 @@ import { locale } from "@/lib/recurrence"
 import type { Schedule, ScheduleActivity, ScheduleRun, ScheduleTicket, StatisticsDay } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { projectHref, useWide } from "@/resources/projects"
+import { goalHref } from "@/resources/goals"
 import {
   ActivateButton,
   ActiveSwitch,
@@ -240,6 +241,13 @@ export function SchedulePanel({ schedule }: { schedule: Schedule }) {
           <AlertDescription>{schedule.problem}</AlertDescription>
         </Alert>
       ) : null}
+      {schedule.goal_lost ? (
+        <Alert data-schedule-goal-lost>
+          <AlertDescription>
+            {t("Its goal is gone or over: its tickets are born without one.")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {read?.problem ? (
         <p className="text-tr-amber border-tr-amber/30 bg-tr-amber/10 rounded-xl border px-4 py-2.5 text-sm">
           {read.problem}
@@ -286,6 +294,15 @@ function ScheduleHead({ schedule }: { schedule: Schedule }) {
                 className="hover:text-foreground underline-offset-2 hover:underline"
               >
                 <ProjectOf said={schedule.project} page={schedule.project_id} />
+              </Link>
+            ) : null}
+            {schedule.goal_id && schedule.goal && !schedule.goal_lost ? (
+              <Link
+                to={goalHref(schedule.goal_id)}
+                data-schedule-goal
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                {schedule.goal}
               </Link>
             ) : null}
             {reachable(schedule.url) ? (

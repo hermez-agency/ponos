@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useConsole } from "@/hooks/use-console"
 import { api } from "@/lib/api"
 import { useBoard } from "@/lib/board-store"
+import { goalsOnce, useGoals } from "@/resources/goals"
 import { enterLabel } from "@/lib/confirm"
 import { projectFirst } from "@/lib/goal-search"
 import { isMac } from "@/lib/hotkeys"
@@ -183,6 +184,23 @@ export const GoalInputController: InputControllerComponentInterface = (props) =>
   const goals = useBoard().choices?.goal ?? []
   const [none] = props.formInput.valueOptions ?? []
   const valueOptions = none ? [none, ...projectFirst(goals, project, (goal) => goal.projects ?? [])] : []
+  return <ComboboxInputController {...props} formInput={{ ...props.formInput, valueOptions }} />
+}
+
+/* The goals still worked toward, and the one the schedule already points at
+ * even once it is over — said by its name, so the field never reads empty over
+ * a goal that is there. "No goal" stays on top. */
+export const GoalOfInputController: InputControllerComponentInterface = (props) => {
+  const { goals: known } = useGoals()
+  React.useEffect(() => {
+    void goalsOnce().catch(() => null)
+  }, [])
+  const current = String(props.formInput.value ?? "")
+  const offered = (known ?? []).filter((goal) => goal.active !== false || goal.id === current)
+  const valueOptions = [
+    { value: "", label: t("no goal") },
+    ...offered.map((goal) => ({ value: goal.id, label: goal.name })),
+  ]
   return <ComboboxInputController {...props} formInput={{ ...props.formInput, valueOptions }} />
 }
 
