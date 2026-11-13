@@ -300,6 +300,21 @@
     }
   }
 
+  /* The Context page says its name once. Its head is the title; the card each
+     tab draws over its content (the tab's name again, and its sentence, which
+     the tab's own component writes) and the breadcrumb's record segment (the
+     page's name, after the resource's, which is the same word) are left out —
+     the breadcrumb is then "Ponos › Context", the dangling chevron included. */
+  body:has([data-slot="context-page-head"]) {
+    [data-slot="tabs-content"] > [data-slot="card-header"],
+    nav[aria-label="Breadcrumb"] li:last-child:not(:first-child) {
+      display: none;
+    }
+    nav[aria-label="Breadcrumb"] li:nth-last-child(2) svg {
+      display: none;
+    }
+  }
+
   /* A page's head on a phone, under 200px: the audit found the first idea at
      520px and the first schedule at 440px, under a head that said in four
      lines what the menu had just named. The sentence under the title is the

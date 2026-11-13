@@ -39,6 +39,12 @@ test.describe("at 1440px", () => {
     await expect(block(page).getByRole("button", { name: "Edit" })).toHaveCount(0)
     // One title: the page's head, and the breadcrumb says it once.
     await expect(page.getByText("Global context")).toHaveCount(0)
+    await expect(page.getByText("What every ticket is told, for all the projects.").locator("visible=true")).toHaveCount(1)
+    // "Context" as a title once (the page's head), and once in the breadcrumb.
+    await expect(page.getByText("Context", { exact: true }).locator("visible=true")).toHaveCount(4) // menu, breadcrumb, head, tab
+    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" })
+    await expect(crumbs.getByText("Context", { exact: true }).locator("visible=true")).toHaveCount(1)
+    await expect(crumbs.locator("li:visible")).toHaveCount(2)
 
     const save = block(page).getByRole("button", { name: "Save", exact: true })
     await expect(save).toBeDisabled()
