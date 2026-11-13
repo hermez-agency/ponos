@@ -109,7 +109,8 @@ create_task accepte aussi un modèle (model) et un prompt « on », que Ponos ex
 à chaque changement de statut de la tâche : de quoi préparer des tâches enchaînées.
 - Les objectifs (list_goals) se créent et se modifient ici (create_goal, update_goal), par le \
 même circuit que la console ; un objectif se désactive (active=false), il ne se supprime pas : \
-aucun outil ne le fait.
+aucun outil ne le fait. set_task_goal rattache des tâches existantes à un objectif, ou les en \
+détache (objectif vide), par le même circuit que la barre « Objectif » de la console.
 - Une récurrence créée ici (create_schedule) naît toujours désactivée, quoi qu'on demande : \
 la personne la relit et l'active depuis la console, où elle porte un badge « à relire » \
 jusque-là. update_schedule en change les champs, jamais l'activation. Aucun outil ne \
@@ -369,6 +370,31 @@ TOOLS: list[dict[str, Any]] = [
                 **GOAL_FIELDS,
             },
             ("goal",),
+        ),
+    },
+    {
+        "name": "set_task_goal",
+        "title": "Rattacher des tâches à un objectif",
+        "scope": WRITE,
+        "description": "Rattache une ou plusieurs tâches existantes à un objectif (nom ou "
+        "identifiant donné par list_goals), ou les en détache avec une chaîne vide, par le même "
+        "circuit que la barre « Objectif » de la console. Tout est vérifié avant d'écrire : une "
+        "tâche ou un objectif inconnu refuse l'ensemble. Renvoie, pour chaque tâche, l'objectif "
+        "d'avant et celui d'après.",
+        "inputSchema": _schema(
+            {
+                "tasks": {
+                    "type": "array",
+                    "items": TASK_REFERENCE,
+                    "minItems": 1,
+                    "description": "Les tâches, par identifiant long ou court.",
+                },
+                "goal": {
+                    "type": "string",
+                    "description": "Le nom ou l'identifiant de l'objectif ; vide pour détacher.",
+                },
+            },
+            ("tasks",),  # `goal` may be empty, which the generic check would refuse
         ),
     },
     {
@@ -1296,6 +1322,27 @@ def update_goal(api: Api, goal: str, **fields: Any) -> dict[str, Any]:
     return next(one for one in rows if one["id"] == wanted["id"])
 
 
+def set_task_goal(api: Api, tasks: list[str], goal: str | None = None) -> dict[str, Any]:
+    if not tasks:
+        raise ToolError("Donner au moins une tâche.")
+    if goal is None:
+        raise ToolError("Donner l'objectif (nom ou identifiant), ou une chaîne vide pour détacher.")
+    served = _goal(api, goal) if goal.strip() else None
+    cards = [_card(api, reference) for reference in tasks]  # all known before any write
+    rows: list[dict[str, Any]] = []
+    for card in cards:
+        api.set_ticket_goal(card["id"], served["id"] if served else "")
+        rows.append(
+            {
+                "id": card["id"],
+                "title": card["title"] or "(sans titre)",
+                "before": card.get("goal") or "",
+                "after": served["name"] if served else "",
+            }
+        )
+    return {"tasks": rows}
+
+
 def create_task(
     api: Api,
     title: str,
@@ -1720,6 +1767,7 @@ HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "runner_status": runner_status,
     "list_ideas": list_ideas,
     "list_goals": list_goals,
+    "set_task_goal": set_task_goal,
     "create_task": create_task,
     "list_schedules": list_schedules,
     "create_goal": create_goal,
