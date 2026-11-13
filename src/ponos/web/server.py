@@ -382,10 +382,10 @@ _FRENCH = {
     "Read the tasks, the projects, the ideas and what the runner is doing": "Lire les tâches, les projets, les idées et ce que fait le runner",
     "Allowing sends the key to <strong>{host}</strong>.": "Autoriser envoie la clé à <strong>{host}</strong>.",
     "This client has never been allowed here before.": "Ce client n'a encore jamais été autorisé ici.",
-    "Write: create draft tasks, answer the blocked ones, sort the ideas": "Écrire : créer des tâches en brouillon, répondre aux tâches bloquées, trier les idées",
-    "An answered task starts its session again, with every right on this machine. A task created "
-    "here stays a draft until you set it ready in the console.": "Une tâche à qui l'on répond relance sa session, avec tous les droits sur cette machine. "
-    "Une tâche créée ici reste en brouillon jusqu'à ce que vous la passiez en ready dans la console.",
+    "Write: create tasks, launch them once you said yes, answer the blocked ones, sort the ideas": "Écrire : créer des tâches, les lancer après votre « oui », répondre aux tâches bloquées, trier les idées",
+    "A task answered or launched starts a session, with every right on this machine. A task is "
+    "only launched once you said yes, and never if the settings say the assistant may not.": "Une tâche à qui l'on répond, ou qu'on lance, démarre une session, avec tous les droits sur cette machine. "
+    "Une tâche n'est lancée qu'après votre « oui », et jamais si les réglages l'interdisent à l'assistant.",
     "No tool runs a command, changes the settings or deletes anything.": "Aucun outil ne lance de commande, ne modifie les réglages ni ne supprime quoi que ce soit.",
     "Allow": "Autoriser",
     "Refuse": "Refuser",
@@ -646,8 +646,8 @@ def consent_page(
         # Left unticked: writing is what can start a session on this machine,
         # and a page somebody else opened for you should not give it by default.
         f'<label class="scope"><input type="checkbox" name="write" value="1"> '
-        f"{say('Write: create draft tasks, answer the blocked ones, sort the ideas')}</label>"
-        f"<p>{say('An answered task starts its session again, with every right on this machine. A task created here stays a draft until you set it ready in the console.')}</p>"
+        f"{say('Write: create tasks, launch them once you said yes, answer the blocked ones, sort the ideas')}</label>"
+        f"<p>{say('A task answered or launched starts a session, with every right on this machine. A task is only launched once you said yes, and never if the settings say the assistant may not.')}</p>"
         if oauth.WRITE in request.scopes
         else ""
     )

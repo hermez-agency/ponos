@@ -1373,6 +1373,12 @@ _SAID: dict[str, dict[str, str]] = {
     # done, and nothing of how.
     "ticket-paused": {"en": "Paused", "fr": "Mis en pause"},
     "ticket-abandoned": {"en": "Abandoned", "fr": "Abandonné"},
+    # Written on a ticket an MCP client put in Ready — the console's assistant,
+    # claude.ai — once the person said yes: who launched it, read on the ticket.
+    "ticket-launched-assistant": {
+        "en": "Launched from the assistant ({client})",
+        "fr": "Lancé depuis l'assistant ({client})",
+    },
     "decided-validate": {"en": "validated", "fr": "validé"},
     "decided-rework": {
         "en": "back to work with an instruction",

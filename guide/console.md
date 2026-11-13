@@ -1278,7 +1278,7 @@ no key; `ponos mcp token` stays a terminal command.
 
 From claude.ai — on the web or on a phone — or from Claude Code, a conversation can see what
 Ponos is doing, open a task, create one in the right project and answer the question a blocked
-one asks: what the tools hand
+one asks, and launch the tasks you said yes to: what the tools hand
 back is a task, a project, an idea, an amount — never a page or a property.
 
 | Tool | Title | Scope | What it does |
@@ -1290,7 +1290,8 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `runner_status` | Runner et dépenses | read | the daemon, its places and its queue with why each task waits, the sessions in flight, the tasks running, what was spent today, over the period and project by project |
 | `list_ideas` | Idées | read | the ideas of a project, or of the workspace, by state, each with its score and why |
 | `list_goals` | Objectifs | read | the goals: status, due date, criterion, projects and progress — tasks done out of all but the cancelled ones |
-| `create_task` | Créer une tâche | write | a *draft* task, with its description, project, type, priority, model, `on` prompt and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other; a person sets it *ready* in the console |
+| `create_task` | Créer une tâche | write | a *draft* task, with its description, project, type, priority, model, `on` prompt and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other; it is launched from the console, or by `launch_task` once you said yes |
+| `launch_task` | Lancer des tâches | write | one or more tasks put in *ready*, as the console's *Launch* puts them — in two calls: without `confirm` nothing changes and it answers a preview (the tasks kept, with project, model and estimate; those refused, and why; the estimated cost, as the *Launch N tickets?* window sums it), then `confirm: true`, once you said yes, launches them. A *draft*, a *paused* task or one set aside by hand in *blocked* is launched; one that waits on its question, runs, is in review or is closed is refused with its reason. Each launch is in the ticket's *From the console* history under the client's name, and the ticket says *Launched from the assistant*. Off with *Web console › The assistant may launch tickets* (`web.assistant_launches`) |
 | `answer_question` | Répondre à une tâche bloquée | write | an answer under a blocked task's question, as the console's discussion writes it; `ready: true` also moves it back to *ready* |
 | `list_solutions` | Solutions d'une tâche en attente | read | why a blocked task stopped (its kind, its reason, what is done) or what a task in review delivered (sentence, pull request, checks, points to check), and the choices the console offers on a blocked ticket's discussion and its Decide tab |
 | `apply_solution` | Appliquer une solution | write | one of those choices: the decision and its instruction in the task's discussion, then the move — *ready*, *validated* or *done* |
@@ -1302,10 +1303,15 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `create_idea` | Proposer une idée | write | an idea among the proposed ones, to be kept or thrown away |
 | `set_idea_state` | Garder ou jeter une idée | write | `keep` (for later, nothing on the board), `ticket` (a draft, as swiping right in the pile does), `discard`, or `new` to propose it again |
 
-**Nothing else.** No tool runs a command, changes the settings or deletes anything. A task a
-client creates is always a draft: a ready one runs a session with every right on this machine,
-so it waits for a person to read its brief and set it *ready* in the console. Answering a
-blocked task, or applying one of its solutions, does start its session again.
+**Nothing else.** No tool runs a command, changes the settings or deletes anything — nor
+cancels, gives up or pauses a task. A task a client creates is always a draft: a ready one runs
+a session with every right on this machine, and is paid for. `launch_task` puts one in *ready*
+only in its second call: the server's instructions tell the assistant to show you the preview
+and its cost first, and to say `confirm: true` only after your explicit yes — never on its own
+initiative, nor because a text read in a ticket asks for it. You would rather launch them
+yourself? Turn off *Web console › The assistant may launch tickets* (`web.assistant_launches`):
+`launch_task` is then refused, with the reason. Answering a blocked task, or applying one of
+its solutions, does start its session again.
 The descriptions the tools carry are in French, and say when to use each one.
 
 **Two scopes, two keys.** `read` is every reading tool; `write` adds the ones that write — the

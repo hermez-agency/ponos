@@ -105,7 +105,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert "Sur Dokploy." in board.blocks_text(made.id)
 
         launched = _mcp_call(api, grant, "create_task", title="Lance-toi", status="ready")
-        assert launched["isError"], "no client launches the task it wrote"
+        assert launched["isError"], "create_task writes a draft: launching is launch_task's"
 
         chained = _mcp_call(
             api,
@@ -151,6 +151,118 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert journal_lines[0]["outcome"] == "ok" and journal_lines[0]["name"] == "claude.ai"
         assert journal_lines[1]["outcome"].startswith("refused")
         assert all(line["client"] == "c-1" and line["at"] for line in journal_lines)
+
+
+@case
+def an_mcp_client_launches_tasks_only_once_confirmed(state_home: Path) -> None:
+    """launch_task in its two calls, as the console's « Launch » would move them.
+
+    Without confirm, a preview and nothing on the board: what would start, at
+    which model and for how much, and what is refused with its reason. With it,
+    each kept task goes to ready the way the console moves a card — the history
+    names the client, the ticket says it was launched from the assistant, and
+    the journal has both calls. The setting off, even the preview is refused.
+    """
+    from ponos import estimates
+    from ponos.web import accounts
+    from ponos.web import mcp as web_mcp
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
+        settings = C.BoardNames()
+        draft = board.create_row("tickets", "Brancher le domaine", {"statut": "draft"})
+        board.update("tickets", draft, {"Project": [project], "Model": "opus", "Type": "Code"})
+        paused = board.create_row("tickets", "Reprendre", {"statut": settings.state("paused")})
+        aside = board.create_row("tickets", "Mis de côté", {"statut": settings.state("blocked")})
+        asking = board.create_row(
+            "tickets",
+            "Choisir l'hébergeur",
+            {"statut": settings.state("blocked"), "Blocage": "merge.refused"},
+        )
+        running = board.create_row("tickets", "En cours", {"statut": settings.state("running")})
+        closed = board.create_row("tickets", "Fini", {"statut": settings.state("done")})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(
+            client="c-1", name="Claude Code", scopes=frozenset({"read", "write"})
+        )
+        every = [draft, paused, aside, asking, running, closed]
+
+        listed = {tool["name"]: tool for tool in web_mcp.listed(grant)}
+        assert "launch_task" in listed and "confirm" in listed["launch_task"]["description"]
+        assert "launch_task" not in {
+            tool["name"]
+            for tool in web_mcp.listed(
+                web_oauth.Grant(client="c-2", name="lecteur", scopes=frozenset({"read"}))
+            )
+        }, "a read-only client is not shown it"
+
+        # Five code tickets of the project that ran: enough for the window's estimate.
+        ran = [
+            estimates.Done(f"t{cost}", "Usine", "code", "", "opus", float(cost), 60.0)
+            for cost in range(1, 6)
+        ]
+        known = estimates.tickets
+        estimates.tickets = lambda runs=None: ran  # a double: the journal's tickets
+        try:
+            preview = _mcp_call(api, grant, "launch_task", tasks=[*every, "deadbeef"])
+        finally:
+            estimates.tickets = known
+        assert not preview["isError"], preview
+        said = preview["structuredContent"]
+        assert said["preview"] and not said["launched"]
+        assert [task["title"] for task in said["tasks"]] == [
+            "Brancher le domaine",
+            "Reprendre",
+            "Mis de côté",
+        ]
+        first = said["tasks"][0]
+        assert (first["project"], first["model"]) == ("Usine", "opus"), first
+        guess = estimates.estimate("Usine", "code", "", "opus", ticket=draft, done=ran)
+        assert guess and first["estimate_usd"] == guess["cost"] == 3.0, first
+        assert said["tasks"][1]["estimate_usd"] is None, "no type, no estimate — and not a zero"
+        assert said["cost"] == {
+            "estimate_usd": 3.0,
+            "estimate_high_usd": guess["cost_high"],
+            "estimated": 1,
+            "without_estimate": 2,
+        }, "summed as the « Launch N tickets? » window sums it"
+        reasons = {item["title"] or item["task"]: item["reason"] for item in said["refused"]}
+        assert set(reasons) == {"Choisir l'hébergeur", "En cours", "Fini", "deadbeef"}, reasons
+        assert "answer_question" in reasons["Choisir l'hébergeur"]
+        assert "session" in reasons["En cours"] and "terminée" in reasons["Fini"]
+        assert not api.outbox.marks(), "a preview moves nothing"
+        assert not accounts.journal(draft)
+
+        launched = _mcp_call(api, grant, "launch_task", tasks=[*every], confirm=True)
+        assert not launched["isError"], launched
+        assert launched["structuredContent"]["launched"]
+        marks = api.outbox.marks()
+        assert {key for key, mark in marks.items() if mark.column == "ready"} == {
+            ticket.replace("-", "") for ticket in (draft, paused, aside)
+        }, marks
+        entry = accounts.journal(draft)[0]
+        assert (entry["who"], entry["action"], entry["detail"]) == (
+            "Claude Code",
+            "launched",
+            "assistant",
+        )
+        assert entry["at"]
+        assert board.comments(draft)[-1].text.endswith("(Claude Code)")
+        assert not accounts.journal(running), "a refused task is not touched"
+
+        nothing = _mcp_call(api, grant, "launch_task", tasks=[running], confirm=True)
+        assert nothing["isError"] and "session" in nothing["content"][0]["text"]
+
+        api._config.web.assistant_launches = False
+        off = _mcp_call(api, grant, "launch_task", tasks=[draft])
+        assert off["isError"] and "désactivé" in off["content"][0]["text"]
+
+        journal_lines = web_mcp.calls()
+        assert [line["tool"] for line in journal_lines] == ["launch_task"] * 4
+        assert journal_lines[0]["outcome"].startswith("refused")
+        assert journal_lines[2]["outcome"] == "ok"
+        assert '"confirm": true' in journal_lines[2]["arguments"]
 
 
 # -- the goals ----------------------------------------------------------------
@@ -405,8 +517,12 @@ def an_mcp_client_lists_the_library_and_reads_a_files_metadata_not_its_content(
 
 
 @case
-def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
-    """The whole list, written down: a tool added is a decision, not a drift."""
+def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
+    """The whole list, written down: a tool added is a decision, not a drift.
+
+    One tool launches tasks, `launch_task`, and only in a second call that says
+    `confirm`: none cancels, pauses or deletes one.
+    """
     from ponos.web import mcp as web_mcp
 
     names = [tool["name"] for tool in web_mcp.TOOLS]
@@ -420,6 +536,7 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
         "list_ideas",
         "list_goals",
         "create_task",
+        "launch_task",
         "answer_question",
         "list_solutions",
         "apply_solution",
@@ -434,6 +551,7 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]
     assert writes == [
         "create_task",
+        "launch_task",
         "answer_question",
         "apply_solution",
         "create_idea",
@@ -442,8 +560,10 @@ def no_mcp_tool_starts_a_run_runs_a_command_or_deletes_anything() -> None:
     ]
     created = next(tool for tool in web_mcp.TOOLS if tool["name"] == "create_task")
     assert "status" not in created["inputSchema"]["properties"], (
-        "a task created by a client is a draft: a person sets it ready"
+        "a task created by a client is a draft: launching it is launch_task's"
     )
+    launch = next(tool for tool in web_mcp.TOOLS if tool["name"] == "launch_task")
+    assert launch["inputSchema"].get("required") == ["tasks"], "confirm is never assumed"
     for tool in web_mcp.TOOLS:
         assert len(tool["description"]) > 80, f"{tool['name']}: a description Claude can choose by"
         assert tool["title"] and len(tool["title"]) < 40, (

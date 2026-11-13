@@ -102,6 +102,7 @@ port = 8787
 url = ""      # the address the console is reached at, for the links in messages
 email = ""    # the sign-in e-mail (PONOS_WEB_EMAIL wins); the password is a secret
 library_max_mb = 50  # the most a file of Context → Library may weigh, in MB
+assistant_launches = true  # the assistant may launch tickets (launch_task), after your yes
 
 # Which `gh` account each repository owner is worked under, for a machine that
 # answers to two GitHubs: owner (as in the URL) = account (as `gh auth status`
