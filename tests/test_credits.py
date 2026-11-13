@@ -474,7 +474,9 @@ def what_costs_no_credit_is_still_done_while_the_credits_are_out(state_home: Pat
     runner.announce_idle = False
     credits.hold(time.time() + 300)
 
-    def merge(url: str, method: str = "squash", accounts: object = None) -> str:
+    def merge(
+        url: str, method: str = "squash", accounts: object = None, signed: bool = True
+    ) -> str:
         merges.append(url)
         return "merged"
 

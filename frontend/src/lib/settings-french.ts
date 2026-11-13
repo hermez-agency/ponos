@@ -413,6 +413,9 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Model that reviews": "Modèle qui relit",
   "Reads each branch against its ticket before the push. Empty: the model the ticket was worked with.":
     "Relit chaque branche contre son ticket avant le push. Vide : le modèle avec lequel le ticket a été traité.",
+  "Sign commits and pull requests as Claude": "Signer les commits et les PR comme Claude",
+  "On: Claude Code ends its commits with a `Co-Authored-By: Claude` line and its pull requests with « Generated with Claude Code ». Off: neither, whatever this machine's Claude Code settings say, and what slips through is taken out of the pull request and of its squash commit.":
+    "Activé : Claude Code termine ses commits par une ligne `Co-Authored-By: Claude` et ses pull requests par « Generated with Claude Code ». Désactivé : ni l'un ni l'autre, quels que soient les réglages de Claude Code sur cette machine, et ce qui passe au travers est retiré de la pull request et de son commit de squash.",
   "Self-review before pull request": "Relecture automatique avant pull request",
   "A short session reads the branch's diff against the ticket before the push, and the ticket's session is picked up once on what it finds blocking.":
     "Une courte session relit le diff de la branche contre le ticket avant le push, et la session du ticket est reprise une fois sur ce qu'elle trouve bloquant.",

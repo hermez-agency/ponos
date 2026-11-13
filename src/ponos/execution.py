@@ -302,6 +302,7 @@ class Execution(Base):
                 allowed=self.config.permissions.allowed,
                 ask=self.config.permissions.ask,
                 owners=[*self.config.github, *self.config.github.values()],
+                attribution=self.config.claude.attribution,
                 kind=section
                 if job.project.is_code
                 else prompt_module.kind(job.kind, job.reference or ""),
@@ -1433,6 +1434,7 @@ class Execution(Base):
                 body,
                 job.base,
                 accounts=self.config.github,
+                signed=self.config.claude.attribution,
             )
         except git.GitError as error:
             self.say(f"    ! pull request not opened: {error}")

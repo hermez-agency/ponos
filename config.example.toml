@@ -53,6 +53,7 @@ update_channel = "release"       # "release" (tags) or "main" (every commit)
 # Who answers the sessions: "cli" (claude login), "api_key" (ANTHROPIC_API_KEY)
 # or "openrouter" (OPENROUTER_API_KEY). Empty: the CLI, else the first key found.
 provider = ""
+attribution = false     # sign commits and pull requests as Claude (Co-Authored-By, "Generated with Claude Code")
 
 # In dollars, empty or 0 is no limit. Only meaningful on an API key or OpenRouter:
 # a subscription reports no cost. daily_usd: since local midnight, past it

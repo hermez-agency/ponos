@@ -21,6 +21,7 @@ def _settings(config: config_module.Config) -> list[Check]:
         *_languages(config.runner),
         *_validation(config.runner),
         *_self_review(config.runner),
+        *_attribution(config.claude),
         *_vault(config),
         *_vault_store(),
         *_console(config),
@@ -267,6 +268,27 @@ def _self_review(settings: config_module.Runner) -> list[Check]:
             "Self-review",
             "Each branch is read against its ticket by {{model}} before the push, and its session picked up once on what is blocking.",
             params={"model": settings.review_model or "the ticket’s own model"},
+        )
+    ]
+
+
+def _attribution(settings: config_module.Claude) -> list[Check]:
+    """Whether the sessions sign their commits and pull requests as Claude — see session.UNSIGNED."""
+    if settings.attribution:
+        return [
+            _check(
+                "settings.attribution",
+                INFO,
+                "Signature",
+                "claude.attribution is on: commits carry Claude Code’s Co-Authored-By line, and pull requests its « Generated with Claude Code ».",
+            )
+        ]
+    return [
+        _check(
+            "settings.attribution",
+            OK,
+            "Signature",
+            "Sessions sign neither their commits nor their pull requests as Claude, and what slips through is taken out of the pull request.",
         )
     ]
 

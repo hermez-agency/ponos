@@ -168,6 +168,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `web.assistant_launches` | `true` | the console's assistant, and any MCP client allowed to write, may launch tickets with [`launch_task`](console.md#what-claude-can-do-with-it) — after showing them with their estimated cost and waiting for your yes; `false` refuses it, and tickets are launched from the console only |
 | `web.library_max_mb` | `50` | the most a file of the [Library](console.md#library) may weigh, in MB; a heavier one is refused before a byte of it is kept |
 | `claude.provider` | `""` | who answers the sessions — see *Who answers the sessions* below |
+| `claude.attribution` | `false` | sign commits and pull requests as Claude — Claude Code's `Co-Authored-By` line and « Generated with Claude Code ». Off, every session is launched without them and what slips through is taken out of the pull request — see [Commits and pull requests are not signed as Claude](tickets.md#commits-and-pull-requests-are-not-signed-as-claude) |
 | `permissions.allowed`, `permissions.ask` | | what a session does alone, and what always waits for your word |
 | `github_access.mode`, `github_access.token_item` | `""` | how GitHub is reached without `gh` — see *Connect GitHub* below |
 | `[github]` | | `"owner" = "gh account"`, when this machine answers to more than one GitHub — see *Several GitHub accounts* below |

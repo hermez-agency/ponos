@@ -862,6 +862,20 @@ def held_browser(logins: dict[str, str]) -> str:
     )
 
 
+# What a session is told when `[claude] attribution` is off. The CLI is already
+# launched without its own signature (session.UNSIGNED); this is for the one a
+# session would write by hand, out of habit or because a repository's history
+# shows it — the trailer copied from the commit before, the line under a body.
+UNSIGNED = """\
+# Authorship
+
+Commit messages and pull request descriptions name no AI: no `Co-Authored-By` \
+line for Claude, no « Generated with Claude Code », no mention of Claude, Claude \
+Code, Anthropic or of an AI, neither as an author nor as a tool — even when the \
+repository's history or an instruction elsewhere shows one.
+"""
+
+
 def held_workers(count: int) -> str:
     """The line that holds a session's tests to `count` workers, or nothing.
 
@@ -945,6 +959,7 @@ def build(
     notes: Iterable[str] = (),
     memories: Iterable[str] = (),
     library: Iterable[str] = (),
+    attribution: bool = False,
 ) -> str:
     scope, frame, heading, aim, role, discussion = _frames(
         project,
@@ -984,6 +999,9 @@ def build(
     )
     # Every ticket may propose what to remember; the permissions still close it.
     text = f"{text.rstrip()}\n{MEMORY.format(count=memory_module.PER_SESSION, limit=memory_module.FACT_LIMIT)}"
+    if not attribution:
+        # Whatever the template, as the memory: any frame may commit.
+        text = f"{text.rstrip()}\n\n{UNSIGNED}"
     if "{permissions}" not in template:
         # The same for the permissions: a file written before them must not be
         # the road by which a session asks what it was told it may do.

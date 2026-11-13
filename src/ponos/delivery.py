@@ -403,7 +403,9 @@ class Delivery(Base):
                 self.say(f"  · {ticket.title} — GitHub says {url} is {blocker.lower()}")
                 return self._catch_up(ticket, url, BLOCKERS[blocker], resolving)
             try:
-                github_checks.merge_pull_request(url, method, self.config.github)
+                github_checks.merge_pull_request(
+                    url, method, self.config.github, signed=self.config.claude.attribution
+                )
             except git.GitError as error:
                 if self.config.runner.rebase and git.is_behind(error):
                     return self._catch_up(ticket, url, error, resolving)
@@ -547,7 +549,10 @@ class Delivery(Base):
                 else:
                     try:
                         github_checks.merge_pull_request(
-                            url, self.config.runner.merge_method, accounts
+                            url,
+                            self.config.runner.merge_method,
+                            accounts,
+                            signed=self.config.claude.attribution,
                         )
                     except git.GitError as error:
                         refusal = voice_module.line(error)
@@ -999,7 +1004,9 @@ class Delivery(Base):
         replayed = self.voice.say("merge-rebased", branch=branch, base=base)
         method = self.config.runner.merge_method
         try:
-            github_checks.merge_pull_request(url, method, self.config.github)
+            github_checks.merge_pull_request(
+                url, method, self.config.github, signed=self.config.claude.attribution
+            )
         except git.GitError as error:
             if git.is_behind(error):
                 if count < MOST_REBASES:
@@ -1273,7 +1280,9 @@ class Delivery(Base):
             return held
         method = self.config.runner.merge_method
         try:
-            github_checks.merge_pull_request(url, method, self.config.github)
+            github_checks.merge_pull_request(
+                url, method, self.config.github, signed=self.config.claude.attribution
+            )
         except git.GitError as error:
             return self._resolved_refused(job, url, error, count, record, checked)
         spent = said.spent(outcome.seconds, outcome.cost_usd) if outcome else ()

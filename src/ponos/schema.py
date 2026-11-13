@@ -55,6 +55,7 @@ from .config import (
     VALIDATED,
     WEEKDAYS,
     Budget,
+    Claude,
     ConfigError,
     Permissions,
     Runner,
@@ -307,6 +308,7 @@ class ClaudeTable(Table):
     # A typo must not leave the sessions on an account nobody chose: an
     # unknown word is the file that says nothing.
     provider: Annotated[str, _one_of(PROVIDERS)] = ""
+    attribution: bool = Claude.attribution
 
 
 class BudgetTable(Table):

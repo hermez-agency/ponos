@@ -219,6 +219,7 @@ class Ideas(Base):
                 permission_mode=configuration.runner.reply_permission_mode,
                 timeout_minutes=ideas.TIMEOUT_MINUTES,
                 environment=provider.environment(configuration),
+                attribution=configuration.claude.attribution,
             )
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -413,6 +414,7 @@ class Ideas(Base):
                 timeout_minutes=ideas.SCORE_TIMEOUT_MINUTES,
                 max_budget_usd=ideas.SCORE_CEILING_USD,
                 environment=provider.environment(configuration),
+                attribution=configuration.claude.attribution,
             )
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
