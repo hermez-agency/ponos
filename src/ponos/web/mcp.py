@@ -41,16 +41,32 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shutil
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .. import __version__, db, estimates, ideas, ids, journal, library, log, memory, state, store
+from .. import (
+    __version__,
+    db,
+    estimates,
+    git,
+    ideas,
+    ids,
+    journal,
+    library,
+    log,
+    memory,
+    state,
+    store,
+)
 from .. import goals as goals_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
 from .. import schedules as schedules_module
 from . import accounts, live
+from .creation import github_url, is_site
 from .oauth import READ, WRITE, Grant
 from .tickets import COLUMNS
 
@@ -107,6 +123,9 @@ apply_solution, qui sert aussi à décider d'une tâche en review.
 la console, ou vous le demande, et le démon la lance dès qu'une place se libère. \
 create_task accepte aussi un modèle (model) et un prompt « on », que Ponos exécute \
 à chaque changement de statut de la tâche : de quoi préparer des tâches enchaînées.
+- Les projets (list_projects) se créent et se modifient ici (create_project, update_project), par \
+le même circuit que la console : un dossier déjà sur le disque (path), un dépôt GitHub que Ponos \
+clone si besoin (repository), ou un projet document ; aucun outil ne supprime un projet.
 - Les objectifs (list_goals) se créent et se modifient ici (create_goal, update_goal), par le \
 même circuit que la console ; un objectif se désactive (active=false), il ne se supprime pas : \
 aucun outil ne le fait. set_task_goal rattache des tâches existantes à un objectif, ou les en \
@@ -215,6 +234,20 @@ GOAL_FIELDS: dict[str, Any] = {
     "active": {
         "type": "boolean",
         "description": "Actif (travaillé) ou non (atteint, abandonné, en pause).",
+    },
+}
+
+PROJECT_FIELDS: dict[str, Any] = {
+    "icon": {
+        "type": "string",
+        "description": "L'icône : un emoji, ou l'adresse https d'une image.",
+    },
+    "description": {"type": "string", "description": "Ce que fait le projet, en une phrase."},
+    "site": {"type": "string", "description": "L'adresse publique du projet (https://…)."},
+    "brief": {
+        "type": "string",
+        "description": "Le brief du projet, en Markdown : les consignes que reçoit chacune de ses "
+        "tâches (public, ton, conventions, interdits).",
     },
 }
 
@@ -341,6 +374,61 @@ TOOLS: list[dict[str, Any]] = [
         "abandonnées mises à part, et le nombre de tâches par statut). À appeler pour connaître "
         "le nom exact d'un objectif avant create_task, ou pour « où en est l'objectif X ? ».",
         "inputSchema": _schema(),
+    },
+    {
+        "name": "create_project",
+        "title": "Créer un projet",
+        "scope": WRITE,
+        "description": "Crée un projet, par le même circuit que la console (Projets › Nouveau) : "
+        "mêmes validations, mêmes règles. Un nom (obligatoire, pas déjà pris), une icône si l'on "
+        "veut, puis soit « path » : un dossier déjà présent sur cette machine, chemin complet, "
+        "dépôt git dont le dépôt GitHub propriétaire/nom est lu dans son origin ; soit "
+        "« repository » : un dépôt GitHub propriétaire/nom (ou son adresse), que Ponos clone dans "
+        "le dossier des projets avec ses accès GitHub (il refuse si un dossier du même nom a une "
+        "autre origin, et ne laisse rien derrière lui si le clonage échoue) ; sans l'un ni "
+        "l'autre, un projet document. Description, site et brief sont facultatifs. Renvoie "
+        "l'identifiant, le chemin, le genre (code ou document) et le dépôt. Aucun outil ne "
+        "supprime un projet : c'est la personne, depuis la console.",
+        "inputSchema": _schema(
+            {
+                "name": {"type": "string", "description": "Le nom du projet."},
+                "path": {
+                    "type": "string",
+                    "description": "Le chemin complet d'un dépôt git déjà présent sur le disque.",
+                },
+                "repository": {
+                    "type": "string",
+                    "description": "Un dépôt GitHub : propriétaire/nom, ou son adresse github.com.",
+                },
+                **PROJECT_FIELDS,
+            },
+            ("name",),
+        ),
+    },
+    {
+        "name": "update_project",
+        "title": "Modifier un projet",
+        "scope": WRITE,
+        "description": "Modifie un projet (identifiant ou nom donné par list_projects), par le "
+        "même circuit que la console : seuls les champs donnés changent. Un nouveau dépôt GitHub "
+        "est cloné s'il n'est pas déjà sur cette machine, comme pour create_project. Le "
+        "supprimer n'est pas permis.",
+        "inputSchema": _schema(
+            {
+                "project": PROJECT_FILTER,
+                "name": {"type": "string", "description": "Le nouveau nom."},
+                "path": {
+                    "type": "string",
+                    "description": "Le chemin complet d'un dépôt git présent sur le disque.",
+                },
+                "repository": {
+                    "type": "string",
+                    "description": "Un dépôt GitHub : propriétaire/nom, ou son adresse github.com.",
+                },
+                **PROJECT_FIELDS,
+            },
+            ("project",),
+        ),
     },
     {
         "name": "create_goal",
@@ -1303,6 +1391,139 @@ def _goal_values(api: Api, fields: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
+def _picture(icon: str) -> store.Picture:
+    """An icon as the console's picture route reads it: an address, or an emoji."""
+    text = icon.strip()
+    if not text:
+        raise ToolError("Une icône est un emoji ou l'adresse https d'une image.")
+    if text.startswith(("http://", "https://")):
+        if not is_site(text):
+            raise ToolError(f"« {text} » n'est pas une adresse d'image valide.")
+        return store.Picture(url=text)
+    if len(text) > 16 or any(one.isascii() and (one.isalnum() or one.isspace()) for one in text):
+        raise ToolError("Une icône est un emoji ou l'adresse https d'une image.")
+    return store.Picture(emoji=text)
+
+
+def _github_folder(api: Api, given: str) -> tuple[str, Path, bool]:
+    """A GitHub repository's address and its clone here, made now when there is none."""
+    url = github_url(given)
+    if not url:
+        raise ToolError(api.runner.voice.say("project-github-invalid", given=given.strip()))
+    try:
+        folder, cloned = api.runner.resolver.bring(url.removeprefix("https://github.com/"))
+    except git.GitError as error:
+        raise ToolError(f"Dépôt inaccessible ou clonage échoué : {error}") from None
+    return url, folder, cloned
+
+
+def _project_shown(api: Api, page_id: str) -> dict[str, Any]:
+    row = next(one for one in api.all_projects()["projects"] if one["id"] == ids.bare(page_id))
+    located = api.runner.resolver.locate(row["name"], row["path"], row["repository"], row["id"])
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "kind": row["kind"],
+        "repository": row["repository"],
+        "path": str(located) if located else row["path"],
+    }
+
+
+def create_project(
+    api: Api,
+    name: str,
+    path: str = "",
+    repository: str = "",
+    icon: str = "",
+    description: str = "",
+    site: str = "",
+    brief: str = "",
+) -> dict[str, Any]:
+    kept = api.free_name(name)
+    if path.strip() and repository.strip():
+        raise ToolError("Donnez un chemin ou un dépôt GitHub, pas les deux.")
+    if site.strip() and not is_site(site.strip()):
+        raise ToolError(api.runner.voice.say("project-site-invalid", given=site.strip()))
+    picture = _picture(icon) if icon.strip() else None
+    values: dict[str, Any] = {
+        "name": kept,
+        "kind": "document",
+        "description": description,
+        "site": site,
+        "content": brief,
+    }
+    folder: Path | None = None
+    cloned = False
+    if path.strip():
+        checked = api.check_project("", path)
+        if checked.get("path_error"):
+            raise ToolError(checked["path_error"])
+        values.update(kind="code", path=path)
+    elif repository.strip():
+        url, folder, cloned = _github_folder(api, repository)
+        values.update(kind="code", repository=url)
+    try:
+        made = api.create_project(values)
+    except BaseException:
+        # Nothing half made: the clone this call brought down goes with the refusal.
+        if cloned and folder:
+            shutil.rmtree(folder, ignore_errors=True)
+        raise
+    if picture:
+        try:
+            api.set_picture(made["id"], "icon", picture)
+        except Exception as error:  # noqa: BLE001 — the project exists: say what is missing
+            raise ToolError(
+                f"Projet créé (id {made['id']}), mais l'icône n'a pas pu être posée : {error}"
+            ) from None
+    return _project_shown(api, made["id"])
+
+
+def update_project(api: Api, project: str, **fields: Any) -> dict[str, Any]:
+    wanted = _project(api, project)
+    if not fields:
+        raise ToolError("Rien à modifier : donnez au moins un champ.")
+    values: dict[str, Any] = {}
+    if "name" in fields:
+        values["name"] = api.free_name(fields["name"], keep=wanted["id"])
+    for key, column in (("description", "description"), ("site", "site"), ("brief", "content")):
+        if key in fields:
+            values[column] = fields[key]
+    if values.get("site", "").strip() and not is_site(values["site"].strip()):
+        raise ToolError(api.runner.voice.say("project-site-invalid", given=values["site"].strip()))
+    if fields.get("path") is not None and "repository" in fields:
+        raise ToolError("Donnez un chemin ou un dépôt GitHub, pas les deux.")
+    for key in ("path", "repository"):
+        if key in fields and not str(fields[key]).strip():
+            raise ToolError(f"Le {key} ne s'efface pas : donnez-en un nouveau.")
+    picture = _picture(fields["icon"]) if "icon" in fields else None
+    folder: Path | None = None
+    cloned = False
+    if "path" in fields:
+        checked = api.check_project("", fields["path"])
+        if checked.get("path_error"):
+            raise ToolError(checked["path_error"])
+        values["path"] = fields["path"].strip().rstrip("/") or "/"
+        values["repository"] = github_url(git.remote_url(Path(checked["path"])))
+        if not values["repository"]:
+            del values["repository"]
+    elif "repository" in fields:
+        url, folder, cloned = _github_folder(api, fields["repository"])
+        values["repository"] = url
+    if not values and picture is None:
+        raise ToolError("Rien à modifier : donnez au moins un champ.")
+    try:
+        if values:
+            api.save_project(wanted["id"], values)
+    except BaseException:
+        if cloned and folder:
+            shutil.rmtree(folder, ignore_errors=True)
+        raise
+    if picture:
+        api.set_picture(wanted["id"], "icon", picture)
+    return _project_shown(api, wanted["id"])
+
+
 def create_goal(api: Api, name: str, **fields: Any) -> dict[str, Any]:
     if not name.strip():
         raise ToolError("Un objectif a besoin d'un nom.")
@@ -1770,6 +1991,8 @@ HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "set_task_goal": set_task_goal,
     "create_task": create_task,
     "list_schedules": list_schedules,
+    "create_project": create_project,
+    "update_project": update_project,
     "create_goal": create_goal,
     "update_goal": update_goal,
     "create_schedule": create_schedule,

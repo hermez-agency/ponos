@@ -145,21 +145,29 @@ class Creation(Base):
 
     # -- creating -----------------------------------------------------------
 
-    def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Create one project page, and hand it back as the list draws it."""
-        database = self.runner.workspace.projects
-        if not database:
-            raise Refused("name", self._say("project-no-database"))
-        name = " ".join(str(payload.get("name") or "").split())
+    def free_name(self, given: object, keep: str = "") -> str:
+        """The name as it will be kept, refused when empty or when another project has it.
+
+        `keep` is the page being renamed: its own name is not taken by itself.
+        """
+        name = " ".join(str(given or "").split())
         if not name:
             raise Refused("name", self._say("project-needs-name"))
         for row in self.all_projects()["projects"]:
             # A line of `[projects]` the board has no page for is not taken: the
             # page made under its name is that project's, the line its path.
-            if row["source"] == "config":
+            if row["source"] == "config" or row["id"] == keep:
                 continue
             if row["name"].strip().casefold() == name.casefold():
                 raise Refused("name", self._say("project-name-taken", name=row["name"]))
+        return name
+
+    def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Create one project page, and hand it back as the list draws it."""
+        database = self.runner.workspace.projects
+        if not database:
+            raise Refused("name", self._say("project-no-database"))
+        name = self.free_name(payload.get("name"))
 
         repository = path = ""
         # A writing project has neither, whatever the form still held when
