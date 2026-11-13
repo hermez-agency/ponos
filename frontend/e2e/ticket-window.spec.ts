@@ -85,7 +85,7 @@ test.describe("at 1440px", () => {
     const before = [(await title.boundingBox())?.y, (await tab.boundingBox())?.y]
     await tab.click()
     await expect(tab).toHaveAttribute("data-state", "active")
-    await window_(page).locator('[data-slot="ticket-result-tab"]').click()
+    await window_(page).locator('[data-slot="ticket-mission-tab"]').click()
     await window_(page).locator('[data-slot="ticket-live-tab"]').click()
     await expect(window_(page).locator('[data-slot="ticket-live-tab"]')).toHaveAttribute("data-state", "active")
     expect([(await title.boundingBox())?.y, (await tab.boundingBox())?.y]).toEqual(before)

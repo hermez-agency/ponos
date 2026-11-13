@@ -27,7 +27,8 @@ console that holds Markdown — that context, the standing one, a project's brie
 is a rich editor rather than a text area.
 
 **A ticket's page is in three parts.** The Mission, which you write; the Result, what the
-ticket delivers — the post, the report, the summary of a change —, which the page opens on,
+ticket delivers — the post, the report, the summary of a change —, a tab of its own that
+the page opens on once the work is over,
 to copy, download, retouch or send back with an instruction, every version kept; and
 « What was done », the journal Ponos rewrites when a session ends. See [A ticket's
 page](tickets.md#a-tickets-page-the-mission-the-result-and-the-journal).

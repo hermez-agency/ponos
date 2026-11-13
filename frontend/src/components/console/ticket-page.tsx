@@ -23,6 +23,7 @@ import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
 import { useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
+import { isFinished } from "@/lib/result"
 import type { TicketDetail } from "@/lib/types"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
@@ -96,7 +97,10 @@ export function TicketPage() {
   const page = context.data as TicketDetail | undefined
   const { ticket: open, openTicket } = useConsole()
   const t = useT()
-  const brief = useBrief(page)
+  // The stream keeps the open ticket fresher than the page read once: the
+  // column and the progress line are read from it where it is the same ticket.
+  const ticket = page ? (open && open.id === page.id ? { ...page, ...open } : page) : null
+  const brief = useBrief(page, ticket ? isFinished(ticket.column) : false)
   // Unblock or Decide, pressed on the ticket itself: a tab to switch to, under it.
   const [asked, setAsked] = React.useState<{ tab: DecisionTab; at: number }>()
   const goTo = React.useCallback((tab: DecisionTab) => setAsked({ tab, at: Date.now() }), [])
@@ -109,9 +113,6 @@ export function TicketPage() {
     if (page) openTicket(page)
   }, [page, openTicket])
 
-  // The stream keeps the open ticket fresher than the page read once: the
-  // column and the progress line are read from it where it is the same ticket.
-  const ticket = page ? (open && open.id === page.id ? { ...page, ...open } : page) : null
   // The board, in the layout it was left in: coming back onto the cards, when
   // the table is what you were reading the board in, is losing your place.
   const back = boardHref()
@@ -232,8 +233,10 @@ export function TicketPage() {
  *
  * Read again when the board says the ticket was edited while the page is
  * open, and let go of when the page is left. `content` stays undefined until
- * it is read; `problem` is why it could not be. */
-function useBrief(page: TicketDetail | undefined) {
+ * it is read; `problem` is why it could not be. Read again, too, when its work
+ * ends under the reader (`finished`): the result it wrote is what the Result
+ * tab, come with it, shows. */
+function useBrief(page: TicketDetail | undefined, finished: boolean) {
   const [brief, setBrief] = React.useState<{
     id: string
     content?: string
@@ -277,7 +280,7 @@ function useBrief(page: TicketDetail | undefined) {
     return () => {
       live = false
     }
-  }, [id, edited, attempt])
+  }, [id, edited, attempt, finished])
 
   const mine = brief && brief.id === id ? brief : undefined
   return {
@@ -487,20 +490,28 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
  * with nothing left to decide, and the ticket shows its discussion — its
  * session, when one starts: that is what comes next.
  *
+ * The mission is always there; the result only once the work is over — in
+ * review, validated or done —, first, and what such a ticket opens on: it is
+ * what one comes back to it for. Before that there is nothing to read in it
+ * but « nothing yet », and an address naming it (`&tab=result`, a link kept
+ * from when the ticket was in review) opens on the mission instead. It comes
+ * by itself, with the stream, the moment the ticket goes into review — without
+ * taking the reader off the tab they are reading.
+ *
  * The status, the actions and the session's whereabouts stay above the tabs,
  * on every one of them, the block of facts first.
  * `talking` says the discussion held is this ticket's, and not still the last
  * one's.
  */
-const TABS = ["result", "discussion", "live", "decide", "journal"] as const
+const TABS = ["result", "mission", "discussion", "live", "decide", "journal"] as const
 type Tab = (typeof TABS)[number]
 
 const isTab = (value: string | null | undefined): value is Tab => TABS.includes(value as Tab)
 
 /** A tab named in an address, as it is called now: Unblock was folded into the
- * discussion, and the Brief became the mission and its result. */
+ * discussion, and the Brief became the mission. */
 const tabNamed = (value: string | null): Tab | undefined =>
-  value === "unblock" ? "discussion" : value === "brief" ? "result" : isTab(value) ? value : undefined
+  value === "unblock" ? "discussion" : value === "brief" ? "mission" : isTab(value) ? value : undefined
 
 /** The query string with its tab said again, under `key` — the rest of it left exactly as written. */
 function withTab(searchStr: string, tab: Tab, key: string): string {
@@ -559,9 +570,10 @@ function TicketTabs({
   // A reader decides nothing: no tab offers it.
   const deciding = settled || ticket.column !== "review" || !canAct() ? null : "decide"
   const action = actionOf(ticket.column)
+  const finished = isFinished(ticket.column)
   const [addressed, address] = useAddressedTab(ticket.id)
   const [tab, setTab] = React.useState<Tab>(
-    () => addressed ?? (running ? "live" : waiting ? "discussion" : "result")
+    () => addressed ?? (running ? "live" : waiting ? "discussion" : finished ? "result" : "mission")
   )
   const picked = React.useRef(Boolean(addressed))
   // Left by itself when the decision was sent: still free to follow a session that starts.
@@ -576,13 +588,22 @@ function TicketTabs({
     [address]
   )
   React.useEffect(() => {
-    if (waiting && !picked.current) setTab((was) => (was === "result" ? "discussion" : was))
+    if (waiting && !picked.current) setTab((was) => (was === "mission" || was === "result" ? "discussion" : was))
   }, [waiting])
   // The way back, or forward, to the same ticket on another tab.
   React.useEffect(() => {
     if (addressed) setTab(addressed)
   }, [addressed])
-  React.useEffect(() => onTab(tab), [tab, onTab])
+  // No result before the work is over — named in the address, or sent back
+  // to work under the reader: the mission, and the address says so.
+  const early = tab === "result" && !finished
+  const current: Tab = early ? "mission" : tab
+  React.useEffect(() => {
+    if (!early) return
+    setTab("mission")
+    address("mission")
+  }, [early, address])
+  React.useEffect(() => onTab(current), [current, onTab])
   // The Unblock or Decide button above the tabs, pressed.
   React.useEffect(() => {
     if (asked) show(asked.tab, true)
@@ -602,7 +623,7 @@ function TicketTabs({
   return (
     <>
     <Tabs
-      value={tab}
+      value={current}
       onValueChange={(value) => {
         if (isTab(value)) show(value, true)
       }}
@@ -614,12 +635,19 @@ function TicketTabs({
           own, for a "…" that most tickets hold alone, was a line lost. */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b">
       <TabsList className="scroll-thin h-auto w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 sm:w-fit">
+        {finished ? (
+          <TabsTrigger
+            value="result" data-slot="ticket-result-tab"
+            className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            {t("Result")}
+          </TabsTrigger>
+        ) : null}
         <TabsTrigger
-          value="result" data-slot="ticket-result-tab"
+          value="mission" data-slot="ticket-mission-tab"
           className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
-          {/* What it opens on: the mission, and its result once there is one. */}
-          {t(brief.result?.trim() ? "Result" : "Mission")}
+          {t("Mission")}
           {brief.on?.trim() ? (
             <Zap
               data-slot="ticket-on-badge"
@@ -681,16 +709,11 @@ function TicketTabs({
       <TicketActions ticket={ticket} className="ml-auto pb-1" />
       </div>
 
-      <TabsContent value="result">
-        {brief.content === undefined ? (
-          <BriefPending brief={brief} />
-        ) : (
-          <div className="flex flex-col gap-6">
-            <TicketMission
-              key={brief.result?.trim() ? "folded" : "open"}
-              mission={brief.mission ?? brief.content}
-              folded={Boolean(brief.result?.trim())}
-            />
+      {finished ? (
+        <TabsContent value="result">
+          {brief.content === undefined ? (
+            <BriefPending brief={brief} />
+          ) : (
             <TicketResult
               ticket={ticket}
               result={brief.result ?? ""}
@@ -699,6 +722,15 @@ function TicketTabs({
               previews={brief.previews}
               onSaved={brief.again}
             />
+          )}
+        </TabsContent>
+      ) : null}
+      <TabsContent value="mission">
+        {brief.content === undefined ? (
+          <BriefPending brief={brief} />
+        ) : (
+          <div className="flex flex-col gap-6">
+            <TicketMission mission={brief.mission ?? brief.content} />
             <TicketOn ticket={{ ...ticket, on: brief.on ?? "" }} />
           </div>
         )}

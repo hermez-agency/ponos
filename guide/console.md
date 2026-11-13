@@ -181,10 +181,11 @@ where you left it underneath. The full page has an address of its own, the one a
 link, the palette and a notification open. Either way it is the brief you wrote, the
 report a run appended, the notes in between — the page under the card, as the runner
 reads it — with its links out (the pull request, the session) and the gestures it
-offers where it stands. Under the column it stands in, three tabs: **Brief** — the facts
-(project, type, priority, model, cost, pull request) and the page you wrote —,
-**Discussion** and **Live**. A ticket in progress opens on *Live*, one waiting on you on
-*Discussion*, any other on *Brief*; the tab you pick goes into the address (`&tab=live`),
+offers where it stands. Under the column it stands in, its tabs: **Result** — once the
+work is over (review, validated, done) —, **Mission** — the page you wrote —,
+**Discussion**, **Live** and **Journal**. A ticket in progress opens on *Live*, one waiting
+on you on *Discussion*, a finished one on *Result*, any other on *Mission* (see [A ticket's
+page](tickets.md#a-tickets-page-the-mission-the-result-and-the-journal)); the tab you pick goes into the address (`&tab=live`),
 so a reload or a shared link comes back to it. *Live* wears a green dot while a session
 runs, *Discussion* a question mark while a question waits for you. *Live* is the session's
 journal in its broad lines, growing as it is written and following its end until you

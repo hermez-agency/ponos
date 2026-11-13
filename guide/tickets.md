@@ -56,9 +56,15 @@ I compared three angles and kept the shortest; not checked: the length on mobile
   cost, result, and a link to the session in the console's live tab, where every step is
   (with `[web] url` set). It is read from the run journal of `ponos.db`.
 
-**Opening a ticket in the console** shows the mission, then the result. The mission folds
-once there is a result — its first line stays, a click away from the rest. The result is
-drawn as Markdown (headings, lists, tables, code, images) with what one does with a
+**Opening a ticket in the console** shows the mission and the result in two tabs. *Mission*
+is always there: the mission whole, under one title (a « Mission » heading the text opens
+with is not drawn twice; the page keeps it). *Result* comes once the work is over — in
+review, validated or done —, first, and it is what such a ticket opens on; it appears by
+itself when the ticket goes into review under your eyes, without moving you off the tab you
+read. Each has its address (`&tab=mission`, `&tab=result`); a link to the result of a
+ticket not finished yet opens its mission. A code ticket whose session wrote no result
+shows its pull request there instead — the link, its CI, the diff — and what the session
+said it changed. The result is drawn as Markdown (headings, lists, tables, code, images) with what one does with a
 deliverable:
 
 - **Copy** — the text (without its Markdown marks, to paste into LinkedIn or an email) or
@@ -255,8 +261,7 @@ every transition, so it says which ones concern it:
 
 It is the same field in `ponos.db`. In the console, write it in the *New ticket* dialog (an optional
 **Automation (On)** box among the advanced options, with an example), or later in the
-**Automation** section of the ticket's first tab — the Mission, or the Result once there is one —
-under the result, with the list of its executions: the transition each answered, its state, what it
+**Automation** section of the ticket's *Mission* tab, under the mission, with the list of its executions: the transition each answered, its state, what it
 cost, how long it took and what it said. Empty the box and save to remove the prompt. A ticket that
 has one wears a small ⚡ on that tab; somebody who cannot act (the `reader` role) sees the prompt and
 its executions, read-only. The MCP's `create_task` takes it too (`on`, with `model`), to prepare
