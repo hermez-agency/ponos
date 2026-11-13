@@ -215,6 +215,7 @@ export const FRENCH: Record<string, string> = {
   "waiting: today's spending limit reached until {{at}}": "en attente : plafond de dépense du jour atteint jusqu’à {{at}}",
   "waiting: a session is still on it — run again once it ends": "en attente : une session est encore dessus — relancé dès qu’elle se termine",
   "ran it now": "l'a lancé tout de suite",
+  "launched it from the assistant": "l'a lancé depuis l'assistant",
   "ran it now, past the limit": "l'a lancé tout de suite, au-delà de la limite",
   "Start it in a free place now, ahead of its turn in the queue.":
     "Le démarrer tout de suite dans une place libre, avant son tour dans la file.",

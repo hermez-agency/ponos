@@ -40,6 +40,8 @@ function said(t: ReturnType<typeof useT>, entry: AuditEntry): string {
     case "goal":
       return entry.detail ? t("tied it to a goal") : t("untied it from its goal")
     case "launched":
+      // An MCP client — the console's assistant, claude.ai — after the person's yes.
+      if (entry.detail === "assistant") return t("launched it from the assistant")
       return entry.detail === "forced" ? t("ran it now, past the limit") : t("ran it now")
     case "result":
       return t("retouched its result")

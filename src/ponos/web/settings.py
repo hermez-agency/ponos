@@ -317,6 +317,15 @@ SECTIONS: tuple[Section, ...] = (
                 "good and read by the sessions; a heavier one is refused before it is sent.",
                 minimum=1,
             ),
+            Field(
+                "web",
+                "assistant_launches",
+                "bool",
+                "The assistant may launch tickets",
+                "The console's assistant, and any MCP client allowed to write, may put "
+                "tickets in Ready — after showing them and what they are likely to cost, "
+                "and waiting for your yes. Off: it only creates drafts, launched from here.",
+            ),
         ),
     ),
     Section(

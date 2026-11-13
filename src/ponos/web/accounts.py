@@ -358,8 +358,12 @@ ACTIONS = (
 AUDIT_SHOWN = 200
 
 
-def record(ticket: str, who: Account | None, action: str, detail: str = "") -> None:
-    """One thing done to a ticket from the console. Never a reason for the write to fail."""
+def record(ticket: str, who: Account | None, action: str, detail: str = "", by: str = "") -> None:
+    """One thing done to a ticket from the console. Never a reason for the write to fail.
+
+    `by` names who did it when no account did: an MCP client, by the name it
+    registered under — the assistant launching a ticket is not the token.
+    """
     try:
         with db.transaction() as connection:
             connection.execute(
@@ -368,7 +372,7 @@ def record(ticket: str, who: Account | None, action: str, detail: str = "") -> N
                 (
                     ticket.replace("-", ""),
                     _now(),
-                    who.name if who else "",
+                    who.name if who else by,
                     who.email if who else "",
                     action,
                     detail,

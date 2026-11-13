@@ -617,6 +617,11 @@ class Web:
     # The most a file of the library (Context → Library) may weigh. Those files
     # are kept for good and read by sessions, not dropped for one message.
     library_max_mb: int = 50
+    # Whether the console's assistant, and any MCP client allowed to write, may
+    # put a ticket in Ready (`launch_task`, web/mcp.py) — once it has shown what
+    # it would cost and been told yes. Off: what it creates waits as a draft
+    # for a person to launch from the console, as before.
+    assistant_launches: bool = True
     # How long a conversation's files are kept when nobody starts a new one.
     # They are copies of what you dropped on the page, not the originals.
     attachment_days: int = 7

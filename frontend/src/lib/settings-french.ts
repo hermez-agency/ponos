@@ -624,6 +624,9 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Sign-in password": "Mot de passe de connexion",
   "`PONOS_WEB_PASSWORD` wins over it. Changing it signs every browser out; the token keeps working, for scripts.":
     "`PONOS_WEB_PASSWORD` l'emporte. Le changer déconnecte tous les navigateurs ; le jeton continue de marcher, pour les scripts.",
+  "The assistant may launch tickets": "L'assistant peut lancer des tickets",
+  "The console's assistant, and any MCP client allowed to write, may put tickets in Ready — after showing them and what they are likely to cost, and waiting for your yes. Off: it only creates drafts, launched from here.":
+    "L'assistant de la console, et tout client MCP autorisé à écrire, peut passer des tickets en prêt — après les avoir montrés avec leur coût estimé, et attendu votre « oui ». Éteint : il ne crée que des brouillons, lancés d'ici.",
   "Library: largest file (MB)": "Bibliothèque : fichier le plus lourd (Mo)",
   "The most a file of Context → Library may weigh. Those files are kept for good and read by the sessions; a heavier one is refused before it is sent.":
     "Le poids maximal d'un fichier de Contexte → Bibliothèque. Ces fichiers sont gardés pour de bon et lus par les sessions ; un fichier plus lourd est refusé avant l'envoi.",
