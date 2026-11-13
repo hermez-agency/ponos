@@ -416,6 +416,9 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Sign commits and pull requests as Claude": "Signer les commits et les PR comme Claude",
   "On: Claude Code ends its commits with a `Co-Authored-By: Claude` line and its pull requests with « Generated with Claude Code ». Off: neither, whatever this machine's Claude Code settings say, and what slips through is taken out of the pull request and of its squash commit.":
     "Activé : Claude Code termine ses commits par une ligne `Co-Authored-By: Claude` et ses pull requests par « Generated with Claude Code ». Désactivé : ni l'un ni l'autre, quels que soient les réglages de Claude Code sur cette machine, et ce qui passe au travers est retiré de la pull request et de son commit de squash.",
+  "Logs: ceiling": "Journaux : plafond",
+  "The most the logs folder may hold. Past it, the oldest session logs are removed, down to 90 % of it — never those of a ticket in use.":
+    "Ce que le dossier des journaux peut contenir au plus. Au-delà, les plus anciens journaux de session sont supprimés, jusqu'à 90 % du plafond — jamais ceux d'un ticket en cours d'usage.",
   "Self-review before pull request": "Relecture automatique avant pull request",
   "A short session reads the branch's diff against the ticket before the push, and the ticket's session is picked up once on what it finds blocking.":
     "Une courte session relit le diff de la branche contre le ticket avant le push, et la session du ticket est reprise une fois sur ce qu'elle trouve bloquant.",

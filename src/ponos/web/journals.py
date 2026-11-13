@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .. import journal, log, models, state
+from .. import journal, log, models, rotation, state
 from . import live
 from .base import Base
 
@@ -46,6 +46,8 @@ class Journals(Base):
         """One session, as the steps it was made of. Never as a path from outside."""
         target = state.logs_dir() / Path(name).name
         if not target.exists() or target.suffix != ".jsonl":
+            if target.suffix == ".jsonl" and rotation.ticket_of(target.name):
+                raise LookupError(f"log removed by the rotation: {name}")
             raise LookupError(f"no such log: {name}")
         steps = []
         with target.open(encoding="utf-8", errors="replace") as handle:

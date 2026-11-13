@@ -375,6 +375,9 @@ class Runner:
     update_channel: str = "release"
     update_interval_seconds: int = 3600
     log_retention_days: int = 14
+    # The most `logs/` may hold, in megabytes, service journal included: past
+    # it the oldest session logs go, down to 90 % of it — see rotation.py.
+    log_max_mb: int = 4096
     # Once a day, the worktrees and scratch directories of tickets done for
     # `log_retention_days` go too — see cleanup.py.
     clean_done_worktrees: bool = True

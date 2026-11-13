@@ -12,7 +12,18 @@ import shutil
 import sys
 from datetime import datetime
 
-from .. import browser, cleanup, disk, git, leftovers, local_ci, resources, state, systemd
+from .. import (
+    browser,
+    cleanup,
+    disk,
+    git,
+    leftovers,
+    local_ci,
+    resources,
+    rotation,
+    state,
+    systemd,
+)
 from .. import config as config_module
 from .check import ERROR, INFO, OK, WARN, Check, _check, _fix, _installing
 
@@ -192,6 +203,47 @@ def _video_sent() -> bool:
         return False
 
 
+def _logs(runner: config_module.Runner) -> list[Check]:
+    """How much `logs/` holds against its ceiling — see rotation.py."""
+    cap = runner.log_max_mb * 1024 * 1024
+    held = rotation.size()
+    params = {
+        "size": cleanup.human(held),
+        "cap": cleanup.human(cap),
+        "key": "runner.log_max_mb",
+    }
+    if held <= cap:
+        return [
+            _check(
+                "machine.logs",
+                OK,
+                "Logs",
+                "logs/ holds {{size}}, under its {{cap}} ceiling ({{key}}).",
+                params=params,
+            )
+        ]
+    last = rotation.last()
+    if last is not None and last.blocked:
+        return [
+            _check(
+                "machine.logs",
+                WARN,
+                "Logs",
+                "logs/ holds {{size}}, over its {{cap}} ceiling ({{key}}), and what is left belongs to tickets in use: nothing more is removed.",
+                params=params,
+            )
+        ]
+    return [
+        _check(
+            "machine.logs",
+            WARN,
+            "Logs",
+            "logs/ holds {{size}}, over its {{cap}} ceiling ({{key}}): the oldest session logs go at the next rotation.",
+            params=params,
+        )
+    ]
+
+
 def _disk(config: config_module.Config) -> list[Check]:
     found: list[Check] = []
     runner = config.runner
@@ -211,6 +263,7 @@ def _disk(config: config_module.Config) -> list[Check]:
             },
         )
     )
+    found.extend(_logs(runner))
     reclaimable = leftovers.docker_reclaimable() if runner.docker_prune else ""
     if reclaimable:
         found.append(

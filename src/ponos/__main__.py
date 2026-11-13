@@ -869,7 +869,12 @@ def command_logs(args: argparse.Namespace) -> int:
         ]
         matches = known[:1] or [path for path in logs if _names(args.ticket, path.name)][-1:]
         if not matches:
-            print(f"No log for {args.ticket}", file=sys.stderr)
+            # A run the journal knows, whose file is gone: the rotation took it.
+            gone = any(run["log"] for run in _journal_runs(args.ticket))
+            print(
+                "Log removed by the rotation" if gone else f"No log for {args.ticket}",
+                file=sys.stderr,
+            )
             return 1
         target = matches[-1]
     print(f"{DIM}{target}{RESET}", file=sys.stderr)
