@@ -253,8 +253,14 @@ every transition, so it says which ones concern it:
 > If it goes to **Validated**, create the deployment ticket in the *Infra* project. Any
 > other change: do nothing.
 
-It is the same field in `ponos.db`, and in the console, on the ticket's page under its brief, with the list of its executions:
-the transition each answered, its state, what it cost, how long it took and what it said.
+It is the same field in `ponos.db`. In the console, write it in the *New ticket* dialog (an optional
+**Automation (On)** box among the advanced options, with an example), or later in the
+**Automation** section of the ticket's first tab — the Mission, or the Result once there is one —
+under the result, with the list of its executions: the transition each answered, its state, what it
+cost, how long it took and what it said. Empty the box and save to remove the prompt. A ticket that
+has one wears a small ⚡ on that tab; somebody who cannot act (the `reader` role) sees the prompt and
+its executions, read-only. The MCP's `create_task` takes it too (`on`, with `model`), to prepare
+chained tickets.
 Settings › Prompt on status change turns it off (`runner.on = false`).
 
 How it behaves, because a prompt that acts on its own needs limits:

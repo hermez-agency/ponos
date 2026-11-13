@@ -1297,6 +1297,14 @@ export const FRENCH: Record<string, string> = {
   "If it goes to validated, create the deployment ticket.":
     "Si on passe en validé, crée le ticket de déploiement.",
   "Save the prompt": "Enregistrer le prompt",
+  Automation: "Automatisation",
+  "Automation (On)": "Automatisation (On)",
+  "No prompt on this ticket.": "Aucun prompt sur ce ticket.",
+  "has an automation prompt": "a un prompt d'automatisation",
+  "When this ticket goes to done, create a ticket that applies the recommendations of the Result.":
+    "Quand ce ticket passe à done, crée un ticket qui applique les recommandations du Résultat.",
+  "Optional. A prompt Ponos runs at every change of this ticket's status — for example, to chain a follow-up ticket.":
+    "Facultatif. Un prompt que Ponos exécute à chaque changement de statut de ce ticket — par exemple pour enchaîner un ticket de suite.",
   "Prompt saved": "Prompt enregistré",
   "Prompt removed": "Prompt retiré",
   "not started": "pas encore lancé",

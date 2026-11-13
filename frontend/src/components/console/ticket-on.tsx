@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { cents, money } from "@/lib/numbers"
+import { canAct } from "@/lib/role"
 import type { TicketDetail, Transition } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -37,6 +38,8 @@ export function TicketOn({ ticket }: { ticket: TicketDetail }) {
   const [busy, setBusy] = React.useState(false)
   const [runs, setRuns] = React.useState<Transition[]>([])
   const edited = ticket.edited
+  // A reader sees the prompt, and what it did, without a way to change it.
+  const writable = canAct()
 
   // Another copy of the page (a second tab, the runner) wins over what was typed
   // only when nothing was typed since the last save.
@@ -73,24 +76,31 @@ export function TicketOn({ ticket }: { ticket: TicketDetail }) {
   }
 
   return (
-    <section data-slot="ticket-on" className="mt-6 flex flex-col gap-2 border-t pt-4">
-      <Eyebrow>{t("Prompt on status change")}</Eyebrow>
+    <section data-slot="ticket-on" className="flex flex-col gap-2 border-t pt-4">
+      <Eyebrow>{t("Automation")}</Eyebrow>
       <p className="text-muted-foreground text-sm">
         {t("A prompt Ponos runs at every change of this ticket's status, with the old status, the new one and the ticket. Empty, nothing runs.")}
       </p>
-      <Textarea
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder={t("If it goes to validated, create the deployment ticket.")}
-        rows={4}
-        className="font-mono text-sm"
-        aria-label={t("Prompt on status change")}
-      />
-      <div>
-        <Button size="sm" variant="outline" disabled={busy || text.trim() === saved.trim()} onClick={save}>
-          {t("Save the prompt")}
-        </Button>
-      </div>
+      {writable || saved.trim() ? (
+        <Textarea
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder={t("If it goes to validated, create the deployment ticket.")}
+          rows={4}
+          readOnly={!writable}
+          className="font-mono text-sm"
+          aria-label={t("Prompt on status change")}
+        />
+      ) : (
+        <p className="text-muted-foreground text-sm">{t("No prompt on this ticket.")}</p>
+      )}
+      {writable ? (
+        <div>
+          <Button size="sm" variant="outline" disabled={busy || text.trim() === saved.trim()} onClick={save}>
+            {t("Save the prompt")}
+          </Button>
+        </div>
+      ) : null}
       {runs.length ? (
         <ul className="mt-2 flex flex-col divide-y rounded-xl border text-sm" data-slot="ticket-on-runs">
           {runs.map((run) => (

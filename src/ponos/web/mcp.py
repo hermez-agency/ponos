@@ -96,7 +96,9 @@ une question : lisez-la avec get_task, puis répondez avec answer_question — o
 lisez avec list_solutions ce qui la débloquerait, et appliquez-en une avec \
 apply_solution, qui sert aussi à décider d'une tâche en review.
 - Une tâche créée ici reste en « draft » : la personne la relit et la passe \
-en « ready » depuis la console, et le démon la lance dès qu'une place se libère.
+en « ready » depuis la console, et le démon la lance dès qu'une place se libère. \
+create_task accepte aussi un modèle (model) et un prompt « on », que Ponos exécute \
+à chaque changement de statut de la tâche : de quoi préparer des tâches enchaînées.
 - Répondre à une tâche bloquée, ou lui appliquer une solution, la relance : sa \
 session reprend avec cette réponse. Aucun outil ne lance de commande, ne modifie \
 la configuration ni ne supprime quoi que ce soit."""
@@ -268,7 +270,11 @@ TOOLS: list[dict[str, Any]] = [
         "client MCP ne lance une tâche qu'il a créée. Le projet décide du dépôt où le travail se fait : "
         "vérifier son nom avec list_projects. Sans type, Ponos le déduit lui-même avant de lancer "
         "la tâche. Un objectif donné rattache la tâche à cet objectif (vérifier son nom avec "
-        "list_goals). Renvoie l'identifiant de la tâche créée.",
+        "list_goals). Un modèle donné (champ model, tel que list_tasks le renvoie, ex. « opus ») est celui "
+        "de la tâche ; un prompt « on » est exécuté par Ponos à chaque changement de statut de la "
+        "tâche (ex. « quand elle passe à done, crée une tâche qui applique les recommandations du "
+        "Résultat »), ce qui permet de préparer des tâches enchaînées. Renvoie l'identifiant de la "
+        "tâche créée.",
         "inputSchema": _schema(
             {
                 "title": {
@@ -302,6 +308,16 @@ TOOLS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "L'objectif que la tâche sert : son nom (tel que list_goals "
                     "le renvoie, sans tenir compte de la casse) ou son identifiant.",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "Le modèle sur lequel la tâche tourne. Vide : celui du runner.",
+                },
+                "on": {
+                    "type": "string",
+                    "description": "Un prompt que Ponos exécute à chaque changement de statut de "
+                    "la tâche, avec l'ancien statut, le nouveau et la tâche. Vide : rien ne "
+                    "s'exécute.",
                 },
             },
             ("title",),
@@ -1045,6 +1061,8 @@ def create_task(
     type: str = "",  # noqa: A002 — the name the tool gives it
     priority: int | str = "",
     goal: str = "",
+    model: str = "",
+    on: str = "",
 ) -> dict[str, Any]:
     if not title.strip():
         raise ToolError("Une tâche a besoin d'un titre.")
@@ -1058,6 +1076,8 @@ def create_task(
         priority=priority,
         kind=type,
         goal=served["id"] if served else "",
+        model=model,
+        on=on,
     )
     return {
         "id": created["id"].replace("-", ""),

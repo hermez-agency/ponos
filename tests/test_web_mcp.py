@@ -107,6 +107,22 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         launched = _mcp_call(api, grant, "create_task", title="Lance-toi", status="ready")
         assert launched["isError"], "no client launches the task it wrote"
 
+        chained = _mcp_call(
+            api,
+            grant,
+            "create_task",
+            title="Enchaîner",
+            model="opus",
+            on="Quand elle passe à done, crée la tâche de déploiement.",
+        )
+        assert not chained["isError"], chained
+        chained_page = board.page(chained["structuredContent"]["id"])
+        assert store.read(chained_page, "Model") == "opus"
+        assert (
+            store.read(chained_page, "On")
+            == "Quand elle passe à done, crée la tâche de déploiement."
+        )
+
         unknown = _mcp_call(api, grant, "create_task", title="X", project="Nulle part")
         assert unknown["isError"] and "Usine" in unknown["content"][0]["text"]
 
@@ -127,6 +143,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert [line["tool"] for line in journal_lines] == [
             "answer_question",
             "answer_question",
+            "create_task",
             "create_task",
             "create_task",
             "create_task",

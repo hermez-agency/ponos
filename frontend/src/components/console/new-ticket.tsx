@@ -14,6 +14,7 @@ import { Kbd } from "@/components/console/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import { useConsole } from "@/hooks/use-console"
 import { api } from "@/lib/api"
 import { useBoard } from "@/lib/board-store"
@@ -207,6 +208,27 @@ export const PlanInputController: InputControllerComponentInterface = ({ formInp
   )
 }
 
+/* The « On » prompt: a few lines, under the other advanced options, with what
+ * it is for and an example. Optional — empty, nothing runs. */
+export const OnInputController: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const id = formInput.id ?? "field-on"
+  return (
+    <div className="flex flex-col gap-1" data-slot="on-input">
+      <Textarea
+        id={id}
+        rows={3}
+        className="font-mono text-xs"
+        value={String(formInput.value ?? "")}
+        placeholder={t("When this ticket goes to done, create a ticket that applies the recommendations of the Result.")}
+        onChange={(event) => onChange({ ...formInput, value: event.target.value, violations: [] })}
+      />
+      <span className="text-muted-foreground text-xs">
+        {t("Optional. A prompt Ponos runs at every change of this ticket's status — for example, to chain a follow-up ticket.")}
+      </span>
+    </div>
+  )
+}
+
 /* -- the dialog's two columns ------------------------------------------------ */
 
 /* What the buttons under the brief add to it: the two things a brief most
@@ -309,6 +331,7 @@ export function NewTicketFields() {
           {/* A code ticket's, like the sub-type: an empty type may turn out to be code. */}
           {code || !type ? field("plan") : null}
           {field("model")}
+          {field("on")}
           {estimate ? (
             <p className="text-xs">
               <TicketEstimate estimate={estimate} />
