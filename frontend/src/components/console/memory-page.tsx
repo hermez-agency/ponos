@@ -296,8 +296,7 @@ function MemoryTab() {
     <section data-slot="memory-page" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <Eyebrow>{t("Memory")}</Eyebrow>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="text-muted-foreground text-sm">
             {t("What Ponos remembers from one session to the next. Sessions are told the accepted memories of their project and the global ones.")}
           </p>
         </div>

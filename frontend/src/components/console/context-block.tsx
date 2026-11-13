@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useBlocker } from "@tanstack/react-router"
-import { BookOpen, Pencil, RefreshCw, Save } from "lucide-react"
+import { BookOpen, RefreshCw, Save } from "lucide-react"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
@@ -8,21 +8,19 @@ import { Button } from "@/components/ui/button"
 import { api, why } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import type { Context } from "@/lib/types"
-import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
 
 import { EmptyState } from "./empty-state"
-import { Eyebrow } from "./frame"
-import { Markdown } from "./markdown"
 import { MarkdownEditor } from "./markdown-editor"
 import { Robot } from "./robot"
 
-/* The standing context, as the first block of the Projects page.
+/* The standing context, the editor of the Context page's first tab.
  *
  * Whatever is written here reaches **every** ticket, before the project's brief
  * and before the ticket itself — which makes it the most expensive text in the
- * workspace. It sits over the projects because it covers all of them: it is a
- * block of that page, not a project and not a page of its own.
+ * workspace. It covers all the projects: it is not a project's, and the page is
+ * the only place it is drawn — a project's header links to it
+ * (`ProjectHead`'s "Inherits the global context ↑").
  *
  * Two things this block does that no other one does.
  *
@@ -34,13 +32,9 @@ import { Robot } from "./robot"
  * And it edits what the *agent* reads: the Markdown the prompt carries,
  * drawn as it is typed. A heading here is the heading as an agent gets it.
  *
- * It is drawn folded — a few lines, so that a long text does not push the
- * projects off a phone — and opened by "See all" or by "Edit".
- *
- * Beside a project picked in the panel, it is not drawn at all — the project's
- * own header is the page's one header there, and a link back to this block
- * (`ProjectHead`'s "Global context ↑", by `CONTEXT_ANCHOR`) is what a project
- * offers instead of a second one the same size.
+ * It is drawn open, in the editor, with no folded preview and no read-only
+ * state: people come to this page to read and change the text, and the page's
+ * head — "Context" and its sentence — is the only title above it.
  */
 
 
@@ -58,12 +52,8 @@ export function ContextBlock() {
   const t = useT()
   const [drawn, setDrawn] = React.useState<Context | null>(null)
   const [text, setTyped] = React.useState(draft ?? "")
-  const [editing, setEditing] = React.useState(draft !== null)
-  const [open, setOpen] = React.useState(false)
-  const [overflows, setOverflows] = React.useState(false)
   const [problem, setProblem] = React.useState("")
   const [saving, setSaving] = React.useState(false)
-  const body = React.useRef<HTMLDivElement>(null)
 
   const setText = React.useCallback((value: string) => {
     // A text back to what the page says is no draft at all.
@@ -97,7 +87,6 @@ export function ContextBlock() {
       setDrawn((known) => (known ? { ...known, text: text.trim() } : known))
       read = text
       draft = null
-      setEditing(false)
       toast.success(t("The context is saved"), {
         description: t("Every ticket from here on is told this."),
       })
@@ -115,7 +104,6 @@ export function ContextBlock() {
   const cancel = () => {
     draft = null
     setTyped(read)
-    setEditing(false)
   }
 
   // Leaving with something typed: the page, the browser's own way out.
@@ -125,35 +113,14 @@ export function ContextBlock() {
     withResolver: true,
   })
 
-  const shown = drawn?.text.trim() ?? ""
-  React.useLayoutEffect(() => {
-    const element = body.current
-    if (element) setOverflows(element.scrollHeight > element.clientHeight + 1)
-  }, [shown, open, editing])
-
   return (
     <section
       data-slot="context-block"
-      className="bg-card mb-6 flex flex-col gap-3 rounded-xl border p-4"
+      className="flex flex-col gap-3"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <Eyebrow>{t("Global context")}</Eyebrow>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {t("Sent to Ponos in every ticket, for all the projects")}
-          </p>
-        </div>
-        {drawn?.editable && !editing && shown && canAct() ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditing(true)}
-          >
-            <Pencil />
-            {t("Edit")}
-          </Button>
-        ) : null}
-      </div>
+      <p className="text-muted-foreground text-sm">
+        {t("What every ticket is told, for all the projects.")}
+      </p>
 
       {problem ? (
         <p className="text-tr-amber border-tr-amber/30 bg-tr-amber/10 rounded-xl border px-4 py-3 text-sm">
@@ -168,18 +135,19 @@ export function ContextBlock() {
         <EmptyState icon={BookOpen}>
           {t("This board has no context page, so there is nowhere to write.")}
         </EmptyState>
-      ) : editing ? (
+      ) : (
         <>
           <MarkdownEditor
             value={text}
             onChange={setText}
+            readOnly={!canAct()}
             placeholder={t(
               "Who you are, what the team does, the stack, the conventions, the things never to do. Keep it to one screen."
             )}
             className="min-h-[18rem]"
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => void save()} disabled={!changed || saving}>
+            <Button size="sm" onClick={() => void save()} disabled={!changed || saving || !canAct()}>
               <Save />
               {saving ? t("Saving…") : t("Save")}
             </Button>
@@ -202,46 +170,6 @@ export function ContextBlock() {
             {t("saved to the board, and read again on the next run.")}
           </p>
         </>
-      ) : shown ? (
-        <>
-          <div
-            ref={body}
-            data-open={open}
-            className={cn(
-              "relative overflow-hidden",
-              !open &&
-                "max-h-24 [mask-image:linear-gradient(to_bottom,black_60%,transparent)]"
-            )}
-          >
-            <Markdown text={shown} />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {overflows || open ? (
-              <Button variant="ghost" size="sm" onClick={() => setOpen(!open)} aria-expanded={open}>
-                {open ? t("Fold") : t("See all")}
-              </Button>
-            ) : null}
-            <span className="text-muted-foreground font-mono text-[0.7rem]">
-              {t("{{count}} characters in every prompt", { count: String(shown.length) })}
-            </span>
-          </div>
-        </>
-      ) : (
-        // One line and its button: an empty state as tall as the screen's
-        // empty states was the largest thing on the Projects page, for a text
-        // nobody had written yet.
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
-          <p className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm">
-            <BookOpen className="size-4 shrink-0" />
-            {t("Nothing is written yet, so the tickets are told nothing about who the work is for.")}
-          </p>
-          {canAct() ? (
-            <Button size="sm" onClick={() => setEditing(true)}>
-              <Pencil />
-              {t("Write the context")}
-            </Button>
-          ) : null}
-        </div>
       )}
 
       <ConfirmDialog
