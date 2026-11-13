@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:src/ponos/web/static/assets/context-head-CrqJtGno.js
-import{r as e}from"./react-CFebUx29.js";import{pr as t}from"./ui-BcdEoTgI.js";import{Ir as n,Ja as r}from"./console-Dv14wcs2.js";var i=e();function a(){let e=r();return(0,i.jsx)(n,{icon:t,title:e(`Context`),blurb:e(`Everything a session is given besides its ticket`)})}export{a as ContextHead};
-========
-import{r as e}from"./react-CFebUx29.js";import{pr as t}from"./ui-BcdEoTgI.js";import{Ir as n,Ja as r}from"./console-CDvDYS6-.js";var i=e();function a(){let e=r();return(0,i.jsx)(n,{icon:t,title:e(`Context`),blurb:e(`Everything a session is given besides its ticket`)})}export{a as ContextHead};
->>>>>>>> c4411700 (feat: les sessions ne signent plus les commits et les PR comme Claude (claude.attribution, éteint par défaut)):src/ponos/web/static/assets/context-head-hzB_YOoz.js
