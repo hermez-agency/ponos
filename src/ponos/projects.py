@@ -39,6 +39,7 @@ was tried and why it failed in a comment.
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -341,6 +342,37 @@ class Resolver:
         # rebuilt on the next question, and there is rarely one in the same run.
         self._by_remote = None
         return path
+
+    def bring(self, repository: str) -> tuple[Path, bool]:
+        """Where the clone of `owner/name` is, cloning it under the root when there is none.
+
+        For a project created from a GitHub address alone — the MCP's, which
+        has nobody to be told "cloned at the first ticket". True when this call
+        made the clone, so that a caller whose next step fails can take it
+        back. A folder that already has the repository's name and another
+        `origin` is refused, not cloned over or beside: it is somebody's work.
+        A clone that fails leaves nothing behind.
+        """
+        if not git.is_repository(repository):
+            raise git.GitError(f"{repository!r} is not a GitHub repository name, owner/name")
+        found = self.locate("", "", repository)
+        if found:
+            return found, False
+        target = self._root / repository.rsplit("/", 1)[-1]
+        if target.exists():
+            origin = git.remote_url(target) if git.is_repo(target) else ""
+            if origin and _normalise(origin) == repository.lower():
+                return target, False  # made by hand since the index was read
+            raise git.GitError(
+                f"{target} exists already, with "
+                + (f"the origin {origin}" if origin else "no git origin")
+                + f", not {repository}: it is not cloned over"
+            )
+        try:
+            return self._clone(repository), True
+        except git.GitError:
+            shutil.rmtree(target, ignore_errors=True)
+            raise
 
     def _match(self, remote: str) -> Path | str:
         """The one repository with that remote, or why there is not one.

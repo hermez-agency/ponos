@@ -18,6 +18,7 @@ somebody cuts a release; see CONTRIBUTING.md, « Cutting one ».
 
 ### Added
 
+- MCP : `create_project` et `update_project` — un projet ajouté depuis un dossier du disque (son dépôt GitHub lu dans son `origin`), depuis un dépôt GitHub cloné dans le dossier des projets, ou en projet document, par le circuit de la console (nom unique, dossier git, dépôt GitHub valide) ; un clone échoué ou un nom pris ne laisse rien derrière lui, aucun outil ne supprime un projet.
 - MCP : `create_goal` et `update_goal` — les objectifs créés et modifiés par le circuit de la console (mêmes validations : nom, priorité de 0 à 100, projets connus, échéance `AAAA-MM-JJ`) ; seuls les champs donnés changent, un objectif se désactive, aucun outil ne le supprime.
 - MCP : `set_task_goal` — rattache des tâches existantes à un objectif, ou les en détache (objectif vide), par le circuit de la barre « Objectif » de la console ; tout est vérifié avant d’écrire, la réponse donne l’objectif avant et après pour chaque tâche.
 - MCP : `list_schedules`, `create_schedule` et `update_schedule` — les récurrences par le circuit de la console. Toujours créées désactivées, jamais activées, lancées ni supprimées par un client ; la console les marque « À relire » avec un bouton « Activer » jusqu’à leur première activation.

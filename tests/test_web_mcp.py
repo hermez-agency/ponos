@@ -268,6 +268,177 @@ def an_mcp_client_launches_tasks_only_once_confirmed(state_home: Path) -> None:
 # -- the goals ----------------------------------------------------------------
 
 
+def _git_repo(folder: Path, origin: str = "") -> Path:
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(folder)], check=True)
+    if origin:
+        subprocess.run(["git", "-C", str(folder), "remote", "add", "origin", origin], check=True)
+    return folder
+
+
+@case
+def an_mcp_client_creates_a_project_from_a_folder_a_repository_or_nothing(state_home: Path) -> None:
+    """The console's circuit: a folder names its repository, a repository is cloned, neither is a
+    document — and every refusal leaves nothing behind, clone included."""
+    import shutil
+    import tempfile
+
+    from ponos import git, projects
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board, tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        api = _ideas_api(board)
+        api.runner.resolver = projects.Resolver(root)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+
+        def call(tool: str, /, **arguments: Any) -> dict[str, Any]:
+            return _mcp_call(api, grant, tool, **arguments)
+
+        # A folder already on the disk: its repository is read in its origin.
+        poc = _git_repo(
+            root / "cqrs-boundaries-poc", "git@github.com:SalvadorCardona/cqrs-boundaries-poc.git"
+        )
+        made = call("create_project", name="cqrs poc", path=str(poc), icon="🧪")
+        assert not made["isError"], made
+        shown = made["structuredContent"]
+        assert shown["kind"] == "code" and shown["path"] == str(poc)
+        assert shown["repository"] == "https://github.com/SalvadorCardona/cqrs-boundaries-poc"
+        listed = call("list_projects")["structuredContent"]["projects"]
+        assert [(one["name"], one["icon"]) for one in listed] == [("cqrs poc", "🧪")]
+        assert api.create_ticket("Un ticket", project=shown["id"])["id"]
+
+        # A document project: neither a path nor a repository.
+        doc = call(
+            "create_project", name="Notes", description="Des notes.", brief="# Voix\n\nCourt."
+        )
+        assert doc["structuredContent"]["kind"] == "document", doc
+        assert board.blocks_text(doc["structuredContent"]["id"]) == "# Voix\n\nCourt."
+
+        # A GitHub repository: cloned under the root, with a fake `git clone`.
+        cloned: list[str] = []
+
+        def fake_clone(repository: str, into: Path, accounts: object = None) -> None:
+            cloned.append(repository)
+            _git_repo(into, f"https://github.com/{repository}.git")
+
+        real = git.clone
+        git.clone = fake_clone
+        try:
+            fresh = call("create_project", name="Jeu", repository="owner/jeu")
+            assert not fresh["isError"], fresh
+            assert cloned == ["owner/jeu"]
+            assert fresh["structuredContent"]["path"] == str(root / "jeu")
+            assert fresh["structuredContent"]["repository"] == "https://github.com/owner/jeu"
+            assert (root / "jeu" / ".git").is_dir()
+
+            # A clone already on the disk is used, not made again.
+            again = call(
+                "create_project", name="Jeu bis", repository="https://github.com/owner/jeu"
+            )
+            assert not again["isError"] and cloned == ["owner/jeu"], again
+
+            # A folder of that name with another origin: refused, and left alone.
+            _git_repo(root / "autre", "https://github.com/someone/else.git")
+            clash = call("create_project", name="Autre", repository="owner/autre")
+            assert clash["isError"] and "someone/else" in clash["content"][0]["text"]
+            assert cloned == ["owner/jeu"]
+
+            # A clone that fails: refused, no folder, no page.
+            def failing(repository: str, into: Path, accounts: object = None) -> None:
+                into.mkdir(parents=True)
+                (into / "half").write_text("x")
+                raise git.GitError(f"{repository} could not be cloned into {into} — not found")
+
+            git.clone = failing
+            before = len(call("list_projects")["structuredContent"]["projects"])
+            lost = call("create_project", name="Perdu", repository="owner/perdu")
+            assert lost["isError"] and "not found" in lost["content"][0]["text"]
+            assert not (root / "perdu").exists()
+            assert len(call("list_projects")["structuredContent"]["projects"]) == before
+
+            # A name taken after the clone would be a clone to take back: it is checked first.
+            git.clone = fake_clone
+            taken = call("create_project", name="CQRS POC", repository="owner/prise")
+            assert taken["isError"] and not (root / "prise").exists()
+        finally:
+            git.clone = real
+
+        plain = root / "plain"
+        plain.mkdir()
+        for bad in (
+            {"name": "  "},
+            {"name": "Notes"},
+            {"name": "X", "path": str(root / "nowhere")},
+            {"name": "X", "path": str(plain)},
+            {"name": "X", "path": "relatif/dossier"},
+            {"name": "X", "repository": "gitlab.com/a/b"},
+            {"name": "X", "path": str(poc), "repository": "a/b"},
+            {"name": "X", "site": "exemple.com"},
+            {"name": "X", "icon": "pas un emoji"},
+        ):
+            assert call("create_project", **bad)["isError"], bad
+        names = [one["name"] for one in call("list_projects")["structuredContent"]["projects"]]
+        assert sorted(names) == ["Jeu", "Jeu bis", "Notes", "cqrs poc"]
+        shutil.rmtree(root / "plain")
+
+    from ponos.web import mcp as web_mcp
+
+    offered = {tool["name"] for tool in web_mcp.TOOLS}
+    assert not offered & {"delete_project", "remove_project"}
+
+
+@case
+def an_mcp_client_updates_only_the_fields_of_a_project_it_gives(state_home: Path) -> None:
+    import tempfile
+
+    from ponos import projects
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board, tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        board.create_row("projects", "Autre", {})
+        api = _ideas_api(board)
+        api.runner.resolver = projects.Resolver(root)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+
+        def call(tool: str, /, **arguments: Any) -> dict[str, Any]:
+            return _mcp_call(api, grant, tool, **arguments)
+
+        made = call("create_project", name="Notes", description="Avant.")["structuredContent"]
+
+        changed = call("update_project", project="notes", description="Après.", icon="📝")
+        assert not changed["isError"], changed
+        row = next(one for one in api.all_projects()["projects"] if one["id"] == made["id"])
+        assert (
+            row["description"] == "Après." and row["name"] == "Notes" and row["kind"] == "document"
+        )
+        assert call("list_projects")["structuredContent"]["projects"][1]["icon"] == "📝"
+
+        # Giving a folder makes it a code project, its repository read from its origin.
+        repo = _git_repo(root / "notes", "https://github.com/owner/notes.git")
+        coded = call("update_project", project=made["id"], path=str(repo), name="Notes 2")
+        assert not coded["isError"], coded
+        assert coded["structuredContent"]["kind"] == "code"
+        assert coded["structuredContent"]["name"] == "Notes 2"
+        assert coded["structuredContent"]["repository"] == "https://github.com/owner/notes"
+
+        for bad in (
+            {"project": made["id"]},
+            {"project": "inconnu", "description": "x"},
+            {"project": made["id"], "name": "autre"},
+            {"project": made["id"], "name": " "},
+            {"project": made["id"], "path": str(root / "nowhere")},
+            {"project": made["id"], "path": ""},
+            {"project": made["id"], "repository": "gitlab.com/a/b"},
+            {"project": made["id"], "site": "exemple.com"},
+        ):
+            assert call("update_project", **bad)["isError"], bad
+        # Its own name is not "taken".
+        assert not call("update_project", project=made["id"], name="notes 2")["isError"]
+
+
 @case
 def an_mcp_client_creates_and_updates_goals_but_cannot_delete_them(state_home: Path) -> None:
     """The console's own circuit: same validations, partial updates, and no deletion tool."""
@@ -739,6 +910,8 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
         "runner_status",
         "list_ideas",
         "list_goals",
+        "create_project",
+        "update_project",
         "create_goal",
         "update_goal",
         "set_task_goal",
@@ -760,6 +933,8 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
     ]
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]
     assert writes == [
+        "create_project",
+        "update_project",
         "create_goal",
         "update_goal",
         "set_task_goal",
