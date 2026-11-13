@@ -250,6 +250,7 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   lié ou non. Audits, notes et plans vont dans `notes/` ; un
   test de `tests/test_release.py` refuse un `.md` sous `docs/` et toute entrée
   de sa racine qui n'est pas dans la liste du site.
+- **`docs/blog/`, `docs/fr/blog/`, `docs/sitemap.xml` et le bloc Blog de `docs/llms.txt` sont générés** par `scripts/build_blog.py` depuis `blog/content/` ; un article s'ajoute là, pas dans `docs/` — CONTRIBUTING.md, « The site's blog ».
 - **`diagrams/architecture.html` ne s'édite jamais directement.** Il est
   généré par l'outil `archify` à partir de
   `diagrams/ponos.architecture.json`, qui est le fichier à modifier.

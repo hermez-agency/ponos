@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+  <title>Blog — Ponos</title>
+  <subtitle>Notes from the people who build Ponos: how it runs Claude Code on a backlog, and what we learn doing it.</subtitle>
+  <link href="https://the-ponos.app/blog/feed.xml" rel="self"/>
+  <link href="https://the-ponos.app/blog/"/>
+  <id>https://the-ponos.app/blog/</id>
+  <updated>2026-11-13T00:00:00Z</updated>
+  <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+  <entry>
+    <title>Write the ticket, it comes back done: how Ponos runs Claude Code on your backlog</title>
+    <link href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
+    <id>https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/</id>
+    <published>2026-11-13T00:00:00Z</published>
+    <updated>2026-11-13T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>Ponos turns a ticket moved to Ready into a Claude Code session on a disposable git worktree, and brings it back as a pull request. Here is the loop, step by step.</summary>
+    <category term="Claude Code"/>
+    <category term="backlog"/>
+    <category term="git worktree"/>
+    <category term="automation"/>
+  </entry>
+</feed>

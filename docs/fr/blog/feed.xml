@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="fr">
+  <title>Blog — Ponos</title>
+  <subtitle>Les notes de ceux qui font Ponos : comment il fait tourner Claude Code sur un backlog, et ce qu&#x27;on y apprend.</subtitle>
+  <link href="https://the-ponos.app/fr/blog/feed.xml" rel="self"/>
+  <link href="https://the-ponos.app/fr/blog/"/>
+  <id>https://the-ponos.app/fr/blog/</id>
+  <updated>2026-11-13T00:00:00Z</updated>
+  <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+  <entry>
+    <title>Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog</title>
+    <link href="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"/>
+    <id>https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/</id>
+    <published>2026-11-13T00:00:00Z</published>
+    <updated>2026-11-13T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.</summary>
+    <category term="Claude Code"/>
+    <category term="backlog"/>
+    <category term="git worktree"/>
+    <category term="automatisation"/>
+  </entry>
+</feed>

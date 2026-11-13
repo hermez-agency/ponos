@@ -628,6 +628,43 @@ docker run --rm -v "$PWD:/repo:ro" ubuntu:24.04 sh /repo/scripts/fresh-install.s
 
 ---
 
+## The site's blog
+
+Articles are Markdown files in the repository; publishing one is adding a file
+and running the build. They live in `blog/content/<lang>/<slug>.md` (`en` and
+`fr`) — not under `docs/`, which is served as it is and where a test refuses
+Markdown. The file name is the slug: `/blog/<slug>/`, `/fr/blog/<slug>/`.
+
+```markdown
+---
+title: "The title"
+description: One or two sentences — the meta description, the Open Graph text and the lead.
+date: 2026-11-13
+updated: 2026-12-01      # optional
+tags: [Claude Code, backlog]
+lang: en
+translation: slug-of-the-french-version   # optional; one side is enough
+category: Behind the scenes               # optional
+cover: mascot/og.png      # optional, a path from the site's root; that image is the default
+cover_alt: What the cover shows           # optional
+---
+
+Body in Markdown: `##` and `###` headings (the page's `h1` is the title), lists,
+code fences, tables, `> quotes` (end with `> — source` for a citation),
+`> [!NOTE] Title` for an aside, and an image alone on its line for a wide figure
+(its title is the caption).
+```
+
+Then `python3 scripts/build_blog.py` writes the article page, both blog indexes
+(newest first, as cards), one Atom feed per language, `docs/sitemap.xml` and the
+Blog block of `docs/llms.txt`; commit what it writes. `--check` writes nothing and
+fails when the committed pages are behind the sources — `tests/test_blog.py` runs it.
+Every page gets its canonical, `hreflang` between the two versions, Open Graph and
+Twitter Card, and JSON-LD (`BlogPosting`, `BreadcrumbList`; the author and publisher
+are Hermez, never a person). The look is Brand Assets' `Article`
+(`site/src/ui/article.tsx`) written as plain CSS in `docs/blog/blog.css`; a change
+to that component is made there first, then copied here.
+
 ## Dependencies
 
 Two things watch them, and neither is a check every pull request waits on.
