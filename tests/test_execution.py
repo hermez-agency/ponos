@@ -628,7 +628,9 @@ def a_pull_request_that_cannot_be_opened_is_said_on_the_ticket(state_home: Path)
 
     titles: list[str] = []
 
-    def opened(workdir: Path, title: str, body: str, base: str, accounts: Any = None) -> str:
+    def opened(
+        workdir: Path, title: str, body: str, base: str, accounts: Any = None, signed: bool = True
+    ) -> str:
         titles.append(title)
         return "https://github.com/x/y/pull/7"
 

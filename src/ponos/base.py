@@ -418,6 +418,8 @@ class Base(Chapters):
         # Every session of a ticket can be ended from the console — see stopping.py.
         over = threading.Event()
         options.setdefault("stop", stopping.watch(ticket, over))
+        # Signed as Claude or not, whichever session this is — see `[claude] attribution`.
+        options.setdefault("attribution", self.config.claude.attribution)
         # Its tests' share of the cores, under what the caller gives: a key the
         # project's vault holds by one of these names is the project's choice.
         options["environment"] = {

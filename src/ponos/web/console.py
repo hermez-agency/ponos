@@ -979,6 +979,7 @@ class Chat:
                 environment=provider.environment(self.config, chosen),
                 on_event=lambda event: self._on_event(event, turn),
                 stop=stop,
+                attribution=self.config.claude.attribution,
             )
         except Exception as error:
             logger.exception("console: the turn failed", extra=log_module.FILE_ONLY)

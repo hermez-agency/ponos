@@ -47,6 +47,18 @@ def a_workspace_without_a_context_page_changes_nothing() -> None:
 
 
 @case
+def an_unsigned_session_is_asked_for_commits_and_pull_requests_that_name_no_ai() -> None:
+    """`[claude] attribution` off, the default: every frame says it; on, none does."""
+    common: dict[str, Any] = dict(
+        project="Northwind", title="t", body="b", repo="/r", branch="br", base="main", url="u"
+    )
+    for template in (prompt.DEFAULT, prompt.DOCUMENT):
+        unsigned = prompt.build(template, **common)
+        assert "# Authorship" in unsigned and "Co-Authored-By" in unsigned
+        assert "# Authorship" not in prompt.build(template, **common, attribution=True)
+
+
+@case
 def a_goal_frames_the_task_between_the_project_and_the_role() -> None:
     common: dict[str, Any] = dict(
         project="Animalink",

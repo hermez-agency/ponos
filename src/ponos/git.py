@@ -911,13 +911,71 @@ def push(
     )
 
 
+# Claude Code's own signature, in the two shapes it takes: the trailer under a
+# commit (`Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`, whatever the
+# model and the case) and the line under a pull request (« 🤖 Generated with
+# [Claude Code](https://claude.com/claude-code) »). A whole line each, and only
+# those: a sentence that merely mentions Claude Code is somebody's text.
+_SIGNATURE = re.compile(
+    r"^\s*(?:co-authored-by:[^\n]*<noreply@anthropic\.com>"
+    r"|(?:\U0001f916\s*)?generated with \[?claude code\]?(?:\([^)\s]*\))?\.?)\s*$",
+    re.IGNORECASE,
+)
+
+
+def unsigned(text: str) -> str:
+    """`text` without the lines by which Claude Code signs — see `[claude] attribution`.
+
+    The safety net under a session launched unsigned (session.UNSIGNED) that
+    wrote one all the same. Nothing else moves: the blank line that only
+    separated a removed line from the rest goes with it, so the end of a body
+    is not left with a gap, and a text without one is returned as it came.
+    """
+    lines = text.split("\n")
+    kept: list[str] = []
+    for index, line in enumerate(lines):
+        if not _SIGNATURE.match(line):
+            kept.append(line)
+            continue
+        after = lines[index + 1] if index + 1 < len(lines) else ""
+        if kept and not kept[-1].strip() and not after.strip():
+            kept.pop()
+    return "\n".join(kept) if len(kept) != len(lines) else text
+
+
+def unsign_pull_request(url: str, accounts: Accounts | None = None) -> bool:
+    """Take Claude Code's signature out of that pull request's description, if it has one.
+
+    For a pull request opened by somebody else than the runner — the session
+    itself, an earlier attempt — that it finds already there. True when the
+    description was rewritten.
+    """
+    token = token_for(url, accounts)
+    said = run(["gh", "pr", "view", url, "--json", "body", "-q", ".body"], timeout=60, token=token)
+    if not said.ok or (cleaned := unsigned(said.out)) == said.out:
+        return False
+    return run(["gh", "pr", "edit", url, "--body", cleaned], timeout=60, token=token).ok
+
+
 def open_pull_request(
-    worktree: Path, title: str, body: str, base: str, accounts: Accounts | None = None
+    worktree: Path,
+    title: str,
+    body: str,
+    base: str,
+    accounts: Accounts | None = None,
+    signed: bool = True,
 ) -> str:
-    """Open the PR through gh and return its URL. Opening it merges nothing."""
+    """Open the PR through gh and return its URL. Opening it merges nothing.
+
+    `signed` false is `[claude] attribution` off: the description goes out
+    without Claude Code's signature, and so does the one of a pull request
+    the branch already had.
+    """
     if not shutil.which("gh"):
         raise GitError("gh not found — cannot open the pull request")
     token = token_for(remote_url(worktree), accounts)
+    if not signed:
+        body = unsigned(body)
     result = run(
         ["gh", "pr", "create", "--base", base, "--title", title, "--body", body],
         cwd=worktree,
@@ -931,6 +989,8 @@ def open_pull_request(
         return result.out
     existing = run(["gh", "pr", "view", "--json", "url", "-q", ".url"], cwd=worktree, token=token)
     if existing.ok and existing.out.startswith("http"):
+        if not signed:
+            unsign_pull_request(existing.out, accounts)
         return existing.out
     raise GitError(f"gh pr create: {result.err or result.out}")
 

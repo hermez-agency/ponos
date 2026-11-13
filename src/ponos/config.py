@@ -731,6 +731,12 @@ class Claude:
 
     provider: str = ""
     api_key: str = ""
+    # Whether the sessions sign their commits and pull requests as Claude —
+    # Claude Code's own `Co-Authored-By` trailer and « Generated with Claude
+    # Code » line. Off: every session is launched without them, whatever the
+    # machine's `~/.claude/settings.json` says, its prompt asks for none, and
+    # what slips through is taken out of the pull request (git.unsigned).
+    attribution: bool = False
 
 
 @dataclass
@@ -1455,7 +1461,11 @@ def load(path: Path | None = None, *, secrets: dict[str, str] | None = None) -> 
         ),
         speech=Speech(),
         browser=Browser(),
-        claude=Claude(provider=file.claude.provider, api_key=secret(stored, "claude", "api_key")),
+        claude=Claude(
+            provider=file.claude.provider,
+            api_key=secret(stored, "claude", "api_key"),
+            attribution=file.claude.attribution,
+        ),
         budget=Budget(**file.budget.model_dump()),
         review=Review(),
         permissions=Permissions(**file.permissions.model_dump()),

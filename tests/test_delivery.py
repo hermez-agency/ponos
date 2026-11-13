@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import shutil
 import tempfile
 from collections.abc import Iterator
@@ -256,7 +257,7 @@ def _validating(
     merges: list[tuple[str, str]] = []
     published: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         merges.append((url, method))
         if refuses:
             raise git_module.GitError(refuses)
@@ -452,7 +453,10 @@ def a_validated_ticket_whose_date_has_passed_is_carried_out_at_once() -> None:
     merges: list[tuple[str, str]] = []
     with _github(
         {"https://github.com/x/y/pull/1": "OPEN"},
-        merge=lambda url, method="squash", accounts=None: merges.append((url, method)) or "merged",  # type: ignore[func-returns-value]  # appended, then merged
+        merge=lambda url, method="squash", accounts=None, signed=True: (
+            merges.append((url, method))  # type: ignore[func-returns-value]  # appended, then merged
+            or "merged"
+        ),
     ):
         results = runner.deliver()
     assert merges == [("https://github.com/x/y/pull/1", "squash")]
@@ -934,12 +938,84 @@ def a_pull_request_whose_jobs_are_green_or_skipped_is_merged() -> None:
     assert len(asked) == 1 and asked[0][:3] == ["gh", "pr", "merge"]
 
 
+@contextlib.contextmanager
+def _squashed(
+    commits: list[dict[str, str]], setting: str = "COMMIT_MESSAGES"
+) -> Iterator[list[list[str]]]:
+    """Green checks, the pull request's commits and the repository's squash setting as given."""
+    asked: list[list[str]] = []
+    which, checks, run, token = (
+        shutil.which,
+        github_checks.checks,
+        git_module.run,
+        git_module.token_for,
+    )
+    shutil.which = lambda name: "/usr/bin/gh"  # type: ignore[assignment]  # a double: `gh` is there
+    github_checks.checks = lambda url, accounts=None, timeout=60: []
+    git_module.token_for = lambda *_, **__: ""
+
+    def gh(command: list[str], **kwargs: Any) -> git_module.Result:
+        asked.append(command)
+        if command[:3] == ["gh", "pr", "view"]:
+            said = {"body": "The description.", "commits": commits}
+            return git_module.Result(0, json.dumps(said), "")
+        if command[:2] == ["gh", "api"]:
+            return git_module.Result(0, setting, "")
+        return git_module.Result(0, "merged", "")
+
+    git_module.run = gh  # type: ignore[assignment]  # a double: GitHub as given
+    try:
+        yield asked
+    finally:
+        shutil.which, github_checks.checks, git_module.run = which, checks, run
+        git_module.token_for = token
+
+
+SIGNED = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+
+
+@case
+def an_unsigned_squash_leaves_claudes_signature_out_of_its_commit() -> None:
+    """Off: the body GitHub would write is given without the trailer; nothing to lose, nothing given."""
+    url = "https://github.com/x/y/pull/1"
+    one = [{"messageHeadline": "feat: x", "messageBody": f"Why it changed.\n\n{SIGNED}"}]
+    with _squashed(one) as asked:
+        github_checks.merge_pull_request(url, "squash", signed=False)
+    assert asked[-1] == ["gh", "pr", "merge", url, "--squash", "--body", "Why it changed."]
+    assert asked[1] == ["gh", "api", "repos/x/y", "--jq", ".squash_merge_commit_message"]
+
+    several = [
+        {"messageHeadline": "feat: x", "messageBody": SIGNED},
+        {"messageHeadline": "fix: y", "messageBody": "Because.\n\n" + SIGNED},
+    ]
+    with _squashed(several) as asked:
+        github_checks.merge_pull_request(url, "squash", signed=False)
+    assert asked[-1][-1] == "* feat: x\n\n* fix: y\n\nBecause."
+
+    clean = [{"messageHeadline": "feat: x", "messageBody": "Why."}]
+    with _squashed(clean) as asked:
+        github_checks.merge_pull_request(url, "squash", signed=False)
+    assert asked[-1] == ["gh", "pr", "merge", url, "--squash"], "GitHub writes its own"
+
+    with _squashed(one) as asked:
+        github_checks.merge_pull_request(url, "squash")
+    assert asked == [["gh", "pr", "merge", url, "--squash"]], "on: nothing is asked nor given"
+
+    with _squashed(one) as asked:
+        github_checks.merge_pull_request(url, "merge", signed=False)
+    assert asked == [["gh", "pr", "merge", url, "--merge"]], "only a squash writes a message"
+
+    with _squashed(one, "BLANK") as asked:
+        github_checks.merge_pull_request(url, "squash", signed=False)
+    assert asked[-1] == ["gh", "pr", "merge", url, "--squash"]
+
+
 @case
 def a_validated_pull_request_with_a_red_job_blocks_its_ticket_as_checks_failed() -> None:
     url = "https://github.com/x/y/pull/1"
     runner = _board_runner([_reviewed("ppr", "validated", url)], {})
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         raise github_checks.ChecksNotGreen("failed", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
@@ -966,7 +1042,7 @@ def a_pull_request_validated_while_its_ci_is_red_is_blocked_without_its_review_l
     }
     runner = _board_runner([page], {})
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         raise github_checks.ChecksNotGreen("failed", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
@@ -988,7 +1064,7 @@ def a_validated_pull_request_whose_ci_still_runs_stays_validated_with_its_line()
     }
     runner = _board_runner([page], {})
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         raise github_checks.ChecksNotGreen("pending", ["frontend"])
 
     with _github({url: "OPEN"}, merge=merge):
@@ -1062,7 +1138,7 @@ def a_ci_github_refuses_for_the_accounts_billing_waits_validated_and_is_said_onc
             return git_module.Result(0, "", "")
         return git_module.Result(1, "", "")
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         if url.split("/")[4] not in green:
             raise github_checks.ChecksNotGreen("failed", ["Tests", "Lint"])
         merged.append(url)

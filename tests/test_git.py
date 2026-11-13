@@ -827,7 +827,7 @@ def a_merge_refused_for_being_behind_is_replayed_and_asked_again() -> None:
     attempts: list[str] = []
     replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         attempts.append(url)
         if len(attempts) == 1:
             raise git_module.GitError("gh pr merge: Pull request is not mergeable")
@@ -881,7 +881,7 @@ def a_replay_pushed_on_a_repository_with_ci_is_not_merged_before_its_checks(
     attempts: list[str] = []
     replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         attempts.append(url)
         if len(attempts) == 1:
             raise git_module.GitError("gh pr merge: Pull request is not mergeable")
@@ -911,7 +911,7 @@ def a_merge_refused_for_anything_else_is_still_a_question() -> None:
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         raise git_module.GitError("gh pr merge: 1 approving review is required")
 
     with (
@@ -939,7 +939,7 @@ def a_replay_that_conflicts_leaves_the_merge_refused() -> None:
     runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
     attempts: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         attempts.append(url)
         raise git_module.GitError("gh pr merge: Pull request is not mergeable")
 
@@ -972,7 +972,7 @@ def github_calling_a_pull_request_conflicting_is_heard_before_any_merge() -> Non
     attempts: list[str] = []
     replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         attempts.append(url)
         return "merged"
 
@@ -1012,7 +1012,9 @@ def a_replay_that_conflicts_is_handed_to_a_session_rather_than_to_you() -> None:
         runner.under_reserve = lambda: 0.0  # type: ignore[method-assign]  # a double: credit to spare
         runner._project_of = lambda ticket: projects.Project("Site", Path("/repo"))  # type: ignore[method-assign]  # a double: the ticket\'s project
 
-        def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+        def merge(
+            url: str, method: str = "squash", accounts: Any = None, signed: bool = True
+        ) -> str:
             raise AssertionError("a pull request GitHub calls conflicting is not merged as is")
 
         with (
@@ -1052,7 +1054,7 @@ def a_base_that_keeps_moving_is_replayed_twice_then_asked_about(state_home: Path
     page = _reviewed("pmoving", "validated", url)
     replayed: list[tuple[Any, ...]] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
 
         raise git_module.GitError("gh pr merge: Pull Request is not mergeable")
 
@@ -1093,7 +1095,7 @@ def a_base_moved_by_the_runners_own_merges_is_not_held_against_the_ticket(state_
     replayed: list[tuple[Any, ...]] = []
     refusals = ["not mergeable"] * 5
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
 
         if refusals:
             raise git_module.GitError(f"gh pr merge: Pull Request is {refusals.pop()}")
@@ -1389,7 +1391,7 @@ def _forcing(
     job = SimpleNamespace(ticket=SimpleNamespace(id="p-forced"), workdir=Path("/work"), base="main")
     merges: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         merges.append(url)
         if refuses:
             raise git_module.GitError(f"gh pr merge: {refuses}")
@@ -1516,7 +1518,7 @@ def _forced_on_red_base(
     )
     merges: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         merges.append(url)
         return ""
 
@@ -1749,7 +1751,7 @@ def a_merge_that_took_a_repair_carries_its_cost_into_the_history(state_home: Pat
         ),
         push_leased=lambda workdir, branch, was, accounts=None: "",
         comment_pull_request=lambda *args, **kwargs: None,
-        merge_pull_request=lambda url, method="squash", accounts=None: "merged",
+        merge_pull_request=lambda url, method="squash", accounts=None, signed=True: "merged",
     ):
         done = runner._resolved(job, url)
     assert done is not None and done["status"] == "done", done
@@ -1773,7 +1775,7 @@ def a_pull_request_set_aside_waits_for_a_green_base_then_goes_on_its_own(state_h
     page = _reviewed("p1", "validated", url)
     merges: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         merges.append(url)
         return "merged"
 
@@ -2153,3 +2155,72 @@ def four_worktrees_made_at_once_on_one_repository_all_come_out() -> None:
                 git_module.remove_worktree(repo, path)
                 git_module.delete_branch(repo, f"ticket/t-{index}")
                 git_module.git(["config", "--remove-section", f"branch.ticket/t-{index}"], repo)
+
+
+@case
+def claude_codes_signature_is_taken_out_and_nothing_else() -> None:
+    """The two lines Claude Code signs with go, in any model and case; the rest stays put."""
+    body = (
+        "Fix the header\n"
+        "\n"
+        "Claude Code was used to read the logs.\n"
+        "Co-Authored-By: Bob <bob@example.com>\n"
+        "\n"
+        "🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+        "\n"
+        "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
+        "co-authored-by: Claude Sonnet 4.5 <noreply@anthropic.com>\n"
+    )
+    assert git_module.unsigned(body) == (
+        "Fix the header\n"
+        "\n"
+        "Claude Code was used to read the logs.\n"
+        "Co-Authored-By: Bob <bob@example.com>\n"
+    )
+    assert git_module.unsigned("Summary\n\nGenerated with Claude Code\n\n## Review\nok") == (
+        "Summary\n\n## Review\nok"
+    )
+    untouched = "Nothing here\n\n\n\nCo-Authored-By: Ann <ann@example.com>\n"
+    assert git_module.unsigned(untouched) is untouched
+
+
+@case
+def an_unsigned_pull_request_is_opened_without_the_signature() -> None:
+    """Off: the body sent is cleaned, and a pull request already there is edited; on: as given."""
+    asked: list[list[str]] = []
+
+    def gh(command: list[str], **_: Any) -> git_module.Result:
+        asked.append(command)
+        if command[:3] == ["gh", "pr", "create"]:
+            return git_module.Result(0, "https://github.com/x/y/pull/7", "")
+        return git_module.Result(0, "", "")
+
+    body = "Did it.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+    with tempfile.TemporaryDirectory() as directory:
+        worktree = Path(directory)
+        which = shutil.which
+        shutil.which = lambda name: "/usr/bin/gh"  # type: ignore[assignment]  # a double: `gh` is there
+        try:
+            with _git_answering(
+                run=gh, remote_url=lambda worktree: "", token_for=lambda *_, **__: ""
+            ):
+                git_module.open_pull_request(worktree, "feat: x", body, "main", signed=False)
+                git_module.open_pull_request(worktree, "feat: x", body, "main")
+        finally:
+            shutil.which = which
+    unsigned, signed = (command[command.index("--body") + 1] for command in asked)
+    assert unsigned == "Did it.\n" and signed == body
+
+    edited: list[list[str]] = []
+
+    def existing(command: list[str], **_: Any) -> git_module.Result:
+        edited.append(command)
+        if command[:3] == ["gh", "pr", "view"] and "body" in command:
+            return git_module.Result(
+                0, "Done.\n\nCo-Authored-By: Claude <noreply@anthropic.com>", ""
+            )
+        return git_module.Result(0, "", "")
+
+    with _git_answering(run=existing, token_for=lambda *_, **__: ""):
+        assert git_module.unsign_pull_request("https://github.com/x/y/pull/7")
+    assert edited[-1] == ["gh", "pr", "edit", "https://github.com/x/y/pull/7", "--body", "Done."]

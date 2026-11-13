@@ -739,6 +739,16 @@ SECTIONS: tuple[Section, ...] = (
                     ("rebase", "Commits replayed (rebase)"),
                 ),
             ),
+            Field(
+                "claude",
+                "attribution",
+                "bool",
+                "Sign commits and pull requests as Claude",
+                "On: Claude Code ends its commits with a `Co-Authored-By: Claude` line and its "
+                "pull requests with « Generated with Claude Code ». Off: neither, whatever this "
+                "machine's Claude Code settings say, and what slips through is taken out of the "
+                "pull request and of its squash commit.",
+            ),
         ),
     ),
     Section(

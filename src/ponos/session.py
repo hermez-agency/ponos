@@ -259,6 +259,7 @@ def run(
     max_budget_usd: float = 0.0,
     chrome: bool = True,
     mcp_config: Path | None = None,
+    attribution: bool = False,
     adopted: Handle | None = None,
     track: Callable[[Handle], None] | None = None,
 ) -> Outcome:
@@ -291,6 +292,7 @@ def run(
             max_budget_usd=max_budget_usd,
             chrome=chrome,
             mcp_config=mcp_config,
+            attribution=attribution,
         )
         skip = 0
         if track is not None:
@@ -315,6 +317,7 @@ def launch(
     max_budget_usd: float = 0.0,
     chrome: bool = True,
     mcp_config: Path | None = None,
+    attribution: bool = False,
 ) -> Handle:
     """Start a session detached from this process, and say where to follow it."""
     binary = available()
@@ -331,6 +334,7 @@ def launch(
         max_budget_usd=max_budget_usd,
         chrome=chrome,
         mcp_config=mcp_config,
+        attribution=attribution,
     )
 
     # What the caller adds comes last: an OpenRouter key configured for the
@@ -590,6 +594,18 @@ def workers(count: int) -> dict[str, str]:
     return dict.fromkeys(WORKERS, str(max(1, count)))
 
 
+# What turns Claude Code's own signature off: no `Co-Authored-By` trailer under
+# a commit, no « Generated with Claude Code » under a pull request. Given on the
+# command line rather than left to the machine's `~/.claude/settings.json`, which
+# says what it says, and merged over it by the CLI. `attribution` is the setting
+# of today's versions; `includeCoAuthoredBy` the one older ones read instead —
+# a key a version does not know it ignores.
+UNSIGNED = json.dumps(
+    {"attribution": {"commit": "", "pr": ""}, "includeCoAuthoredBy": False},
+    separators=(",", ":"),
+)
+
+
 def _command(
     binary: str,
     session_id: str,
@@ -600,12 +616,14 @@ def _command(
     max_budget_usd: float,
     chrome: bool = True,
     mcp_config: Path | None = None,
+    attribution: bool = False,
 ) -> list[str]:
     """The CLI's command line for one session.
 
     `chrome` false leaves Claude in Chrome out: the session browses with
     Ponos's own browser instead, the `ponos-browser` server `mcp_config`
     names (browser.py) — added to the servers Claude Code already has.
+    `attribution` false is `[claude] attribution` off: see `UNSIGNED`.
     """
     command = [
         binary,
@@ -629,6 +647,7 @@ def _command(
         "--verbose",
         "--permission-mode",
         permission_mode,
+        *([] if attribution else ["--settings", UNSIGNED]),
     ]
     if model:
         command += ["--model", model]

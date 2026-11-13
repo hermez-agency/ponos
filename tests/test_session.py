@@ -582,3 +582,28 @@ def reaping_a_group_that_outlives_its_grace_kills_it() -> None:
             assert sent == [signal.SIGTERM, signal.SIGKILL], sent
     finally:
         session.GRACE_SECONDS = grace
+
+
+@case
+def an_unsigned_session_is_launched_with_claude_codes_attribution_emptied() -> None:
+    """`[claude] attribution` off, the default: the signature is turned off on the command line.
+
+    Both keys, the one of today's Claude Code and the one older versions read,
+    so that it never rests on the machine's `~/.claude/settings.json`.
+    """
+    command = session._command(
+        "claude", "s", resume=False, permission_mode="default", model="", max_budget_usd=0
+    )
+    given = json.loads(command[command.index("--settings") + 1])
+    assert given == {"attribution": {"commit": "", "pr": ""}, "includeCoAuthoredBy": False}
+    signed = session._command(
+        "claude",
+        "s",
+        resume=False,
+        permission_mode="default",
+        model="",
+        max_budget_usd=0,
+        attribution=True,
+    )
+    assert "--settings" not in signed, "on: Claude Code does as it always did"
+    assert [part for part in command if part not in ("--settings", session.UNSIGNED)] == signed

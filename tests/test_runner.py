@@ -857,7 +857,7 @@ def a_pull_request_validated_mid_pass_is_merged_without_waiting_for_the_session(
         time.sleep(2.2)
         return {"id": job.ticket.page.id, "status": "done"}
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         merges.append(url)
         merged.set()
         return "merged"
@@ -890,7 +890,9 @@ def a_merge_refused_then_retried_mid_pass_is_asked_for_again(state_home: Path) -
             merged.wait(10)
             return {"id": job.ticket.page.id, "status": "done"}
 
-        def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+        def merge(
+            url: str, method: str = "squash", accounts: Any = None, signed: bool = True
+        ) -> str:
             asked.append(url)
             if len(asked) == 1:
                 # Red: the ticket is blocked, and somebody validates it again.
@@ -1080,7 +1082,7 @@ def a_merge_that_raises_fails_its_ticket_and_the_next_one_is_merged(state_home: 
     )
     merges: list[str] = []
 
-    def merge(url: str, method: str = "squash", accounts: Any = None) -> str:
+    def merge(url: str, method: str = "squash", accounts: Any = None, signed: bool = True) -> str:
         if url == first:
             raise store.StoreError("400 Bad Request")
         merges.append(url)

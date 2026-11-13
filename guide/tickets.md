@@ -532,6 +532,30 @@ asked. What the review and the pick-up cost is added to the ticket's *Cost*. A p
 turns it on or off for itself in its **Settings** tab (*Self-review before pull request*);
 `runner.self_review = false` turns it off everywhere else.
 
+## Commits and pull requests are not signed as Claude
+
+Claude Code signs what it writes, unless told otherwise: a `Co-Authored-By: Claude …
+<noreply@anthropic.com>` line under every commit, and « 🤖 Generated with Claude Code »
+under every pull request. Ponos tells it otherwise — `claude.attribution`, **off** by
+default, *Sign commits and pull requests as Claude* in **Settings › Code**:
+
+- Every session Ponos starts — a ticket, its self-review, its attempts, a prompt « On »,
+  a diagnostic, the ideas, the console's conversation — is launched with
+  `--settings '{"attribution":{"commit":"","pr":""},"includeCoAuthoredBy":false}'`: the
+  setting of today's Claude Code, and the one older versions read. It does not depend on
+  this machine's `~/.claude/settings.json`, which it is laid over.
+- A ticket's prompt asks for commit messages and pull request descriptions that name no
+  AI — not Claude, Claude Code nor Anthropic, as an author or as a tool.
+- What slips through all the same is taken out where Ponos writes to GitHub: the
+  description of the pull request it opens (or of the one the branch already had), and the
+  message of a squash merge — the body the repository would write (its commits' messages,
+  or the pull request's description), given to GitHub without those lines. Only the
+  `Co-Authored-By: … <noreply@anthropic.com>` lines and the « Generated with Claude Code »
+  line go; nothing else is touched. The history already pushed is left as it is.
+
+`claude.attribution = true` puts Claude Code's own behaviour back: nothing is passed,
+nothing is taken out, and `~/.claude/settings.json` decides again.
+
 ## Ten tickets on one repository
 
 The base branch does not wait for a session. Ten tickets aimed at one repository means ten
