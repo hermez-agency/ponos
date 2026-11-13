@@ -115,7 +115,7 @@ function ScheduleCard({ schedule }: { schedule: ScheduleItem }) {
     <li data-schedule-card className="bg-card flex flex-col gap-2 rounded-xl border p-3 text-sm">
       <div className="flex items-start justify-between gap-3">
         <span className="min-w-0 font-medium break-words">
-          <ScheduleName id={schedule.id} name={schedule.name} url={schedule.url} />
+          <ScheduleName id={schedule.id} name={schedule.name} url={schedule.url} review={schedule.review && !schedule.active} />
         </span>
         <span className="flex shrink-0 items-center gap-1">
           <LaunchButton id={schedule.id} />

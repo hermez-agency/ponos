@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 def _mcp_call(
-    api: web_api.Api, grant: web_oauth.Grant, name: str, **arguments: Any
+    api: web_api.Api, grant: web_oauth.Grant, name: str, /, **arguments: Any
 ) -> dict[str, Any]:
     from ponos.web import mcp as web_mcp
 
@@ -427,6 +427,7 @@ def a_read_only_mcp_client_sees_and_can_call_no_tool_that_writes(state_home: Pat
             "runner_status",
             "list_ideas",
             "list_goals",
+            "list_schedules",
             "list_solutions",
             "list_memories",
             "list_library",
@@ -517,6 +518,85 @@ def an_mcp_client_lists_the_library_and_reads_a_files_metadata_not_its_content(
 
 
 @case
+def an_mcp_client_writes_schedules_that_are_born_off_and_cannot_turn_them_on(
+    state_home: Path,
+) -> None:
+    """The console's own circuit, minus the switch: no tool activates, launches or deletes."""
+    from ponos import state
+    from ponos.web import mcp as web_mcp
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        board.create_row("projects", "Leadz Ninja", {"Repository": "user/leadz"})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+        assert _mcp_call(api, grant, "list_schedules")["structuredContent"] == {"schedules": []}
+
+        made = _mcp_call(
+            api,
+            grant,
+            "create_schedule",
+            name="Article de blog",
+            cadence="Weekly",
+            day="Wednesday",
+            at="09:00",
+            project="leadz ninja",
+            type="code",
+            model="opus",
+            priority=70,
+            description="Écris l'article.",
+        )
+        assert not made["isError"], made
+        created = made["structuredContent"]
+        assert created["active"] is False and created["first_occurrence_once_active"]
+
+        listed = _mcp_call(api, grant, "list_schedules")["structuredContent"]["schedules"]
+        (one,) = listed
+        assert one["id"] == created["id"] and one["project"] == "Leadz Ninja"
+        assert (one["cadence"], one["day"], one["at"]) == ("Weekly", "Wednesday", "09:00")
+        assert (one["type"], one["model"], one["priority"]) == ("code", "opus", 70)
+        assert one["active"] is False and one["to_review"] is True
+        assert one["description"] == "Écris l'article." and one["tickets_born"] == "ready"
+
+        # Asked to be active: no such argument, so refused, and nothing is turned on.
+        refused = _mcp_call(api, grant, "create_schedule", name="X", cadence="Daily", active=True)
+        assert refused["isError"] and "active" in refused["content"][0]["text"]
+        for bad in (
+            {"name": "X", "cadence": "Fortnightly"},
+            {"name": "X", "cadence": "Daily", "project": "Nulle part"},
+            {"name": "X", "cadence": "Daily", "type": "poem"},
+            {"name": "X", "cadence": "Daily", "priority": 101},
+            {"name": " ", "cadence": "Daily"},
+            {"cadence": "Daily"},
+        ):
+            assert _mcp_call(api, grant, "create_schedule", **bad)["isError"], bad
+        assert len(_mcp_call(api, grant, "list_schedules")["structuredContent"]["schedules"]) == 1
+
+        changed = _mcp_call(
+            api, grant, "update_schedule", schedule=created["id"], at="07:30", name="Blog"
+        )
+        assert not changed["isError"], changed
+        assert changed["structuredContent"]["at"] == "07:30"
+        assert changed["structuredContent"]["name"] == "Blog"
+        assert changed["structuredContent"]["active"] is False
+        for bad in (
+            {"schedule": created["id"], "active": True},
+            {"schedule": created["id"]},
+            {"schedule": "f" * 32, "at": "08:00"},
+            {"schedule": created["id"], "cadence": "Never"},
+        ):
+            assert _mcp_call(api, grant, "update_schedule", **bad)["isError"], bad
+
+        # A person turns it on from the console: it is no longer "to review".
+        api.save_schedule(created["id"], {"active": True})
+        assert created["id"] not in state.schedules_to_review()
+        assert api.schedules()["schedules"][0]["review"] is False
+
+    names = {tool["name"] for tool in web_mcp.TOOLS}
+    assert not names & {"activate_schedule", "launch_schedule", "delete_schedule"}
+
+
+@case
 def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
     """The whole list, written down: a tool added is a decision, not a drift.
 
@@ -536,6 +616,9 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
         "list_ideas",
         "list_goals",
         "create_task",
+        "list_schedules",
+        "create_schedule",
+        "update_schedule",
         "launch_task",
         "answer_question",
         "list_solutions",
@@ -551,6 +634,8 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]
     assert writes == [
         "create_task",
+        "create_schedule",
+        "update_schedule",
         "launch_task",
         "answer_question",
         "apply_solution",

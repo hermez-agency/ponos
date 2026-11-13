@@ -17,7 +17,9 @@ import type { Schedule, ScheduleActivity, ScheduleRun, ScheduleTicket, Statistic
 import { cn } from "@/lib/utils"
 import { projectHref, useWide } from "@/resources/projects"
 import {
+  ActivateButton,
   ActiveSwitch,
+  ReviewBadge,
   DeleteButton,
   LaunchButton,
   Moment,
@@ -143,6 +145,7 @@ export function ScheduleMaster({ rows = [] }: ListComponentPropsInterface<Schedu
                 <span className="truncate text-sm font-semibold" title={schedule.name}>
                   {schedule.name}
                 </span>
+                <ReviewBadge schedule={schedule} />
                 {schedule.problem ? (
                   <Badge variant="destructive" className="shrink-0 px-1.5 py-0 text-[0.65rem]" title={schedule.problem}>
                     <TriangleAlert />
@@ -270,8 +273,9 @@ function ScheduleHead({ schedule }: { schedule: Schedule }) {
       <div className="border-border flex flex-wrap items-end gap-x-6 gap-y-3 border-b pb-4">
         <div className="min-w-0 flex-1">
           <Eyebrow>{t("Schedule")}</Eyebrow>
-          <h2 className="text-xl font-semibold tracking-tight break-words">
+          <h2 className="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight break-words">
             {schedule.name}
+            <ReviewBadge schedule={schedule} />
           </h2>
           <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             {rule ? <span data-schedule-rule>{rule}</span> : null}
@@ -304,6 +308,7 @@ function ScheduleHead({ schedule }: { schedule: Schedule }) {
               {schedule.active ? t("Active") : t("Paused")}
             </span>
           </label>
+          <ActivateButton schedule={schedule} />
           <LaunchButton id={schedule.id} labelled />
           <Link
             to={scheduleHref(schedule.id)}

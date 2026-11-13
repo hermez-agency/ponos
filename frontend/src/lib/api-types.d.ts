@@ -4641,6 +4641,8 @@ export interface components {
             subtype?: string;
             /** @description What stops this schedule being acted on, in the words `doctor` prints. */
             problem: string;
+            /** @description Written by an MCP client and not yet turned on: the console asks for a read. */
+            review: boolean;
         };
         /** @description What one schedule made — `web/lineage.py`. */
         ScheduleActivity: {
@@ -4689,6 +4691,8 @@ export interface components {
             subtype?: string;
             /** @description What stops this schedule being acted on, in the words `doctor` prints. */
             problem: string;
+            /** @description Written by an MCP client and not yet turned on: the console asks for a read. */
+            review: boolean;
             body: string;
         };
         /** @description The ticket a schedule launched by hand was born as. */

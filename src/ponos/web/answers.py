@@ -913,6 +913,8 @@ class Schedule(Shape):
     subtype: str = omitted()
     problem: str
     """What stops this schedule being acted on, in the words `doctor` prints."""
+    review: bool
+    """Written by an MCP client and not yet turned on: the console asks for a read."""
 
 
 class ScheduleDetail(Schedule):
