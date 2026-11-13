@@ -494,7 +494,7 @@ const editForm: FormInterface = {
  * where its history is (the comments, the edits, what a form does not draw),
  * one icon further. The table's cell and the phone's card draw the
  * same one. */
-export function ScheduleName({ id, name, url }: { id: string; name: string; url: string }) {
+export function ScheduleName({ id, name, url, review }: { id: string; name: string; url: string; review?: boolean }) {
   // Over a project's page, the window keeps the tab it was opened from in the address.
   const scoped = useCurrentViewResourceContext().resource["@id"] === PROJECT_SCHEDULES
   const open = useOpensOverTheList(schedules, "update", id, scoped ? "tab=schedules" : "")
@@ -507,6 +507,7 @@ export function ScheduleName({ id, name, url }: { id: string; name: string; url:
       ) : (
         name
       )}
+      <ReviewBadge schedule={{ review }} />
       {url ? (
         <a
           href={url}
@@ -530,7 +531,12 @@ const rowOf = (form: { data?: unknown } | undefined) => (form?.data ?? {}) as Pa
 const PageLink: InputControllerComponentInterface = ({ formInput }) => {
   const { form } = useFormContext()
   const data = rowOf(form)
-  return <ScheduleName id={String(data.id ?? "")} name={String(formInput.value ?? "")} url={String(data.url ?? "")} />
+  return <ScheduleName
+      id={String(data.id ?? "")}
+      name={String(formInput.value ?? "")}
+      url={String(data.url ?? "")}
+      review={data.review === true && data.active !== true}
+    />
 }
 
 /* The rule, in one sentence: "Every Monday at 09:00". It replaced three
@@ -611,7 +617,7 @@ const ProjectName: InputControllerComponentInterface = ({ formInput }) => {
  * those, so the hour and the day the rule column says in a sentence, and the
  * model a row does not show, would be written back empty. It moves as it is
  * pressed, and back if the board refuses. */
-export function ActiveSwitch({ id, on, name }: { id: string; on: boolean; name: string }) {
+function useFlip(id: string) {
   const [pressed, setPressed] = React.useState<boolean | null>(null)
   const flip = async (wanted: boolean) => {
     setPressed(wanted)
@@ -626,6 +632,11 @@ export function ActiveSwitch({ id, on, name }: { id: string; on: boolean; name: 
       setPressed(null)
     }
   }
+  return { pressed, flip }
+}
+
+export function ActiveSwitch({ id, on, name }: { id: string; on: boolean; name: string }) {
+  const { pressed, flip } = useFlip(id)
   return (
     <Switch
       checked={pressed ?? on}
@@ -633,6 +644,27 @@ export function ActiveSwitch({ id, on, name }: { id: string; on: boolean; name: 
       onCheckedChange={(wanted) => void flip(wanted)}
       aria-label={t("{{name}} on", { name })}
     />
+  )
+}
+
+/* A schedule an MCP client wrote and nobody has turned on: read it first. */
+export function ReviewBadge({ schedule }: { schedule: Partial<Schedule> }) {
+  if (!schedule.review || schedule.active) return null
+  return (
+    <Badge variant="outline" data-schedule-review className="shrink-0 px-1.5 py-0 text-[0.65rem]">
+      {t("To review")}
+    </Badge>
+  )
+}
+
+/* The step after the reading: the same write as the switch, said as a button. */
+export function ActivateButton({ schedule }: { schedule: Partial<Schedule> }) {
+  const { pressed, flip } = useFlip(String(schedule.id ?? ""))
+  if (!schedule.review || schedule.active) return null
+  return (
+    <Button size="sm" data-schedule-activate disabled={pressed !== null} onClick={() => void flip(true)}>
+      {t("Activate")}
+    </Button>
   )
 }
 

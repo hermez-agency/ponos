@@ -139,7 +139,7 @@ def every_result_is_a_version_and_none_is_overwritten(state_home: Path) -> None:
 @case
 def the_migration_cuts_the_tickets_of_before_and_keeps_a_copy() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
-    before = db.open_at(location, db.MIGRATIONS[:-1])
+    before = db.open_at(location, db.MIGRATIONS[: db.MIGRATIONS.index(db._tickets_have_a_result)])
     done = f"**Résultat** : ✅ post écrit\n\n{_POST}\n\n### Historique\n\n- une"
     try:
         for ticket, report in (("a" * 32, done), ("b" * 32, "Rien de démêlable.")):

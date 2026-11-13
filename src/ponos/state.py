@@ -628,6 +628,40 @@ def wrote_up(ticket_id: str) -> None:
         pass
 
 
+def to_review(schedule_id: str) -> None:
+    """A schedule an MCP client wrote: it waits for a person to read it, then turn it on."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO schedules_to_review (schedule, at) VALUES (?, ?)",
+                (schedule_id.replace("-", ""), datetime.now(UTC).isoformat(timespec="seconds")),
+            )
+    except db.ERRORS:
+        pass
+
+
+def reviewed(schedule_id: str) -> None:
+    """That schedule was turned on, or deleted: it is no longer "to review"."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "DELETE FROM schedules_to_review WHERE schedule = ?",
+                (schedule_id.replace("-", ""),),
+            )
+    except db.ERRORS:
+        pass
+
+
+def schedules_to_review() -> set[str]:
+    """The schedules an MCP client wrote and nobody has turned on yet."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute("SELECT schedule FROM schedules_to_review").fetchall()
+    except db.ERRORS:
+        return set()
+    return {row[0] for row in rows}
+
+
 def switched_kind(ticket_id: str) -> bool:
     """Has this ticket already been made code by the runner, on a session's word?
 

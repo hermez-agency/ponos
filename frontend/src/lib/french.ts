@@ -1922,6 +1922,8 @@ export const FRENCH: Record<string, string> = {
     "Ses tickets, ce qu'ils ont coûté et chacune de ses exécutions s'affichent ici.",
   Active: "Active",
   Paused: "En pause",
+  "To review": "À relire",
+  Activate: "Activer",
   "made by this schedule": "créés par cette récurrence",
   "no session has cost anything yet": "aucune session n'a encore rien coûté",
   "{{cost}} per run on average": "{{cost}} par exécution en moyenne",

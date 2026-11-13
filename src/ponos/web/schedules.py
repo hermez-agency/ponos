@@ -93,6 +93,8 @@ class Schedules(Base):
         # born with, a value like a project's. See `save_project`.
         if "body" in values:
             self.runner.client.replace_markdown(page_id, str(values["body"]))
+        if values.get("active"):
+            state.reviewed(page_id)
         self._drop_schedules()
         self.hub.publish("schedules", saved=page_id)
         return {"id": page_id.replace("-", "")}
@@ -127,6 +129,7 @@ class Schedules(Base):
         wanted = page_id.replace("-", "")
         row = self._schedule_row(wanted)
         self.runner.client.trash(page_id)
+        state.reviewed(wanted)
         self._drop_schedules()
         self.hub.publish("schedules", deleted=wanted)
         return {"id": wanted, "name": row["name"]}
@@ -337,6 +340,7 @@ class Schedules(Base):
         a console that sorted it would be rearranging their page for them.
         """
         next_at = schedules_module.upcoming(schedule, datetime.now().astimezone())
+        review = state.schedules_to_review()
         return {
             "id": schedule.page.id.replace("-", ""),
             "name": schedule.name,
@@ -361,6 +365,8 @@ class Schedules(Base):
             "type": self.config.board.kind_of(schedule.kind),
             "subtype": subtypes.of(schedule.subtype),
             "problem": schedule.problem,
+            # Written by an MCP client and never turned on: a person reads it first.
+            "review": schedule.page.id.replace("-", "") in review,
         }
 
 

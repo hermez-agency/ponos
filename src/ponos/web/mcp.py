@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Any
 
 from .. import __version__, db, estimates, ideas, ids, journal, library, log, memory, state, store
 from .. import kinds as kinds_module
+from .. import schedules as schedules_module
 from . import accounts, live
 from .oauth import READ, WRITE, Grant
 from .tickets import COLUMNS
@@ -94,7 +95,7 @@ INSTRUCTIONS = """\
 Ponos exécute des tâches avec Claude Code : une tâche passée en « ready » est \
 reprise par le runner, travaillée dans un worktree git qui lui est propre, et \
 revient en pull request ou en document. Ce serveur lit l'état de Ponos et écrit \
-peu : créer une tâche, la lancer, répondre à une tâche bloquée, trier les idées.
+peu : créer une tâche, la lancer, répondre à une tâche bloquée, trier les idées, écrire des récurrences.
 
 - Une tâche « vous attend » (statut blocked) quand une session s'est arrêtée sur \
 une question : lisez-la avec get_task, puis répondez avec answer_question — ou \
@@ -104,6 +105,10 @@ apply_solution, qui sert aussi à décider d'une tâche en review.
 la console, ou vous le demande, et le démon la lance dès qu'une place se libère. \
 create_task accepte aussi un modèle (model) et un prompt « on », que Ponos exécute \
 à chaque changement de statut de la tâche : de quoi préparer des tâches enchaînées.
+- Une récurrence créée ici (create_schedule) naît toujours désactivée, quoi qu'on demande : \
+la personne la relit et l'active depuis la console, où elle porte un badge « à relire » \
+jusque-là. update_schedule en change les champs, jamais l'activation. Aucun outil ne \
+l'active, ne la déclenche ni ne la supprime.
 - Lancer une tâche démarre une session payante. launch_task se fait en deux temps : \
 appelé sans confirm, il ne change rien et renvoie un aperçu — les tâches retenues \
 (titre, projet, modèle), celles refusées et pourquoi, le coût estimé. Montrez cet \
@@ -145,6 +150,38 @@ PROJECT_FILTER = {
     "type": "string",
     "description": "Le nom du projet (tel que list_projects le renvoie, sans tenir compte de la "
     "casse) ou son identifiant.",
+}
+
+SCHEDULE_FIELDS: dict[str, Any] = {
+    "cadence": {
+        "type": "string",
+        "enum": list(schedules_module.CADENCES),
+        "description": "Hourly (toutes les heures), Daily (chaque jour à l'heure dite), Weekly "
+        "(chaque semaine, le jour dit) ou Monthly (chaque mois, le jour du mois dit).",
+    },
+    "at": {"type": "string", "description": "L'heure, « 09:00 » (vide : minuit)."},
+    "day": {
+        "type": "string",
+        "description": "Pour Weekly, le jour en anglais (Monday…Sunday) ; pour Monthly, le jour "
+        "du mois (1 à 31).",
+    },
+    "project": PROJECT_FILTER,
+    "description": {
+        "type": "string",
+        "description": "La mission, en Markdown : le brief copié sous chaque ticket né.",
+    },
+    "type": {
+        "type": "string",
+        "enum": list(kinds_module.KINDS),
+        "description": "Le type des tickets (voir create_task). Vide : Ponos le déduit.",
+    },
+    "model": {"type": "string", "description": "Le modèle des tickets. Vide : celui du runner."},
+    "priority": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "De 0 à 100, comme create_task. 50 par défaut.",
+    },
 }
 
 TOOLS: list[dict[str, Any]] = [
@@ -332,6 +369,52 @@ TOOLS: list[dict[str, Any]] = [
                 },
             },
             ("title",),
+        ),
+    },
+    {
+        "name": "list_schedules",
+        "title": "Récurrences",
+        "scope": READ,
+        "description": "Liste les récurrences de Ponos (les tickets qui reviennent seuls) : nom, "
+        "identifiant, projet, cadence, jour et heure, prochaine et dernière occurrence, état "
+        "(activée ou non), mission (le brief de chaque ticket), type, modèle, priorité, et si "
+        "les tickets naissent en brouillon ou prêts (toujours « ready » : ils partent au "
+        "démon dès leur naissance). Une récurrence « à relire » a été écrite par un client MCP "
+        "et attend qu'une personne l'active.",
+        "inputSchema": _schema({"project": PROJECT_FILTER}),
+    },
+    {
+        "name": "create_schedule",
+        "title": "Créer une récurrence",
+        "scope": WRITE,
+        "description": "Crée une récurrence, par le même circuit que la console (mêmes règles). "
+        "Elle est TOUJOURS créée désactivée : une personne la relit puis l'active depuis la "
+        "console — aucun outil ne l'active. Le nom devient le titre des tickets (suivi de la "
+        "date de l'occurrence) ; ils naissent prêts (ready). Renvoie l'identifiant et la date "
+        "de la première occurrence une fois la récurrence activée.",
+        "inputSchema": _schema(
+            {
+                "name": {"type": "string", "description": "Le nom, et le titre des tickets."},
+                **SCHEDULE_FIELDS,
+            },
+            ("name", "cadence"),
+        ),
+    },
+    {
+        "name": "update_schedule",
+        "title": "Modifier une récurrence",
+        "scope": WRITE,
+        "description": "Modifie une récurrence (identifiant donné par list_schedules ou "
+        "create_schedule), par le même circuit que la console : seuls les champs donnés "
+        "changent. Ne l'active pas, ne la lance pas, ne la supprime pas : c'est la personne, "
+        "depuis la console.",
+        "inputSchema": _schema(
+            {
+                "schedule": {"type": "string", "description": "L'identifiant de la récurrence."},
+                "name": {"type": "string", "description": "Le nom, et le titre des tickets."},
+                **SCHEDULE_FIELDS,
+            },
+            ("schedule",),
         ),
     },
     {
@@ -1135,6 +1218,80 @@ def create_task(
     }
 
 
+def _schedule_line(row: dict[str, Any], body: str | None = None) -> dict[str, Any]:
+    line = {
+        "id": row["id"],
+        "name": row["name"],
+        "project": row["project"],
+        "cadence": row["cadence"],
+        "day": row["day"],
+        "at": row["at"],
+        "next": row["next"],
+        "last": row["last"],
+        "active": row["active"],
+        "to_review": row["review"],
+        "type": row["type"],
+        "model": row["model"],
+        "priority": row["priority"],
+        # The engine makes every ticket in the ready column, whatever the schedule.
+        "tickets_born": "ready",
+        "problem": row["problem"],
+    }
+    if body is not None:
+        line["description"] = body
+    return line
+
+
+def list_schedules(api: Api, project: str = "") -> dict[str, Any]:
+    rows = api.schedules()["schedules"]
+    if project:
+        wanted = _project(api, project)
+        rows = [row for row in rows if row["project_id"] == wanted["id"]]
+    return {"schedules": [_schedule_line(row, api.schedule(row["id"])["body"]) for row in rows]}
+
+
+def _schedule_values(api: Api, fields: dict[str, Any]) -> dict[str, Any]:
+    """What the console's form would send: the project by its page, the rest as given."""
+    values: dict[str, Any] = {}
+    for key, value in fields.items():
+        if key == "description":
+            values["body"] = value
+        elif key == "project":
+            values["project"] = _project(api, value)["id"] if value else ""
+        else:
+            values[key] = value
+    return values
+
+
+def create_schedule(api: Api, name: str, cadence: str, **fields: Any) -> dict[str, Any]:
+    if not name.strip():
+        raise ToolError("Une récurrence a besoin d'un nom.")
+    # Never `active`: the schema has no such argument, and it is not forwarded.
+    values = _schedule_values(api, {"cadence": cadence, **fields})
+    created = api.create_schedule(name, values)
+    state.to_review(created["id"])
+    row = api.schedule(created["id"])
+    first = schedules_module.next_occurrence(
+        row["cadence"], row["at"], row["day"], after=datetime.now().astimezone()
+    )
+    return {
+        "id": created["id"],
+        "name": created["name"],
+        "active": False,
+        "first_occurrence_once_active": first.isoformat(timespec="minutes") if first else "",
+        "problem": row["problem"],
+    }
+
+
+def update_schedule(api: Api, schedule: str, **fields: Any) -> dict[str, Any]:
+    wanted = ids.bare(schedule.strip())
+    api.schedule(wanted)  # a LookupError, said as a refusal, for an unknown one
+    if not fields:
+        raise ToolError("Rien à modifier : donnez au moins un champ.")
+    api.save_schedule(wanted, _schedule_values(api, fields))
+    return _schedule_line(api.schedule(wanted))
+
+
 def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> dict[str, Any]:
     card = _card(api, task)
     if card["column"] != "blocked":
@@ -1451,6 +1608,9 @@ HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "list_ideas": list_ideas,
     "list_goals": list_goals,
     "create_task": create_task,
+    "list_schedules": list_schedules,
+    "create_schedule": create_schedule,
+    "update_schedule": update_schedule,
     "launch_task": launch_task,
     "answer_question": answer_question,
     "list_solutions": list_solutions,

@@ -754,6 +754,14 @@ def _kind_switches(connection: sqlite3.Connection) -> None:
     )
 
 
+def _schedules_to_review(connection: sqlite3.Connection) -> None:
+    # The schedules an MCP client wrote and nobody has turned on yet: the
+    # console marks them "to review" until the first activation.
+    connection.execute(
+        "CREATE TABLE schedules_to_review (schedule TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT '')"
+    )
+
+
 def _chats(connection: sqlite3.Connection) -> None:
     connection.execute(
         """
@@ -1335,6 +1343,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _notion_is_gone,
     _skills,
     _tickets_have_a_result,
+    _schedules_to_review,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps
