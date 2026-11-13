@@ -269,6 +269,76 @@ def an_mcp_client_launches_tasks_only_once_confirmed(state_home: Path) -> None:
 
 
 @case
+def an_mcp_client_creates_and_updates_goals_but_cannot_delete_them(state_home: Path) -> None:
+    """The console's own circuit: same validations, partial updates, and no deletion tool."""
+    from ponos.web import mcp as web_mcp
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        board.create_row("projects", "Usine", {"Repository": "user/usine"})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+
+        made = _mcp_call(
+            api,
+            grant,
+            "create_goal",
+            name="Lancer la v2",
+            description="Sortir la v2.",
+            criterion="Dix clients",
+            due="2027-03-01",
+            priority=80,
+            projects=["usine"],
+        )
+        assert not made["isError"], made
+        goal_id = made["structuredContent"]["id"]
+        listed = _mcp_call(api, grant, "list_goals")["structuredContent"]["goals"]
+        (one,) = listed
+        assert one["id"] == goal_id and one["name"] == "Lancer la v2"
+        assert (one["description"], one["criterion"], one["due"]) == (
+            "Sortir la v2.",
+            "Dix clients",
+            "2027-03-01",
+        )
+        assert one["priority"] == 80 and one["projects"] == ["Usine"] and one["active"]
+
+        # Only the fields given change.
+        changed = _mcp_call(api, grant, "update_goal", goal="lancer la v2", priority=20)
+        assert not changed["isError"], changed
+        (one,) = _mcp_call(api, grant, "list_goals")["structuredContent"]["goals"]
+        assert one["priority"] == 20 and one["criterion"] == "Dix clients"
+        assert one["projects"] == ["Usine"] and one["due"] == "2027-03-01"
+
+        off = _mcp_call(api, grant, "update_goal", goal=goal_id, active=False)
+        assert not off["isError"], off
+        (one,) = _mcp_call(api, grant, "list_goals")["structuredContent"]["goals"]
+        assert one["active"] is False
+
+        for bad in (
+            {"name": "  "},
+            {"name": "X", "priority": 101},
+            {"name": "X", "priority": -1},
+            {"name": "X", "projects": ["Inconnu"]},
+            {"name": "X", "due": "demain"},
+            {"name": "X", "due": "2027-13-45"},
+        ):
+            assert _mcp_call(api, grant, "create_goal", **bad)["isError"], bad
+        assert len(_mcp_call(api, grant, "list_goals")["structuredContent"]["goals"]) == 1
+        for bad in (
+            {"goal": goal_id},
+            {"goal": "f" * 32, "priority": 5},
+            {"goal": goal_id, "name": ""},
+            {"goal": goal_id, "priority": 500},
+            {"goal": goal_id, "projects": ["Inconnu"]},
+            {"goal": goal_id, "due": "bientôt"},
+        ):
+            assert _mcp_call(api, grant, "update_goal", **bad)["isError"], bad
+
+    names = {tool["name"] for tool in web_mcp.TOOLS}
+    assert not names & {"delete_goal", "remove_goal", "trash_goal"}
+
+
+@case
 def an_mcp_client_lists_the_goals_and_creates_a_task_for_one(state_home: Path) -> None:
     """A goal named as a person names it, in any case — and a task that serves it.
 
@@ -615,6 +685,8 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
         "runner_status",
         "list_ideas",
         "list_goals",
+        "create_goal",
+        "update_goal",
         "create_task",
         "list_schedules",
         "create_schedule",
@@ -633,6 +705,8 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
     ]
     writes = [tool["name"] for tool in web_mcp.TOOLS if tool["scope"] == "write"]
     assert writes == [
+        "create_goal",
+        "update_goal",
         "create_task",
         "create_schedule",
         "update_schedule",
