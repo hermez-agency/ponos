@@ -12,4 +12,30 @@
     <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/"/>
   </url>
+  <url>
+    <loc>https://the-ponos.app/blog/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/"/>
+  </url>
+  <url>
+    <loc>https://the-ponos.app/fr/blog/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/"/>
+  </url>
+  <url>
+    <loc>https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/</loc>
+    <lastmod>2026-11-13</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
+  </url>
+  <url>
+    <loc>https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/</loc>
+    <lastmod>2026-11-13</lastmod>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
+  </url>
 </urlset>

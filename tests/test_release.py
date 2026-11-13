@@ -873,7 +873,7 @@ def docs_holds_the_site_and_nothing_written_for_the_team() -> None:
     assert not markdown, f"docs/ is the public site, and these are not pages of it: {markdown}"
     site = {
         ".nojekyll", "404.html", "CNAME", "apple-touch-icon.png", "architecture.png",
-        "architecture.webp", "console", "favicon.ico", "fr", "icon.svg", "index.html", "llms.txt",
+        "architecture.webp", "blog", "console", "favicon.ico", "fr", "icon.svg", "index.html", "llms.txt",
         "mascot", "media", "robots.txt", "sitemap.xml", "tokens.css",
     }  # fmt: skip
     unknown = sorted({path.parts[1] for path in files if len(path.parts) > 1} - site)

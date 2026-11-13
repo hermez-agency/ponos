@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog — Ponos</title>
+<meta name="description" content="Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.">
+<link rel="canonical" href="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/">
+<link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/">
+<link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/">
+<link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/">
+<link rel="alternate" type="application/atom+xml" title="Flux Atom" href="https://the-ponos.app/fr/blog/feed.xml">
+<link rel="icon" type="image/svg+xml" href="/mascot/favicon.svg?v=ecran">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Ponos">
+<meta property="og:title" content="Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog — Ponos">
+<meta property="og:description" content="Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.">
+<meta property="og:url" content="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/">
+<meta property="og:locale" content="fr">
+<meta property="og:image" content="https://the-ponos.app/mascot/og.png">
+<meta property="og:image:alt" content="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog — Ponos">
+<meta name="twitter:description" content="Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.">
+<meta name="twitter:image" content="https://the-ponos.app/mascot/og.png">
+<meta name="twitter:image:alt" content="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »">
+<meta property="article:published_time" content="2026-11-13">
+<meta property="article:tag" content="Claude Code">
+<meta property="article:tag" content="backlog">
+<meta property="article:tag" content="git worktree">
+<meta property="article:tag" content="automatisation">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"
+  },
+  "headline": "Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog",
+  "description": "Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.",
+  "image": [
+    "https://the-ponos.app/mascot/og.png"
+  ],
+  "datePublished": "2026-11-13",
+  "dateModified": "2026-11-13",
+  "inLanguage": "fr",
+  "author": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://the-ponos.app/apple-touch-icon.png"
+    }
+  },
+  "keywords": "Claude Code, backlog, git worktree, automatisation",
+  "url": "https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Ponos",
+      "item": "https://the-ponos.app/fr/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://the-ponos.app/fr/blog/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog",
+      "item": "https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"
+    }
+  ]
+}
+</script>
+<script>
+  /* Avant le premier rendu, comme la page d'accueil : le choix du visiteur, sinon le système. */
+  try { var kept = localStorage.getItem("ponos-theme");
+    var dark = kept ? kept === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark); } catch (error) {}
+</script>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<script src="https://umami.cardona.digital/nx.js" defer data-website-id="a3af4ed4-63b2-4732-93a2-a43d156910ec" data-domains="the-ponos.app"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/fr/" aria-label="Ponos, accueil">
+      <img src="/mascot/favicon.svg?v=ecran" alt="" width="28" height="28">
+      Ponos
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a class="btn btn-ghost btn-sm" href="/fr/blog/" aria-current="page">Blog</a>
+      <a class="btn btn-outline btn-sm" href="https://github.com/hermez-agency/ponos#readme">Docs</a>
+      <a class="btn btn-ghost btn-sm lang-switch" href="/blog/write-the-ticket-it-comes-back-done/" hreflang="en" lang="en" aria-label="Read this page in English">EN</a>
+      <button class="btn btn-ghost btn-icon theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre clair et sombre"><svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg><svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="crumbs wrap"><a href="/fr/blog/">← Blog</a></div>
+<article class="prose">
+<header>
+  <p class="product"><img src="/mascot/favicon.svg?v=ecran" alt="" width="20" height="20"><span>Ponos</span><span aria-hidden="true">·</span><span>Coulisses</span></p>
+  <h1>Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog</h1>
+  <p class="lead">Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.</p>
+  <p class="byline"><span class="by">Hermez</span><span aria-hidden="true">·</span><time datetime="2026-11-13">13 novembre 2026</time><span aria-hidden="true">·</span><span>3 min de lecture</span></p>
+</header>
+<figure class="wide"><div><img src="/mascot/og.png" alt="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »" width="1200" height="630"></div></figure>
+<p>L&#x27;essentiel d&#x27;un backlog, c&#x27;est du travail qu&#x27;on sait déjà décrire. Un bug avec une reproduction claire, une petite fonctionnalité, une dépendance à monter, un paragraphe à réécrire. Le décrire prend deux minutes ; le faire prend un après-midi de changements de contexte. <strong>Ponos</strong> est fait pour cet écart : tu écris le ticket, une session Claude Code le fait, et il revient pour que tu le relises.</p>
+<h2 id="la-boucle-tient-en-quatre-gestes">La boucle tient en quatre gestes</h2>
+<ol><li><strong>Écris un ticket</strong> sur le board de Ponos, la console, et passe-le en <em>Ready</em>.</li><li><strong>Ponos le fait.</strong> Une session Claude Code démarre sur un <code>git worktree</code> jetable qui lui est propre, ou dans un dossier de travail quand le ticket n&#x27;a pas de dépôt.</li><li><strong>Tu relis ce qui revient</strong>, et tu réponds en un mot s&#x27;il a posé une question, même depuis ton téléphone.</li><li><strong>Tu le passes en <em>Validated</em>.</strong> Ponos fusionne la pull request ou publie le texte, et seulement alors le déclare <em>Done</em>.</li></ol>
+<p>Rien n&#x27;est fusionné ni publié tant que tu n&#x27;as pas dit oui. C&#x27;est tout le contrat.</p>
+<h2 id="un-worktree-par-ticket">Un worktree par ticket</h2>
+<p>Un ticket ne touche jamais ta copie de travail. Chacun reçoit un <code>git worktree</code> et une branche à lui, créés depuis <code>main</code>, jetés une fois le travail livré. Dix tickets peuvent tourner côte à côte sans se marcher dessus, et ton dépôt reste exactement comme tu l&#x27;as laissé.</p>
+<pre><code class="language-sh">git worktree list
+# /home/toi/code/app                 9d54118f [main]
+# /home/toi/.local/state/ponos/...   ab6a441a [ticket/fix-login-redirect]
+</code></pre>
+<aside class="note"><p class="note-title">Pourquoi un worktree et pas un clone</p><div><p>Un worktree partage l&#x27;historique du dépôt avec ta copie : il apparaît en quelques secondes et ne coûte presque rien sur le disque. La session a un vrai dossier de travail isolé, sans seconde copie du projet.</p></div></aside>
+<h2 id="pas-seulement-du-code">Pas seulement du code</h2>
+<p>Un ticket a un type, et le type décide du chemin. Un ticket de <strong>code</strong> revient en pull request. Un ticket d&#x27;<strong>écriture</strong> revient en page rédigée dans le ticket. Une <strong>action externe</strong> est menée dans un navigateur ou dans les réglages d&#x27;un service, chaque changement consigné, avec un arrêt au premier doute. Une <strong>publication</strong> est préparée, puis publiée quand tu la valides.</p>
+<table><thead><tr><th>Type</th><th>Ce qui revient</th><th>Ce qu&#x27;il attend</th></tr></thead><tbody><tr><td>Code</td><td>Une pull request</td><td>Ta validation, puis la fusion</td></tr><tr><td>Écriture</td><td>Une page dans le ticket</td><td>Ta validation</td></tr><tr><td>Action externe</td><td>Le journal de chaque changement</td><td>Ta lecture du journal</td></tr><tr><td>Publication</td><td>Le post, prêt</td><td>Ta validation, puis la publication</td></tr></tbody></table>
+<h2 id="un-board-a-toi">Un board à toi</h2>
+<p>Le board, c&#x27;est la console, et ses tickets vivent dans une base locale, <code>ponos.db</code>. GitHub, Telegram, Slack et OpenRouter se branchent quand tu veux ; aucun n&#x27;est obligatoire. Une question d&#x27;une session arrive sur ton téléphone, et un mot en réponse la remet au travail.</p>
+<blockquote><p>Le ticket est l&#x27;interface. Le reste est l&#x27;affaire de Ponos.</p></blockquote>
+<h2 id="a-essayer-sur-un-ticket">À essayer sur un ticket</h2>
+<p>Prends le plus petit item de ton backlog, celui que tu repousses depuis une semaine. Écris-le comme tu l&#x27;expliquerais à un collègue, passe-le en <em>Ready</em>, et lis ce qui revient. La <a href="https://github.com/hermez-agency/ponos#readme" rel="noopener">documentation</a> couvre l&#x27;installation, qui prend quelques minutes sous Linux ou macOS.</p>
+<footer class="article-foot"><span>Claude Code</span><span>backlog</span><span>git worktree</span><span>automatisation</span><span class="signature">Un produit Hermez</span></footer>
+</article>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>Ponos — licence MIT · © 2026 <a href="https://hermez.dev" target="_blank" rel="noopener">Un produit Hermez</a></div>
+    <nav aria-label="Elsewhere">
+      <a href="/fr/blog/">Blog</a>
+      <a href="https://github.com/hermez-agency/ponos#readme">Documentation</a>
+      <a href="https://github.com/hermez-agency/ponos">Dépôt</a>
+      <a href="https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="/fr/blog/feed.xml">Flux Atom</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="/" hreflang="en" lang="en">English</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var dark = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('ponos-theme', dark ? 'dark' : 'light'); } catch (error) {}
+  });
+</script>
+</body>

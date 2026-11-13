@@ -45,3 +45,12 @@ command and the Python package are called ponos.
 - [Recurring tickets](https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own): schedules that write a ticket and move it to Ready on their own — one occurrence on waking, never the missed ones — and their calendar in the console
 - [Documentation](https://github.com/hermez-agency/ponos#readme): installation, the board and its columns, the types of ticket, the Validated column, recurring tickets, Telegram and Slack, the web console, the local board, OpenRouter, several GitHub accounts, usage limits, configuration, safety, troubleshooting, Ponos the mascot
 - [Changelog](https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md): what changed, release by release
+
+<!-- blog:start — écrit par scripts/build_blog.py -->
+## Blog
+
+- [Blog](https://the-ponos.app/blog/): articles on running Claude Code on a backlog with Ponos; Atom feed at https://the-ponos.app/blog/feed.xml
+- [Blog en français](https://the-ponos.app/fr/blog/): the same blog, in French; Atom feed at https://the-ponos.app/fr/blog/feed.xml
+- [Write the ticket, it comes back done: how Ponos runs Claude Code on your backlog](https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/) (en, 2026-11-13): Ponos turns a ticket moved to Ready into a Claude Code session on a disposable git worktree, and brings it back as a pull request. Here is the loop, step by step.
+- [Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog](https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/) (fr, 2026-11-13): Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.
+<!-- blog:end -->
