@@ -52,4 +52,13 @@ describe("the goal picker of a ticket", () => {
     expect(screen.queryByRole("combobox")).toBeNull()
     expect(container.innerHTML).toBe("")
   })
+
+  test("says the goal once: the picker alone where it is offered, the link alone where it is not", async () => {
+    const serving = { ...ticket, goal: "Launch v2", goal_id: "g1" } as unknown as Ticket
+    world.choices = { goal: [{ value: "g1", label: "Launch v2" }] }
+    const { container, unmount } = render(<TicketGoal ticket={serving} />)
+    expect(await screen.findByRole("combobox", { name: "Change the goal" })).toBeTruthy()
+    expect(container.querySelector('[data-slot="ticket-goal"]')).toBeNull()
+    unmount()
+  })
 })

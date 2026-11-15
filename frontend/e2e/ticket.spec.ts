@@ -66,7 +66,11 @@ test("a ticket's page says its type, model and cost under its mission, and the o
 
   // Always there, even before anything ran: what it is, on what, for how much.
   const summary = page.locator('[data-slot="ticket-summary"]')
-  await expect(summary.getByText("Ticket", { exact: true })).toBeVisible()
+  await expect(summary).toBeVisible()
+  // Above the tabs, so it is seen without scrolling.
+  const tabsBox = await page.getByRole("tablist").boundingBox()
+  const summaryBox = await summary.boundingBox()
+  expect(summaryBox!.y).toBeLessThan(tabsBox!.y)
 
   // A ticket neither running nor waiting opens on its mission — its result, once it has one.
   const tabs = page.getByRole("tablist")

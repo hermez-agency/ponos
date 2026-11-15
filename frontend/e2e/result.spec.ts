@@ -50,7 +50,7 @@ test("a writing ticket opens on its post, ready to copy, its mission in a tab of
   await page.getByRole("tab", { name: "Journal" }).click()
   await expect(page.getByRole("tabpanel")).toContainText("I read it twice before handing it back.")
   await expect(page).toHaveURL(/[?&]tab=journal$/)
-  // The facts — what it cost, which model — come under what it delivered.
+  // The facts — what it cost, which model — stay above the tabs.
   await expect(page.locator('[data-slot="ticket-summary"]')).toBeVisible()
 })
 
@@ -114,14 +114,14 @@ test("the Result tab comes when the ticket goes into review, without a reload", 
   await expect(tabs.getByRole("tab", { name: "Mission" })).toHaveAttribute("aria-selected", "true")
 })
 
-test("on a phone, the result comes first, the facts under it", async ({ page }) => {
+test("on a phone, the facts are a strip above the result, which is still on the first screen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/?view=console/tickets/read/${WRITTEN}`)
   const result = page.locator('[data-slot="ticket-result-body"]')
   await expect(result).toBeInViewport()
   const summary = page.locator('[data-slot="ticket-summary"]')
-  const below = await summary.boundingBox()
+  const strip = await summary.boundingBox()
   const above = await result.boundingBox()
-  expect(below!.y).toBeGreaterThan(above!.y)
+  expect(strip!.y).toBeLessThan(above!.y)
   await page.screenshot({ path: "/tmp/ponos-result-phone.png" })
 })

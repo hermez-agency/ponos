@@ -36,7 +36,6 @@ import {
 } from "@/resources/tickets"
 
 import { EmptyState } from "./empty-state"
-import { Eyebrow } from "./frame"
 import { Markdown } from "./markdown"
 import { PriorityBadge } from "./priority"
 import { Robot } from "./robot"
@@ -78,7 +77,7 @@ const TicketTalk = React.lazy(() => import("./ticket-talk").then((module) => ({ 
  * `readTicket`). Opening this page is also what loads the ticket's discussion.
  *
  * It opens the way the board's cards do and then says more: the column and the
- * metadata, as one block of two columns — see `TicketSummary`.
+ * metadata, as a strip above the tabs — see `TicketSummary`.
  *
  * Under them, three tabs: the brief;
  * the discussion; and the session. They were sections folded one under the
@@ -102,7 +101,7 @@ export function TicketPage() {
   const ticket = page ? (open && open.id === page.id ? { ...page, ...open } : page) : null
   const brief = useBrief(page, ticket ? isFinished(ticket.column) : false)
   // Unblock or Decide, pressed on the ticket itself: a tab to switch to, under it.
-  const [asked, setAsked] = React.useState<{ tab: DecisionTab; at: number }>()
+  const [asked, setAsked] = React.useState<{ tab: DecisionTab | "live"; at: number }>()
   const goTo = React.useCallback((tab: DecisionTab) => setAsked({ tab, at: Date.now() }), [])
   // The tab on show, for the button above them to know it is already there.
   const [shown, setShown] = React.useState<string>()
@@ -136,6 +135,13 @@ export function TicketPage() {
               <ChevronRight className="ml-auto" />
             </Button>
           ) : null}
+
+          {/* What it is, what it cost, which model, the pull request: first, and
+              on every tab — what one opens a ticket to find out. */}
+          <TicketSummary
+            ticket={{ ...ticket, model_in_use: brief.model }}
+            onSession={() => setAsked({ tab: "live", at: Date.now() })}
+          />
 
           {/* Why it stopped, as on its card: the gesture it proposes is
               among the actions below, the answer in the discussion. Not a
@@ -300,14 +306,15 @@ function useBrief(page: TicketDetail | undefined, finished: boolean) {
   }
 }
 
-/* What the page says about the ticket, as one block of two columns.
+/* What the page says about the ticket, as a strip of one or two lines.
  *
- * Ticket on the left — what kind of work it is, on what, how urgent, where it
- * stands — and Execution on the right: the pull request, what it cost, which
- * model, which session. It was a ruled grid with a cell, and a label, for each
- * of them, and the brief began a screen lower for it. What a ticket does not
- * have yet says nothing at all rather than "—", so one that never ran draws
- * the Ticket column alone, across the whole width.
+ * It sits under the title and above the tabs, so the status, the cost and the
+ * pull request are in view whichever tab is open. First what the ticket is —
+ * project, type, priority, where it stands —, then what running it came to:
+ * the pull request, the cost, the model, the time. What a ticket does not have
+ * yet says nothing at all rather than "—". The details few look for — the whole
+ * session id, the machine that took it — are the title of the "…" at its end,
+ * which opens the Live tab where there is a session.
  */
 function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession: () => void }) {
   const t = useT()
@@ -325,136 +332,96 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
     : capital(columnTitle(ticket.column, board.columns.find((item) => item.key === ticket.column)?.name))
   const cost = typeof ticket.cost === "number" && ticket.cost ? money(ticket.cost) : ""
   const took = typeof ticket.duration === "number" && ticket.duration ? lasted(ticket.duration) : ""
-  const executed = Boolean(
-    ticket.pull_request || cost || used?.label || ticket.session || ticket.worktime || took || ticket.runner
-  )
+  const details = [
+    ticket.session ? `${t("session")} ${ticket.session}` : "",
+    ticket.runner ? `${t("taken by")} ${ticket.runner}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ")
   const sep = <span className="text-muted-foreground/60">·</span>
   const line = "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+  const executed = Boolean(ticket.pull_request || cost || used?.label || ticket.worktime || took)
   return (
     <div
       data-slot="ticket-summary"
-      className={cn(
-        "bg-card mt-4 grid rounded-xl border text-sm",
-        executed && "md:grid-cols-2 md:[&>*+*]:border-l [&>*+*]:border-t md:[&>*+*]:border-t-0"
-      )}
+      className="bg-card mb-4 flex min-w-0 flex-col gap-1 rounded-xl border px-3.5 py-2.5 text-sm"
     >
-      <div className="flex min-w-0 flex-col gap-1.5 px-3.5 py-3">
-        <Eyebrow>{t("Ticket")}</Eyebrow>
-        <div className={line}>
-          <span className="font-semibold">{ticket.project || t("no project — a document")}</span>
-          {ticket.type ? (
-            <>
-              {sep}
-              <span>{choiceWord(ticket.type)}</span>
-            </>
-          ) : null}
-          {ticket.subtype ? <TicketSubtype subtype={ticket.subtype} /> : null}
-          {typeof ticket.priority === "number" ? (
-            <>
-              {sep}
-              <PriorityBadge score={ticket.priority} />
-            </>
-          ) : null}
-        </div>
-        <div className={cn(line, "text-muted-foreground")}>
-          <span className="text-foreground inline-flex items-center gap-1.5">
-            <span className={cn("size-1.5 shrink-0 rounded-full", SEED[ticket.column] ?? "bg-muted-foreground")} />
-            {status}
+      <div className={line}>
+        <span className="font-semibold">{ticket.project || t("no project — a document")}</span>
+        {ticket.type ? (
+          <>
+            {sep}
+            <span>{choiceWord(ticket.type)}</span>
+          </>
+        ) : null}
+        {ticket.subtype ? <TicketSubtype subtype={ticket.subtype} /> : null}
+        {typeof ticket.priority === "number" ? (
+          <>
+            {sep}
+            <PriorityBadge score={ticket.priority} />
+          </>
+        ) : null}
+        {sep}
+        <span className="inline-flex items-center gap-1.5">
+          <span className={cn("size-1.5 shrink-0 rounded-full", SEED[ticket.column] ?? "bg-muted-foreground")} />
+          {status}
+        </span>
+        {created ? (
+          <span className="text-muted-foreground">
+            {t("created")} {created}
           </span>
-          {created ? (
-            <>
-              {sep}
-              <span>
-                {t("created")} {created}
-              </span>
-            </>
-          ) : null}
-          {ticket.scheduled ? (
-            <>
-              {sep}
-              <span>
-                {t("scheduled")} {when(ticket.scheduled)}
-              </span>
-            </>
-          ) : null}
-          {ticket.estimate ? (
-            <>
-              {sep}
-              <TicketEstimate estimate={ticket.estimate} />
-            </>
-          ) : null}
-        </div>
+        ) : null}
+        {ticket.scheduled ? (
+          <span className="text-muted-foreground">
+            {t("scheduled")} {when(ticket.scheduled)}
+          </span>
+        ) : null}
+        {ticket.estimate ? <TicketEstimate estimate={ticket.estimate} /> : null}
       </div>
-      {executed ? (
-        <div className="flex min-w-0 flex-col gap-1.5 px-3.5 py-3">
-          <Eyebrow>{t("Execution")}</Eyebrow>
-          <div className={line}>
-            {ticket.pull_request ? (
-              <a
-                href={ticket.pull_request}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline"
-              >
-                <GitBranch className="size-3.5" />
-                {pull ? `PR #${pull}` : t("pull request")}
-              </a>
-            ) : null}
-            {cost ? <span>{cost}</span> : null}
-            {/* The column empty is not "no model": it is the one the session
-                announced, or the runner's, or Claude Code's own. The server
-                says which, as provider/model; the full identifier is the tooltip. */}
-            {used?.label ? (
-              <span title={used.full}>
-                {used.label.replace(/^claude\//, "")}
-                {used.default ? (
-                  <span className="text-muted-foreground font-normal"> · {t("default")}</span>
-                ) : null}
-              </span>
-            ) : null}
-            {/* The runs' time with the clock stopped while it waited — not the
-                time since it was made, which holds the queue and the review. */}
-            {ticket.worktime ? (
-              <span className="inline-flex min-w-0 items-center gap-1">
-                <span className="text-muted-foreground">{t("worked")}</span>
-                <TicketTime time={ticket.worktime} />
-              </span>
-            ) : null}
-            {/* The last session alone: the column the runner writes after each run. */}
-            {took ? <span className="text-muted-foreground">{t("last session {{time}}", { time: took })}</span> : null}
-          </div>
-          {ticket.session || ticket.runner ? (
-            // A separator leads the item it precedes and sits in a margin the
-            // line clips: where the item starts a row, it is out of sight
-            // rather than left at the end of the row above.
-            <div className="overflow-hidden">
-              <div className={cn(line, "text-muted-foreground -ml-4 gap-x-0")}>
-                {ticket.session ? (
-                  <span className="inline-flex items-center gap-1.5 pl-4">
-                    {t("session")}
-                    <button
-                      type="button"
-                      onClick={onSession}
-                      className="text-foreground cursor-pointer font-mono text-xs underline-offset-2 hover:underline"
-                      title={ticket.session}
-                    >
-                      {ticket.session.slice(0, 8)}
-                    </button>
-                  </span>
-                ) : null}
-                {/* Which machine has it, for the days two of them share a board
-                    — and the other half of the answer to "why has nothing
-                    happened": nobody claimed it. */}
-                {ticket.runner ? (
-                  <span className="relative pl-4 before:absolute before:left-1.5 before:text-muted-foreground/60 before:content-['·']">
-                    {t("taken by")}{" "}
-                    <span className="font-mono text-xs" title={ticket.runner}>
-                      {ticket.runner}
-                    </span>
-                  </span>
-                ) : null}
-              </div>
-            </div>
+      {executed || details ? (
+        <div className={line}>
+          {ticket.pull_request ? (
+            <a
+              href={ticket.pull_request}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline"
+            >
+              <GitBranch className="size-3.5" />
+              {pull ? `PR #${pull}` : t("pull request")}
+            </a>
+          ) : null}
+          {cost ? <span>{cost}</span> : null}
+          {/* The column empty is not "no model": it is the one the session
+              announced, or the runner's, or Claude Code's own. The server
+              says which, as provider/model; the full identifier is the tooltip. */}
+          {used?.label ? (
+            <span title={used.full}>
+              {used.label.replace(/^claude\//, "")}
+              {used.default ? <span className="text-muted-foreground font-normal"> · {t("default")}</span> : null}
+            </span>
+          ) : null}
+          {/* The runs' time with the clock stopped while it waited — not the
+              time since it was made, which holds the queue and the review. */}
+          {ticket.worktime ? (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <span className="text-muted-foreground">{t("worked")}</span>
+              <TicketTime time={ticket.worktime} />
+            </span>
+          ) : null}
+          {/* The last session alone: the column the runner writes after each run. */}
+          {took ? <span className="text-muted-foreground">{t("last session {{time}}", { time: took })}</span> : null}
+          {details ? (
+            <button
+              type="button"
+              data-slot="ticket-summary-more"
+              onClick={ticket.session ? onSession : undefined}
+              title={details}
+              aria-label={details}
+              className="text-muted-foreground hover:text-foreground cursor-pointer rounded px-1 font-mono text-xs"
+            >
+              …
+            </button>
           ) : null}
         </div>
       ) : null}
@@ -554,7 +521,7 @@ function TicketTabs({
   brief: ReturnType<typeof useBrief>
   talking: boolean
   /** A tab the ticket's own Unblock or Decide button asked for — the latest press. */
-  asked?: { tab: DecisionTab; at: number }
+  asked?: { tab: DecisionTab | "live"; at: number }
   /** Told which tab is on show. */
   onTab: (tab: string) => void
 }) {
@@ -763,11 +730,6 @@ function TicketTabs({
         </TabsContent>
       ) : null}
     </Tabs>
-    {/* What it is, what it cost, which model: under what it delivered, not above it. */}
-    <TicketSummary
-      ticket={{ ...ticket, model_in_use: brief.model }}
-      onSession={() => show("live", true)}
-    />
     </>
   )
 }
