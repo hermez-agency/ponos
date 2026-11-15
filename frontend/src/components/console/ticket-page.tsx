@@ -312,9 +312,9 @@ function useBrief(page: TicketDetail | undefined, finished: boolean) {
  * pull request are in view whichever tab is open. First what the ticket is —
  * project, type, priority, where it stands —, then what running it came to:
  * the pull request, the cost, the model, the time. What a ticket does not have
- * yet says nothing at all rather than "—". The details few look for — the whole
- * session id, the machine that took it — are the title of the "…" at its end,
- * which opens the Live tab where there is a session.
+ * yet says nothing at all rather than "—". The details few look for — the
+ * session, the machine that took it — are one "…" away, said in the page and
+ * not in a tooltip, which a finger cannot read.
  */
 function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession: () => void }) {
   const t = useT()
@@ -332,15 +332,15 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
     : capital(columnTitle(ticket.column, board.columns.find((item) => item.key === ticket.column)?.name))
   const cost = typeof ticket.cost === "number" && ticket.cost ? money(ticket.cost) : ""
   const took = typeof ticket.duration === "number" && ticket.duration ? lasted(ticket.duration) : ""
-  const details = [
-    ticket.session ? `${t("session")} ${ticket.session}` : "",
-    ticket.runner ? `${t("taken by")} ${ticket.runner}` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ")
+  const [more, setMore] = React.useState(false)
+  const details = Boolean(ticket.session || ticket.runner)
+  // The branch, on the repository the pull request is on: that is where it is read.
+  const branchUrl = ticket.branch && /\/pull\/\d+/.test(ticket.pull_request)
+    ? ticket.pull_request.replace(/\/pull\/\d+.*$/, `/tree/${ticket.branch.split("/").map(encodeURIComponent).join("/")}`)
+    : ""
   const sep = <span className="text-muted-foreground/60">·</span>
   const line = "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
-  const executed = Boolean(ticket.pull_request || cost || used?.label || ticket.worktime || took)
+  const executed = Boolean(ticket.pull_request || ticket.branch || cost || used?.label || ticket.worktime || took)
   return (
     <div
       data-slot="ticket-summary"
@@ -391,6 +391,25 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
               {pull ? `PR #${pull}` : t("pull request")}
             </a>
           ) : null}
+          {ticket.branch ? (
+            branchUrl ? (
+              <a
+                href={branchUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                data-slot="ticket-summary-branch"
+                className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-xs underline-offset-2 hover:underline"
+              >
+                <GitBranch className="size-3.5 shrink-0" />
+                <span className="truncate">{ticket.branch}</span>
+              </a>
+            ) : (
+              <span data-slot="ticket-summary-branch" className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-xs">
+                <GitBranch className="size-3.5 shrink-0" />
+                <span className="truncate">{ticket.branch}</span>
+              </span>
+            )
+          ) : null}
           {cost ? <span>{cost}</span> : null}
           {/* The column empty is not "no model": it is the one the session
               announced, or the runner's, or Claude Code's own. The server
@@ -415,13 +434,36 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
             <button
               type="button"
               data-slot="ticket-summary-more"
-              onClick={ticket.session ? onSession : undefined}
-              title={details}
-              aria-label={details}
+              aria-expanded={more}
+              aria-label={t("More details")}
+              onClick={() => setMore((was) => !was)}
               className="text-muted-foreground hover:text-foreground cursor-pointer rounded px-1 font-mono text-xs"
             >
               …
             </button>
+          ) : null}
+        </div>
+      ) : null}
+      {/* Said in the page, not in a tooltip: a finger has no hover. */}
+      {more && details ? (
+        <div data-slot="ticket-summary-details" className={cn(line, "text-muted-foreground")}>
+          {ticket.session ? (
+            <span className="inline-flex items-center gap-1.5">
+              {t("session")}
+              <button
+                type="button"
+                onClick={onSession}
+                className="text-foreground cursor-pointer font-mono text-xs underline-offset-2 hover:underline"
+                title={ticket.session}
+              >
+                {ticket.session.slice(0, 8)}
+              </button>
+            </span>
+          ) : null}
+          {ticket.runner ? (
+            <span>
+              {t("taken by")} <span className="font-mono text-xs">{ticket.runner}</span>
+            </span>
           ) : null}
         </div>
       ) : null}

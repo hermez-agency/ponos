@@ -5429,6 +5429,8 @@ export interface components {
             results: components["schemas"]["ResultVersion"][];
             /** @description « What was done »: the last session's report, then the history — empty before any session. */
             journal: string;
+            /** @description The branch its work was left on, found by the ticket's short id; left out for a ticket that never ran, or whose clone is not on this disk. */
+            branch?: string;
             /** @description The model it runs on: the last session's own word, then the column, then the defaults. */
             model_in_use?: components["schemas"]["ModelInUse"];
             /** @description The prompt run at every change of the ticket's status, empty for none. */

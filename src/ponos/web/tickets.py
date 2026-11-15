@@ -626,8 +626,10 @@ class Tickets(Base):
         )
         # Only on the page, not on every card of the board: a prompt can be long.
         parts = ticket_page.split(content)
+        branch = self._branch_of(page, card)
         return {
             **card,
+            **({"branch": branch} if branch else {}),
             "content": content,
             "mission": parts.mission,
             "journal": parts.done,
@@ -635,6 +637,27 @@ class Tickets(Base):
             "on": str(store.read(page, settings.prop("on")) or ""),
             "previews": preview.listing(page_id),
         }
+
+    def _branch_of(self, page: Any, card: dict[str, Any]) -> str:
+        """The branch a ticket that ran left in its repository, "" when it has none to show.
+
+        Found by its short id, as the runner finds it for the next attempt — a
+        title edited since does not lose it. Only a ticket that ran: a git
+        question per page read is not asked of one that never did. The clone is
+        looked for on disk and never fetched.
+        """
+        if not (card.get("pull_request") or card.get("session")) or card.get("kind") != "code":
+            return ""
+        relation = store.read(page, self.config.board.prop("project")) or []
+        row = self.projects().get(relation[0]) if relation else None
+        if not row:
+            return ""
+        path = self.runner.resolver.locate(
+            row["name"], row.get("path") or "", row.get("repository") or "", row["id"]
+        )
+        if path is None:
+            return ""
+        return git.ticket_branch(path, self.config.runner.branch_prefix, card["short"])
 
     def create_ticket(
         self,

@@ -235,6 +235,7 @@ describe("the summary", () => {
         model_label: "claude/opus",
         session: "3f2a9c1e-0000-4000-8000-000000000000",
         runner: "workstation",
+        branch: "ponos/une-branche-3f2a9c1e",
       })
     )
     const summary = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
@@ -243,10 +244,14 @@ describe("the summary", () => {
     )
     expect(within(summary).getByText("$1.50")).toBeTruthy()
     expect(within(summary).getByTitle("claude-opus-4-1-20250805").textContent).toBe("opus")
-    // The rarer details are the title of the "…", which opens the session's tab.
-    const more = within(summary).getByRole("button", { name: /3f2a9c1e-0000.*workstation/ })
-    expect(more.getAttribute("title")).toContain("workstation")
-    await user.click(more)
+    // The branch is in the strip, a link on the pull request's repository.
+    const branch = within(summary).getByRole("link", { name: "ponos/une-branche-3f2a9c1e" })
+    expect(branch.getAttribute("href")).toBe("https://github.com/hermez/ponos/tree/ponos/une-branche-3f2a9c1e")
+    // The rarer details are said in the page, one "…" away — not in a tooltip.
+    expect(within(summary).queryByText("workstation")).toBeNull()
+    await user.click(within(summary).getByRole("button", { name: "More details" }))
+    expect(within(summary).getByText("workstation")).toBeTruthy()
+    await user.click(within(summary).getByRole("button", { name: "3f2a9c1e" }))
     expect(selected()).toBe("Live")
   })
 })

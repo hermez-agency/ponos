@@ -292,6 +292,8 @@ class TicketDetail(Ticket):
     """Every version of the result, the newest first."""
     journal: str
     """« What was done »: the last session's report, then the history — empty before any session."""
+    branch: str = omitted()
+    """The branch its work was left on, found by the ticket's short id; left out for a ticket that never ran, or whose clone is not on this disk."""
     model_in_use: ModelInUse = omitted()
     """The model it runs on: the last session's own word, then the column, then the defaults."""
     on: str = omitted()

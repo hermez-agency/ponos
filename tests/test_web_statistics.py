@@ -791,6 +791,54 @@ def a_ticket_read_on_its_own_is_the_card_and_the_page_under_it() -> None:
     assert elsewhere.ticket("1a2b3c4d000000000000000000000000")["column"] == "draft"
 
 
+@case
+def a_ticket_that_ran_says_the_branch_it_left_and_one_that_did_not_says_none() -> None:
+    """Found by the short id in the clone on disk — never a branch guessed from the title."""
+    import subprocess
+    from types import SimpleNamespace
+
+    with tempfile.TemporaryDirectory() as home:
+        repo = Path(home)
+        for args in (["init", "-q", "-b", "main"], ["commit", "-q", "--allow-empty", "-m", "x"]):
+            subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+        subprocess.run(["git", "branch", "ticket/ancien-titre-9d2cb790"], cwd=repo, check=True)
+        located: list[str] = []
+
+        def locate(name: str, path: str, repository: str, page_id: str) -> Path:
+            located.append(name)
+            return repo
+
+        stand_in = SimpleNamespace(
+            config=SimpleNamespace(
+                board=SimpleNamespace(prop=lambda name: name),
+                runner=SimpleNamespace(branch_prefix="ticket/"),
+            ),
+            projects=lambda: {"p1": {"id": "p1", "name": "Ponos", "path": "", "repository": ""}},
+            runner=SimpleNamespace(resolver=SimpleNamespace(locate=locate)),
+        )
+        real = store.read
+        store.read = lambda page, name: ["p1"]
+        try:
+            ran = {
+                "pull_request": "https://github.com/o/r/pull/3",
+                "session": "",
+                "kind": "code",
+                "short": "9d2cb790",
+            }
+            branch = web_tickets.Tickets._branch_of(stand_in, object(), ran)  # type: ignore[arg-type]
+            assert branch == "ticket/ancien-titre-9d2cb790"
+            idle = {**ran, "pull_request": ""}
+            assert web_tickets.Tickets._branch_of(stand_in, object(), idle) == ""  # type: ignore[arg-type]
+            assert located == ["Ponos"], "a ticket that never ran costs no git question"
+        finally:
+            store.read = real
+
+
 class _NotedPageClient(_PageClient):
     """A ticket page whose « Progress » cell still says what a forced merge met."""
 
