@@ -125,7 +125,7 @@ function ScheduleCard({ schedule }: { schedule: ScheduleItem }) {
       </div>
       {said ? <p className="text-muted-foreground">{said}</p> : null}
       <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 text-xs">
-        <dt className="text-muted-foreground">{t("Next")}</dt>
+        <dt className="text-muted-foreground">{t("Next launch")}</dt>
         <dd>
           <NextOf schedule={schedule} />
         </dd>
@@ -249,8 +249,19 @@ export const ScheduleCalendar = ({ rows }: ListComponentPropsInterface<ScheduleI
 const hour = (instant: number) =>
   new Date(instant).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })
 
+/* The window over a launch is a portal, but React still bubbles its clicks and
+ * keys up to the day cell it was opened from — which, since react-resource-view
+ * 2.0, opens a new schedule on that day: "Open the schedule" opened a blank one. */
+const stop = (event: React.SyntheticEvent) => event.stopPropagation()
+
 /** What the window over a launch says: whether it has happened, when, and the way to the schedule. */
-export const LaunchPreview = ({ row }: RowComponentPropsInterface<Launch>) => {
+export const LaunchPreview = (props: RowComponentPropsInterface<Launch>) => (
+  <div className="contents" onClick={stop} onKeyDown={stop}>
+    <Preview {...props} />
+  </div>
+)
+
+const Preview = ({ row }: RowComponentPropsInterface<Launch>) => {
   const launch = row?.data
   const { drawn } = useSchedules()
   const open = useOpensOverTheList(schedules, "update", launch?.schedule ?? "")

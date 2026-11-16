@@ -279,7 +279,7 @@ machinery is `frontend/src/lib/i18n.ts`: which language, how it was guessed, and
 which is `t` plus the redraw. The checks of the dashboard's health band (`health/`) keep
 their French apart, in `frontend/src/lib/health-french.ts`, which the band fetches when it is
 drawn (`useFrench`, or `<Worded>` around a part): the first load of a French page is held to
-470 kB, and most pages never say one of those sentences. So do the settings pages, in
+505 kB, and most pages never say one of those sentences. So do the settings pages, in
 `settings-french.ts`, and the first connection's steps, in `setup-french.ts` — a sentence the
 board, or a page that does not fetch them, also says stays in `french.ts`. Two of the
 sentences the console shows are not written in it — what a setting is called and the line of

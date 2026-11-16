@@ -708,17 +708,20 @@ def the_console_is_downloaded_once_and_compressed() -> None:
         console.server_close()
 
     # What the first load fetches — the page, the bundle and what it preloads,
-    # the stylesheet and the icon — gzipped, under 470 kB. It was 500 kB, then
+    # the stylesheet and the icon — gzipped, under 505 kB. It was 500 kB, then
     # raised nine times, a few dozen bytes each, up to 509 kB: every sentence
     # the console gained went into the one load every page pays for. On 4
     # November 2026 it came down from 508 kB to 455 kB: the settings' words and
     # the first connection's left `french.ts` for dictionaries their pages fetch
     # (`settings-french.ts`, `setup-french.ts`), and a ticket's page, a
     # project's, the ideas, the standing context, the Decide panel and the
-    # model's field are fetched once they are drawn. The 15 kB between is room
-    # for what the console says next — not a figure to raise again: what the
-    # board does not draw goes behind a `lazy()`, and what only those pages say
-    # goes with them.
+    # model's field are fetched once they are drawn. It had grown back to
+    # 469.7 kB when react-resource-view 2.0.0 — the first release carrying the
+    # fix of the table's sticky actions column — added 21.5 kB to `views`; the
+    # ceiling went from 470 kB to 505 kB on that decision, by ticket. The 14 kB
+    # between is room for what the console says next — not a figure to raise
+    # again: what the board does not draw goes behind a `lazy()`, and what only
+    # those pages say goes with them.
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -729,7 +732,7 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 470_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 505_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case

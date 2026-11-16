@@ -669,7 +669,9 @@ const options: ResourceDefinition<IdeaItem, IdeaWrite> = {
        * to read, and the filters wrap rather than run past its edge. */
       layouts: [
         layout.cards({ label: "Cards", fullWidth: true, components: { list: IdeaCards } }),
-        layout.table({ label: "List", fullWidth: true, components: { list: IdeaRows } }),
+        // `IdeaRows` draws its own columns; react-resource-view 2.0 warns about
+        // a table without a form, hence an empty one.
+        layout.table({ label: "List", fullWidth: true, form: { inputs: {} }, components: { list: IdeaRows } }),
       ],
       // Every card carries its own gestures (see `idea-cards.tsx`).
       rowActions: [],
