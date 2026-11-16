@@ -56,6 +56,16 @@ export function shorten(text: string): string {
   return String(text ?? "").replace(WORKTREE, (_, slash?: string) => (slash ? "./" : "."))
 }
 
+/* The lines the runner reads at the end of a session — `RESULT: ok — …`,
+ * `QUESTION: …` — are for it, not for the person: the question is in the
+ * discussion and the status band already. Dropped from what is drawn, the
+ * session's own words left whole. */
+const PROTOCOL = /^[ \t]*(?:DONE|WHY|CATEGORY|QUESTION|MODE|OPTION|CODE|COMMAND|RESULT):.*(?:\r?\n|$)/gm
+
+export function withoutProtocol(text: string): string {
+  return String(text ?? "").replace(PROTOCOL, "").replace(/\n{3,}/g, "\n\n").trim()
+}
+
 /** What a card says a running ticket is doing: what the agent last said, or else the last tool. */
 export function lastWord(steps: Step[]): Step | undefined {
   return steps.findLast((step) => step.said) ?? steps[steps.length - 1]
@@ -131,8 +141,8 @@ function OutlineLine({
         line.said ? "border-tr-violet/40" : "border-border"
       )}
     >
-      {line.said ? (
-        <Markdown text={shorten(line.said.label)} />
+      {line.said && withoutProtocol(line.said.label) ? (
+        <Markdown text={shorten(withoutProtocol(line.said.label))} />
       ) : (
         <p className="text-muted-foreground text-sm">{lead}</p>
       )}
@@ -660,7 +670,7 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
     ? advanced.current
     : last
     ? last.said
-      ? shorten(last.label).replace(/[*_`#>]+/g, "").replace(/\s+/g, " ")
+      ? shorten(withoutProtocol(last.label)).replace(/[*_`#>]+/g, "").replace(/\s+/g, " ")
       : `${last.label}${last.detail ? ` · ${shorten(last.detail)}` : ""}`
     : quiet || fresh
       ? ""

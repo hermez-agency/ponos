@@ -75,7 +75,7 @@ test("a goal's page lists its tickets by column, and makes one more for it", asy
   // Back on the goal's page, which the form was opened over.
   await page.goBack()
   await row.getByRole("link").click()
-  await expect(page.getByRole("dialog").locator('[data-slot="ticket-goal"]')).toContainText("Lancer la v2")
+  await expect(page.getByRole("dialog").locator('[data-slot="ticket-goal-select"]')).toContainText("Lancer la v2")
 })
 
 test("a goal's page leads to the board filtered on it, and its card says the goal", async ({ page }) => {
@@ -94,10 +94,11 @@ test("the ticket names its goal, and another can be chosen from it", async ({ pa
   await page.goto("/?view=console/tickets/list")
   await page.getByRole("link", { name: /Ticket 3$/ }).first().click()
   const window_ = page.getByRole("dialog")
-  await expect(window_.locator('[data-slot="ticket-goal"]')).toContainText("Lancer la v2")
+  await expect(window_.locator('[data-slot="ticket-goal-select"]')).toContainText("Lancer la v2")
+  await expect(window_.locator('[data-slot="ticket-goal"]')).toHaveCount(0)
   await window_.locator('[data-slot="ticket-goal-select"]').click()
   await page.getByRole("option", { name: "Aucun objectif" }).click()
-  await expect(window_.locator('[data-slot="ticket-goal"]')).toHaveCount(0)
+  await expect(window_.locator('[data-slot="ticket-goal-select"]')).toContainText("Aucun objectif")
 
   // A goal no ticket serves says so, and leads to its form on the Tickets field.
   await page.goto(LIST)

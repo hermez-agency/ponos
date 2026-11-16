@@ -11,8 +11,9 @@ import { useT } from "@/lib/i18n"
 import type { Ticket } from "@/lib/types"
 import { goalHref } from "@/resources/goals"
 
-/* The goal a ticket serves, under its title: the link to the goal's page, and
- * the choice of another. The goals offered are the board's own choices
+/* The goal a ticket serves, under its title: the choice of another, its icon
+ * and its name once — where the board cannot point a ticket at a goal, the
+ * link to the goal's page alone, so the name is never said twice. The goals offered are the board's own choices
  * (`Tickets._choices`), which the stream already carries — those still worked
  * toward, the ticket's project's first — and the one it serves even once it is
  * over, by the name its card wears: the window asks nothing of `/api/goals`,
@@ -47,7 +48,7 @@ export function TicketGoal({ ticket }: { ticket: Ticket }) {
   }
   return (
     <span className="inline-flex max-w-full items-center gap-2" data-slot="ticket-goal-picker">
-      {ticket.goal && ticket.goal_id ? (
+      {!pointable && ticket.goal && ticket.goal_id ? (
         <Link
           to={goalHref(ticket.goal_id)}
           data-slot="ticket-goal"
@@ -60,7 +61,8 @@ export function TicketGoal({ ticket }: { ticket: Ticket }) {
       ) : null}
       {pointable ? (
         <Select value={ticket.goal_id || NONE} onValueChange={(value) => void choose(value === NONE ? "" : value)}>
-          <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-2 text-xs" aria-label={t("Change the goal")} data-slot="ticket-goal-select">
+          <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-2 text-xs" aria-label={t("Change the goal")} data-slot="ticket-goal-select" title={t("The goal this ticket serves")}>
+            <Target className="size-3.5 shrink-0" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

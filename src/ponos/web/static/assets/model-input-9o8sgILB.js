@@ -1,0 +1,1 @@
+export{n as ModelInputController}from"./model-input-DPpnyXE9.js";

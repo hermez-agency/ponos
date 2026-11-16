@@ -440,6 +440,7 @@ export const FRENCH: Record<string, string> = {
   "Time on hold": "Temps en pause",
   Sessions: "Sessions",
   "taken by": "pris par",
+  "More details": "Plus de détails",
   worked: "travaillé",
   "last session {{time}}": "dernière session : {{time}}",
   created: "créé",
