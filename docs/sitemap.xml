@@ -25,11 +25,25 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/"/>
   </url>
   <url>
+    <loc>https://the-ponos.app/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/</loc>
+    <lastmod>2026-11-16</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/"/>
+  </url>
+  <url>
     <loc>https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/</loc>
     <lastmod>2026-11-13</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
+  </url>
+  <url>
+    <loc>https://the-ponos.app/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/</loc>
+    <lastmod>2026-11-16</lastmod>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/"/>
   </url>
   <url>
     <loc>https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/</loc>

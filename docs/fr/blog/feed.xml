@@ -5,8 +5,22 @@
   <link href="https://the-ponos.app/fr/blog/feed.xml" rel="self"/>
   <link href="https://the-ponos.app/fr/blog/"/>
   <id>https://the-ponos.app/fr/blog/</id>
-  <updated>2026-11-13T00:00:00Z</updated>
+  <updated>2026-11-16T00:00:00Z</updated>
   <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+  <entry>
+    <title>Pilotez votre backlog depuis Claude : le MCP de Ponos gère maintenant projets, objectifs et récurrences</title>
+    <link href="https://the-ponos.app/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/"/>
+    <id>https://the-ponos.app/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/</id>
+    <published>2026-11-16T00:00:00Z</published>
+    <updated>2026-11-16T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>Le connecteur MCP de Ponos crée désormais projets, objectifs et récurrences, rattache des tâches à un objectif et les lance après un aperçu du coût — par les règles de la console, sans jamais rien supprimer.</summary>
+    <category term="MCP"/>
+    <category term="Claude Code"/>
+    <category term="backlog"/>
+    <category term="automatisation"/>
+    <category term="objectifs"/>
+  </entry>
   <entry>
     <title>Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog</title>
     <link href="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/"/>
