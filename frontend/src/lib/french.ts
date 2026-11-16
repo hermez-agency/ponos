@@ -40,6 +40,13 @@ export const FRENCH: Record<string, string> = {
   "No results yet": "Rien pour l'instant",
   "Nothing matched your search. Try different criteria, or come back later.":
     "Rien ne correspond. Changez de critères, ou revenez plus tard.",
+  // Since react-resource-view 2.0 an empty list tells "nothing yet" from
+  // "nothing matched": the first names the resource by its id (`tickets`),
+  // which is not a word to read, so it keeps the sentence it had before.
+  "No {{name}} yet": "Rien pour l'instant",
+  "Nothing has been added yet.": "Rien n'a encore été ajouté.",
+  "No results": "Aucun résultat",
+  "The server could not be reached.": "Le serveur est injoignable.",
   "Nothing here": "rien",
   Saved: "Déplacé",
   create: "Nouveau ticket",
@@ -71,9 +78,9 @@ export const FRENCH: Record<string, string> = {
   true: "oui",
   false: "non",
   /* The calendar, which the schedules are laid out in: the days of its week,
-     and the button that walks back through them. `Today`, `Jour`, `Semaine` and
-     `Mois` are the package's own French; only what it says in English needs an
-     entry here. */
+     the buttons that walk through them and its three spans — in English since
+     react-resource-view 2.0, which said `Jour`, `Semaine`, `Mois` and
+     `Suivant` in French before. `Day` is the schedules' own, further down. */
   monday: "lundi",
   tuesday: "mardi",
   wednesday: "mercredi",
@@ -82,7 +89,10 @@ export const FRENCH: Record<string, string> = {
   saturday: "samedi",
   sunday: "dimanche",
   Previous: "Précédent",
+  Next: "Suivant",
   Today: "Aujourd'hui",
+  Week: "Semaine",
+  Month: "Mois",
   // The two lines a form ends on, set from `i18n.ts` rather than read from a
   // declaration: they are handed to a toast as they stand.
   // Not `Saved`, which the package already says — and says on a card dropped in
@@ -99,6 +109,12 @@ export const FRENCH: Record<string, string> = {
   Select: "Sélectionner",
   "Select {{title}}": "Sélectionner {{title}}",
   "Selected records": "Éléments sélectionnés",
+  "Group by": "Grouper par",
+  "No grouping": "Sans regroupement",
+  "No value": "Sans valeur",
+  "Grouped over the {{count}} records of this page, out of {{total}}":
+    "Regroupé sur les {{count}} éléments de cette page, sur {{total}}",
+  "{{start}}–{{end}} of {{total}}": "{{start}}–{{end}} sur {{total}}",
   // The package says these with a bare count, whatever it is: the French is
   // turned so that one and many read the same.
   "{{count}} records deleted": "Éléments supprimés : {{count}}",
@@ -910,7 +926,7 @@ export const FRENCH: Record<string, string> = {
   // The columns of the list, and the fields of the form that writes a row.
   Day: "Jour",
   On: "Active",
-  Next: "Prochaine",
+  "Next launch": "Prochaine",
   Last: "Dernière",
   Problem: "Problème",
   Rule: "Règle",

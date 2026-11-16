@@ -1322,7 +1322,9 @@ export const projects = createViewResource<ProjectItem, ProjectWrite>(PROJECTS, 
       layouts: [
         layout.cards({ id: SPLIT, label: "Split", icon: Columns2, fullWidth: true, components: { list: ProjectMaster } }),
         layout.cards({ label: "Cards", icon: LayoutGrid, fullWidth: true, components: { list: ProjectCards } }),
-        layout.table({ label: "List", fullWidth: true, components: { list: ProjectRows } }),
+        // `ProjectRows` draws its own columns; react-resource-view 2.0 warns about
+        // a table without a form, hence an empty one.
+        layout.table({ label: "List", fullWidth: true, form: { inputs: {} }, components: { list: ProjectRows } }),
       ],
       // A card, or a row, is a link to the project's page: no button under it.
       rowActions: [],

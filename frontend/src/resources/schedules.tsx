@@ -696,7 +696,7 @@ const rowForm: FormInterface = {
     name: { label: "Schedule", readonly: true, controller: PageLink },
     rule: { label: "Rule", readonly: true, controller: RuleCell },
     active: { label: "On", readonly: true, controller: ActiveCell },
-    next: { label: "Next", readonly: true, controller: NextMoment },
+    next: { label: "Next launch", readonly: true, controller: NextMoment },
     last: { label: "Last", readonly: true, controller: LastMoment },
     project: { label: "Project", readonly: true, controller: ProjectName },
     problem: { label: "Problem", readonly: true },
@@ -1089,6 +1089,10 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
           dateField: "when",
           titleField: "title",
           colorField: "color",
+          // The three fields above, named for react-resource-view 2.0, which
+          // looks for them among a form's inputs: `ScheduleCalendar` and
+          // `LaunchPreview` read nothing of this form.
+          form: { inputs: { when: {}, title: {}, color: {} } },
           // The month, because that is the span a cadence is read in — the day
           // and the week are a tab away, on the package's own switch. The whole
           // day in those two: a launch at 03:00 is not one to leave off the grid.

@@ -56,12 +56,9 @@ const ENGLISH: Record<string, string> = {
   "Une erreur est survenue": "Something went wrong",
   Continuer: "Continue",
   Fermer: "Close",
-  // The calendar the schedules are laid out in says three of its own words in
-  // French, and the button that walks forward through them a fourth.
-  Jour: "Day",
-  Semaine: "Week",
-  Mois: "Month",
-  Suivant: "Next",
+  // The schedules' column of the next launch, named apart from the calendar's
+  // button that walks forward, which is also "Next" in English and not in French.
+  "Next launch": "Next",
   // A checkbox drawn outside a form — the calendar's preview of a schedule —
   // prints the value as it holds it, and `true` is not a word anybody reads.
   true: "yes",

@@ -1476,6 +1476,11 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
         // other page is drawn in.
         fullWidth: true,
         groupBy: "column",
+        // The field a card dropped elsewhere is written to. No table nor form
+        // draws it, so it is named here alone, where react-resource-view 2.0
+        // looks for what a layout groups by; `BoardColumns` and `TicketCard`
+        // read nothing of this form.
+        form: { inputs: { column: { label: "Column", readonly: true } } },
         // The board's own columns, drawn by `BoardColumns` from the board the
         // stream holds rather than declared here.
         columns: [],

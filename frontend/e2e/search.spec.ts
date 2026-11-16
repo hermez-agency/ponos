@@ -59,7 +59,9 @@ test("words and a status combine, the columns stay and count, and the address ke
 
   // The table is handed the same search.
   await page.getByRole("tab", { name: "List" }).click()
-  await expect(page).toHaveURL(/variant=table.*q=TICKET/)
+  // In any order: react-resource-view 2.0 writes `variant` after the search.
+  await expect(page).toHaveURL(/variant=table/)
+  await expect(page).toHaveURL(/q=TICKET/)
   await expect(card(page, "Ticket 10")).toBeVisible()
   await expect(card(page, "Ticket 2")).toBeHidden()
 
