@@ -5,8 +5,22 @@
   <link href="https://the-ponos.app/blog/feed.xml" rel="self"/>
   <link href="https://the-ponos.app/blog/"/>
   <id>https://the-ponos.app/blog/</id>
-  <updated>2026-11-13T00:00:00Z</updated>
+  <updated>2026-11-16T00:00:00Z</updated>
   <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+  <entry>
+    <title>Run your backlog from Claude: Ponos&#x27;s MCP now manages projects, goals and recurrences</title>
+    <link href="https://the-ponos.app/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/"/>
+    <id>https://the-ponos.app/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/</id>
+    <published>2026-11-16T00:00:00Z</published>
+    <updated>2026-11-16T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>Ponos&#x27;s MCP connector can now create projects, goals and recurring tickets, tie tasks to a goal and launch them after a cost preview — all through the console&#x27;s own rules, and never deleting anything.</summary>
+    <category term="MCP"/>
+    <category term="Claude Code"/>
+    <category term="backlog"/>
+    <category term="automation"/>
+    <category term="goals"/>
+  </entry>
   <entry>
     <title>Write the ticket, it comes back done: how Ponos runs Claude Code on your backlog</title>
     <link href="https://the-ponos.app/blog/write-the-ticket-it-comes-back-done/"/>
