@@ -487,6 +487,9 @@ class Project(Shape):
     cover: Picture = omitted()
     """The banner of its page, and the mark in front of its name. See `Picture`."""
     icon: Picture = omitted()
+    builtin: bool = omitted()
+    """« Sans projet », where the tickets without a project go: never deleted, never given a
+    repository. See `projectless.py`."""
 
 
 class ProjectCheck(Shape):
@@ -2186,6 +2189,15 @@ class GoalSaved(Shape):
 
 class GoalCreated(GoalSaved):
     name: str
+
+
+class TicketProject(Shape):
+    id: str
+    project: str
+    """The project's id, whatever the request named it by."""
+    project_name: str
+    status: str
+    """The ticket's column afterwards: ready when it was asked to run again."""
 
 
 class TicketGoal(Shape):

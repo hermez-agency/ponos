@@ -329,12 +329,12 @@ class FieldProblem extends Error {
     this.data = { error: message, violations: [{ propertyPath: field, message }] }
   }
 }
-/** The projects a ticket can point at — those with a page — and none, which makes it a document. */
+/** The projects a ticket can point at — those with a page. « Unknown » first: a
+ * ticket that names none is written into it, and runs as a document. */
 export async function projectChoices() {
   const { projects } = await api.projects().catch(() => ({ projects: [] }))
   for (const project of projects) knownProjects.set(project.id, { name: project.name, kind: project.kind })
   return [
-    { value: "", label: "no project — a document" },
     // The kind said the way the rest of the console says it: the list of
     // projects says "code work", and this said "code".
     // Behind the project's mark, as the list draws it: the label is
@@ -342,6 +342,7 @@ export async function projectChoices() {
     ...projects
       // One the configuration alone names has no page to point at.
       .filter((project) => project.id)
+      .sort((one, other) => Number(Boolean(other.builtin)) - Number(Boolean(one.builtin)))
       .map((project) => ({
         value: project.id,
         label: (

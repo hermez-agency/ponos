@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from . import db
+from . import db, projectless
 from .config import STATUS
 
 STATUSES = tuple(STATUS.values())
@@ -149,6 +149,9 @@ def create(title: str, *, id: str = "", after: list[str] | None = None, **values
     """
     ticket = _key(id) or uuid.uuid4().hex
     row = {"id": ticket, "title": title, **values}
+    # No ticket without a project: « Sans projet » is the project of those that
+    # name none — see projectless.py.
+    row["project"] = row.get("project") or projectless.ID
     _check(row)
     now = _now()
     row.setdefault("created_at", now)

@@ -472,6 +472,38 @@ def the_openapi_schema_is_behind_the_same_door_as_the_api() -> None:
 
 
 @case
+def a_ticket_naming_a_project_nobody_has_is_a_422_that_lists_them() -> None:
+    """A name is read, whatever its case; one nobody has is refused before any ticket exists."""
+    from support import _board, _local_api, _Nudged
+
+    from ponos import projectless, tickets
+    from ponos.web import board as web_board
+
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        moving = board.create_row("projects", "Changer d'adresse")
+        key = {"Authorization": "Bearer tok"}
+        with _console(api) as console:
+            status, _, said = _talk_to(
+                console,
+                "POST",
+                "/api/tickets",
+                {"title": "Ailleurs", "project": "Déménager"},
+                **key,
+            )
+            assert status == 422 and "Changer d'adresse" in said["error"], (status, said)
+            assert projectless.ID not in said["error"] and not tickets.listing()
+            named = {"title": "La poste", "project": "CHANGER D'ADRESSE"}
+            status, _, said = _talk_to(console, "POST", "/api/tickets", named, **key)
+        assert status == 200, (status, said)
+        assert tickets.get(said["id"]).project == moving  # type: ignore[union-attr]
+
+
+@case
 def a_ticket_the_board_does_not_have_is_a_404_not_the_boards_failure() -> None:
     """A link to a deleted ticket, or one never there: the board says 404.
 

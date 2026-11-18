@@ -52,6 +52,7 @@ from .. import (
     notifications,
     page_files,
     preview,
+    projectless,
     push,
     speech,
     store,
@@ -144,6 +145,9 @@ def failure(error: Exception, request: Request) -> Response:
         return _crashed(error, request)
     if isinstance(error, config_module.ConfigError):
         return fail(400, _first_line(error))
+    if isinstance(error, projectless.UnknownProject):
+        # The request was understood; the project it names is nobody's.
+        return fail(422, str(error))
     if isinstance(error, ValueError):
         return fail(400, str(error))
     if isinstance(error, LookupError):
@@ -1314,6 +1318,17 @@ def set_ticket_goal(
 ) -> Response:
     done = _api(request).set_ticket_goal(ticket_id, str(payload.get("goal", "")))
     _done(request, ticket_id, "goal", str(payload.get("goal", "")))
+    return answer(done)
+
+
+@router.post("/api/tickets/{ticket_id:page}/project", response_model=answers.TicketProject)
+def set_ticket_project(
+    request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    """Another project for a ticket — a name or an id — and, with `ready`, run it again."""
+    project = str(payload.get("project", ""))
+    done = _api(request).set_ticket_project(ticket_id, project, bool(payload.get("ready")))
+    _done(request, ticket_id, "project", done["project_name"])
     return answer(done)
 
 

@@ -114,7 +114,8 @@ test.describe("at 1440px", () => {
     const heights = await page
       .locator("[data-project-card]")
       .evaluateAll((cards) => cards.map((one) => Math.round(one.getBoundingClientRect().height)))
-    expect(heights.length).toBe(3)
+    // The three of the board, and « Unknown », which every board has.
+    expect(heights.length).toBe(4)
     expect(new Set(heights).size).toBe(1)
   })
 

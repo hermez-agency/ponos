@@ -429,8 +429,8 @@ export function ProjectActions() {
               {t("Edit")}
             </span>
           </ResourceViewButton>
-          {/* Deleting a project is an admin's. */}
-          {isAdmin() ? (
+          {/* Deleting a project is an admin's — and never « Unknown »'s. */}
+          {isAdmin() && !project.builtin ? (
             <ProjectMenu
               project={project}
               tickets={count}

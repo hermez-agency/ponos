@@ -34,6 +34,7 @@ from . import (
     journal,
     log,
     notify,
+    projectless,
     provider,
     resources,
     session,
@@ -348,6 +349,9 @@ class Base(Chapters):
         for every ticket, to be told the same story.
         """
         if self._workspace is None:
+            # « Sans projet » named in the runner's language, which the
+            # migration that made it could not know: see projectless.py.
+            projectless.ensure(self.config.runner.language)
             self._workspace = workspace_module.resolve(self.client, self.config.board)
         return self._workspace
 

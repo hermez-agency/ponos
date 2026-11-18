@@ -372,8 +372,11 @@ export function ProjectEditFields() {
   const { form } = useFormContext()
   // A writing project has no code to say where it is: the group goes with the type.
   const writing = form.data?.kind === "document"
+  // « Unknown », where the tickets without a project go, never has a
+  // repository: neither its type nor where its code is are offered.
+  const builtin = Boolean(form.data?.builtin)
   const groups = [...(form.groupOption?.itemGroups ?? [])]
-    .filter((group) => !(writing && group.group === "code"))
+    .filter((group) => !((writing || builtin) && group.group === "code"))
     .sort((a, b) => a.order - b.order)
   return (
     <div
@@ -393,7 +396,9 @@ export function ProjectEditFields() {
             <h3 className="text-sm font-semibold">{t(group.title ?? "")}</h3>
             {group.description ? <p className="text-muted-foreground mt-0.5 text-xs">{group.description}</p> : null}
           </header>
-          {getFormInputsFromForm({ ...form, groups: [group.group] }).map((input) => (
+          {getFormInputsFromForm({ ...form, groups: [group.group] })
+            .filter((input) => !(builtin && input.name === "kind"))
+            .map((input) => (
             <InputControllerProvider key={`${input.id}${input.name}${form.version}`} formInput={input} />
           ))}
         </section>

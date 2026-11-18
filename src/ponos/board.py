@@ -31,6 +31,7 @@ from . import (
     journal,
     kinds,
     priority,
+    projectless,
     state,
     stopping,
     store,
@@ -528,8 +529,9 @@ class Board(Base):
         """The ticket's project, or none at all. Never a failure: a conversation
         about a ticket whose repository has moved is still a conversation."""
         relation = store.read(ticket.page, self.config.board.prop("project")) or []
-        if not relation:
-            return Project(name="", path=None)
+        if not relation or projectless.is_it(relation[0]):
+            # « Sans projet » is no project: see projectless.py.
+            return Project(name="", path=None, page_id=projectless.ID)
         try:
             return self.resolver.resolve(self.client, relation[0])
         except (LookupError, store.StoreError):

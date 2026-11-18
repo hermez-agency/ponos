@@ -1477,6 +1477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Ticket Project
+         * @description Another project for a ticket — a name or an id — and, with `ready`, run it again.
+         */
+        post: operations["set_ticket_project_api_tickets__ticket_id__project_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/launch": {
         parameters: {
             query?: never;
@@ -4208,6 +4228,11 @@ export interface components {
             /** @description The banner of its page, and the mark in front of its name. See `Picture`. */
             cover?: components["schemas"]["Picture"];
             icon?: components["schemas"]["Picture"];
+            /**
+             * @description « Sans projet », where the tickets without a project go: never deleted, never given a
+             *     repository. See `projectless.py`.
+             */
+            builtin?: boolean;
         };
         /** @description A project's brief as the editor opens it, and what saving it would not keep. */
         ProjectBrief: {
@@ -4304,6 +4329,11 @@ export interface components {
             /** @description The banner of its page, and the mark in front of its name. See `Picture`. */
             cover?: components["schemas"]["Picture"];
             icon?: components["schemas"]["Picture"];
+            /**
+             * @description « Sans projet », where the tickets without a project go: never deleted, never given a
+             *     repository. See `projectless.py`.
+             */
+            builtin?: boolean;
             content: string;
             version: string;
         };
@@ -5454,6 +5484,14 @@ export interface components {
             id: string;
             /** @description The score it now has, from 0 to 100. */
             priority: number;
+        };
+        TicketProject: {
+            id: string;
+            /** @description The project's id, whatever the request named it by. */
+            project: string;
+            project_name: string;
+            /** @description The ticket's column afterwards: ready when it was asked to run again. */
+            status: string;
         };
         TicketResult: {
             id: string;
@@ -8823,6 +8861,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketGoal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_project_api_tickets__ticket_id__project_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketProject"];
                 };
             };
             /** @description Validation Error */

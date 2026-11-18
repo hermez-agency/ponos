@@ -14,7 +14,7 @@ import hashlib
 import time
 from typing import Any
 
-from .. import project_settings, store
+from .. import project_settings, projectless, store
 from .base import Base
 from .creation import COLUMNS, is_site
 
@@ -51,6 +51,9 @@ class Projects(Base):
                         "description": _first(page, *COLUMNS["description"]),
                         "site": _first(page, *COLUMNS["site"]),
                         **self._pictures(page),
+                        # « Sans projet »: the console offers neither to delete
+                        # it nor to give it a repository — see projectless.py.
+                        **({"builtin": True} if projectless.is_it(page.id) else {}),
                     }
         except store.StoreError:
             # A projects database that cannot be read costs the board its
@@ -190,6 +193,11 @@ class Projects(Base):
         if not database:
             raise ValueError("this workspace has no projects database")
         page = self.runner.client.page(page_id)
+        if projectless.is_it(page_id) and (
+            values.get("kind") == "code"
+            or any(str(values.get(key) or "").strip() for key in ("repository", "path"))
+        ):
+            raise ValueError(self.runner.voice.say("projectless-no-repository"))
         written: dict[str, Any] = {}
         if "repository" in values:
             column = _column(page, "Repository", "repository", "github", "repo")
