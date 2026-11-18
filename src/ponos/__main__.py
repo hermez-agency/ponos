@@ -37,6 +37,7 @@ from . import (
     leftovers,
     log,
     priority,
+    projectless,
     session,
     spending,
     state,
@@ -473,18 +474,13 @@ def command_diagnose(args: argparse.Namespace) -> int:
 
 
 def _project_named(runner: Runner, wanted: str) -> store.Page | None:
-    """The project page a name (any case) or an id designates, or None."""
+    """The project page a name (any case, any accent) or an id designates, or None."""
     database = runner.workspace.projects
     if not database:
         return None
-    key = ids.bare(wanted.strip()).lower()
-    for page in runner.client.query(database):
-        if (
-            ids.bare(page.id).lower() == key
-            or page.title.strip().casefold() == wanted.strip().casefold()
-        ):
-            return page
-    return None
+    pages = runner.client.query(database)
+    found = projectless.match(wanted, ((page.id, page.title) for page in pages))
+    return next((page for page in pages if ids.bare(page.id) == found), None)
 
 
 def command_projects(args: argparse.Namespace) -> int:

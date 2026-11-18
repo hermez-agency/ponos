@@ -25,6 +25,7 @@ from .. import (
     planning,
     preview,
     project_settings,
+    projectless,
     skills,
     store,
     subtypes,
@@ -284,6 +285,8 @@ class Configuration(Base):
         elif validation is None and isinstance(located, dict):
             if not isinstance(located.get("value"), str):
                 raise ValueError("say where the project's repository is, or leave it empty")
+            if projectless.is_it(bare) and located["value"].strip():
+                raise ValueError(self.runner.voice.say("projectless-no-repository"))
         elif validation is None and isinstance(granting, dict):
             entries = granting.get("entries")
             if not isinstance(entries, dict) or not all(

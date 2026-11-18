@@ -1282,6 +1282,15 @@ def _tickets_have_a_result(connection: sqlite3.Connection) -> None:
         )
 
 
+def _projectless(connection: sqlite3.Connection) -> None:
+    # « Sans projet » (projectless.py) : la page du projet des tickets qui n'en
+    # ont pas, où vont tous ceux qui n'en avaient pas ; et le nom d'un projet
+    # écrit à la place de son id — par l'API de la console — remplacé par l'id.
+    from . import projectless
+
+    projectless.migrate(connection)
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1344,6 +1353,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _skills,
     _tickets_have_a_result,
     _schedules_to_review,
+    _projectless,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

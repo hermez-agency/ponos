@@ -656,7 +656,8 @@ const REACHABLE =
  * Only for a project that is a page — a line of `config.toml` is not deleted from here. */
 export function RowMenu({ project, onDeleted, className }: { project: ProjectItem; onDeleted: () => void; className?: string }) {
   const tickets = useTicketCount(project.name)
-  if (!isAPage(project.id)) return null
+  // « Unknown » is never deleted: the tickets without a project go there.
+  if (!isAPage(project.id) || project.builtin) return null
   return <ProjectMenu project={project} tickets={tickets} onDeleted={onDeleted} className={className} />
 }
 

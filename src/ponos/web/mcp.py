@@ -58,6 +58,7 @@ from .. import (
     library,
     log,
     memory,
+    projectless,
     state,
     store,
 )
@@ -1090,7 +1091,10 @@ def _project(api: Api, reference: str) -> dict[str, Any]:
     """The project a name or an id designates — or a refusal that lists the known ones."""
     wanted = reference.strip()
     for project in _projects(api):
-        if ids.bare(wanted).lower() == project["id"] or wanted.lower() == project["name"].lower():
+        # Case and accents aside, as every door reads a name: see projectless.py.
+        if ids.bare(wanted).lower() == project["id"] or projectless.fold(
+            wanted
+        ) == projectless.fold(project["name"]):
             return project
     known = ", ".join(project["name"] for project in _projects(api)) or "aucun"
     raise ToolError(f"Aucun projet « {wanted} ». Projets connus : {known}.")

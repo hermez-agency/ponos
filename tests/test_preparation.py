@@ -370,3 +370,80 @@ def a_sub_type_session_that_says_nothing_writes_nothing_and_settles_in_doubt(
     assert asked, "the session was tried"
     assert key and note, "settled as the doubt, and said in the report"
     assert _client(runner).written == [], "no answer is not a doubt worth keeping"
+
+
+# -- « Sans projet » ------------------------------------------------------------
+
+
+class _Repository:
+    """A resolver that finds every project, as a repository."""
+
+    def __init__(self) -> None:
+        self.asked: list[str] = []
+
+    def resolve(self, client: Any, page_id: str, *, clone: bool = False) -> Project:
+        self.asked.append(page_id)
+        return Project(name="site", path=Path("/site"), page_id=page_id)
+
+
+def _projectless_code(
+    answers: list[tuple[str, str]],
+) -> tuple[Runner, Ticket, list[dict[str, Any]]]:
+    """A code ticket of « Sans projet », two projects with a repository, and what was answered."""
+    from ponos import question
+
+    runner, ticket = _typed("Le bouton Envoyer", kind="Code")
+    projects = [
+        store.Page(id="a" * 32, url="", title="Site"),
+        store.Page(id="b" * 32, url="", title="Boutique"),
+    ]
+    runner._code_projects = lambda: projects  # type: ignore[method-assign]  # a double: two code projects
+    # The options in the order the runner offers them: `_code_projects`'.
+    asked = question.Question("?", mode="choice", options=["Site", "Boutique"])
+    runner._answers = lambda ticket, code: [  # type: ignore[method-assign]  # a double: what was said
+        (question.read(text, asked), text) for text, _ in answers
+    ]
+    runner.resolver = _Repository()  # type: ignore[assignment]  # a fake: every project is found
+    return runner, ticket, _failures(runner)
+
+
+@case
+def a_code_ticket_without_a_project_asks_which_repository_rather_than_guess(
+    state_home: Path,
+) -> None:
+    from ponos import projectless
+
+    runner, ticket, failed = _projectless_code([])
+    nowhere = Project(name="", path=None, page_id=projectless.ID)
+    assert runner._sort(ticket, "b", nowhere) is None
+    assert [entry["code"] for entry in failed] == ["project.which-repo"]
+    asked = failed[0]["question"]
+    assert asked.mode == "choice" and asked.options == ["Site", "Boutique"]
+
+
+@case
+def the_repository_answered_is_written_on_the_ticket_and_worked_in(state_home: Path) -> None:
+    from ponos import projectless
+
+    runner, ticket, failed = _projectless_code([("2", "")])
+    nowhere = Project(name="", path=None, page_id=projectless.ID)
+    sorted_ = runner._sort(ticket, "b", nowhere)
+    assert failed == [] and sorted_ is not None
+    kind, project = sorted_[0], sorted_[1]
+    assert kind == "code" and project.path == Path("/site") and project.page_id == "b" * 32
+    written = {runner.config.board.prop("project"): ["b" * 32]}
+    assert written in _client(runner).written, "the answer holds for every pass after this one"
+
+
+@case
+def a_ticket_of_sans_projet_runs_as_a_ticket_without_a_project(state_home: Path) -> None:
+    from ponos import projectless
+
+    runner, ticket = _nameless("Le passeport", "Renouveler le passeport.")
+    ticket.page.properties[runner.config.board.prop("project")] = {
+        "type": "relation",
+        "relation": [{"id": projectless.ID}],
+    }
+    runner.resolver = _NowhereToBeFound()  # type: ignore[assignment]  # a fake: nothing is resolved
+    project = runner._locate(ticket)
+    assert project is not None and not project.is_code and project.name == ""

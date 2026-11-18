@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from . import ids, store, ticket_page, tickets, vault
+from . import ids, projectless, store, ticket_page, tickets, vault
 from . import voice as voice_module
 from .config import STATUS, TYPES, BoardNames
 from .pages import Pages
@@ -293,6 +293,9 @@ class Ledger:
                 continue  # a column the ticket has no use for: left out
             if column == "after":
                 row[column] = [_bare(one) for one in value or []]
+            elif column == "project":
+                # A name or an id, kept as the id; nothing is « Sans projet ».
+                row[column] = self._project(value)
             elif column in _ONE:
                 related = value if isinstance(value, (list, tuple)) else [value]
                 row[column] = next((_bare(one) for one in related if one), "")
@@ -307,6 +310,17 @@ class Ledger:
             else:
                 row[column] = "" if value is None else str(value)
         return row
+
+    def _project(self, value: object) -> str:
+        """The project id a ticket keeps, from a name or an id — see projectless.py."""
+        words = self.words
+        return projectless.resolve(
+            value,
+            lambda: [(page.id, page.title) for page in self.backend.query("projects")],
+            lambda given, known: words.say(
+                "project-unknown", given=given, known=", ".join(known) or "—"
+            ),
+        )
 
     def _body(self, record: tickets.Record) -> str:
         words = self.words

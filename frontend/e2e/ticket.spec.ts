@@ -34,7 +34,9 @@ test("a ticket opened from the board is drawn before its brief is read, and read
 
   // What the card knew, while the brief is still on its way.
   await expect(window_(page).locator('[data-slot="dialog-title"]')).toHaveText("A long ticket", { timeout: 1000 })
-  await expect(page.getByText("no project — a document")).toBeVisible({ timeout: 1000 })
+  await expect(
+    window_(page).locator('[data-slot="ticket-summary"]').getByText("Unknown", { exact: true })
+  ).toBeVisible({ timeout: 1000 })
   await expect(page.getByText("Part 40")).not.toBeAttached()
 
   await expect(page.getByText("Part 40")).toBeAttached()

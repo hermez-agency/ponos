@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import ideas, state, store
+from .. import ideas, projectless, state, store
 from ..ticket import short_id
 from . import live
 from .base import Base
@@ -50,6 +50,8 @@ class Removal(Base):
     def delete_project(self, page_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Delete one project. Refuses, with its reason, before anything is changed."""
         bare = page_id.replace("-", "")
+        if projectless.is_it(bare):
+            raise ValueError(self.runner.voice.say("projectless-kept"))
         row = next((one for one in self.projects().values() if one["id"] == bare), None)
         if row is None:
             raise LookupError(f"no project with id {bare}")

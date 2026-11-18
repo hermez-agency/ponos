@@ -527,6 +527,10 @@ export const FRENCH: Record<string, string> = {
   "The ticket goes back to {{column}} and a new session starts on it as soon as a place is free — a session that is paid for, like the first one.":
     "Le ticket retourne dans {{column}} et une nouvelle session démarre dessus dès qu'une place se libère — une session payante, comme la première.",
   "Run it again": "Relancer",
+  // A ticket stopped on its project (ticket-project.tsx).
+  "Choose a project": "Choisir un projet",
+  "Moved to {{name}}, and run again": "Déplacé dans {{name}}, et relancé",
+  "The project could not be changed": "Le projet n'a pas pu être changé",
   "Make “{{title}}” ready?": "Rendre « {{title}} » prêt ?",
   "The ticket goes to {{column}} and a session starts on it as soon as a place is free — a session that is paid for.":
     "Le ticket passe dans {{column}} et une session démarre dessus dès qu'une place se libère — une session payante.",

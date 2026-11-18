@@ -44,6 +44,7 @@ import { TicketTabContext, WINDOW_TAB } from "./ticket-decision"
 import { TicketDecision } from "./ticket-decision-panel"
 import { TicketAudit } from "./ticket-audit"
 import { TicketOn } from "./ticket-on"
+import { TicketProjectChoice } from "./ticket-project"
 import { TicketEstimate } from "./ticket-estimate"
 import { TicketMission, TicketResult } from "./ticket-result"
 import { TicketTime } from "./ticket-time"
@@ -149,8 +150,10 @@ export function TicketPage() {
               nothing to change: the discussion says it in passing, on the
               session's line. */}
           {ticket.block && ticket.block.code !== NO_COMMIT ? (
-            <div className="mb-3">
+            <div className="mb-3 flex flex-col gap-2">
               <TicketBlock block={ticket.block} />
+              {/* Stopped on its project: another one, chosen here, and run again. */}
+              <TicketProjectChoice ticket={ticket} />
             </div>
           ) : null}
 

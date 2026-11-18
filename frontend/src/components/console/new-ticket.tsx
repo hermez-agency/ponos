@@ -297,6 +297,16 @@ export function NewTicketFields() {
     if (input) latest.current.onChange({ ...input, value: "" })
   }, [code, subtype])
 
+  // « Unknown » when nothing is chosen: the project a ticket that names none
+  // is written into anyway, said in the field rather than left blank.
+  const unknown = projects.find((project) => project.builtin)?.id ?? ""
+  const project = String(data.project ?? "")
+  React.useEffect(() => {
+    if (project || !unknown) return
+    const input = getFormInputsFromForm(latest.current.form).find((candidate) => candidate.name === "project")
+    if (input) latest.current.onChange({ ...input, value: unknown })
+  }, [project, unknown])
+
   // Read from the form as it is once the editor has told it its last words,
   // not as it was when the button was pressed.
   const add = (block: string) =>

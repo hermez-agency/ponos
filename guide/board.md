@@ -654,6 +654,38 @@ No branch, no pull request. That is what you want for *"draft me the steps to be
 certified trainer"* or *"summarise this for me"*: there is nothing to commit, and the
 deliverable is the page itself.
 
+#### Sans projet: the project of a ticket that has none
+
+A ticket created without a project is not left without one: it is written into
+**« Sans projet »** (*Unknown* when `runner.language` is English), a project every board has
+— made by a migration of `ponos.db`, under a fixed identifier, and named in the runner's
+language when it starts (a name you give it yourself is kept). Renewing a passport or a
+one-off piece of research needs no project invented for it, and the ticket still shows up
+in the project filters, on the Projects page and in the *Project* field of *New ticket*,
+where it is the choice made when you make none. Tickets that had no project before are
+moved into it by the same migration.
+
+Its tickets run as the document work above: a scratch directory of their own under the
+state directory, the result and the report in the ticket, no worktree, no pull request.
+**A code ticket in it is not run in a guessed repository**: it is blocked on *Repository to
+choose* (`project.which-repo`) with the question « which repository? » and one button per
+project that has one — the answer, a button, a “2” from a phone or the project's name
+typed, is written on the ticket and the ticket runs there. It can neither be deleted nor
+given a repository, from the console or the API.
+
+**A project is given by its name or its identifier, and kept by its identifier.** Every way a
+ticket is created — the console and its API (`POST /api/tickets`), the MCP's `create_task`,
+`ponos diagnose --project`, triggers, schedules — reads a name whatever its case and accents
+(`changer d'adresse` is *Changer d'adresse*), and writes the project's identifier. A name no
+project has is refused before the ticket exists — `422`, « unknown project: X — projects
+available: … » — instead of a ticket blocked on *Project not found*. The same migration put
+the names already written in place of an identifier back into identifiers.
+
+**A ticket blocked on its project is moved from its page.** On *Project not found*
+(`project.no-repo`) or *Repository to choose*, the ticket's page offers a list of projects
+and *Run it again*: the ticket is moved there and goes back to *Ready* in one gesture
+(`POST /api/tickets/<id>/project`, `{"project": "<name or id>", "ready": true}`).
+
 **Whatever you write on the project page becomes standing instructions** for every
 ticket of that project. Not the ticket's page — the *project's*. It is prepended to the
 brief the agent receives, so it is written once instead of retyped into every ticket:

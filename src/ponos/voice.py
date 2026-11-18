@@ -408,6 +408,28 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "I could not find its project on this machine",
         "fr": "je n'ai pas trouvé son projet sur cette machine",
     },
+    "project-unknown": {
+        "en": "unknown project: {given} — projects available: {known}",
+        "fr": "projet inconnu : {given} — projets disponibles : {known}",
+    },
+    "projectless-no-repository": {
+        "en": "“Unknown” is the project of the tickets that have none: it never has a repository",
+        "fr": "« Sans projet » est le projet des tickets qui n'en ont pas : il n'a jamais de dépôt",
+    },
+    "projectless-kept": {
+        "en": "“Unknown” is the project of the tickets that have none: it cannot be deleted",
+        "fr": "« Sans projet » est le projet des tickets qui n'en ont pas : il ne se supprime pas",
+    },
+    "project-which-repo": {
+        "en": "it is a code ticket without a project: I do not know which repository to work in",
+        "fr": "c'est un ticket de code sans projet : je ne sais pas dans quel dépôt travailler",
+    },
+    "project-which-repo-question": {
+        "en": "In which repository? Answer with a project's name, or choose it on the ticket; "
+        "nothing runs until then.",
+        "fr": "Dans quel dépôt ? Réponds par le nom d'un projet, ou choisis-le sur le ticket ; "
+        "rien ne s'exécute d'ici là.",
+    },
     "openrouter-key-missing": {
         "en": "its model, {model}, runs on OpenRouter and the OpenRouter key is missing",
         "fr": "son modèle, {model}, tourne sur OpenRouter et la clé OpenRouter est absente",

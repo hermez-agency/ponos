@@ -531,6 +531,19 @@ _CAUSES = (
         "kind-hesitant",
     ),
     _cause(
+        "project.which-repo",
+        "question",
+        "user",
+        "answer",
+        "ask",
+        ("Repository to choose", "Dépôt à choisir"),
+        (
+            "A code ticket without a project: choose the project whose repository it works in.",
+            "Un ticket de code sans projet : choisissez le projet dans le dépôt duquel il travaille.",
+        ),
+        "project-which-repo",
+    ),
+    _cause(
         UNKNOWN,
         "infrastructure",
         "ponos",
@@ -579,6 +592,8 @@ def describe(code: str) -> dict[str, object] | None:
 # Frozen: the migration that reclasses the history reads it, and a migration
 # does not change once it has run.
 _HEARD: tuple[tuple[str, str], ...] = (
+    ("which repository to work in", "project.which-repo"),
+    ("dans quel depot travailler", "project.which-repo"),
     ("billing of the", "ci.billing"),
     ("facturation du compte", "ci.billing"),
     ("checks fail", "merge.checks-failed"),

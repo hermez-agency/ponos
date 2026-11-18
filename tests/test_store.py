@@ -442,7 +442,9 @@ def a_deleted_project_leaves_the_console_and_its_tickets_are_stopped_not_lost() 
         done = api.delete_project(code, {"confirm": "ponos"})
 
         assert (done["tickets"], done["blocked"], done["trashed"]) == (3, 2, 0)
-        assert [one["name"] for one in api.all_projects()["projects"]] == ["Site vitrine"]
+        assert [
+            one["name"] for one in api.all_projects()["projects"] if not one.get("builtin")
+        ] == ["Site vitrine"], "« Sans projet » aside, which the migration made"
         for title, expected in (
             ("Prêt", settings.state("blocked")),
             ("En cours", settings.state("blocked")),

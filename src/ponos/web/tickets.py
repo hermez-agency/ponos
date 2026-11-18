@@ -762,6 +762,38 @@ class Tickets(Base):
         self.watch.nudge()
         return {"id": page_id.replace("-", ""), "priority": score}
 
+    def set_ticket_project(self, page_id: str, project: str, ready: bool = False) -> dict[str, Any]:
+        """Point a ticket at another project — a name or an id — and run it again when asked.
+
+        What a ticket blocked on its project offers: the project chosen in a
+        list, then ready. Empty is « Sans projet ». A name nobody has is
+        refused before anything is written — see projectless.py.
+        """
+        record = tickets_module.get(page_id)
+        if record is None:
+            raise LookupError(f"no ticket with id {page_id}")
+        client = self.runner.client
+        settings = self.config.board
+        client.update(
+            self.runner.database,
+            page_id,
+            {settings.prop("project"): [project.strip()] if project.strip() else []},
+        )
+        self.reader.hold(client.page(page_id))
+        chosen = (tickets_module.get(page_id) or record).project
+        status = record.status
+        if ready:
+            status = str(self.set_status(page_id, "ready")["status"])
+        else:
+            self.watch.nudge()
+        row = self.projects().get(chosen) or {}
+        return {
+            "id": page_id.replace("-", ""),
+            "project": chosen,
+            "project_name": str(row.get("name") or ""),
+            "status": status,
+        }
+
     def set_result(self, page_id: str, text: str, who: str = "") -> dict[str, Any]:
         """Retouch a ticket's result: a new version, the earlier ones kept — see results.py.
 

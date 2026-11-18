@@ -67,6 +67,7 @@ from ponos import (  # noqa: E402
     planning,
     preview,
     project_settings,
+    projectless,
     provider,
     question,
     schema,
@@ -1882,6 +1883,39 @@ def a_writing_ticket_is_answered_in_its_page_and_touches_no_repository(machine: 
     assert "On écrit court." in sessions[0]["prompt"], "the project's brief never reached it"
     state = Path(os.environ["XDG_STATE_HOME"]) / "ponos"
     assert not (state / "worktrees").exists(), "a document ticket made a worktree"
+    assert not list((state / "scratch").glob("*")), "its scratch directory was left behind"
+
+
+@case
+def an_external_ticket_without_a_project_lands_in_sans_projet_and_is_carried_to_its_result(
+    machine: Bench,
+) -> None:
+    """« Renew my passport »: no project to invent for it.
+
+    Created as the console creates one — through the store, the project left
+    out — it is written into « Sans projet », and run as the plainest of
+    external tickets: a scratch directory of its own, the result in its page,
+    no worktree, no git, no pull request.
+    """
+    client = machine.board.client
+    made = client.create_row(
+        "tickets", "Renouveler le passeport", {"statut": "ready", "Type": "Action externe"}
+    )
+    client.append_markdown(made, "Prendre rendez-vous en mairie.")
+    record = tickets.get(made)
+    assert record is not None and record.project == projectless.ID, record
+
+    results = machine.run()
+
+    assert [(result["id"], result["status"]) for result in results] == [(made, "done")], results
+    assert machine.status(made) == "done", machine.status(made)
+    record = tickets.get(made)
+    assert record is not None and record.result == "La réponse.", record
+    assert record.project == projectless.ID, "run where it was, not moved"
+    assert not machine.git_calls(), machine.git_calls()
+    assert not machine.pull_requests(), "a ticket without a project opened a pull request"
+    state = Path(os.environ["XDG_STATE_HOME"]) / "ponos"
+    assert not (state / "worktrees").exists(), "a ticket without a project made a worktree"
     assert not list((state / "scratch").glob("*")), "its scratch directory was left behind"
 
 

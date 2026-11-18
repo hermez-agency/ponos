@@ -37,6 +37,7 @@ from . import (
     planning,
     priority,
     project_settings,
+    projectless,
     provider,
     session,
     state,
@@ -85,12 +86,13 @@ class Preparation(Base):
     def _locate(self, ticket: Ticket) -> Project | None:
         """The project the ticket points at — None, failed, when nobody can find it."""
         relation = store.read(ticket.page, self.config.board.prop("project")) or []
-        if not relation:
-            # No project at all is not an error: it is the plainest possible
-            # document ticket. "Draft me an email", "summarise this" — there is
-            # nothing to commit and nowhere to commit it, so the answer goes
-            # back into the page, exactly as for a project without a repository.
-            return Project(name="", path=None)
+        if not relation or projectless.is_it(relation[0]):
+            # No project at all — « Sans projet », see projectless.py — is not an
+            # error: it is the plainest possible document ticket. "Draft me an
+            # email", "summarise this" — there is nothing to commit and nowhere
+            # to commit it, so the answer goes back into the page, exactly as
+            # for a project without a repository.
+            return Project(name="", path=None, page_id=projectless.ID)
         try:
             # The one caller allowed to fetch a repository that is declared
             # but not on this machine: a ticket about to run needs the
@@ -144,6 +146,11 @@ class Preparation(Base):
         kind, answer = self._kind(ticket, body, project)
         if kind is None:
             return None
+        if kind == "code" and projectless.is_it(project.page_id):
+            chosen = self._repository_for(ticket)
+            if chosen is None:
+                return None
+            project = chosen
         reference = None
         worked = kinds.worked_in(project, kind)
         if worked is not project:
@@ -513,6 +520,99 @@ class Preparation(Base):
             return answered, ""
         return self._classify(ticket, body, project)
 
+    def _repository_for(self, ticket: Ticket) -> Project | None:
+        """The project a code ticket without one is worked in — None, blocked, to ask it.
+
+        Never a repository guessed: a code ticket of « Sans projet » stops on
+        the question, one button per project that has a repository, and the
+        name somebody answers with — a button, a "2", the name typed — is
+        written on the ticket before it runs, so the answer holds for every
+        pass after this one.
+        """
+        code = [
+            (page.id, page.title)
+            for page in self._code_projects()
+            if not projectless.is_it(page.id)
+        ]
+        for reading, text in self._answers(ticket, "project.which-repo"):
+            named = reading.label if reading.kind == "option" else text
+            found = projectless.match(named, code)
+            if found and not projectless.is_it(found):
+                try:
+                    self.client.update(
+                        self.database, ticket.page.id, {self.config.board.prop("project"): [found]}
+                    )
+                    return self.resolver.resolve(self.client, found, clone=not self.dry_run)
+                except (LookupError, store.StoreError) as error:
+                    self._fail(
+                        ticket,
+                        self.voice.say("no-project"),
+                        str(error),
+                        code="project.no-repo",
+                        blocked=True,
+                    )
+                    return None
+        said = self.voice
+        reason = said.say("project-which-repo")
+        self._fail(
+            ticket,
+            reason,
+            said.sentence(reason),
+            code="project.which-repo",
+            blocked=True,
+            question=question_module.Question(
+                ask=said.say("project-which-repo-question"),
+                mode="choice",
+                options=[title for _, title in code],
+                why=said.sentence(reason),
+                category="question",
+            ),
+        )
+        return None
+
+    def _code_projects(self) -> list[store.Page]:
+        """The projects that name a repository or a folder, by name."""
+        database = self.workspace.projects
+        if not database:
+            return []
+        try:
+            pages = self.client.query(database)
+        except store.StoreError:
+            return []
+        return sorted(
+            (page for page in pages if self.resolver.declares(self.client, page.id)),
+            key=lambda page: page.title.casefold(),
+        )
+
+    def _answers(self, ticket: Ticket, code: str) -> list[tuple[question_module.Reading, str]]:
+        """What was said since the last report, newest first — when that report stopped on `code`."""
+        try:
+            comments = self.comments(ticket.page.id)
+        except store.StoreError:
+            return []
+        last = max(
+            (
+                index
+                for index, comment in enumerate(comments)
+                if voice_module.is_report(comment.text)
+            ),
+            default=-1,
+        )
+        if last < 0:
+            return []
+        report = comments[last].text.strip()
+        if blocks.classify(report.split("\n\n", 1)[0]) != code:
+            return []
+        asked = question_module.found(report)
+        me = self.myself()
+        answers = []
+        for comment in reversed(comments[last + 1 :]):
+            if voice_module.is_report(comment.text) or conversation.ours(comment, me):
+                continue
+            text = conversation.said(comment.text)
+            answers.append((question_module.read(text, asked), text))
+        return answers
+
     def _answered_kind(self, ticket: Ticket) -> str:
         """The type somebody answered the question of its type with, "" when none.
 
@@ -523,32 +623,9 @@ class Preparation(Base):
         under it. Only what was said since the last report, and only when that
         report asked for the type; the newest answer that names one wins.
         """
-        try:
-            comments = self.comments(ticket.page.id)
-        except store.StoreError:
-            return ""
-        last = max(
-            (
-                index
-                for index, comment in enumerate(comments)
-                if voice_module.is_report(comment.text)
-            ),
-            default=-1,
-        )
-        if last < 0:
-            return ""
-        report = comments[last].text.strip()
-        if blocks.classify(report.split("\n\n", 1)[0]) != "ticket.kind-unsure":
-            return ""
-        asked = question_module.found(report)
         settings = self.config.board
         names = {kind: settings.kind_names(kind) for kind in kinds.KINDS}
-        me = self.myself()
-        for comment in reversed(comments[last + 1 :]):
-            if voice_module.is_report(comment.text) or conversation.ours(comment, me):
-                continue
-            text = conversation.said(comment.text)
-            reading = question_module.read(text, asked)
+        for reading, text in self._answers(ticket, "ticket.kind-unsure"):
             kind = (
                 settings.kind_of(reading.label)
                 if reading.kind == "option"

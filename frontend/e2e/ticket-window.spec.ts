@@ -27,7 +27,8 @@ async function openLong(page: Page) {
   await expect(window_(page).locator('[data-slot="dialog-title"]')).toHaveText("A long ticket")
   await expect(window_(page).getByText("#000abcde")).toBeVisible()
   // The ticket's page, drawn inside: its facts and, once read, its brief.
-  await expect(window_(page).getByText("no project — a document")).toBeVisible()
+  // « Unknown »: the project of a ticket that names none — see projectless.py.
+  await expect(window_(page).locator('[data-slot="ticket-summary"]').getByText("Unknown", { exact: true })).toBeVisible()
   await expect(window_(page).getByText("Part 40")).toBeAttached()
 }
 
