@@ -16,6 +16,8 @@ somebody cuts a release; see CONTRIBUTING.md, « Cutting one ».
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-19
+
 ### Added
 
 - **`ponos move` et `ponos comment`** : un prompt « On » change le statut d'un autre ticket, ou le commente, sans passer par la connexion de la console (qui expire et répond 401). `ponos move <ticket> <statut> [--from <statut>]` prend l'ID complet ou court et suit le chemin de la console — mêmes contrôles, même journal, session arrêtée avant une pause ou une annulation — ; `--from` refuse si le ticket n'est plus dans ce statut ; un statut ou un ticket inconnu, ou une transition refusée, se dit sur la sortie d'erreur avec un code de retour non nul. `ponos comment <ticket> "texte"` écrit comme une réponse depuis la console. Le prompt des « On » demande de les utiliser, et jamais d'importer le code de Ponos ni d'écrire dans `ponos.db`. Voir [Acting on other tickets from an `On` prompt](guide/tickets.md#acting-on-other-tickets-from-an-on-prompt).

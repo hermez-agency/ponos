@@ -1,6 +1,6 @@
 """ponos — tickets turned into Claude Code sessions."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Every module's logger hangs under `ponos`, and is heard from the first import:
 # see log.py.

@@ -5,8 +5,22 @@
   <link href="https://the-ponos.app/fr/blog/feed.xml" rel="self"/>
   <link href="https://the-ponos.app/fr/blog/"/>
   <id>https://the-ponos.app/fr/blog/</id>
-  <updated>2026-11-16T00:00:00Z</updated>
+  <updated>2026-11-19T00:00:00Z</updated>
   <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+  <entry>
+    <title>Une console plus rapide : des fenêtres qui s&#x27;ouvrent tout de suite, un tableau qui ne dessine que ce que tu vois</title>
+    <link href="https://the-ponos.app/fr/blog/une-console-plus-rapide/"/>
+    <id>https://the-ponos.app/fr/blog/une-console-plus-rapide/</id>
+    <published>2026-11-19T00:00:00Z</published>
+    <updated>2026-11-19T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>Ponos 0.3 rend sa console plus rapide là où ça compte — les fenêtres, le tableau des tickets, les longues conversations et le tableau de bord — avec les temps mesurés avant et après, et les deux bibliothèques sur lesquelles elle repose désormais.</summary>
+    <category term="Ponos"/>
+    <category term="console"/>
+    <category term="performance"/>
+    <category term="react-resource-view"/>
+    <category term="react-data-form"/>
+  </entry>
   <entry>
     <title>Pilotez votre backlog depuis Claude : le MCP de Ponos gère maintenant projets, objectifs et récurrences</title>
     <link href="https://the-ponos.app/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/"/>

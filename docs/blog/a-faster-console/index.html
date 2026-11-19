@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A faster console: windows that open at once, a table that draws only what you see — Ponos</title>
+<meta name="description" content="Ponos 0.3 makes its console quicker where it counts — the windows, the ticket table, long conversations and the dashboard — with the timings we measured before and after, and the two libraries it now builds on.">
+<link rel="canonical" href="https://the-ponos.app/blog/a-faster-console/">
+<link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/a-faster-console/">
+<link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/une-console-plus-rapide/">
+<link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/a-faster-console/">
+<link rel="alternate" type="application/atom+xml" title="Atom feed" href="https://the-ponos.app/blog/feed.xml">
+<link rel="icon" type="image/svg+xml" href="/mascot/favicon.svg?v=ecran">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Ponos">
+<meta property="og:title" content="A faster console: windows that open at once, a table that draws only what you see — Ponos">
+<meta property="og:description" content="Ponos 0.3 makes its console quicker where it counts — the windows, the ticket table, long conversations and the dashboard — with the timings we measured before and after, and the two libraries it now builds on.">
+<meta property="og:url" content="https://the-ponos.app/blog/a-faster-console/">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://the-ponos.app/mascot/og.png">
+<meta property="og:image:alt" content="Ponos, the robot, jumping beside its name and the words &quot;Write the ticket. It comes back done.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A faster console: windows that open at once, a table that draws only what you see — Ponos">
+<meta name="twitter:description" content="Ponos 0.3 makes its console quicker where it counts — the windows, the ticket table, long conversations and the dashboard — with the timings we measured before and after, and the two libraries it now builds on.">
+<meta name="twitter:image" content="https://the-ponos.app/mascot/og.png">
+<meta name="twitter:image:alt" content="Ponos, the robot, jumping beside its name and the words &quot;Write the ticket. It comes back done.">
+<meta property="article:published_time" content="2026-11-19">
+<meta property="article:tag" content="Ponos">
+<meta property="article:tag" content="console">
+<meta property="article:tag" content="performance">
+<meta property="article:tag" content="react-resource-view">
+<meta property="article:tag" content="react-data-form">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://the-ponos.app/blog/a-faster-console/"
+  },
+  "headline": "A faster console: windows that open at once, a table that draws only what you see",
+  "description": "Ponos 0.3 makes its console quicker where it counts — the windows, the ticket table, long conversations and the dashboard — with the timings we measured before and after, and the two libraries it now builds on.",
+  "image": [
+    "https://the-ponos.app/mascot/og.png"
+  ],
+  "datePublished": "2026-11-19",
+  "dateModified": "2026-11-19",
+  "inLanguage": "en",
+  "author": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://the-ponos.app/apple-touch-icon.png"
+    }
+  },
+  "keywords": "Ponos, console, performance, react-resource-view, react-data-form",
+  "url": "https://the-ponos.app/blog/a-faster-console/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Ponos",
+      "item": "https://the-ponos.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://the-ponos.app/blog/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "A faster console: windows that open at once, a table that draws only what you see",
+      "item": "https://the-ponos.app/blog/a-faster-console/"
+    }
+  ]
+}
+</script>
+<script>
+  /* Avant le premier rendu, comme la page d'accueil : le choix du visiteur, sinon le système. */
+  try { var kept = localStorage.getItem("ponos-theme");
+    var dark = kept ? kept === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark); } catch (error) {}
+</script>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<script src="https://umami.cardona.digital/nx.js" defer data-website-id="a3af4ed4-63b2-4732-93a2-a43d156910ec" data-domains="the-ponos.app"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="Ponos, home">
+      <img src="/mascot/favicon.svg?v=ecran" alt="" width="28" height="28">
+      Ponos
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a class="btn btn-ghost btn-sm" href="/blog/" aria-current="page">Blog</a>
+      <a class="btn btn-outline btn-sm" href="https://github.com/hermez-agency/ponos#readme">Docs</a>
+      <a class="btn btn-ghost btn-sm lang-switch" href="/fr/blog/une-console-plus-rapide/" hreflang="fr" lang="fr" aria-label="Lire cette page en français">FR</a>
+      <button class="btn btn-ghost btn-icon theme-toggle" id="theme-toggle" type="button" aria-label="Switch between light and dark"><svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg><svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="crumbs wrap"><a href="/blog/">← Blog</a></div>
+<article class="prose">
+<header>
+  <p class="product"><img src="/mascot/favicon.svg?v=ecran" alt="" width="20" height="20"><span>Ponos</span><span aria-hidden="true">·</span><span>Product updates</span></p>
+  <h1>A faster console: windows that open at once, a table that draws only what you see</h1>
+  <p class="lead">Ponos 0.3 makes its console quicker where it counts — the windows, the ticket table, long conversations and the dashboard — with the timings we measured before and after, and the two libraries it now builds on.</p>
+  <p class="byline"><span class="by">Hermez</span><span aria-hidden="true">·</span><time datetime="2026-11-19">November 19, 2026</time><span aria-hidden="true">·</span><span>4 min read</span></p>
+</header>
+<figure class="wide"><div><img src="/mascot/og.png" alt="Ponos, the robot, jumping beside its name and the words &quot;Write the ticket. It comes back done." width="1200" height="630"></div></figure>
+<p>Ponos&#x27;s console is where you watch the backlog move, so a slow click costs more than a slow page. Version 0.3 goes after the four places where it was slow: the windows, the ticket table, long conversations and the dashboard. Here is what changed, and what we measured.</p>
+<h2 id="windows-that-open-at-once">Windows that open at once</h2>
+<p>Opening a ticket, the palette or <em>New ticket</em> used to hold the page for a while. Two things were to blame: the animations, and the way the table styled itself while a window was open.</p>
+<ul><li>The side panel, where the conversation lives, slides in within 200 ms at most and closes in 150 ms, instead of 500 and 300 ms. No other exit animation of a component lasts longer than 200 ms.</li><li>The table and the windows no longer use CSS selectors that forced the browser to restyle the whole page each time a window opened or closed.</li></ul>
+<p>On a board of 2,000 tickets, opening or closing a window no longer leaves a single task longer than 50 ms. Before the change, the palette took 74 ms, a 500-message conversation 79 ms, a ticket window 98 ms, and the palette over the ticket list 2.9 s to open with four tasks of about a second to close. The very first opening of <em>New ticket</em> still takes 54 to 64 ms, down from 105 ms: it is the first creation of the Markdown editor, paid once.</p>
+<h2 id="a-table-that-draws-only-what-you-see">A table that draws only what you see</h2>
+<p>The ticket table now comes from <code>react-resource-view</code> 2.1, which draws only the rows on screen. On a board of 2,000 tickets, the page holds 814 nodes instead of 57,625. A test refuses the selectors that caused the restyling in the built stylesheet, so they do not come back quietly.</p>
+<h2 id="the-dashboard-no-longer-freezes">The dashboard no longer freezes</h2>
+<p>On a board of 2,266 tickets, every movement of the table while a ticket ran blocked the page: 850 to 900 ms of script in the feed&#x27;s update handler, then 640 to 710 ms of rendering, measured on a slow machine (CPU ×4). Now a ticket that did not change keeps its row, its card is not drawn again, and the work is split into pieces. The same movement takes 60 to 100 ms at ×4, in chunks, and no frame of more than 50 ms was seen over a minute without slowdown.</p>
+<h2 id="long-conversations-stay-fast-to-type-in">Long conversations stay fast to type in</h2>
+<p>A conversation of 120 messages made every keystroke wait: the reply field measured its own height on each key, and every message was drawn again with each piece of an answer. Now:</p>
+<ul><li>the field grows with the browser&#x27;s own <code>field-sizing: content</code> where it is understood (Chrome, Edge): 34 ms per keystroke became 1 ms on that conversation;</li><li>messages that are out of view are not laid out, and a message already shown is not drawn again;</li><li>a conversation opens on its last 60 messages, and a <em>Show earlier</em> button adds 60 more without moving your reading position.</li></ul>
+<p>A browser test now fails when a keystroke in a 500-message conversation takes more than 16 ms.</p>
+<h2 id="lighter-first-load-and-a-palette-that-answers">Lighter first load, and a palette that answers</h2>
+<p>The console&#x27;s first page in French went from 508 to 455 KB compressed: the words of the settings and the first sign-in come with it, and the pages that need more — a ticket, a project, the ideas — load them when they show.</p>
+<p>The Ctrl+K palette filters its own entries instead of letting the library rank every ticket of the board. On a board of 1,848 tickets, the interaction delay while typing five letters went from 1,208–1,288 ms to 88–152 ms.</p>
+<h2 id="the-two-libraries-underneath">The two libraries underneath</h2>
+<ul><li><strong>react-resource-view</strong> — the console moved from 0.6 to 2.1. The 2.x line brings the virtualised table, and the sticky actions column fixed in 2.0.</li><li><strong>react-data-form</strong> — on 0.3. Its forms are themed by the console&#x27;s <code>index.css</code>, with the expensive selectors rewritten, so that the scrollbar width removed from the page is no longer inherited by every element, and the page behind a window stops being restyled as a whole.</li></ul>
+<p>Nothing changes in how you use the console: the same board, the same shortcuts, the same windows, only quicker to open and to type in.</p>
+<h2 id="try-it">Try it</h2>
+<p>Update Ponos to 0.3.0 with your usual command, open a board with a few hundred tickets, and open the palette and a ticket window back to back. The <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md" rel="noopener">guide&#x27;s console page</a> describes the views, and the <a href="https://github.com/hermez-agency/ponos/blob/main/guide/installation.md" rel="noopener">installation guide</a> covers an update.</p>
+<p><em>A Hermez product.</em></p>
+<footer class="article-foot"><span>Ponos</span><span>console</span><span>performance</span><span>react-resource-view</span><span>react-data-form</span><span class="signature">A Hermez product</span></footer>
+</article>
+<section class="wrap more" aria-labelledby="more"><h2 id="more">Keep reading</h2><div class="cards"><a class="card" href="/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/">
+  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">Run your backlog from Claude: Ponos&#x27;s MCP now manages projects, goals and recurrences</p>
+    <p class="card-meta"><time datetime="2026-11-16">November 16, 2026</time> · 5 min</p>
+  </div>
+</a><a class="card" href="/blog/write-the-ticket-it-comes-back-done/">
+  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">Write the ticket, it comes back done: how Ponos runs Claude Code on your backlog</p>
+    <p class="card-meta"><time datetime="2026-11-13">November 13, 2026</time> · 3 min</p>
+  </div>
+</a></div></section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>Ponos — MIT licence · © 2026 <a href="https://hermez.dev" target="_blank" rel="noopener">A Hermez product</a></div>
+    <nav aria-label="Elsewhere">
+      <a href="/blog/">Blog</a>
+      <a href="https://github.com/hermez-agency/ponos#readme">Documentation</a>
+      <a href="https://github.com/hermez-agency/ponos">Repository</a>
+      <a href="https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="/blog/feed.xml">Atom feed</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="/fr/" hreflang="fr" lang="fr">Français</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var dark = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('ponos-theme', dark ? 'dark' : 'light'); } catch (error) {}
+  });
+</script>
+</body>
