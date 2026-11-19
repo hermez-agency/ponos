@@ -176,7 +176,7 @@ def a_code_schedule_makes_a_code_ticket_that_nobody_classifies() -> None:
 
 
 @case
-def a_schedule_without_a_type_leaves_its_ticket_to_be_classified() -> None:
+def a_schedule_without_a_type_leaves_its_ticket_to_be_classified(state_home: Path) -> None:
     stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale)])
     runner.recur()
@@ -185,7 +185,9 @@ def a_schedule_without_a_type_leaves_its_ticket_to_be_classified() -> None:
 
 
 @case
-def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code() -> None:
+def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code(
+    state_home: Path,
+) -> None:
     """“Whisper Desk — rattraper Wispr Flow” was born « Rédaction » twice: its
     schedules database had no Type to say Code, and the classifier read its brief.
     Until the column is there, a project with a repository is enough to say it."""
@@ -209,13 +211,18 @@ def a_schedules_database_without_a_type_column_makes_its_repository_tickets_code
 
     # A project without one is a document: left to the classifier, as before.
     paper = store.Page(id="p-northwind", url="", title="Northwind", properties={})
-    runner = _recurring([_schedule_page("s-1", next=stale)], tickets={"p-northwind": paper})
+    later = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
+    runner = _recurring([_schedule_page("s-1", next=later)], tickets={"p-northwind": paper})
     runner.recur()
     assert "Type" not in _schedules(runner).created[0][1]
 
     # And a database that has the column says what it says, even nothing.
     runner = _recurring(
-        [_schedule_page("s-1", next=stale)],
+        [
+            _schedule_page(
+                "s-1", next=(datetime.now().astimezone() - timedelta(hours=5)).isoformat()
+            )
+        ],
         tickets={"p-northwind": project},
         columns={"Type": "select", "Sous-type": "select"},
     )
@@ -273,7 +280,7 @@ def the_body_of_the_schedule_is_copied_into_the_ticket_it_makes() -> None:
 
 
 @case
-def an_occurrence_still_open_never_produces_a_second_one() -> None:
+def an_occurrence_still_open_never_produces_a_second_one(state_home: Path) -> None:
     """A schedule whose last ticket is still waiting to be reviewed must not fill the board with copies."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     for status in ("ready", "progress", "review", "validated"):
@@ -288,6 +295,8 @@ def an_occurrence_still_open_never_produces_a_second_one() -> None:
         assert ahead is not None and ahead > datetime.now().astimezone(), status
 
     for status in ("done", "blocked"):
+        # Another due moment each time: one occurrence is taken once.
+        stale = (datetime.now().astimezone() - timedelta(hours=3 + len(status))).isoformat()
         runner = _recurring(
             [_schedule_page("s-1", next=stale, last_ticket="t-old")],
             tickets={"t-old": _ticket_page("t-old", status)},
@@ -296,7 +305,7 @@ def an_occurrence_still_open_never_produces_a_second_one() -> None:
 
 
 @case
-def a_last_ticket_that_no_longer_exists_never_wedges_its_schedule() -> None:
+def a_last_ticket_that_no_longer_exists_never_wedges_its_schedule(state_home: Path) -> None:
     """A page somebody deleted would otherwise stop it being born for good."""
     stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     runner = _recurring([_schedule_page("s-1", next=stale, last_ticket="t-gone")])
@@ -432,7 +441,7 @@ def _goal_page(page_id: str, status: str = "") -> store.Page:
 
 
 @case
-def a_schedule_that_serves_a_goal_makes_tickets_that_serve_it() -> None:
+def a_schedule_that_serves_a_goal_makes_tickets_that_serve_it(state_home: Path) -> None:
     """The goal goes into the column a ticket created with a goal has, whether the
     occurrence comes from a pass or from the button — and a schedule with none writes none."""
     stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
@@ -450,7 +459,7 @@ def a_schedule_that_serves_a_goal_makes_tickets_that_serve_it() -> None:
 
 
 @case
-def a_goal_that_is_gone_or_over_leaves_the_schedule_running_without_it() -> None:
+def a_goal_that_is_gone_or_over_leaves_the_schedule_running_without_it(state_home: Path) -> None:
     """Deleted (no page), in the trash or marked reached: the ticket is born all the
     same, serving nothing."""
     stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
@@ -467,3 +476,44 @@ def a_goal_that_is_gone_or_over_leaves_the_schedule_running_without_it() -> None
     assert len(runner.recur()) == 3
     for _, values in _schedules(runner).created:
         assert "Objectif" not in values
+
+
+@case
+def two_passes_on_a_due_schedule_make_one_ticket(state_home: Path) -> None:
+    """Both read the same late `Next`: the key (schedule, due moment) lets one through."""
+    stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
+    first = _recurring([_schedule_page("s-1", next=stale)])
+    second = _recurring([_schedule_page("s-1", next=stale)])
+    assert len(first.recur()) == 1
+    assert second.recur() == [], "the occurrence is taken"
+    assert len(_schedules(second).created) == 0
+    # A restart replays the same read: still the same occurrence.
+    assert _recurring([_schedule_page("s-1", next=stale)]).recur() == []
+
+
+@case
+def the_upkeep_does_not_write_a_birth_a_second_time_in_the_history() -> None:
+    """`born` records each birth itself; what the upkeep hands on to be recorded is not it."""
+    import threading
+    from unittest import mock
+
+    from ponos import scheduler
+
+    upkeep = mock.MagicMock()
+    upkeep.dry_run = True
+    upkeep._lock = threading.Lock()
+    upkeep._said, upkeep._publishing = [], []
+    upkeep.transitions.return_value = []
+    upkeep.born.return_value = [{"id": "t1", "status": "scheduled"}]
+    upkeep.delivering.return_value = ([], [])
+    scheduler.Scheduler._upkeep_once(upkeep)
+    assert upkeep._said == [], "recorded once, by `born`"
+
+
+@case
+def running_a_schedule_by_hand_twice_in_a_day_is_refused_without_force(state_home: Path) -> None:
+    """Even when the first ticket is already closed."""
+    assert not state.made_since("s-1", datetime.now().astimezone() - timedelta(days=1))
+    state.occurred("s-1", "launched", ticket="t1", title="x")
+    assert state.made_since("s-1", datetime.now().astimezone() - timedelta(days=1))
+    assert not state.made_since("s-2", datetime.now().astimezone() - timedelta(days=1))

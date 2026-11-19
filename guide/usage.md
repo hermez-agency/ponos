@@ -29,7 +29,7 @@ ponos diagnose "<what does not work>" --project <name>  # a Diagnostic ticket, r
 ponos subtypes     # the code tickets by sub-type
 ponos subtypes --backfill    # fill the empty ones from their prefix (--dry-run: write nothing, --all: done and cancelled ones too)
 ponos schedules    # what comes back on its own, and when it next does
-ponos schedules --run <name>  # make its ticket now, without waiting for the hour (--force: even if the last one is still open)
+ponos schedules --run <name>  # make its ticket now, without waiting for the hour (refused if the last one is still open, or if one was already made today — or this hour, for an hourly schedule; --force: anyway)
 ponos doctor       # full diagnostics
 ponos clean                  # empty worktree directories that are only root-owned residue (no .git)
 ponos clean --force          # remove worktrees, their branches, and scratch dirs

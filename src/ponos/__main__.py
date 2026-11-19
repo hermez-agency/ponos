@@ -384,6 +384,14 @@ def command_schedules(args: argparse.Namespace) -> int:
     return 0
 
 
+def _period_start(schedule: schedules_module.Schedule) -> datetime:
+    """The start of the hour (Hourly) or of the day an occurrence belongs to, local time."""
+    now = datetime.now().astimezone()
+    if schedule.cadence == "Hourly":
+        return now.replace(minute=0, second=0, microsecond=0)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def _run_schedule(
     runner: Runner, rows: list[schedules_module.Schedule], reference: str, *, force: bool
 ) -> int:
@@ -411,6 +419,12 @@ def _run_schedule(
     # `--force` is how you say you meant it.
     if not force and runner._busy(schedule):  # noqa: SLF001
         warn(f"{schedule.name} — its last ticket is still open")
+        print(f"    {DIM}ponos schedules --run “{schedule.name}” --force{RESET}")
+        return 1
+    # Nor a second one for the same day, finished or not: a post published twice
+    # costs more than the one it was meant to replace.
+    if not force and state.made_since(schedule.page.id, _period_start(schedule)):
+        warn(f"{schedule.name} — an occurrence was already made for this period")
         print(f"    {DIM}ponos schedules --run “{schedule.name}” --force{RESET}")
         return 1
     entry = runner._born(schedule)  # noqa: SLF001

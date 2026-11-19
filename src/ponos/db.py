@@ -1291,6 +1291,23 @@ def _projectless(connection: sqlite3.Connection) -> None:
     projectless.migrate(connection)
 
 
+def _one_ticket_per_due_moment(connection: sqlite3.Connection) -> None:
+    # Une occurrence d'une récurrence, une seule fois : la clé (récurrence,
+    # échéance) est ce qui l'interdit, quel que soit le nombre de passes —
+    # démon, `ponos run`, console — qui lisent la même échéance en retard au
+    # même moment. Le premier qui l'écrit la prend ; les autres la laissent.
+    connection.execute(
+        """
+        CREATE TABLE schedule_slots (
+            schedule  TEXT NOT NULL,
+            due       TEXT NOT NULL,
+            at        TEXT NOT NULL,
+            PRIMARY KEY (schedule, due)
+        )
+        """
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1354,6 +1371,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _tickets_have_a_result,
     _schedules_to_review,
     _projectless,
+    _one_ticket_per_due_moment,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps
