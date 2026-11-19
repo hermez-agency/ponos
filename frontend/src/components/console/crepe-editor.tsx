@@ -54,6 +54,38 @@ export default function CrepeEditor({
     // is one editor drawn twice.
     const host = document.createElement("div")
     place.appendChild(host)
+    let alive = true
+    let builder: CrepeBuilder | null = null
+    let made: Promise<void> = Promise.resolve()
+    // Built in a task of its own, not in the one that mounted it. Milkdown's
+    // `create` is a chain of promises, all run before the task ends: in a window
+    // just opened — a new ticket's — that was 40 ms more on top of the window's
+    // own, past 50 ms in one go. A timeout rather than a frame: a tab in the
+    // background draws no frame, and its editor would never be built.
+    const later = setTimeout(() => {
+      builder = build(host)
+      const built = builder
+      made = built.create().then(() => {
+        if (!alive) return
+        crepe.current = built
+        built.setReadonly(Boolean(readOnly))
+        // A value that arrived while the editor was being built.
+        if (wanted.current !== held.current) built.editor.action(replaceAll(wanted.current))
+        held.current = built.getMarkdown()
+      })
+    })
+    return () => {
+      alive = false
+      clearTimeout(later)
+      crepe.current = null
+      void made.then(() => builder?.destroy()).finally(() => host.remove())
+    }
+    // Built once: the placeholder and the labels are read as it is built, and
+    // rebuilding it for a new one would drop the caret and the history.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function build(host: HTMLElement) {
     const builder = new CrepeBuilder({ root: host, defaultValue: wanted.current })
       .addFeature(cursor)
       .addFeature(listItem)
@@ -103,25 +135,8 @@ export default function CrepeEditor({
         change.current(markdown)
       })
     )
-
-    let alive = true
-    const made = builder.create().then(() => {
-      if (!alive) return
-      crepe.current = builder
-      builder.setReadonly(Boolean(readOnly))
-      // A value that arrived while the editor was being built.
-      if (wanted.current !== held.current) builder.editor.action(replaceAll(wanted.current))
-      held.current = builder.getMarkdown()
-    })
-    return () => {
-      alive = false
-      crepe.current = null
-      void made.then(() => builder.destroy()).finally(() => host.remove())
-    }
-    // Built once: the placeholder and the labels are read as it is built, and
-    // rebuilding it for a new one would drop the caret and the history.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    return builder
+  }
 
   React.useEffect(() => {
     wanted.current = value

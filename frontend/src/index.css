@@ -26,6 +26,37 @@
 @source "../node_modules/react-data-form/dist";
 @source "../node_modules/@shadcn/react/dist";
 
+/* Thirteen of the classes they use put `:has()` before the element they style
+   — `group-has-*`, `has-[…]:*:`, `has-[…]:[&>…]:`. Chrome cannot tell from
+   such a rule which elements a change may now match: any element inserted
+   under `<body>` — a portal, each time a window opens — or an `aria-hidden` set
+   on `#root` restyled the whole page when the subject was anything (some 9 ms
+   per change at 2,000 nodes, three changes per opening), and every element
+   with a `data-slot` or a `role` when the subject was one of those (300 ms
+   each on the table of 2,000 tickets, 57,000 nodes). They are written again
+   below, in `@layer utilities`, with a subject Chrome can find: the class
+   itself, or the `:has()` moved onto the element. `stylesheet.test.ts` keeps
+   the built sheet free of both shapes. */
+@source not inline("group-has-disabled/field:opacity-50 group-has-data-horizontal/field:text-balance group-has-data-[slot=item-description]/item:translate-y-0.5 group-has-data-[slot=item-description]/item:self-start group-has-data-[slot=message-footer]/message:-translate-y-8 group-has-data-[variant=ghost]/message:px-0 sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2 has-[>[data-variant=outline]]:*:data-[slot=input-group]:border-border has-[>[data-variant=outline]]:*:data-[slot=select-trigger]:border-border has-[>[data-variant=outline]]:[&>[data-slot=input-group]:has(:focus-visible)]:border-ring has-[>[data-variant=outline]]:[&>[data-slot=select-trigger]:focus-visible]:border-ring has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-4xl has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px");
+
+/* Four more, from the button group of `react-resource-view`, say "a slot after
+   another slot" with `~`: `.x > [data-slot] ~ [data-slot]`. Chrome then marks
+   every parent of an element with a `data-slot` — `<body>` too, whose windows
+   are `data-slot`s — as having children styled by the ones before them, and a
+   window leaving the body restyled the page: 430 ms each on the table of
+   2,000 tickets, at every closing. `:nth-child(… of …)` says the same thing,
+   "not the first slot", without walking the siblings: see `@layer utilities`. */
+@source not inline("[&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0 [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0");
+
+/* `react-remove-scroll-bar` sets this on `<body>` while a window holds the page
+   still. Nothing reads it, and inherited — what an unregistered property is —
+   every element under the body was restyled to carry it: 16 ms at 2,000 nodes,
+   at each opening. */
+@property --removed-body-scroll-bar-size {
+  syntax: "*";
+  inherits: false;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -136,6 +167,29 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* A modal window — a dialog, a sheet, a confirmation — also sets
+     `pointer-events: none` on the body, so that nothing outside it answers the
+     pointer. Inherited, that value restyled every element of the page at each
+     opening and closing: 10 ms at 2,000 nodes, the largest share of what was
+     left once the `:has()` above were gone. Each of these windows lays an
+     overlay over the whole page, which Radix keeps at `auto`, and each layer
+     says `auto` or `none` for itself: while the overlay is there, the body
+     holding still changes nothing that can be pointed at. The window itself is
+     named too: closing, its overlay fades out in 150 ms and the window in 200,
+     and between the two the body went back to `none` — a second at 57,000
+     nodes. A menu opened with no window under it still holds the page as
+     before. */
+  body:has(
+      > [data-slot="dialog-overlay"],
+      > [data-slot="dialog-content"],
+      > [data-slot="sheet-overlay"],
+      > [data-slot="sheet-content"],
+      > [data-slot="alert-dialog-overlay"],
+      > [data-slot="alert-dialog-content"]
+    ) {
+    pointer-events: auto !important;
+  }
+
   /* The bar the browser draws is the one part of the page that never heard the
      console was dark: pale, wide, and laid over the panel rather than living in
      it. `color-scheme` is what stops it guessing, and it settles the dropdowns
@@ -168,6 +222,99 @@
 }
 
 @layer utilities {
+  /* The classes kept out of the build at the top of this file, each matching
+     what Tailwind's rule matched, at the same specificity.
+
+     Where the class is on the element it styles, the class is the subject:
+     `:where(.group):has(…) .class` for `.class:is(:where(.group):has(…) *)`. */
+  :where(.group\/field):has(:disabled) .group-has-disabled\/field\:opacity-50 {
+    @apply opacity-50;
+  }
+  :where(.group\/field):has([data-horizontal]) .group-has-data-horizontal\/field\:text-balance {
+    @apply text-balance;
+  }
+  :where(.group\/item):has([data-slot="item-description"]) .group-has-data-\[slot\=item-description\]\/item\:translate-y-0\.5 {
+    @apply translate-y-0.5;
+  }
+  :where(.group\/item):has([data-slot="item-description"]) .group-has-data-\[slot\=item-description\]\/item\:self-start {
+    @apply self-start;
+  }
+  :where(.group\/message):has([data-slot="message-footer"]) .group-has-data-\[slot\=message-footer\]\/message\:-translate-y-8 {
+    @apply -translate-y-8;
+  }
+  :where(.group\/message):has([data-variant="ghost"]) .group-has-data-\[variant\=ghost\]\/message\:px-0 {
+    @apply px-0;
+  }
+  @media (width >= 40rem) {
+    :where(.group\/alert-dialog-content):has([data-slot="alert-dialog-media"]) .sm\:group-data-\[size\=default\]\/alert-dialog-content\:group-has-data-\[slot\=alert-dialog-media\]\/alert-dialog-content\:col-start-2:is(:where(.group\/alert-dialog-content)[data-size="default"] *) {
+      @apply col-start-2;
+    }
+  }
+
+  /* Where the class is on the parent, whether one of its children is an
+     outline — or a field's content — is asked of the element and of its
+     siblings, each by its own selector: `.x:has(> [a]) > [b]` is
+     `.x > [b][a]`, `.x > [a] ~ [b]` and `.x > [b]:has(~ [a])`. Never `[a] ~ *`:
+     a sibling that is anything restyles the whole page as surely as a `:has()`
+     before it does. */
+  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=input-group\]\:border-border > [data-slot="input-group"][data-variant="outline"],
+  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=input-group\]\:border-border > [data-variant="outline"] ~ [data-slot="input-group"],
+  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=input-group\]\:border-border > [data-slot="input-group"]:has(~ [data-variant="outline"]),
+  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=select-trigger\]\:border-border > [data-slot="select-trigger"][data-variant="outline"],
+  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=select-trigger\]\:border-border > [data-variant="outline"] ~ [data-slot="select-trigger"],
+  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=select-trigger\]\:border-border > [data-slot="select-trigger"]:has(~ [data-variant="outline"]) {
+    @apply border-border;
+  }
+  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=input-group\]\:has\(\:focus-visible\)\]\:border-ring > [data-slot="input-group"]:has(:focus-visible)[data-variant="outline"],
+  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=input-group\]\:has\(\:focus-visible\)\]\:border-ring > [data-variant="outline"] ~ [data-slot="input-group"]:has(:focus-visible),
+  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=input-group\]\:has\(\:focus-visible\)\]\:border-ring > [data-slot="input-group"]:has(:focus-visible):has(~ [data-variant="outline"]),
+  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=select-trigger\]\:focus-visible\]\:border-ring > [data-slot="select-trigger"]:focus-visible[data-variant="outline"],
+  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=select-trigger\]\:focus-visible\]\:border-ring > [data-variant="outline"] ~ [data-slot="select-trigger"]:focus-visible,
+  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=select-trigger\]\:focus-visible\]\:border-ring > [data-slot="select-trigger"]:focus-visible:has(~ [data-variant="outline"]) {
+    @apply border-ring;
+  }
+  /* The native select Radix draws for a form is the trigger's next sibling, the
+     group's last child. */
+  .has-\[select\[aria-hidden\=true\]\:last-child\]\:\[\&\>\[data-slot\=select-trigger\]\:last-of-type\]\:rounded-r-4xl > [data-slot="select-trigger"]:last-of-type:has(~ select[aria-hidden="true"]:last-child) {
+    @apply rounded-r-4xl;
+  }
+  /* `[&>[role=checkbox],[role=radio]]` reads as two children; Tailwind wrote
+     the radio as any descendant. Both are children here, as a field draws them.
+     A box after the field's content is not asked with `~`, which made every
+     box's parent — each row of the table of tickets — restyle at a window's
+     closing, 50 ms more there: it is a box that is not the first of the field's
+     boxes and content, which is the same as long as a field draws one box. */
+  .has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="checkbox"]:nth-child(n + 2 of [role="checkbox"], [data-slot="field-content"]),
+  .has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="checkbox"]:has(~ [data-slot="field-content"]),
+  .has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="radio"]:nth-child(n + 2 of [role="radio"], [data-slot="field-content"]),
+  .has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="radio"]:has(~ [data-slot="field-content"]) {
+    @apply mt-px;
+  }
+  @container field-group (width >= 28rem) {
+    .\@md\/field-group\:has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="checkbox"]:nth-child(n + 2 of [role="checkbox"], [data-slot="field-content"]),
+    .\@md\/field-group\:has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="checkbox"]:has(~ [data-slot="field-content"]),
+    .\@md\/field-group\:has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="radio"]:nth-child(n + 2 of [role="radio"], [data-slot="field-content"]),
+    .\@md\/field-group\:has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="radio"]:has(~ [data-slot="field-content"]) {
+      @apply mt-px;
+    }
+  }
+
+  /* The button group's "a slot after another": `:nth-child(n + 2 of …)` is
+     "not the first slot", as `[data-slot] ~ [data-slot]` was, at the same
+     specificity — see the top of this file for why not `~`. */
+  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:rounded-l-none > [data-slot]:nth-child(n + 2 of [data-slot]) {
+    @apply rounded-l-none;
+  }
+  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:border-l-0 > [data-slot]:nth-child(n + 2 of [data-slot]) {
+    @apply border-l-0;
+  }
+  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:rounded-t-none > [data-slot]:nth-child(n + 2 of [data-slot]) {
+    @apply rounded-t-none;
+  }
+  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:border-t-0 > [data-slot]:nth-child(n + 2 of [data-slot]) {
+    @apply border-t-0;
+  }
+
   /* A layout switch's own words — `board`, `table`, `cards`, `split`,
      `calendar` in `resources/*.tsx` — are lowercase: they are addresses
      (`?view=…/split`) before they are read as labels, and the one word serves
@@ -264,13 +411,15 @@
      panel are siblings, so the grid is the parent's, found by the panel it
      holds. Wide, the panel sticks to the top of the screen and scrolls on its own
      (see `ProjectAside`), so a project picked low in a long list keeps its header
-     in view. Narrower there is no panel, and a project picked opens its page. */
+     in view. Narrower there is no panel, and a project picked opens its page.
+     The panel itself is reached as the div's child, not through the `:has()`
+     that finds the grid: see the top of this file. */
   div:has(> [data-projects-aside]) {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
   }
-  div:has(> [data-projects-aside]) > [data-projects-aside] {
+  div > [data-projects-aside] {
     order: 1;
   }
   @media (width >= 64rem) {
@@ -281,10 +430,15 @@
       align-items: start;
       column-gap: 2rem;
     }
-    div:has(> [data-projects-aside]) > :not([data-projects-aside]) {
+    /* Placed in its own cells, the panel leaves the first two rows' left cell to
+       whatever precedes it; what follows could land in the right one, under it.
+       Its siblings rather than `div:has(> [data-projects-aside]) > :not(…)`,
+       whose `:has()` before a subject that is anything restyled the whole page
+       at each window opened (see the top of this file). */
+    [data-projects-aside] ~ * {
       grid-column: 1;
     }
-    div:has(> [data-projects-aside]) > [data-projects-aside] {
+    div > [data-projects-aside] {
       grid-column: 2;
       grid-row: 1 / span 2;
       order: 0;
@@ -304,8 +458,10 @@
      tab draws over its content (the tab's name again, and its sentence, which
      the tab's own component writes) and the breadcrumb's record segment (the
      page's name, after the resource's, which is the same word) are left out —
-     the breadcrumb is then "Ponos › Context", the dangling chevron included. */
-  body:has([data-slot="context-page-head"]) {
+     the breadcrumb is then "Ponos › Context", the dangling chevron included.
+     The body says it is the Context page itself (see `ContextHead`): asked
+     with `body:has(…)`, a portal inserted anywhere restyled the page. */
+  body[data-context-page] {
     [data-slot="tabs-content"] > [data-slot="card-header"],
     nav[aria-label="Breadcrumb"] li:last-child:not(:first-child) {
       display: none;
