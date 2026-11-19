@@ -283,7 +283,7 @@ const Preview = ({ row }: RowComponentPropsInterface<Launch>) => {
   return (
     <div className="flex w-full flex-col gap-2 text-sm">
       <p className="text-muted-foreground text-xs">
-        {launch.kind === "past" ? t("Last launch: it has happened.") : t("Due: not born yet.")}
+        {launch.kind === "past" ? t("Last launch.") : t("Next launch.")}
         {launch.cadence ? ` ${t(launch.cadence)}` : ""}
       </p>
       {launch.times.length > 1 ? (
