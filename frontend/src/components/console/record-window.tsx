@@ -140,6 +140,12 @@ function RecordWindow({
   children: React.ReactNode
 }) {
   const t = useT()
+  // The record's page a render after the window, not in the same one. Opening a
+  // window is already a task's worth of work at 2,000 nodes — the page under it
+  // held still, restyled, the focus moved — and a ticket's page drawn in the
+  // same commit took the click past 50 ms. Deferred, React draws the page in a
+  // transition, a few milliseconds at a time, while the window fades in.
+  const drawn = React.useDeferredValue(true, false)
   return (
     <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent
@@ -183,7 +189,7 @@ function RecordWindow({
           </DialogClose>
         </DialogHeader>
         <div className="min-h-0 overflow-y-auto px-5 py-4">
-          <CloseWindow value={onClose}>{children}</CloseWindow>
+          <CloseWindow value={onClose}>{drawn ? children : null}</CloseWindow>
         </div>
       </DialogContent>
     </Dialog>
