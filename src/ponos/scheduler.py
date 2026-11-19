@@ -431,7 +431,8 @@ class Scheduler(adoption.Adoption):
             self.close_merged()
             self.tidy()
             self._rotate_logs()
-        results += self.born()
+        # Recorded by `born` itself, as it happens: not again with the rest.
+        self.born()
         settled, fresh = self.delivering(self._carried)
         results += settled
         for entry in settled:

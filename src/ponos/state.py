@@ -947,6 +947,50 @@ def occurred(
         pass
 
 
+def take_slot(schedule: str, due: datetime) -> bool:
+    """Take the occurrence of a schedule that falls due at `due`: true for the one pass that gets it.
+
+    The key is the schedule and its due moment, so two passes that read the same
+    late `Next` at once — the daemon and `ponos run`, the console and `--run` —
+    cannot both make its ticket, and neither can a restart that replays it. A
+    database that cannot be written answers no: a ticket skipped is cheaper than
+    two sessions for the same post.
+    """
+    try:
+        with db.transaction() as connection:
+            taken = connection.execute(
+                "INSERT OR IGNORE INTO schedule_slots (schedule, due, at) VALUES (?, ?, ?)",
+                (
+                    schedule.replace("-", ""),
+                    due.astimezone(UTC).isoformat(timespec="seconds"),
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                ),
+            )
+            return taken.rowcount == 1
+    except db.ERRORS:
+        logger.exception("the occurrence of %s could not be taken", schedule)
+        return False
+
+
+def made_since(schedule: str, since: datetime) -> bool:
+    """Has a ticket been made for this schedule at or after `since`, closed or not?"""
+    try:
+        with db.transaction(immediate=False) as connection:
+            return (
+                connection.execute(
+                    "SELECT 1 FROM occurrences WHERE schedule = ?"
+                    " AND outcome IN ('born', 'launched') AND at >= ? LIMIT 1",
+                    (
+                        schedule.replace("-", ""),
+                        since.astimezone(UTC).isoformat(timespec="seconds"),
+                    ),
+                ).fetchone()
+                is not None
+            )
+    except db.ERRORS:
+        return False
+
+
 def occurrences(schedule: str) -> list[dict[str, Any]]:
     """Every occurrence of a schedule kept, the latest first."""
     try:

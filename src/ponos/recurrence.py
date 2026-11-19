@@ -132,6 +132,12 @@ class Recurrence(Base):
                 },
             ):
                 continue
+            # And taken on this side too, by the key (schedule, due moment): the
+            # write above is read-then-write, and two passes that read the same
+            # late `Next` both got through it. Only the one that takes the slot
+            # makes the ticket.
+            if not state.take_slot(schedule.page.id, schedule.next):
+                continue
             if self._busy(schedule):
                 self.say(f"  · {schedule.name} — its last ticket is still open, no second one made")
                 state.occurred(
