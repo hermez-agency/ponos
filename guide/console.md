@@ -65,7 +65,9 @@ that. Each is kept in `ponos.db`, so they survive a restart: the page lists them
 from the latest to the oldest, with a title made of the first message (renamable, as is the
 project it is about), the date of the last message and the model it ran on. A row reopens the
 conversation with its whole transcript and carries on where it stopped — it is the same Claude
-Code session, resumed. The search looks in the titles and, failing that, in what was said;
+Code session, resumed. A long one opens on its last 60 messages, so that typing in it stays
+instant: *Show earlier messages*, above them, adds 60 more without moving what you were reading,
+and Ctrl+F finds what is shown. The search looks in the titles and, failing that, in what was said;
 *New conversation* starts another; deleting asks for a box to be ticked, as deleting a project does,
 and takes the transcript and the files sent in it. The model is chosen from the conversation
 itself, in the bar over it, and kept per conversation: the Claude models (`opus`, `sonnet`, `haiku`,

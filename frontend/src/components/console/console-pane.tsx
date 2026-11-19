@@ -288,13 +288,19 @@ function Talk({
   const said = React.useMemo(() => interleaved(messages, transcript), [messages, transcript])
   const last = messages[messages.length - 1]
   const answering = busy
+  const { drawn, earlier, showEarlier } = useLatest(said)
 
   return (
     <>
       <ChatConversation
         empty={<Turn role="workspace" text={t(WELCOME)} />}
       >
-        {said.map((item) =>
+        {earlier ? (
+          <Button variant="ghost" size="sm" className="text-muted-foreground self-center" onClick={showEarlier} data-show-earlier>
+            {t("Show earlier messages")}
+          </Button>
+        ) : null}
+        {drawn.map((item) =>
           "parts" in item ? (
             <Said
               key={item.id}
@@ -367,6 +373,37 @@ function interleaved(messages: ReadonlyArray<UIMessage>, entries: Entry[]): (UIM
     merged.splice(index < 0 ? merged.length : index, 0, { at: entry.at, item: entry })
   }
   return merged.map((one) => one.item)
+}
+
+/* The last messages of a conversation, and the earlier ones when asked for.
+ *
+ * Five hundred messages are ten thousand nodes: out of sight they are not laid
+ * out (`DRAWN_WHEN_SEEN`), but they are still styled, and in the page at every
+ * keystroke. So a conversation opens on its last `PAGE` messages, and the button
+ * over them draws `PAGE` more — where you were reading stays where it was on the
+ * screen: the message that was first is held in place, whatever grew above it.
+ * The window is counted from the end, so a message arriving at the bottom, the
+ * one being followed, is always drawn. Ctrl+F finds what is drawn. */
+const PAGE = 60
+
+function useLatest<T>(said: T[]) {
+  const [count, setCount] = React.useState(PAGE)
+  const held = React.useRef<{ element: Element; top: number } | null>(null)
+  React.useLayoutEffect(() => {
+    const kept = held.current
+    held.current = null
+    if (!kept) return
+    const scroller = kept.element.closest("[role=log]")
+    if (scroller) scroller.scrollTop += kept.element.getBoundingClientRect().top - kept.top
+  }, [count])
+  const showEarlier = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    // The button's next sibling is the first message drawn.
+    const element = event.currentTarget.nextElementSibling
+    if (element) held.current = { element, top: element.getBoundingClientRect().top }
+    setCount((count) => count + PAGE)
+  }, [])
+  const start = Math.max(0, said.length - count)
+  return { drawn: start ? said.slice(start) : said, earlier: start > 0, showEarlier }
 }
 
 /* A message out of sight is neither laid out nor painted: a long conversation

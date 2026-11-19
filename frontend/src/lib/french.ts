@@ -761,6 +761,7 @@ export const FRENCH: Record<string, string> = {
   "stopped by you": "interrompu par vous",
   "answered in {{time}}": "répondu en {{time}}",
   "after {{time}}": "au bout de {{time}}",
+  "Show earlier messages": "Afficher les précédents",
   // Brand Assets' chat kit, in `components/chat`: the words it said in French
   // only, in the French it said them in.
   Conversation: "Conversation",
