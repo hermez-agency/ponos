@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
-import { useBoard } from "@/lib/board-store"
+import { useBoardWith } from "@/lib/board-store"
 import { useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import {
@@ -44,7 +44,7 @@ import {
   type Period,
   type TicketQuery,
 } from "@/lib/ticket-search"
-import type { Ticket } from "@/lib/types"
+import type { Board, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /* The search over the tickets: one bar, for the board and for a project's page.
@@ -92,10 +92,19 @@ export function useSearchWords(): string[] {
   return React.useMemo(() => marked(text), [text])
 }
 
+/* What the search reads of the board besides its tickets, each its own
+ * subscription: the moves of the board leave them as they were, and the bar is
+ * not drawn again for a ticket that changed its step. */
+const choicesOf = (board: Board) => board.choices
+const subtypesOf = (board: Board) => board.subtypes
+const columnsOf = (board: Board) => board.columns
+const validates = (board: Board) => board.validate
+const cancels = (board: Board) => board.cancel
+
 /** Which of a list's rows the query keeps, and whether it is asking for anything. */
 export function useTicketFilter<Row extends { data?: unknown }>(rows: Row[]) {
   const [query] = useTicketQuery()
-  const { choices } = useBoard()
+  const choices = useBoardWith(choicesOf)
   const filtering = !isEmpty(query)
   const kept = React.useMemo(() => {
     if (!filtering) return rows
@@ -167,12 +176,24 @@ function offered(
   name: (value: string, ticket?: Ticket) => string = (value) => value
 ): Option[] {
   const options: Option[] = choices.map((choice) => ({ ...choice, count: 0 }))
+  // Each value is compared with the options once, however many tickets carry
+  // it: `among` folds case and accents letter by letter, and doing it for
+  // every ticket of a 2 000-ticket board, against every option, was 200 ms of
+  // every move of the board.
+  const seen = new Map<string, Option>()
   for (const ticket of tickets) {
     const value = read(ticket)
     if (!value) continue
-    const known = options.find((option) => among(value, [option.value], choices))
-    if (known) known.count += 1
-    else options.push({ value, label: name(value, ticket), count: 1 })
+    let known = seen.get(value)
+    if (!known) {
+      known = options.find((option) => among(value, [option.value], choices))
+      if (!known) {
+        known = { value, label: name(value, ticket), count: 0 }
+        options.push(known)
+      }
+      seen.set(value, known)
+    }
+    known.count += 1
   }
   return options.some((option) => option.count) ? options : []
 }
@@ -181,19 +202,26 @@ function offered(
 const said = (choices: Choice[] = []): Choice[] =>
   choices.map((choice) => ({ ...choice, label: choiceWord(choice.label) }))
 
-/** One property, as a button and the list of its values, any number of them ticked. */
-function FacetFilter({
+/** One property, as a button and the list of its values, any number of them ticked.
+ *
+ * Memoised, and handed the facet and the bar's `update` rather than a function
+ * made at each draw: the list over it is drawn again at every move of the
+ * board, and its eight menus with it, for values that had not changed. */
+const FacetFilter = React.memo(function FacetFilter({
+  facet,
   label,
   options,
   selected,
-  onChange,
+  update,
 }: {
+  facet: Facet
   label: string
   options: Option[]
   selected: string[]
-  onChange: (next: string[]) => void
+  update: (change: (query: TicketQuery) => TicketQuery) => void
 }) {
   const t = useT()
+  const onChange = (next: string[]) => update((current) => ({ ...current, [facet]: next }))
   if (!options.length) return null
   const one = selected.length === 1 ? options.find((option) => option.value === selected[0]) : undefined
   return (
@@ -228,7 +256,7 @@ function FacetFilter({
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
+})
 
 /** When a ticket last moved: one choice, or none. */
 function PeriodFilter({ value, onChange }: { value: Period; onChange: (next: Period) => void }) {
@@ -336,7 +364,11 @@ export function TicketSearch({
   projects?: boolean
 }) {
   const t = useT()
-  const board = useBoard()
+  const choices = useBoardWith(choicesOf)
+  const subtypes = useBoardWith(subtypesOf)
+  const columns = useBoardWith(columnsOf)
+  const validate = useBoardWith(validates)
+  const cancel = useBoardWith(cancels)
   const [query, update] = useTicketQuery()
   const [unfolded, setUnfolded] = React.useState(false)
   const field = React.useRef<HTMLInputElement>(null)
@@ -384,23 +416,21 @@ export function TicketSearch({
   // board among them, and on 1 800 tickets the counting was 50 ms of the click.
   // `t` is there for the language the labels are said in.
   const facets = React.useMemo((): Record<Facet, Option[]> => {
-    const choices = board.choices ?? {}
     return {
-      type: offered(tickets, (ticket) => ticket.type, said(choices.type), choiceWord),
+      type: offered(tickets, (ticket) => ticket.type, said(choices?.type), choiceWord),
       // In the table's order, each behind its dot, in the developers' word.
       subtype: offered(
         tickets,
         (ticket) => ticket.subtype ?? "",
-        (board.subtypes ?? []).map((subtype) => ({
+        (subtypes ?? []).map((subtype) => ({
           value: subtype.key,
           label: subtype.label,
           subtype: subtype.key,
         }))
       ),
-      status: board.columns
+      status: columns
         .filter(
-          (column) =>
-            (column.key !== "validated" || board.validate) && (column.key !== "cancelled" || board.cancel)
+          (column) => (column.key !== "validated" || validate) && (column.key !== "cancelled" || cancel)
         )
         .map((column) => ({
           value: column.key,
@@ -414,7 +444,7 @@ export function TicketSearch({
       model: offered(
         tickets,
         (ticket) => ticket.model,
-        choices.model,
+        choices?.model,
         (value, ticket) => ticket?.model_label || value
       ),
       project: projects
@@ -438,7 +468,7 @@ export function TicketSearch({
     // `t` is not read here, but changes with the language that `blockSaid` and
     // `choiceWord` read: switching it says the labels again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickets, board, projects, t])
+  }, [tickets, choices, subtypes, columns, validate, cancel, projects, t])
   const names: Record<Facet, string> = {
     type: t("Type"),
     subtype: t("Sub-type"),
@@ -526,10 +556,11 @@ export function TicketSearch({
           {(Object.keys(facets) as Facet[]).map((facet) => (
             <FacetFilter
               key={facet}
+              facet={facet}
               label={names[facet]}
               options={facets[facet]}
               selected={query[facet]}
-              onChange={set(facet)}
+              update={update}
             />
           ))}
           <PeriodFilter value={query.since} onChange={set("since")} />

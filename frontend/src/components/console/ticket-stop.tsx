@@ -2,9 +2,9 @@ import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { columnTitle } from "@/components/console/ticket-bits"
 import { Button } from "@/components/ui/button"
 import { moveWithToast as move } from "@/hooks/use-console"
-import { titleOf, useBoard } from "@/lib/board-store"
+import { titleOf, useBoardWith } from "@/lib/board-store"
 import { t, useT } from "@/lib/i18n"
-import type { Ticket } from "@/lib/types"
+import type { Board, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /** The gestures of a ticket in progress and of one put aside, where the board has the column.
@@ -13,8 +13,12 @@ import { cn } from "@/lib/utils"
  * Both are a move: the console ends the session before it writes the status.
  * Resuming is the way back to ready, asked for like every other: the session
  * it starts is paid for. */
+const columnsOf = (board: Board) => board.columns
+const cancels = (board: Board) => board.cancel
+
 export default function StopGestures({ ticket, className }: { ticket: Ticket; className?: string }) {
-  const board = useBoard()
+  // What the gestures read of the board, which its moves leave as it was.
+  const board = { columns: useBoardWith(columnsOf), cancel: useBoardWith(cancels) }
   useT()
   const running = ticket.column === "running"
   const pauses = board.columns.some((column) => column.key === "paused")

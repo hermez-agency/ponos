@@ -20,9 +20,28 @@ export function setNumberLocale(next: string) {
   locale = next
 }
 
+/* One formatter per locale and per way of writing, made the first time it is
+ * asked for. Building one is the dear part — a board of 2 000 tickets wrote
+ * its costs with 2 000 of them, 66 ms at every move of the board, where the
+ * same one reused writes them in 1. The key is the options as written: the
+ * callers below always say them in the same order. */
+const formats = new Map<string, Intl.NumberFormat>()
+
+function format(options?: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = `${locale}|${options ? JSON.stringify(options) : ""}`
+  let made = formats.get(key)
+  if (!made) {
+    made = new Intl.NumberFormat(locale, options)
+    formats.set(key, made)
+  }
+  return made
+}
+
+const plurals = new Map<string, Intl.PluralRules>()
+
 /** A count, with the separator the language puts between thousands. */
 export function number(value: number): string {
-  return new Intl.NumberFormat(locale).format(value)
+  return format().format(value)
 }
 
 /** Dollars — what the sessions cost — written where the language writes them.
@@ -30,7 +49,7 @@ export function number(value: number): string {
  *  enough not to need them, and 4 keeps what a single chat turn costs, for the
  *  tooltip that says it exactly — what the page shows stops at the cent. */
 export function money(value: number, digits = 2): string {
-  return new Intl.NumberFormat(locale, {
+  return format({
     style: "currency",
     currency: "USD",
     // "$", not "US$": the console has only ever counted in one currency.
@@ -58,7 +77,7 @@ export function bytes(size: number): string {
     unit += 1
   }
   const digits = unit === 0 || size >= 10 ? 0 : 1
-  return new Intl.NumberFormat(locale, {
+  return format({
     style: "unit",
     unit: units[unit],
     unitDisplay: unit === 0 ? "long" : "short",
@@ -78,6 +97,11 @@ export interface Counted {
  *  The count is already written as a number, so a 0 is "0" — never the empty
  *  parameter react-mini-i18n would leave as `{{count}}`. */
 export function count(value: number, one: string, other: string): Counted {
-  const form = new Intl.PluralRules(locale).select(value)
+  let rules = plurals.get(locale)
+  if (!rules) {
+    rules = new Intl.PluralRules(locale)
+    plurals.set(locale, rules)
+  }
+  const form = rules.select(value)
   return { key: form === "one" ? one : other, params: { count: number(value) } }
 }

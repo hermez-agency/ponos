@@ -74,3 +74,32 @@ test("a plural is chosen, never written (s)", () => {
   assert.equal(count(0, one, other).key, other)
   assert.equal(count(6, one, other).key, other)
 })
+
+test("a formatter is made once per locale and way of writing, not at every amount", () => {
+  const Real = Intl.NumberFormat
+  let made = 0
+  // Counted where it is built: `money` on a board of 2 000 tickets used to make 2 000.
+  Intl.NumberFormat = function (...args: ConstructorParameters<typeof Real>) {
+    made += 1
+    return new Real(...args)
+  } as unknown as typeof Intl.NumberFormat
+  try {
+    setNumberLocale("de-CH")
+    for (let cost = 0; cost < 2000; cost++) money(cost / 7)
+    assert.equal(made, 1)
+    money(3, 0)
+    number(12)
+    assert.equal(made, 3)
+    for (let cost = 0; cost < 100; cost++) [money(cost), money(cost, 0), number(cost)]
+    assert.equal(made, 3)
+    // Another language is another formatter, and the first is kept for its return.
+    setNumberLocale("it-IT")
+    money(1)
+    setNumberLocale("de-CH")
+    money(1)
+    assert.equal(made, 4)
+  } finally {
+    Intl.NumberFormat = Real
+    setNumberLocale("en-GB")
+  }
+})

@@ -17,10 +17,10 @@ import {
   familyColor,
 } from "@/components/console/ticket-bits"
 import { SeriesButton } from "@/components/console/ticket-decision"
-import { useBoard } from "@/lib/board-store"
+import { useBoard, useBoardWith } from "@/lib/board-store"
 import { counted, useT } from "@/lib/i18n"
 import { toHandle } from "@/lib/to-handle"
-import type { Ticket } from "@/lib/types"
+import type { Board, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { ticketHref, tickets } from "@/resources/tickets"
 
@@ -89,12 +89,14 @@ export function ToHandle() {
 }
 
 /** One ticket waiting: where it stands and since when, its title, why it waits, and what to do. */
+const columnsOf = (board: Board) => board.columns
+
 function HandleCard({ ticket }: { ticket: Ticket }) {
-  const board = useBoard()
+  const columns = useBoardWith(columnsOf)
   // The ticket's window over the dashboard, as a card of the board opens it.
   const open = useOpensOverTheList(tickets, "read", ticket.id)
   const href = ticketHref(ticket.id)
-  const column = board.columns.find((one) => one.key === ticket.column)
+  const column = columns.find((one) => one.key === ticket.column)
   const block = ticket.column === "blocked" ? ticket.block : null
   const Icon = block ? (FAMILY_ICON[block.family] ?? ServerCrash) : null
   return (

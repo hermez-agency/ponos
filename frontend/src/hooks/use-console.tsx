@@ -11,7 +11,6 @@ import { publishBell } from "@/lib/notifications-store"
 import type {
   AguiEvent,
   Bell,
-  Board,
   ColumnKey,
   HealthReport,
   Project,
@@ -45,6 +44,12 @@ export type { Entry } from "./use-transcript"
  * their own, the connection and the list of sessions another, and the rest a
  * third, each value built once per change rather than once per render.
  *
+ * The board is in none of them. It moves every few seconds while a ticket runs,
+ * and in this value it drew again everything that reads the console — the
+ * conversation open beside the board among them — for a ticket that changed
+ * its step. It is the store's (`board-store.ts`): what reads it subscribes
+ * there, to the board or to the one thing it wants of it (`useBoardWith`).
+ *
  * The rule underneath is unchanged and is the reason this is a stream and not a
  * store: a click posts and says nothing. What lands here is what came back on
  * `/api/events`, so two open tabs agree, and an answer typed on a phone shows up
@@ -52,7 +57,6 @@ export type { Entry } from "./use-transcript"
  */
 
 interface ConsoleValue extends Transcript, TicketTalk {
-  board: Board
   runner: RunnerState | null
   projects: Project[]
   move: (ticket: Ticket, column: ColumnKey) => Promise<void>
@@ -228,7 +232,6 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...chat.value,
       ...talk.value,
-      board: feed.board,
       runner,
       projects,
       move,
@@ -236,7 +239,7 @@ export function ConsoleProvider({ children }: { children: React.ReactNode }) {
       refresh,
       reloadState,
     }),
-    [chat.value, talk.value, feed.board, runner, projects, reloadState]
+    [chat.value, talk.value, runner, projects, reloadState]
   )
 
   const { running, live } = sessions

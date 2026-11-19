@@ -5,7 +5,7 @@ import { useNavigate } from "react-resource-view"
 
 import { Button } from "@/components/ui/button"
 import { useOpensOverTheList } from "@/components/console/record-window"
-import { useBoard } from "@/lib/board-store"
+import { useBoardWith } from "@/lib/board-store"
 import { type DecisionTab, actionOf, decisionTabOf } from "@/lib/decision"
 import { useT } from "@/lib/i18n"
 import { SERIES_FROM, type SeriesColumn, withSeries } from "@/lib/series"
@@ -111,9 +111,9 @@ export function useOpenSeries() {
  * the board, whatever the search keeps. */
 export function SeriesButton({ column }: { column: SeriesColumn }) {
   const t = useT()
-  const board = useBoard()
   const open = useOpenSeries()
-  const count = board.tickets.filter((ticket) => ticket.column === column).length
+  // A number: the heading is drawn again when it changes, not at every move of the board.
+  const count = useBoardWith((board) => board.tickets.filter((ticket) => ticket.column === column).length)
   if (count < SERIES_FROM) return null
   const blocked = column === "blocked"
   const draft = column === "draft"

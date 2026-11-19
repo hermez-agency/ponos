@@ -4,9 +4,10 @@ import { Activity, Gauge, LayoutGrid } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useConsole, useStatus } from "@/hooks/use-console"
+import { useBoardWith } from "@/lib/board-store"
 import { counted, t as translate, useT } from "@/lib/i18n"
 import { money, number } from "@/lib/numbers"
-import type { Places, Waiting } from "@/lib/types"
+import type { Board, Places, Waiting } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { Rich } from "./text"
@@ -172,11 +173,14 @@ function Figure({
   )
 }
 
+/** How many cards are in the running column: a number, so the strip is drawn again only when it moves. */
+const runningCount = (board: Board) => board.tickets.filter((item) => item.column === "running").length
+
 export function RunnerStrip({ action }: { action?: React.ReactNode }) {
-  const { runner, board } = useConsole()
+  const { runner } = useConsole()
   const { running: sessions } = useStatus()
   const t = useT()
-  const running = board.tickets.filter((item) => item.column === "running").length
+  const running = useBoardWith(runningCount)
   const on = runner?.daemon === "running"
   const places = runner?.places
 

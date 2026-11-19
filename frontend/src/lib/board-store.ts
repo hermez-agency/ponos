@@ -197,3 +197,14 @@ const EMPTY: Board = { tickets: [], columns: [] }
 export function useBoard(): Board {
   return React.useSyncExternalStore(subscribeBoard, () => board ?? EMPTY)
 }
+
+/** One thing of the board — a count, its columns — drawn again only when it changes.
+ *
+ * `useBoard` draws its reader again at every move of the board, which is every
+ * few seconds while a ticket runs; most readers want a number or a part the
+ * moves leave as it was. `select` must give the same value for the same board:
+ * a number, a string, or a part of the board itself (`board.columns`), never
+ * an array or an object made on the spot. */
+export function useBoardWith<T>(select: (board: Board) => T): T {
+  return React.useSyncExternalStore(subscribeBoard, () => select(board ?? EMPTY))
+}

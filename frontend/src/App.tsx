@@ -16,7 +16,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ConsoleProvider, useConsole } from "@/hooks/use-console"
 import { RunnerMoodProvider } from "@/hooks/use-mood"
-import { useBoard } from "@/lib/board-store"
+import { useBoardWith } from "@/lib/board-store"
 import { useLanguage } from "@/lib/i18n"
 import { SCOPE } from "@/lib/resource-view"
 import { consoleRouter, useRoute } from "@/lib/router"
@@ -105,18 +105,21 @@ const ticketOf = (opened?: ViewResourceContextParams): string | null =>
     : null
 
 function OpenTicket({ params }: { params: ViewResourceContextParams }) {
-  const board = useBoard()
   const { openTicket, closeTicket } = useConsole()
 
   const ticketId = ticketOf(params) ?? ticketOf(params.childViewResource)
+  // The open ticket alone, the same object until it changes: the other moves
+  // of the board are nothing to this, which used to be drawn again at each.
+  const known = useBoardWith((board) =>
+    ticketId ? board.tickets.find((item) => item.id === ticketId) : undefined
+  )
   React.useEffect(() => {
     if (!ticketId) {
       closeTicket()
       return
     }
-    const known = board.tickets.find((item) => item.id === ticketId)
     if (known) openTicket(known)
-  }, [ticketId, board, openTicket, closeTicket])
+  }, [ticketId, known, openTicket, closeTicket])
 
   return null
 }

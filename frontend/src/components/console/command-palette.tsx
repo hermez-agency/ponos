@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/command"
 import { useConsole } from "@/hooks/use-console"
 import { hotkeyLabel, useHotkeys } from "@/hooks/use-hotkeys"
-import { titleOf, useBoard } from "@/lib/board-store"
+import { titleOf, useBoardWith } from "@/lib/board-store"
+import type { Board, Ticket } from "@/lib/types"
 import { useT } from "@/lib/i18n"
 import { OPENED } from "@/lib/palette"
 import { says, ticketsFor } from "@/lib/palette-search"
@@ -99,10 +100,16 @@ interface Action {
   count?: number
 }
 
+const counted = (column: string) => (board: Board) =>
+  board.tickets.filter((ticket) => ticket.column === column).length
+const blockedCount = counted("blocked")
+const reviewCount = counted("review")
+const draftCount = counted("draft")
+const NONE: Ticket[] = []
+
 export function CommandPalette() {
   const t = useT()
   const navigate = useNavigate()
-  const board = useBoard()
   const listed = useProjects()
   const { refresh, newChat } = useConsole()
   const { params } = useRoute()
@@ -113,10 +120,13 @@ export function CommandPalette() {
       ? listed?.projects.find((project) => idOf(project) === params.id && project.id)
       : undefined
   const openSeries = useOpenSeries()
-  const blocked = board.tickets.filter((ticket) => ticket.column === "blocked").length
-  const review = board.tickets.filter((ticket) => ticket.column === "review").length
-  const drafts = board.tickets.filter((ticket) => ticket.column === "draft").length
+  // Numbers, and the tickets only while the palette is open: closed, it is not
+  // drawn again at every move of the board.
+  const blocked = useBoardWith(blockedCount)
+  const review = useBoardWith(reviewCount)
+  const drafts = useBoardWith(draftCount)
   const [open, setOpen] = React.useState(false)
+  const known = useBoardWith((board) => (open ? board.tickets : NONE))
   const [search, setSearch] = React.useState("")
   // What had the focus before the palette opened, and gets it back: the
   // dialog has no trigger to hand it to.
@@ -278,7 +288,7 @@ export function CommandPalette() {
   const projects = (listed?.projects ?? []).filter((project) =>
     says([project.name, idOf(project), "project"], words)
   )
-  const found = open ? ticketsFor(board.tickets, search) : []
+  const found = open ? ticketsFor(known, search) : []
 
   return (
     <CommandDialog

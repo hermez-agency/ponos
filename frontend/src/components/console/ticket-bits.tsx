@@ -34,11 +34,11 @@ import { RunNow } from "@/components/console/ticket-launch"
 import { TicketEstimate } from "@/components/console/ticket-estimate"
 import { CardTime } from "@/components/console/ticket-time"
 import { moveWithToast as move } from "@/hooks/use-console"
-import { currentBoard, titleOf, useBoard } from "@/lib/board-store"
+import { currentBoard, titleOf, useBoardWith } from "@/lib/board-store"
 import { conflictOf } from "@/lib/conflicts"
 import { currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
-import type { Block, BlockFamily, Ci, CiState, Earlier, Subtype, Ticket } from "@/lib/types"
+import type { Block, Board, BlockFamily, Ci, CiState, Earlier, Subtype, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
 
@@ -149,15 +149,25 @@ export function ago(at: string): string {
  * an ISO string beside "il y a 7 h" reads like something leaked out of a
  * database. A start gate written as a day is a day: a date column has no
  * time in it, and the midnight added to it is not something anybody chose. */
+const days = new Map<string, Intl.DateTimeFormat>()
+
 export function when(at: string): string {
   if (!at) return ""
   const date = new Date(at)
   if (Number.isNaN(date.getTime())) return at
   const midnight = date.getHours() === 0 && date.getMinutes() === 0
-  return date.toLocaleString(currentLanguage(), {
-    dateStyle: "medium",
-    ...(midnight ? {} : { timeStyle: "short" }),
-  })
+  // One formatter per language and per shape, as `stamp` below: `toLocaleString`
+  // makes a new one at every call, and every row of the board asks.
+  const key = `${currentLanguage()}|${midnight}`
+  let format = days.get(key)
+  if (!format) {
+    format = new Intl.DateTimeFormat(currentLanguage(), {
+      dateStyle: "medium",
+      ...(midnight ? {} : { timeStyle: "short" }),
+    })
+    days.set(key, format)
+  }
+  return format.format(date)
 }
 
 /** How long a run took, from the minutes the board counts them in. */
@@ -722,8 +732,23 @@ const MERGE_REFUSED = new Set(["merge.checks-failed", "merge.refused"])
  * again. "Make ready", the only gesture these cards used to show, starts a new
  * session and pays for it: never what a red CI or a refused merge asked for.
  */
+/* What the gestures of a card read of the board: its columns, and whether it
+ * validates and cancels. Each its own subscription, which the moves of the
+ * board leave as they were: the gestures of every card drawn again at each of
+ * them were most of what a move cost the dashboard. */
+const columnsOf = (board: Board) => board.columns
+const validates = (board: Board) => board.validate
+const cancels = (board: Board) => board.cancel
+
+function useBoardRules(): Pick<Board, "columns" | "validate" | "cancel"> {
+  const columns = useBoardWith(columnsOf)
+  const validate = useBoardWith(validates)
+  const cancel = useBoardWith(cancels)
+  return { columns, validate, cancel }
+}
+
 function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
-  const board = useBoard()
+  const board = useBoardRules()
   const t = useT()
   const named = (key: string) =>
     columnTitle(key, board.columns.find((column) => column.key === key)?.name)
@@ -774,7 +799,7 @@ export function TicketActions({
   ticket: Ticket
   className?: string
 }) {
-  const board = useBoard()
+  const board = useBoardRules()
   const t = useT()
   const [asked, setAsked] = React.useState(false)
   const [validating, setValidating] = React.useState(false)

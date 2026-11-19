@@ -2,6 +2,8 @@ import * as React from "react"
 
 import type { RobotState } from "@/components/console/robot"
 import { useConsole, useStatus } from "@/hooks/use-console"
+import { useBoard } from "@/lib/board-store"
+import type { Ticket } from "@/lib/types"
 
 /* What the runner is doing, as a face.
  *
@@ -35,26 +37,29 @@ export interface Mood {
 }
 
 function useReadMood(): Mood {
-  const { board, runner } = useConsole()
+  const { runner } = useConsole()
+  const board = useBoard()
   const { connection, running } = useStatus()
-  const seen = React.useRef<Map<string, { column: string; pr: string }> | null>(null)
+  // The tickets as last seen, themselves: the board keeps a ticket that did not
+  // change as the same object, so nothing is copied, and it is passed over at once.
+  const seen = React.useRef<Map<string, Ticket> | null>(null)
   const [cheer, setCheer] = React.useState(0)
   const [grief, setGrief] = React.useState(0)
   const [now, setNow] = React.useState(() => Date.now())
 
   React.useEffect(() => {
     const before = seen.current
-    seen.current = new Map(
-      board.tickets.map((ticket) => [ticket.id, { column: ticket.column, pr: ticket.pull_request }])
-    )
+    const latest = new Map<string, Ticket>()
+    for (const ticket of board.tickets) latest.set(ticket.id, ticket)
+    seen.current = latest
     if (!before?.size) return
     let delivered = false
     let stuck = false
     for (const ticket of board.tickets) {
       const was = before.get(ticket.id)
-      if (!was) continue
+      if (!was || was === ticket) continue
       if (was.column !== ticket.column && DELIVERED.has(ticket.column)) delivered = true
-      if (!was.pr && ticket.pull_request) delivered = true
+      if (!was.pull_request && ticket.pull_request) delivered = true
       if (was.column !== ticket.column && STUCK.has(ticket.column)) stuck = true
     }
     if (!delivered && !stuck) return
