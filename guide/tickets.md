@@ -266,6 +266,15 @@ cost, how long it took and what it said. Empty the box and save to remove the pr
 has one wears a small ⚡ on that tab; somebody who cannot act (the `reader` role) sees the prompt and
 its executions, read-only. The MCP's `create_task` takes it too (`on`, with `model`), to prepare
 chained tickets.
+
+A [recurrence](#what-comes-back-on-its-own) can carry an `On` as well — a column of the
+Schedules database, a box of its form in the console, `on` in the MCP's `create_schedule` and
+`update_schedule` — and every occurrence is born with it copied as written, like its mission.
+So a weekly « blog article » recurrence can say *when it goes to **Done**, create the ticket
+« Relay the article on LinkedIn and X »*, and the relay is made once the article is done, not
+guessed every day. Changing the `On` of the recurrence touches only the next occurrences, never
+the tickets already born; the limits below are the same, and a ticket created by the `On` of an
+occurrence is one generation below it.
 Settings › Prompt on status change turns it off (`runner.on = false`).
 
 How it behaves, because a prompt that acts on its own needs limits:
@@ -936,7 +945,7 @@ Active ✓, Next ≤ now ────▶ recur()
                             │
                             └─ creates the ticket            ──▶ Ready — body copied,
                                                                  Project / Model / Priority
-                                                                 Type / Sous-type
+                                                                 Type / Sous-type / On
                                                                  │
                                  the queue, at the next look ◀────┘
 ```

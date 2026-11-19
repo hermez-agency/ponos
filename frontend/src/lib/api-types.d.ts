@@ -4676,6 +4676,8 @@ export interface components {
              */
             type?: string;
             subtype?: string;
+            /** @description The `On` prompt each ticket is born with, empty for none. */
+            on?: string;
             /** @description The name of the goal its tickets serve, empty for none. */
             goal?: string;
             goal_id?: string;
@@ -4731,6 +4733,8 @@ export interface components {
              */
             type?: string;
             subtype?: string;
+            /** @description The `On` prompt each ticket is born with, empty for none. */
+            on?: string;
             /** @description The name of the goal its tickets serve, empty for none. */
             goal?: string;
             goal_id?: string;

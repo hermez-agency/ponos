@@ -459,6 +459,27 @@ def a_schedule_that_serves_a_goal_makes_tickets_that_serve_it(state_home: Path) 
 
 
 @case
+def a_schedule_with_an_on_prompt_makes_tickets_that_carry_it(state_home: Path) -> None:
+    """The prompt is copied as written, by a pass and by the button; a schedule
+    without one makes tickets without one, and editing it leaves the born ones alone."""
+    stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    prompt = "Si le ticket passe à Done, crée « Relayer l'article ».\n  Sinon rien."
+    runner = _recurring(
+        [_schedule_page("s-1", next=stale, on=prompt), _schedule_page("s-2", next=stale)]
+    )
+    assert len(runner.recur()) == 2
+    (_, with_on), (_, without) = _schedules(runner).created
+    assert with_on["On"] == prompt
+    assert "On" not in without
+
+    # Edited on the schedule: only the next occurrence reads the new one.
+    changed = _recurring([_schedule_page("s-1", next=stale, on="Autre prompt")])
+    changed.launch("s-1")
+    assert _schedules(changed).created[-1][1]["On"] == "Autre prompt"
+    assert with_on["On"] == prompt, "the ticket already born keeps its own"
+
+
+@case
 def a_goal_that_is_gone_or_over_leaves_the_schedule_running_without_it(state_home: Path) -> None:
     """Deleted (no page), in the trash or marked reached: the ticket is born all the
     same, serving nothing."""

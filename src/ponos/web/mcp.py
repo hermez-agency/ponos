@@ -213,6 +213,11 @@ SCHEDULE_FIELDS: dict[str, Any] = {
         "maximum": 100,
         "description": "De 0 à 100, comme create_task. 50 par défaut.",
     },
+    "on": {
+        "type": "string",
+        "description": "Le prompt « On » recopié tel quel sur chaque ticket né (voir create_task). "
+        "Vide : aucun.",
+    },
 }
 
 GOAL_FIELDS: dict[str, Any] = {
@@ -1626,6 +1631,7 @@ def _schedule_line(row: dict[str, Any], body: str | None = None) -> dict[str, An
         "type": row["type"],
         "model": row["model"],
         "priority": row["priority"],
+        "on": row["on"],
         # The engine makes every ticket in the ready column, whatever the schedule.
         "tickets_born": "ready",
         "problem": row["problem"],

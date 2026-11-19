@@ -287,6 +287,7 @@ export function RecurrenceFields() {
       {field("type")}
       {type === "" || type === "code" ? field("subtype") : null}
       {field("body")}
+      {field("on")}
     </div>
   )
 }
