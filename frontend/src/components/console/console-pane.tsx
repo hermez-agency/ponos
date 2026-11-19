@@ -19,6 +19,7 @@ import { cents, money } from "@/lib/numbers"
 import { isAdmin } from "@/lib/role"
 import { wordsOf } from "@/lib/voice-mode"
 import type { Attached } from "@/lib/types"
+import { cn } from "@/lib/utils"
 import { clock } from "@/lib/worktime"
 import { settingsHref } from "@/resources/settings"
 
@@ -255,28 +256,33 @@ function Talk({
     if (wasSpeaking.current && !speaker.speaking) setReadAloud(null)
     wasSpeaking.current = speaker.speaking
   }, [speaker.speaking])
-  const listen = React.useCallback(
-    async (message: UIMessage) => {
-      if (readAloud === message.id) {
-        speaker.stop()
-        setReadAloud(null)
-        return
-      }
-      speaker.unlock()
+  /* One callback for the conversation's whole life, reading what it needs when
+   * pressed: handed to every answer, a new one at each render — each streamed
+   * chunk, each change of the console's state — would draw every message again. */
+  const heard = React.useRef({ readAloud, speaker, t })
+  React.useLayoutEffect(() => {
+    heard.current = { readAloud, speaker, t }
+  })
+  const listen = React.useCallback(async (message: UIMessage) => {
+    const { readAloud, speaker, t } = heard.current
+    if (readAloud === message.id) {
       speaker.stop()
-      void api.speakPlan("", currentLanguage(), false).catch(() => {})
-      setReadAloud(message.id)
-      try {
-        const plan = await api.speakPlan(wordsOf(message.parts), currentLanguage(), true)
-        if (!plan.sentences.length) setReadAloud(null)
-        for (const sentence of plan.sentences) speaker.say(sentence, plan.language)
-      } catch (error) {
-        setReadAloud(null)
-        toast.error(t("The answer could not be read aloud"), { description: why(error) })
-      }
-    },
-    [readAloud, speaker, t]
-  )
+      setReadAloud(null)
+      return
+    }
+    speaker.unlock()
+    speaker.stop()
+    void api.speakPlan("", currentLanguage(), false).catch(() => {})
+    setReadAloud(message.id)
+    try {
+      const plan = await api.speakPlan(wordsOf(message.parts), currentLanguage(), true)
+      if (!plan.sentences.length) setReadAloud(null)
+      for (const sentence of plan.sentences) speaker.say(sentence, plan.language)
+    } catch (error) {
+      setReadAloud(null)
+      toast.error(t("The answer could not be read aloud"), { description: why(error) })
+    }
+  }, [])
   const canListen = Boolean(chat?.speech?.ready) && voice.mode === "off"
 
   const said = React.useMemo(() => interleaved(messages, transcript), [messages, transcript])
@@ -363,6 +369,12 @@ function interleaved(messages: ReadonlyArray<UIMessage>, entries: Entry[]): (UIM
   return merged.map((one) => one.item)
 }
 
+/* A message out of sight is neither laid out nor painted: a long conversation
+ * costs what its visible part does at each keystroke. `auto` in the size keeps
+ * the height it last had, so the scrollbar does not jump once it has been
+ * seen; it stays in the page for Ctrl+F, which draws it when it finds it. */
+const DRAWN_WHEN_SEEN = "[content-visibility:auto] [contain-intrinsic-size:auto_160px]"
+
 /* One message of the conversation: Brand Assets' `ChatMessage`, with what
  * Ponos adds around it — its name and face over what it says, the files over
  * what you said, and under a turn how long it took and what it cost, or that
@@ -387,7 +399,7 @@ const Said = React.memo(function Said({
 
   if (message.role === "user")
     return (
-      <div data-slot="said" data-role="you" className="flex flex-col items-end gap-1.5">
+      <div data-slot="said" data-role="you" className={cn("flex flex-col items-end gap-1.5", DRAWN_WHEN_SEEN)}>
         {ponos.attachments?.length ? (
           <AttachedGallery items={ponos.attachments as Attached[]} align="end" />
         ) : null}
@@ -410,7 +422,7 @@ const Said = React.memo(function Said({
   ) : null
 
   return (
-    <div data-slot="said" data-role={ponos.role ?? "workspace"} className="flex flex-col gap-2">
+    <div data-slot="said" data-role={ponos.role ?? "workspace"} className={cn("flex flex-col gap-2", DRAWN_WHEN_SEEN)}>
       <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold">
         <span className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
           <Robot state="idle" size={18} still />

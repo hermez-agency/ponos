@@ -15,7 +15,12 @@ function prefersReducedMotion() {
 /* The messages of a conversation — Brand Assets' `chat-conversation`, its words
  * through `t()`. It follows the bottom as long as you have not scrolled up (a
  * stream makes it grow), and offers a way back to the last message otherwise.
- * The messages are its children; the message bar goes under it. */
+ * The messages are its children; the message bar goes under it.
+ *
+ * The list is a world apart (`contain: strict`): what changes in it is laid out
+ * and painted there, and what changes elsewhere — the bar under it — never
+ * lays it out again. Its height is its flex share, never its contents'. A
+ * screen reader hears what is added, not each word of a streamed answer. */
 function ChatConversation({
   children,
   empty,
@@ -51,11 +56,17 @@ function ChatConversation({
     return () => observer.disconnect()
   }, [toBottom])
 
+  /* Only the way up lets go of the bottom. A message out of sight is not laid
+   * out, so what it grew by while you read above is only known once it comes
+   * into view — halfway down the smooth scroll of « Last message », which would
+   * otherwise stop short and stop following. */
+  const lastTop = React.useRef(0)
   function onScroll() {
     const element = scroller.current
     if (!element) return
     const near = element.scrollHeight - element.scrollTop - element.clientHeight <= STICK_THRESHOLD
-    stuck.current = near
+    if (near || element.scrollTop < lastTop.current) stuck.current = near
+    lastTop.current = element.scrollTop
     setAtBottom(near)
   }
 
@@ -69,9 +80,9 @@ function ChatConversation({
         tabIndex={0}
         aria-label={t("Conversation")}
         aria-live="polite"
-        aria-relevant="additions text"
+        aria-relevant="additions"
         onScroll={onScroll}
-        className="scroll-thin focus-visible:ring-ring/30 flex-1 overflow-y-auto outline-none focus-visible:ring-3"
+        className="scroll-thin focus-visible:ring-ring/30 flex-1 overflow-y-auto outline-none contain-strict focus-visible:ring-3"
       >
         <div ref={content} className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 px-4 py-6">
           {hasMessages ? children : empty}

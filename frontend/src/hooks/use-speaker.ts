@@ -129,5 +129,8 @@ export function useSpeaker({ onError }: { onError: (error: unknown) => void }) {
     [stop]
   )
 
-  return { speaking, unlock, say, stop }
+  // One object while nothing in it changes: an answer's Listen button is
+  // handed a callback that reads it, and a new object at every render of the
+  // conversation would draw every message again.
+  return React.useMemo(() => ({ speaking, unlock, say, stop }), [speaking, unlock, say, stop])
 }
