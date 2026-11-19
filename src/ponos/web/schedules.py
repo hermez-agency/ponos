@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 _READING = threading.Lock()
 _BEHIND = threading.Lock()
 
+_CALENDAR = ("cadence", "at", "day")
+
 # The rows as last read, whether the workspace has the database, and what the
 # form offers for the type and the sub-type — and when that was read.
 Held = tuple[float, list[schedules_module.Schedule], bool, dict[str, list[dict[str, str]]]]
@@ -92,6 +94,7 @@ class Schedules(Base):
         if not written and "body" not in values:
             raise ValueError("nothing to change")
         if written:
+            self._follow_calendar(page_id, values, written)
             self.runner.client.update(database, page_id, written)
         # Replacing, not appending: the body is the brief every occurrence is
         # born with, a value like a project's. See `save_project`.
@@ -105,6 +108,35 @@ class Schedules(Base):
             # A goal's page lists the schedules that serve it.
             self.hub.publish("goals", saved=values["goal"] or "")
         return {"id": page_id.replace("-", "")}
+
+    def _follow_calendar(
+        self, page_id: str, values: dict[str, Any], written: dict[str, Any]
+    ) -> None:
+        """Move `Next` along when the cadence, the hour or the day changes.
+
+        A computation, not an input: `Next` is still never the form's to say.
+        Left alone it would hold the old calendar's moment, and the schedule
+        would fire once more at the old hour. Never an occurrence now — the
+        moment is the first one strictly after this instant, as for a new
+        schedule — and `Last` does not move. A schedule with no `Next` yet is
+        left without: the pass gives it its first one when it is read.
+        """
+        if not any(key in values for key in _CALENDAR):
+            return
+        try:
+            row = schedules_module.read(self.runner.client.page(page_id), self.config.board)
+        except store.StoreError:
+            return
+        if row.next is None:
+            return
+        merged = {
+            key: str(values[key] or "") if key in values else getattr(row, key) for key in _CALENDAR
+        }
+        upcoming = schedules_module.next_occurrence(
+            merged["cadence"], merged["at"], merged["day"], after=datetime.now().astimezone()
+        )
+        if upcoming:
+            written[self.config.board.prop("next_run")] = upcoming.isoformat()
 
     def create_schedule(self, name: str, values: dict[str, Any]) -> dict[str, Any]:
         """A new row in the Schedules database, left unticked.

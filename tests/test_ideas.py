@@ -753,6 +753,37 @@ def the_ideas_kept_before_their_author_was_known_became_tickets(state_home: Path
 
 
 @case
+def changing_the_hour_moves_the_next_occurrence_and_makes_no_ticket() -> None:
+    from datetime import datetime
+
+    with _board() as board:
+        api = _local_api(board)
+        created = api.create_schedule("Quotidienne", {"cadence": "Daily", "at": "09:00"})
+        page_id = created["id"]
+        db = api.runner.workspace.schedules
+        api.runner.client.update(db, page_id, {board.settings.prop("next_run"): "2030-01-01T09:00"})
+        api.save_schedule(page_id, {"at": "11:00"})
+        row = schedules.read(board.page(page_id), board.settings)
+        assert row.next is not None and (row.next.hour, row.next.minute) == (11, 0)
+        assert row.next > datetime.now().astimezone() and row.last is None
+        # Weekly: Monday → Wednesday gives the coming Wednesday.
+        api.save_schedule(page_id, {"cadence": "Weekly", "day": "Monday", "at": "11:00"})
+        api.save_schedule(page_id, {"day": "Wednesday"})
+        row = schedules.read(board.page(page_id), board.settings)
+        assert row.next is not None and row.next.weekday() == 2
+        assert row.next > datetime.now().astimezone()
+        # An hour already behind us today: tomorrow, never now.
+        api.save_schedule(page_id, {"cadence": "Daily"})
+        api.save_schedule(page_id, {"at": "00:00"})
+        row = schedules.read(board.page(page_id), board.settings)
+        assert row.next is not None and row.next > datetime.now().astimezone()
+        # A schedule with no `Next` is left without.
+        other = api.create_schedule("Neuve", {"cadence": "Daily", "at": "09:00"})
+        api.save_schedule(other["id"], {"at": "10:00"})
+        assert schedules.read(board.page(other["id"]), board.settings).next is None
+
+
+@case
 def the_console_writes_a_schedule_without_touching_what_a_pass_writes_back() -> None:
     """`Next`, `Last` and `Last ticket` are the runner's, not the form's.
 
