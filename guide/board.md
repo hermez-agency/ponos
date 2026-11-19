@@ -395,7 +395,7 @@ always taken as written.
 
 Not by asking a model: a few rules read off the ticket cost nothing, give the same answer
 twice, and say exactly why. Four levels, each answered by a model of the configuration —
-`haiku`, `sonnet`, `opus`, `fable` by default (`runner.auto_model_light` …
+`haiku`, `sonnet`, `opus`, `opus` by default (`runner.auto_model_light` …
 `auto_model_heaviest`):
 
 - **the type** sets where it starts (`runner.auto_model_code` and the three others):
@@ -404,7 +404,7 @@ twice, and say exactly why. Four levels, each answered by a model of the configu
 - **the sub-type** of a code ticket moves that start: *Docs* and *Chore* one level lower,
   *Sécurité* one level higher, the others where Code starts (`runner.auto_model_subtype_docs`
   and the seven others: `lower`, `same` or `higher`, also in the Settings' model table) —
-  never past the lightest or the heaviest level, and Fable still only when it is allowed;
+  never past the lightest or the heaviest level, and never to Fable;
 - **the size** moves it: one of ordinary size is at least *standard*, and a long one
   (600 words, or 25 list items) goes up a level;
 - **a small change drops to *light***: one that only asks to remove, rename or reword
@@ -431,13 +431,16 @@ attempt keeps that model rather than climbing to the top of the price list. A ti
 stopped by the quota carries its session on with the model it began on. What a run was
 chosen and how it ended is kept in the local journal. Through OpenRouter, name its slugs in the four levels.
 
-**Fable is off.** It costs far more than Opus, so `runner.use_fable` is a constant,
-`false` — it is no key of the file any more — and nothing the runner starts runs on it: the *heaviest* level, and
-any level whose model is `fable`, runs on `opus`, an escalation stops there, a session
-begun on Fable carries on on Opus, and a `Model` of `fable` written on a ticket or its
-agent runs on Opus too — its report says *Fable is turned off in the settings: run on
-Opus.* The console's chat, the naming and classifying sessions and the conflict
-resolution follow the same rule. Turn it on to get the behaviour above unchanged.
+**Fable only when you choose it.** It costs far more than Opus, so it runs only when a person
+sets a ticket's `Model` to `fable` — in *New ticket* (never preselected), in the console's API
+(`POST /api/tickets` with `model`), when running a blocked ticket again on another model, or by
+editing the ticket afterwards. Everything else is capped at `opus`: a level whose model is
+`fable`, an escalation, an agent's model, a schedule's, an `On` prompt, the console's chat, the
+naming and classifying sessions, the conflict resolution and the review. A ticket made by a
+session — MCP's `create_task`, an `On` prompt, a schedule — cannot give itself Fable: its `Model`
+is written as `opus`. The ticket's report says the model it ran on; an agent's Fable that was
+capped says *Fable only runs when it is chosen on the ticket: run on Opus.* The old
+`runner.use_fable` key is gone; `ponos config` removes it from a file that still has it.
 
 ### Following the work
 

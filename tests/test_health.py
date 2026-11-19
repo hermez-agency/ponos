@@ -225,14 +225,12 @@ def health_says_claude_is_missing_and_asks_the_cli_who_is_signed_in() -> None:
 
 
 @case
-def health_says_which_model_runs_an_empty_ticket_and_whether_fable_is_allowed() -> None:
+def health_says_which_model_runs_an_empty_ticket_and_that_fable_is_a_ticket_choice() -> None:
     from ponos import health
 
-    found = health._models(_config(use_fable=False))
+    found = health._models(_config())
     fable = next(check for check in found if check.code == "claude.fable")
     assert fable.state == "info" and fable.params["instead"] == "opus"
-    found = health._models(_config(use_fable=True))
-    assert ("claude.fable", "ok") in _verdicts(found)
     assert ("claude.model", "ok") in _verdicts(found), "the rules choose an empty model"
 
     routed = _config(

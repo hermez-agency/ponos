@@ -18,7 +18,7 @@ put up with:
   repository;
 - **the sub-type** of a code ticket moves that start (`auto_model_subtype_docs`…):
   documentation and upkeep one level lower, a security fix one level higher —
-  within the four levels, and Fable still only when it is allowed;
+  within the four levels, and never past Opus: Fable is not a level;
 - **the size** moves it: a short request stays where it is, one of ordinary
   size is at least standard, a long one — or one with many steps — goes up one;
   and a request that only asks to remove, rename or reword something, said in
@@ -43,11 +43,15 @@ this works the same on any board.
 
 A Model somebody wrote is never second-guessed, and neither is an agent's: this
 only ever fills the gap that `runner.model` used to fill. With one exception,
-which is the price list again: **Fable is only run when `runner.use_fable` says
-so.** One Fable session cost more than a day of Opus ones, and it arrived
+which is the price list again: **Fable runs only when a person chose it on the
+ticket.** One Fable session cost more than a day of Opus ones, and it arrived
 unasked — through the heaviest level, through an escalation, through a Model
-left on an old ticket. Off, every one of those runs on Opus instead, whoever
-wrote it; see `allowed`.
+left on an old ticket. So the Model of a ticket, written by hand in the console
+or on the board, is the only way in; a level, an escalation, an agent, a
+schedule, an `On` prompt, the chat, a review, a conflict: Opus instead. One
+function says so, `session_model`; a ticket born of a session (`On`, schedule,
+MCP) has its Fable capped when it is written, since nothing afterwards can tell
+who wrote the column.
 """
 
 from __future__ import annotations
@@ -131,7 +135,7 @@ LONG_WORDS, LONG_STEPS = 600, 25
 # body explains around it, as long as the body stays about that long.
 SMALL_WORDS, SMALL_STEPS = 250, 10
 
-# What a Fable that is not allowed runs on instead: the heaviest of the others.
+# What a Fable nobody chose by hand runs on instead: the heaviest of the others.
 INSTEAD_OF_FABLE = "opus"
 
 _STEP = re.compile(r"^\s*(?:[-*+•]|\d+[.)]|\[[ xX]?\])\s+\S", re.MULTILINE)
@@ -196,9 +200,22 @@ def is_fable(model: str) -> bool:
     return "fable" in model.lower()
 
 
-def allowed(model: str, fable: bool) -> str:
-    """The model a session is given: this one, unless it is a Fable not allowed."""
-    return INSTEAD_OF_FABLE if not fable and is_fable(model) else model
+def allowed(model: str) -> str:
+    """The model a session is given when no person chose it: Fable is Opus."""
+    return INSTEAD_OF_FABLE if is_fable(model) else model
+
+
+def session_model(by_hand: str, *others: str) -> str:
+    """The model of a session: the first one named, Fable only if `by_hand` is it.
+
+    `by_hand` is the Model of a ticket as a person wrote it — the one place
+    Fable is taken as written. `others` are what answers when it is empty (the
+    agent's, the runner's…): never a Fable, whoever put it there.
+    """
+    if by_hand:
+        return by_hand
+    named = next((model for model in others if model), "")
+    return allowed(named)
 
 
 # The families Claude Code names, whichever way the model is spelled: `opus`,

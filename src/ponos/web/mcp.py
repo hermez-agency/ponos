@@ -547,7 +547,8 @@ TOOLS: list[dict[str, Any]] = [
                 },
                 "model": {
                     "type": "string",
-                    "description": "Le modèle sur lequel la tâche tourne. Vide : celui du runner.",
+                    "description": "Le modèle sur lequel la tâche tourne. Vide : celui du runner. "
+                    "`fable` est écrit `opus` : seule une personne, dans la console, choisit Fable.",
                 },
                 "on": {
                     "type": "string",

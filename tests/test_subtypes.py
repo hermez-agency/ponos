@@ -213,7 +213,7 @@ def the_commit_the_pull_request_and_the_changelog_follow_the_sub_type() -> None:
 
 @case
 def the_sub_type_moves_the_level_a_code_ticket_starts_at() -> None:
-    grid = C.Runner(use_fable=True).model_grid()
+    grid = C.Runner().model_grid()
     body = "Une phrase."
     assert models.choose("Le README", body, kind="code", code=True, grid=grid).level == "standard"
     docs = models.choose("Le README", body, kind="code", code=True, grid=grid, subtype="docs")

@@ -225,24 +225,15 @@ def _models(config: config_module.Config) -> list[Check]:
                 "Sessions go through OpenRouter: name its slug in runner.ideas_model.",
             )
         )
-    # Off, Fable never runs, whatever a level or a ticket says.
-    if runner.use_fable:
-        found.append(
-            _check(
-                "claude.fable",
-                OK,
-                "Claude Fable",
-                "Claude Fable is allowed (runner.use_fable = true).",
-            )
+    # Fable is a choice of a person on a ticket, never a setting.
+    found.append(
+        _check(
+            "claude.fable",
+            INFO,
+            "Claude Fable",
+            "Claude Fable only runs when a ticket's Model is set to it by hand; everything else, "
+            "{{instead}} at most.",
+            params={"instead": models.INSTEAD_OF_FABLE},
         )
-    else:
-        found.append(
-            _check(
-                "claude.fable",
-                INFO,
-                "Claude Fable",
-                "runner.use_fable = false: Claude Fable is not allowed, {{instead}} runs in its place.",
-                params={"instead": models.INSTEAD_OF_FABLE},
-            )
-        )
+    )
     return found

@@ -123,6 +123,16 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
             == "Quand elle passe à done, crée la tâche de déploiement."
         )
 
+        # A task made through MCP cannot give itself Fable: only the console's
+        # own creation (a person) does.
+        grand = _mcp_call(api, grant, "create_task", title="Se faire Fable", model="fable")
+        assert not grand["isError"], grand
+        assert store.read(board.page(grand["structuredContent"]["id"]), "Model") == "opus"
+        by_hand = api.create_ticket("À la main", model="fable", by_hand=True)
+        assert store.read(board.page(by_hand["id"]), "Model") == "fable"
+        quiet = api.create_ticket("Sans la main", model="fable")
+        assert store.read(board.page(quiet["id"]), "Model") == "opus"
+
         unknown = _mcp_call(api, grant, "create_task", title="X", project="Nulle part")
         assert unknown["isError"] and "Usine" in unknown["content"][0]["text"]
 
@@ -143,6 +153,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert [line["tool"] for line in journal_lines] == [
             "answer_question",
             "answer_question",
+            "create_task",
             "create_task",
             "create_task",
             "create_task",

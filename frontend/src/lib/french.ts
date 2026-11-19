@@ -1412,6 +1412,8 @@ export const FRENCH: Record<string, string> = {
   "One per line: `NPM_TOKEN = hermez/npm`, or `NPM_TOKEN` alone to read it under its own name.":
     "Une par ligne : `NPM_TOKEN = hermez/npm`, ou `NPM_TOKEN` seul pour la lire sous son propre nom.",
   "Plan first": "Plan d'abord",
+  "Costs far more than Opus. Runs only when you choose it here, never by default.":
+    "Coûte bien plus cher qu'Opus. Ne tourne que si vous le choisissez ici, jamais par défaut.",
   "The first session proposes a plan and waits for your yes before writing any code.":
     "La première session propose un plan et attend votre oui avant d'écrire du code.",
   "Before and after": "Avant et après",

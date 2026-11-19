@@ -169,6 +169,20 @@ def the_on_prompt_of_a_ticket_runs_with_the_transition_and_is_closed_with_what_i
 
 
 @case
+def the_on_prompt_of_a_ticket_whose_model_is_fable_runs_on_opus(state_home: Path) -> None:
+    board = _OnBoard(_page("t1", "ready", "Si Done, crée le déploiement.", "Site"))
+    runner = _on_runner(board)
+    runner.transitions()
+    board.set("t1", "done")
+    page = board.pages["t1"]
+    page.properties["Model"] = {"type": "select", "select": {"name": "fable"}}
+    seen, fake = _a_session_that()
+    with _replacing(session, "run", fake):
+        runner.transitions()
+    assert seen[0]["model"] == "opus", "an On prompt is not the ticket's own session"
+
+
+@case
 def what_an_execution_moves_or_creates_never_wakes_a_prompt_and_its_children_are_one_generation_down(
     state_home: Path,
 ) -> None:

@@ -32,7 +32,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from . import conversation, credits, session, state, store
+from . import conversation, credits, models, session, state, store
 from . import prompt as prompt_module
 from . import voice as voice_module
 from .base import Base
@@ -184,10 +184,10 @@ class Unblocking(Base):
             text,
             cwd=workdir,
             log=state.log_file(f"{short}-unblock"),
-            model=self.config.runner.allowed(
-                str(store.read(ticket.page, self.config.board.prop("model")) or "")
-                or agent.model
-                or self.config.runner.model
+            model=models.session_model(
+                str(store.read(ticket.page, self.config.board.prop("model")) or ""),
+                agent.model,
+                self.config.runner.model,
             ),
             permission_mode=self.config.runner.reply_permission_mode,
             timeout_minutes=self.config.runner.reply_timeout_minutes,

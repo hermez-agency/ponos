@@ -442,7 +442,7 @@ class Runner:
     auto_model_light: str = "haiku"
     auto_model_standard: str = "sonnet"
     auto_model_heavy: str = "opus"
-    auto_model_heaviest: str = "fable"
+    auto_model_heaviest: str = "opus"
     # …and the level each type starts from, before its size and its words move it.
     auto_model_code: str = "standard"
     auto_model_writing: str = "light"
@@ -457,13 +457,14 @@ class Runner:
     auto_model_subtypes: dict[str, str] = field(default_factory=dict)
     # A ticket chosen for and failed comes back one level up, once.
     auto_model_escalate: bool = True
-    # Fable at all. Off, nothing the runner starts runs on it — a level, an
-    # escalation, a Model on a ticket or an agent: Opus instead. See models.py.
-    use_fable: bool = False
 
     def allowed(self, model: str) -> str:
-        """The model a session is given — Opus for a Fable `use_fable` refuses."""
-        return models.allowed(model, self.use_fable)
+        """The model a session is given when no person chose it: Opus for a Fable.
+
+        Fable runs only as the Model of a ticket written by hand — see
+        `models.session_model`.
+        """
+        return models.allowed(model)
 
     def model_grid(self) -> models.Grid:
         """The levels and the types' starting points, as models.py reads them."""

@@ -740,7 +740,7 @@ function ModelGrid({ section, inputs }: { section: SettingSection; inputs: Map<s
             </tbody>
           </table>
           <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-            {t("A code ticket starts at Code's level, moved by its sub-type — never past the lightest or the heaviest level, and Fable only when it is allowed.")}
+            {t("A code ticket starts at Code's level, moved by its sub-type — never past the lightest or the heaviest level, and never to Fable, which only a ticket's own Model brings in.")}
           </p>
         </div>
       ) : null}

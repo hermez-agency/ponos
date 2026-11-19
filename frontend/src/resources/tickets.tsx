@@ -344,7 +344,14 @@ function choiceInput(
         : // The type in the console's language (`choiceWord`),
           // their values the board's; a model and a goal by their own names.
           (currentBoard()?.choices?.[key] ?? []).map((choice) =>
-            key === "model" || key === "goal" ? choice : { ...choice, label: choiceWord(choice.label) }
+            key === "model"
+              ? // Fable is chosen here or nowhere, and said to cost far more.
+                choice.value === "fable"
+                  ? { ...choice, description: t("Costs far more than Opus. Runs only when you choose it here, never by default.") }
+                  : choice
+              : key === "goal"
+                ? choice
+                : { ...choice, label: choiceWord(choice.label) }
           )),
     ],
   }

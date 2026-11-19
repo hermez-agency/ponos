@@ -1270,6 +1270,7 @@ def create_ticket(
         payload.plan,
         payload.attempts,
         payload.validation,
+        by_hand=True,
     )
     _done(request, str(created.get("id", "")), "created", "ready" if payload.ready else "draft")
     return answer(created)
