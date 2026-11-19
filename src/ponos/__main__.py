@@ -858,6 +858,107 @@ def _print_service(follow: bool) -> int:
         handle.close()
 
 
+def _statuses(config: config_module.Config) -> dict[str, str]:
+    """Every word `ponos move` takes for a status, and the column it means.
+
+    The keys of the board (`ready`, `running`, `review`…) and the words the
+    board writes (`progress`), in any case.
+    """
+    from .web.tickets import COLUMNS
+
+    names = {key: key for key in ("draft", *COLUMNS)}
+    for key in list(names):
+        names.setdefault(config.board.state(key).casefold(), key)
+    return names
+
+
+def command_move(args: argparse.Namespace) -> int:
+    """Move a ticket to another status, the way the console does — without its login.
+
+    A session of a status change (« On ») moves other tickets, and the console's
+    API answers 401 once its login has expired. This takes the console's own
+    path (`Api.set_status`: the same checks, the same journal), alone.
+    """
+    from .web.api import Api
+
+    configuration = load_config()
+    names = _statuses(configuration)
+    key = names.get(args.status.strip().casefold())
+    if key is None:
+        print(
+            f"{RED}error:{RESET} unknown status “{args.status}” — one of {', '.join(sorted(set(names.values())))}",
+            file=sys.stderr,
+        )
+        return 2
+    seen: str | None = None
+    if args.source is not None:
+        wanted = names.get(args.source.strip().casefold())
+        if wanted is None:
+            print(f"{RED}error:{RESET} unknown status “{args.source}” for --from", file=sys.stderr)
+            return 2
+        seen = configuration.board.state(wanted)
+    record = _find_ticket(args.ticket)
+    if record is None:
+        return 1
+    api = Api.alone(configuration)
+    try:
+        page = api.runner.client.page(record.id)
+        current = str(store.read(page, configuration.board.prop("status")) or "")
+        if current.casefold() == configuration.board.state(key).casefold() and seen is None:
+            print(f"{record.title} is already in “{current}”")
+            return 0
+        if seen is not None and current != seen:
+            print(
+                f"{RED}refused:{RESET} {record.title} is in “{current or 'no status'}”, not “{seen}”",
+                file=sys.stderr,
+            )
+            return 1
+        api.reader.hold(page)
+        moved = api.set_status(record.id, key, current)
+        if moved.get("sync") == "pending":
+            problem = _flush_move(api)
+            if problem:
+                print(f"{RED}refused:{RESET} {problem}", file=sys.stderr)
+                return 1
+    except (ValueError, store.StoreError) as error:
+        print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
+        return 1
+    print(f"{record.title} #{short_id(record.id)}: {current or 'no status'} → {moved['status']}")
+    return 0
+
+
+def _flush_move(api: Any) -> str:
+    """Send the move waiting in the outbox, as many times as its backoff allows; "" when it is on the board."""
+    for _ in range(4):
+        wait = api.outbox.flush(api._send, lambda: None)
+        marks = api.outbox.marks()
+        if not marks:
+            return ""
+        write = next(iter(marks.values()))
+        if write.state != "pending":
+            return write.error or f"the board did not take {write.status}"
+        time.sleep(min(wait, 5.0))
+    return "the board did not answer in time"
+
+
+def command_comment(args: argparse.Namespace) -> int:
+    """Comment on a ticket, the way a reply from the console does — without its login."""
+    from .web.api import Api
+
+    record = _find_ticket(args.ticket)
+    if record is None:
+        return 1
+    text = " ".join(args.text) if isinstance(args.text, list) else str(args.text)
+    api = Api.alone(load_config())
+    try:
+        api.tell(record.id, text)
+    except (ValueError, store.StoreError) as error:
+        print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
+        return 1
+    print(f"commented on {record.title} #{short_id(record.id)}")
+    return 0
+
+
 def command_logs(args: argparse.Namespace) -> int:
     if args.service:
         return _print_service(args.follow)
@@ -909,13 +1010,9 @@ def command_logs(args: argparse.Namespace) -> int:
         handle.close()
 
 
-def command_show(args: argparse.Namespace) -> int:
-    """One ticket, its mission, its result and its journal — or, with --result, its result alone.
-
-    The result alone is written as it is, with nothing around it, so that it
-    can be piped: `ponos show a49e1a7b --result | wl-copy`.
-    """
-    probe = args.ticket.strip().rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0].replace("-", "")
+def _find_ticket(wanted: str) -> Any:
+    """The one ticket an ID in any form names — full, short, or a ticket's URL — or None, said."""
+    probe = wanted.strip().rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0].replace("-", "")
     found = [
         record
         for record in tickets.listing()
@@ -923,9 +1020,20 @@ def command_show(args: argparse.Namespace) -> int:
     ]
     if len(found) != 1:
         said = "No ticket" if not found else f"{len(found)} tickets"
-        print(f"{said} for {args.ticket}", file=sys.stderr)
+        print(f"{said} for {wanted}", file=sys.stderr)
+        return None
+    return found[0]
+
+
+def command_show(args: argparse.Namespace) -> int:
+    """One ticket, its mission, its result and its journal — or, with --result, its result alone.
+
+    The result alone is written as it is, with nothing around it, so that it
+    can be piped: `ponos show a49e1a7b --result | wl-copy`.
+    """
+    record = _find_ticket(args.ticket)
+    if record is None:
         return 1
-    record = found[0]
     if args.result:
         if not record.result.strip():
             print(f"No result rendered for {record.title}", file=sys.stderr)
@@ -2083,6 +2191,27 @@ def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     showing.add_argument("ticket", help="the ticket's ID, in any form")
     showing.add_argument("--result", action="store_true", help="print the result alone, as it is")
     showing.set_defaults(function=command_show)
+
+    moving = subparsers.add_parser(
+        "move",
+        help="move a ticket to another status, as the console does (for an « On » prompt)",
+    )
+    moving.add_argument("ticket", help="the ticket's ID, in any form")
+    moving.add_argument("status", help="draft, ready, paused, cancelled, review, done…")
+    moving.add_argument(
+        "--from",
+        dest="source",
+        metavar="STATUS",
+        help="refuse unless the ticket is still in this status",
+    )
+    moving.set_defaults(function=command_move)
+
+    commenting = subparsers.add_parser(
+        "comment", help="comment on a ticket, as a reply from the console does"
+    )
+    commenting.add_argument("ticket", help="the ticket's ID, in any form")
+    commenting.add_argument("text", nargs="+", help="what to say")
+    commenting.set_defaults(function=command_comment)
 
     logs = subparsers.add_parser("logs", help="show a session's log (-f to follow)")
     logs.add_argument("ticket", nargs="?", help="the ticket's ID, in any form")

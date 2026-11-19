@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, Self
 
 from .. import config as config_module
 from .. import images, notifications
@@ -146,6 +146,27 @@ class Base(Chapters):
         self._upgrade = upgrade_module.Upgrade(
             self.hub.publish, lambda: self.config.runner, self._restarting_would_cut
         )
+
+    @classmethod
+    def alone(cls, config: Config) -> Self:
+        """The console's chapters for one command of the CLI, with nothing running.
+
+        `ponos move` and `ponos comment` must take the console's own path — the
+        same checks, the same journal — without the console: its login expires,
+        and a session that waits for it breaks a chain of tickets. So no stream,
+        no watcher thread, and above all an outbox of its own *in memory*: the
+        running console's `outbox.json` belongs to it, and two processes
+        flushing one file would send each other's moves twice.
+        """
+        api = cls.__new__(cls)
+        api._config = config
+        api._stamp = _stamp(config.path)
+        api._runner = None
+        api.hub = live.Hub()
+        api.watch = live.Watch(api.hub, dict)
+        api._reader = board_module.Reader()
+        api._outbox = board_module.Outbox()
+        return api
 
     # -- the pieces underneath ------------------------------------------------
 

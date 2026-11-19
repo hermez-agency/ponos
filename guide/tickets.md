@@ -277,6 +277,31 @@ the tickets already born; the limits below are the same, and a ticket created by
 occurrence is one generation below it.
 Settings › Prompt on status change turns it off (`runner.on = false`).
 
+### Acting on other tickets from an `On` prompt
+
+A session of an `On` prompt changes the status of another ticket, or comments on it, with
+two commands of Ponos — never with the console's API (its login expires and answers `401`),
+never by importing Ponos's code or writing into `ponos.db`. The prompt of the session says so.
+
+```sh
+ponos move <ticket> <status> [--from <status>]
+ponos comment <ticket> "text"
+```
+
+- `ponos move` goes through the console's own path: the same checks (a ticket in progress that
+  is paused or cancelled has its session stopped first), the same journal, the same sync of
+  the board. `<ticket>` is the full ID, the short one (the last eight characters) or the
+  ticket's URL. `<status>` is a column of the board — `draft`, `ready`, `running`, `blocked`,
+  `paused`, `review`, `validated`, `done`, `cancelled` — or the word the board writes, in any
+  case. `--from` refuses when the ticket is no longer in that status, like the `from` of the
+  console: *« when this ticket is Done, move #next from Draft to Ready »* cannot fire twice, or
+  pull a ticket somebody paused meanwhile.
+- A refusal — unknown status or ticket, a transition the board does not take, a ticket that is
+  not in the `--from` status — is written on the error output and ends with a non-zero code
+  (`1`; `2` for a status that does not exist).
+- `ponos comment` writes on the ticket the way a reply typed in the console does (secrets
+  masked, under the runner's last question).
+
 How it behaves, because a prompt that acts on its own needs limits:
 
 - **Seen, not told.** The board is read at most once in `runner.on_interval_seconds`
