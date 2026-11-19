@@ -26,27 +26,19 @@
 @source "../node_modules/react-data-form/dist";
 @source "../node_modules/@shadcn/react/dist";
 
-/* Thirteen of the classes they use put `:has()` before the element they style
-   — `group-has-*`, `has-[…]:*:`, `has-[…]:[&>…]:`. Chrome cannot tell from
-   such a rule which elements a change may now match: any element inserted
+/* Six of the classes `react-data-form` 0.3 uses put `:has()` before the
+   element they style — `group-has-*`, `has-[…]:[&>…]:`. Chrome cannot tell
+   from such a rule which elements a change may now match: any element inserted
    under `<body>` — a portal, each time a window opens — or an `aria-hidden` set
    on `#root` restyled the whole page when the subject was anything (some 9 ms
    per change at 2,000 nodes, three changes per opening), and every element
-   with a `data-slot` or a `role` when the subject was one of those (300 ms
-   each on the table of 2,000 tickets, 57,000 nodes). They are written again
-   below, in `@layer utilities`, with a subject Chrome can find: the class
-   itself, or the `:has()` moved onto the element. `stylesheet.test.ts` keeps
-   the built sheet free of both shapes. */
-@source not inline("group-has-disabled/field:opacity-50 group-has-data-horizontal/field:text-balance group-has-data-[slot=item-description]/item:translate-y-0.5 group-has-data-[slot=item-description]/item:self-start group-has-data-[slot=message-footer]/message:-translate-y-8 group-has-data-[variant=ghost]/message:px-0 sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2 has-[>[data-variant=outline]]:*:data-[slot=input-group]:border-border has-[>[data-variant=outline]]:*:data-[slot=select-trigger]:border-border has-[>[data-variant=outline]]:[&>[data-slot=input-group]:has(:focus-visible)]:border-ring has-[>[data-variant=outline]]:[&>[data-slot=select-trigger]:focus-visible]:border-ring has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-4xl has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px");
-
-/* Four more, from the button group of `react-resource-view`, say "a slot after
-   another slot" with `~`: `.x > [data-slot] ~ [data-slot]`. Chrome then marks
-   every parent of an element with a `data-slot` — `<body>` too, whose windows
-   are `data-slot`s — as having children styled by the ones before them, and a
-   window leaving the body restyled the page: 430 ms each on the table of
-   2,000 tickets, at every closing. `:nth-child(… of …)` says the same thing,
-   "not the first slot", without walking the siblings: see `@layer utilities`. */
-@source not inline("[&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0 [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0");
+   with a `role` when the subject was one (300 ms each on the table of 2,000
+   tickets, 57,000 nodes). They are written again below, in `@layer
+   utilities`, with a subject Chrome can find: the class itself, or the
+   `:has()` moved onto the element. `react-resource-view` writes its own that
+   way since 2.1, and `react-data-form` since 0.5, which this console does not
+   use yet; `stylesheet.test.ts` keeps the built sheet free of both shapes. */
+@source not inline("group-has-disabled/field:opacity-50 group-has-data-horizontal/field:text-balance group-has-data-[slot=item-description]/item:translate-y-0.5 group-has-data-[slot=item-description]/item:self-start has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px");
 
 /* `react-remove-scroll-bar` sets this on `<body>` while a window holds the page
    still. Nothing reads it, and inherited — what an unregistered property is —
@@ -239,47 +231,11 @@
   :where(.group\/item):has([data-slot="item-description"]) .group-has-data-\[slot\=item-description\]\/item\:self-start {
     @apply self-start;
   }
-  :where(.group\/message):has([data-slot="message-footer"]) .group-has-data-\[slot\=message-footer\]\/message\:-translate-y-8 {
-    @apply -translate-y-8;
-  }
-  :where(.group\/message):has([data-variant="ghost"]) .group-has-data-\[variant\=ghost\]\/message\:px-0 {
-    @apply px-0;
-  }
-  @media (width >= 40rem) {
-    :where(.group\/alert-dialog-content):has([data-slot="alert-dialog-media"]) .sm\:group-data-\[size\=default\]\/alert-dialog-content\:group-has-data-\[slot\=alert-dialog-media\]\/alert-dialog-content\:col-start-2:is(:where(.group\/alert-dialog-content)[data-size="default"] *) {
-      @apply col-start-2;
-    }
-  }
 
-  /* Where the class is on the parent, whether one of its children is an
-     outline — or a field's content — is asked of the element and of its
-     siblings, each by its own selector: `.x:has(> [a]) > [b]` is
-     `.x > [b][a]`, `.x > [a] ~ [b]` and `.x > [b]:has(~ [a])`. Never `[a] ~ *`:
-     a sibling that is anything restyles the whole page as surely as a `:has()`
-     before it does. */
-  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=input-group\]\:border-border > [data-slot="input-group"][data-variant="outline"],
-  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=input-group\]\:border-border > [data-variant="outline"] ~ [data-slot="input-group"],
-  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=input-group\]\:border-border > [data-slot="input-group"]:has(~ [data-variant="outline"]),
-  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=select-trigger\]\:border-border > [data-slot="select-trigger"][data-variant="outline"],
-  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=select-trigger\]\:border-border > [data-variant="outline"] ~ [data-slot="select-trigger"],
-  .has-\[\>\[data-variant\=outline\]\]\:\*\:data-\[slot\=select-trigger\]\:border-border > [data-slot="select-trigger"]:has(~ [data-variant="outline"]) {
-    @apply border-border;
-  }
-  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=input-group\]\:has\(\:focus-visible\)\]\:border-ring > [data-slot="input-group"]:has(:focus-visible)[data-variant="outline"],
-  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=input-group\]\:has\(\:focus-visible\)\]\:border-ring > [data-variant="outline"] ~ [data-slot="input-group"]:has(:focus-visible),
-  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=input-group\]\:has\(\:focus-visible\)\]\:border-ring > [data-slot="input-group"]:has(:focus-visible):has(~ [data-variant="outline"]),
-  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=select-trigger\]\:focus-visible\]\:border-ring > [data-slot="select-trigger"]:focus-visible[data-variant="outline"],
-  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=select-trigger\]\:focus-visible\]\:border-ring > [data-variant="outline"] ~ [data-slot="select-trigger"]:focus-visible,
-  .has-\[\>\[data-variant\=outline\]\]\:\[\&\>\[data-slot\=select-trigger\]\:focus-visible\]\:border-ring > [data-slot="select-trigger"]:focus-visible:has(~ [data-variant="outline"]) {
-    @apply border-ring;
-  }
-  /* The native select Radix draws for a form is the trigger's next sibling, the
-     group's last child. */
-  .has-\[select\[aria-hidden\=true\]\:last-child\]\:\[\&\>\[data-slot\=select-trigger\]\:last-of-type\]\:rounded-r-4xl > [data-slot="select-trigger"]:last-of-type:has(~ select[aria-hidden="true"]:last-child) {
-    @apply rounded-r-4xl;
-  }
-  /* `[&>[role=checkbox],[role=radio]]` reads as two children; Tailwind wrote
-     the radio as any descendant. Both are children here, as a field draws them.
+  /* Where the class is on the parent, whether one of its children is a
+     field's content is asked of the box and of its siblings, each by its own
+     selector. `[&>[role=checkbox],[role=radio]]` reads as two children;
+     Tailwind wrote the radio as any descendant. Both are children here, as a field draws them.
      A box after the field's content is not asked with `~`, which made every
      box's parent — each row of the table of tickets — restyle at a window's
      closing, 50 ms more there: it is a box that is not the first of the field's
@@ -297,22 +253,6 @@
     .\@md\/field-group\:has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px > [role="radio"]:has(~ [data-slot="field-content"]) {
       @apply mt-px;
     }
-  }
-
-  /* The button group's "a slot after another": `:nth-child(n + 2 of …)` is
-     "not the first slot", as `[data-slot] ~ [data-slot]` was, at the same
-     specificity — see the top of this file for why not `~`. */
-  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:rounded-l-none > [data-slot]:nth-child(n + 2 of [data-slot]) {
-    @apply rounded-l-none;
-  }
-  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:border-l-0 > [data-slot]:nth-child(n + 2 of [data-slot]) {
-    @apply border-l-0;
-  }
-  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:rounded-t-none > [data-slot]:nth-child(n + 2 of [data-slot]) {
-    @apply rounded-t-none;
-  }
-  .\[\&\>\[data-slot\]\~\[data-slot\]\]\:border-t-0 > [data-slot]:nth-child(n + 2 of [data-slot]) {
-    @apply border-t-0;
   }
 
   /* A layout switch's own words — `board`, `table`, `cards`, `split`,
