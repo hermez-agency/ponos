@@ -411,6 +411,23 @@ def a_conversation_keeps_its_model_and_the_settings_name_the_default() -> None:
 
 
 @case
+def a_conversation_chosen_on_fable_runs_on_opus() -> None:
+    with _chat() as chat:
+        seen: list[dict[str, Any]] = []
+        original = session.run
+
+        def run(prompt: str, **rest: Any) -> session.Outcome:
+            seen.append(rest)
+            return original(prompt, **rest)
+
+        session.run = run
+        chat.choose("fable")
+        chat.send("hello")
+        _said_to(chat)
+        assert seen[-1]["model"] == "opus", "the chat is never a ticket's Model"
+
+
+@case
 def an_openrouter_model_goes_through_openrouter_whatever_the_provider() -> None:
     body = '[openrouter]\nkey = "sk-or-test"\n'
     with _chat(body) as chat:
