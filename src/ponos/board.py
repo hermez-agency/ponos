@@ -32,6 +32,7 @@ from . import (
     kinds,
     priority,
     projectless,
+    resources,
     state,
     stopping,
     store,
@@ -54,6 +55,22 @@ from .ticket import Ticket
 # was made (see web/board.py), so a ticket failed in a second could still come
 # back "ready" from the status it had before — and be run a second time.
 SETTLE = 15.0
+
+# The network, asked of the API's door at most once a minute however many
+# tickets are waiting on it: (when it was asked, what it said). Never asked is
+# minus infinity, not 0.0: the monotonic clock counts from the machine's boot,
+# and a machine up for less than a minute would never ask at all.
+NEVER = float("-inf")
+_probe: tuple[float, bool] = (NEVER, True)
+
+
+def _network_answers() -> bool:
+    global _probe
+    asked, answered = _probe
+    if time.monotonic() - asked > 60:
+        answered = resources.reachable()
+        _probe = (time.monotonic(), answered)
+    return answered
 
 
 class InHand:
@@ -122,7 +139,14 @@ class Board(Base):
         merge or the publication — and they must not drift apart on what a date
         means.
         """
-        return scheduled_for(store.read(ticket.page, self.config.board.prop("due")))
+        moment = scheduled_for(store.read(ticket.page, self.config.board.prop("due")))
+        now = datetime.now().astimezone()
+        if (moment is None or moment <= now) and state.network_attempts(ticket.id):
+            # Put back in line by a network cut: its date has come, but a session
+            # is paid for by the minute — it starts only once the API answers.
+            if not _network_answers():
+                return now + timedelta(minutes=1)
+        return moment
 
     def queue(self) -> tuple[list[Ticket], list[tuple[Ticket, datetime]]]:
         """The tickets to run now, and those waiting for their date.

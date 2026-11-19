@@ -1530,6 +1530,13 @@ class Delivery(Base):
             requeued = self._requeue(ticket, self.config.board.state("validated"), outcome)
             state.release(ticket.id)
             return requeued
+        if cut := self._network_retry(
+            ticket, self.config.board.state("validated"), outcome, job.session_home
+        ):
+            # The publication is taken up again as it was validated: the same
+            # texts, not proposed to anybody a second time.
+            state.release(ticket.id)
+            return cut
         if not outcome.ok:
             failed = self._publication_failed(job, outcome, forced)
             state.release(ticket.id)
@@ -1599,11 +1606,16 @@ class Delivery(Base):
         said = self.voice
         # Kept, always: a publication that half happened is exactly the log
         # somebody is going to want to read before trying again.
+        code, reason, detail = (
+            self._why_stopped(outcome, "publish.failed")
+            if outcome.network
+            else ("publish.failed", said.say("not-published"), outcome.summary or outcome.error)
+        )
         return self._fail(
             job.ticket,
-            said.say("not-published"),
-            outcome.summary or outcome.error,
-            code="publish.failed",
+            reason,
+            detail,
+            code=code,
             blocked=outcome.blocked,
             question=outcome.question or outcome.summary,
             note=said.paragraphs(

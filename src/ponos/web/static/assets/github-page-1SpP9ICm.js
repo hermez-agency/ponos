@@ -1,1 +1,0 @@
-export{n as GithubPage}from"./github-page-D7kBnjn7.js";

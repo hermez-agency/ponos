@@ -226,6 +226,13 @@ if TYPE_CHECKING:
         def _write_done(self, ticket: Ticket, report: str, *, strict: bool = False) -> int: ...
         def _out_of_credit(self, outcome: session.Outcome) -> bool: ...
         def _hold_credits(self, outcome: session.Outcome) -> None: ...
+        def _network_retry(
+            self,
+            ticket: Ticket,
+            status: str,
+            outcome: session.Outcome,
+            home: Path | None = None,
+        ) -> dict[str, Any] | None: ...
         def _requeue(
             self,
             ticket: Ticket,

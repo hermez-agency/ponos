@@ -334,6 +334,19 @@ _CAUSES = (
         "no-answer",
     ),
     _cause(
+        "session.network",
+        "infrastructure",
+        "external",
+        "retry",
+        "retry:1",
+        ("Network or API cut", "Coupure réseau ou API"),
+        (
+            "The session ended on the network or the API being away, again and again: run it again once the connection is back.",
+            "La session s'est arrêtée sur une coupure du réseau ou de l'API, plusieurs fois de suite : relancez-la quand la connexion est revenue.",
+        ),
+        "network-cut",
+    ),
+    _cause(
         "session.no-commit",
         "session",
         "ponos",
@@ -634,6 +647,8 @@ _HEARD: tuple[tuple[str, str], ...] = (
     ("without committing", "session.no-commit"),
     ("without a single commit", "session.no-commit"),
     ("sans un seul commit", "session.no-commit"),
+    ("network or the api was away", "session.network"),
+    ("reseau ou l'api etait coupe", "session.network"),
     ("make it to the end", "session.killed"),
     ("pas allee au bout", "session.killed"),
     ("session failed", "session.killed"),

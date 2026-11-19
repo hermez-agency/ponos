@@ -60,6 +60,7 @@ _MARKS = {
     "waiting": "⏸️",
     "interrupted": "⏸️",
     "requeued": "↩️",
+    "network-retry": "↩️",
     "stopped": "⏹️",
 }
 

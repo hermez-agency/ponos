@@ -52,6 +52,18 @@ Set `runner.wait_for_credits = false` to have the old behaviour back — an exha
 reported as the session failure it looks like. There is one case for it: an
 `ANTHROPIC_API_KEY` runner, which is billed per token and hits nothing to wait for.
 
+### When the network is cut
+
+A session that ends on `EAI_AGAIN`, `ECONNRESET`, `ENOTFOUND`, an overloaded API or a
+5xx is not a question and not a failure of the ticket. It is not blocked: a comment says
+`↩️ network cut, new try at HH:MM`, and the ticket goes back in line — *Ready*, or
+*Validated* for a publication, which then resumes the publication already validated
+instead of proposing its texts again — dated 5, then 15, then 45 minutes later, its
+conversation carried on. Before each new try Ponos checks that the API answers; a session
+is never paid for nothing. After `runner.network_retries` tries (3; `0` turns this off)
+the ticket stops on the real cause, *Network or API cut* (`session.network`). The history
+has a `network-retry` entry for each, and what the sessions cost counts in the day's total.
+
 ### What a session may do alone
 
 `[permissions]` is a policy every session reads — it is put in the prompt of every ticket
