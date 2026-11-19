@@ -55,6 +55,7 @@ from . import (
     library,
     local_ci,
     memory,
+    models,
     notes,
     planning,
     preview,
@@ -229,10 +230,8 @@ class Execution(Base):
         log = job.log or state.log_file(short_id(job.ticket.id))
         # The ticket first, then its agent, then the runner: the narrower the
         # choice, the more deliberate it was.
-        # Whoever named it, Fable only when `use_fable` allows it.
-        chosen = self.config.runner.allowed(
-            job.model or job.agent.model or self.config.runner.model
-        )
+        # Fable only as the Model of the ticket itself, written by a person.
+        chosen = models.session_model(job.model, job.agent.model, self.config.runner.model)
         live = self._live(job)
         run = (
             journal.Run.resume(job.run, say=self.say)
@@ -1218,7 +1217,7 @@ class Execution(Base):
         # Filed under the project once it ended: brought back beside its
         # worktree for as long as it is carried on, and filed again after.
         session.relocate(outcome.session_id, job.workdir)
-        model = self.config.runner.allowed(job.model or job.agent.model or self.config.runner.model)
+        model = models.session_model(job.model, job.agent.model, self.config.runner.model)
         run = self._journals.get(job.ticket.id)
         fixed = self._paid(
             job.ticket.id,

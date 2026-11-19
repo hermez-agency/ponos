@@ -134,6 +134,15 @@ def a_machine_that_was_off_for_three_days_produces_one_ticket_and_not_twelve() -
 
 
 @case
+def a_schedule_never_gives_its_ticket_fable() -> None:
+    stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    runner = _recurring([_schedule_page("s-9", next=stale, type="Code", model="fable")])
+    assert len(runner.recur()) == 1
+    _, values = _schedules(runner).created[0]
+    assert values["Model"] == "opus"
+
+
+@case
 def a_code_schedule_makes_a_code_ticket_that_nobody_classifies() -> None:
     """A long, well-written brief read as « Rédaction » by the classifier sent
     four Whisper Desk tickets to done with their pull requests lost: the

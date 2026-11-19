@@ -20,6 +20,7 @@ from .. import (
     git,
     github_checks,
     memory,
+    models,
     preview,
     question,
     redaction,
@@ -247,8 +248,11 @@ class Discussion(Base):
         if solution.key == "model":
             if not self._has("model"):
                 raise ValueError("this board has no Model column")
+            # Fable only from the console, where a person is choosing: MCP and the
+            # channels are capped to Opus (see models.py).
+            written = model.strip() if not channel else models.allowed(model.strip())
             self.runner.client.update(
-                self.runner.database, page.id, {settings.prop("model"): model.strip()}
+                self.runner.database, page.id, {settings.prop("model"): written}
             )
         created = []
         if solution.key == "split":

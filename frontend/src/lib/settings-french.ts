@@ -327,9 +327,6 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "One level up after a failure": "Un cran au-dessus après un échec",
   "A ticket whose chosen model failed runs one level higher the next time, once, and says so.":
     "Un ticket dont le modèle choisi a échoué tourne un niveau plus haut la fois suivante, une seule fois, et le dit.",
-  "Use Claude Fable": "Utiliser Claude Fable",
-  "Off by default: Fable costs far more than Opus. Off, every session runs on Opus instead — the heaviest level, an escalation, a Model written on a ticket.":
-    "Désactivé par défaut : Fable coûte beaucoup plus cher qu'Opus. Désactivé, chaque session tourne sur Opus à la place — le niveau le plus lourd, une escalade, un Model écrit sur un ticket.",
   "Model for light work": "Modèle pour le travail léger",
   "A text to remove, a label to rename. Empty: the nearest level below or above.":
     "Un texte à retirer, un libellé à renommer. Vide : le niveau le plus proche, en dessous ou au-dessus.",
@@ -902,8 +899,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Code, by sub-type": "Code, par sous-type",
   "Where each sub-type of a code ticket starts, from Code's level":
     "Où part chaque sous-type d'un ticket Code, depuis le niveau de Code",
-  "A code ticket starts at Code's level, moved by its sub-type — never past the lightest or the heaviest level, and Fable only when it is allowed.":
-    "Un ticket Code part du niveau de Code, déplacé par son sous-type — jamais au-delà du niveau le plus léger ni du plus lourd, et Fable seulement s'il est autorisé.",
+  "A code ticket starts at Code's level, moved by its sub-type — never past the lightest or the heaviest level, and never to Fable, which only a ticket's own Model brings in.":
+    "Un ticket Code part du niveau de Code, déplacé par son sous-type — jamais au-delà du niveau le plus léger ni du plus lourd, et jamais jusqu'à Fable, que seul le Model d'un ticket fait entrer.",
   "Local CI before pull request": "CI locale avant pull request",
   "Automatic validation": "Validation automatique",
   "Connect GitHub": "Connecter GitHub",

@@ -264,11 +264,13 @@ class Preparation(Base):
     def _settle_model(self, ticket: Ticket, job: Job) -> bool:
         """The model the job runs on, chosen when nobody wrote one — False, failed, when unusable."""
         agent = job.agent
-        written = job.model or agent.model
-        if written and self.config.runner.allowed(written) != written:
-            # Written by somebody, so said on the ticket: a Model that is not
-            # the one it ran on would otherwise read as the runner's mistake.
-            job.model = self.config.runner.allowed(written)
+        if models.is_fable(job.model):
+            # Chosen by a person on the ticket: taken as written, and said.
+            job.notes.append(self.voice.say("fable-by-hand"))
+        elif agent.model and self.config.runner.allowed(agent.model) != agent.model:
+            # An agent's Fable is not a ticket's: said on the ticket, since a
+            # Model that is not the one it ran on would read as a mistake.
+            job.model = self.config.runner.allowed(agent.model)
             job.notes.append(self.voice.say("fable-refused"))
         if provider.on_openrouter(job.model or agent.model) and not self.config.openrouter.key:
             # A slug means something only to OpenRouter: without its key the CLI

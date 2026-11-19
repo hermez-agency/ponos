@@ -188,8 +188,8 @@ deleted. They are listed, with their values, in the *Breaking* entry of the
 project (`max_concurrent_per_project` 2), the branch (`branch_prefix` `ticket/`; fetch, push, pull
 request and rebase all on), the conflicts (resolved by a session), the retention (`log_retention_days`
 14, `stale_worktree_days` 30, `tmp_retention_hours` 24), the models (`auto_model` on, the four levels
-`haiku`, `sonnet`, `opus` and `fable` — which stays off: `use_fable` `false`, so the heaviest level runs
-on `opus` —, `review_model` `sonnet`, `classify_model` `haiku`), the console's polling and its
+`haiku`, `sonnet`, `opus`, `opus` — Fable is no level: only a ticket's own `Model` brings it in —,
+`review_model` `sonnet`, `classify_model` `haiku`), the console's polling and its
 attachments (`web.poll_seconds` 15, `web.attachment_max_mb` 25), the voice (`[speech]`) and the
 gateway of OpenRouter (`openrouter.base_url`, `openrouter.transcription_model`). `PONOS_WEB_TRUSTED_PROXIES`
 still names the proxies a container trusts. The sessions run on OpenRouter exactly when

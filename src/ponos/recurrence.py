@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from . import goals, priority, state, store, ticket_page
+from . import goals, models, priority, state, store, ticket_page
 from . import schedules as schedules_module
 from . import voice as voice_module
 from .base import Base
@@ -243,7 +243,9 @@ class Recurrence(Base):
             ("on", schedule.on),
         ):
             if value:
-                values[settings.prop(key)] = value
+                # A schedule is not a person at the console: its Model never
+                # makes a ticket's Fable (see models.py).
+                values[settings.prop(key)] = models.allowed(value) if key == "model" else value
         if schedule.goal and goals.resolve(self.client, schedule.goal):
             # Through the column a ticket written with a goal uses. A goal that
             # is gone, in the trash or over is not served: the ticket is born

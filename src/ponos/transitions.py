@@ -367,6 +367,7 @@ class Transitions(Base):
             language=self.voice.instruction(reply=True),
         )
         limit = self.config.budget.on_usd
+        # An `On` prompt is not the ticket's session: never Fable.
         model = self.config.runner.allowed(
             str(store.read(ticket.page, settings.prop("model")) or "")
             or agent.model

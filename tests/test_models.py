@@ -18,8 +18,8 @@ from ponos.runner import Runner
 # -- the model of a ticket ----------------------------------------------------
 
 
-# Fable allowed, so the four levels are four models; see the use_fable cases.
-_GRID = C.Runner(use_fable=True).model_grid()
+# The default grid: Fable is no level, so the two heaviest answer on Opus.
+_GRID = C.Runner().model_grid()
 
 
 def _chosen(title: str, body: str = "", **given: Any) -> models.Choice:
@@ -70,7 +70,7 @@ def heavy_work_runs_on_a_heavy_model_and_the_heaviest_when_it_is_long_too() -> N
     assert audit.signals[1] == ("model-heavy", {"words": "audit, sécurité"}), audit.signals
     steps = "\n".join(f"- point {number} à vérifier" for number in range(30))
     full = _chosen("Audit complet et migration de l'architecture", steps)
-    assert (full.model, full.level) == ("fable", "heaviest"), full
+    assert (full.model, full.level) == ("opus", "heaviest"), full
     long = _chosen("Nouvelle page Statistiques", steps)
     assert long.model == "opus" and long.signals[1][0] == "model-long", long
     words = _chosen("Refonte", "Retirer le vieux texte.")
@@ -175,7 +175,7 @@ def a_failed_choice_climbs_one_level_once_and_stays_there() -> None:
     off = _chosen("Retirer le bandeau", earlier=earlier, escalate=False)
     assert off.model == "haiku" and not off.escalated
     top = _chosen("Audit complet", earlier=models.Earlier("opus", "failed"))
-    assert top.model == "fable" and top.escalated
+    assert top.model == "opus" and not top.escalated, "nowhere higher than Opus"
 
 
 @case
@@ -190,32 +190,37 @@ def the_grid_is_the_configurations_and_an_empty_level_borrows_the_nearest() -> N
 
 
 @case
-def without_use_fable_the_heaviest_level_and_an_escalation_stop_at_opus() -> None:
+def the_heaviest_level_and_an_escalation_stop_at_opus() -> None:
     steps = "\n".join(f"- point {number} à vérifier" for number in range(30))
     heavy = "Audit complet et migration de l'architecture"
-    assert C.Runner().use_fable is False, "Fable is a choice somebody makes"
-    allowed = _chosen(heavy, steps, grid=C.Runner(use_fable=True).model_grid())
-    assert (allowed.model, allowed.level) == ("fable", "heaviest"), allowed
-    off = C.Runner().model_grid()
-    refused = _chosen(heavy, steps, grid=off)
+    grid = C.Runner(auto_model_heaviest="fable").model_grid()
+    refused = _chosen(heavy, steps, grid=grid)
     assert (refused.model, refused.level) == ("opus", "heaviest"), refused
     named = C.Runner(auto_model_standard="claude-fable-5-1").model_grid()
     assert named.model("standard") == "opus", "any level named after Fable"
-    top = _chosen("Audit complet", grid=off, earlier=models.Earlier("opus", "failed"))
+    top = _chosen("Audit complet", grid=grid, earlier=models.Earlier("opus", "failed"))
     assert (top.model, top.escalated) == ("opus", False), top
     assert all(key != "model-escalated" for key, _ in top.signals)
 
 
 @case
-def a_config_has_no_fable_and_only_the_constant_brings_it_back() -> None:
+def a_config_has_no_fable_setting_and_the_default_grid_has_no_fable() -> None:
     path = Path(tempfile.mkdtemp()) / "config.toml"
     path.write_text("[runner]\n", encoding="utf-8")
     settings = C.load(path).runner
-    assert settings.use_fable is False
-    assert settings.auto_model_heaviest == "fable", "the level keeps its name"
+    assert not hasattr(settings, "use_fable")
+    assert settings.auto_model_heaviest == "opus"
     assert settings.model_grid().model("heaviest") == "opus"
     assert settings.allowed("fable") == "opus" and settings.allowed("sonnet") == "sonnet"
-    assert C.Runner(use_fable=True).allowed("fable") == "fable"
+
+
+@case
+def only_the_model_of_a_ticket_written_by_hand_can_be_fable() -> None:
+    pick = models.session_model
+    assert pick("fable", "opus", "sonnet") == "fable", "the ticket's, as a person wrote it"
+    assert pick("", "fable", "sonnet") == "opus", "an agent's"
+    assert pick("", "", "claude-fable-5-1") == "opus", "the runner's"
+    assert pick("", "", "") == "" and pick("sonnet", "fable") == "sonnet"
 
 
 def _modelled(title: str, body: str, **properties: Any) -> tuple[Runner, ticket_module.Ticket]:
@@ -326,26 +331,34 @@ def a_model_somebody_chose_or_a_switched_off_choice_is_the_runner_as_before() ->
 
 
 @case
-def a_fable_written_on_a_ticket_runs_on_opus_and_its_report_says_why() -> None:
+def a_fable_written_on_a_ticket_runs_on_fable_and_its_report_says_so() -> None:
     fable = {"Model": {"type": "select", "select": {"name": "fable"}}}
     runner, ticket = _modelled("Audit complet", "Tout le dépôt.", **fable)
     runner.config.runner.language = "fr"
     with _state_home():
         job = runner.prepare(ticket)
         assert job is not None
-    assert (job.model, job.chosen) == ("opus", False), job
-    assert job.notes == ["Fable désactivé dans les réglages : lancé sur Opus."], job.notes
-
-    runner, ticket = _modelled("Audit complet", "Tout le dépôt.", **fable)
-    runner.config.runner.use_fable = True
-    with _state_home():
-        job = runner.prepare(ticket)
-        assert job is not None
-    assert (job.model, job.notes) == ("fable", []), "allowed, taken as written"
+    assert (job.model, job.chosen) == ("fable", False), job
+    assert job.notes == ["Modèle : Fable, tel que choisi sur le ticket."], job.notes
 
 
 @case
-def a_run_begun_on_fable_carries_on_on_opus_once_it_is_turned_off(state_home: Path) -> None:
+def a_fable_on_an_agent_runs_on_opus_and_its_report_says_why() -> None:
+    runner, ticket = _modelled("Audit complet", "Tout le dépôt.")
+    runner.config.runner.language = "fr"
+    runner.config.runner.auto_model = False
+    with _state_home():
+        prepared = runner.prepare(ticket)
+        assert prepared is not None
+    prepared.agent.model = "fable"
+    prepared.model, prepared.notes = "", []
+    assert runner._settle_model(ticket, prepared)
+    assert prepared.model == "opus", prepared
+    assert prepared.notes == ["Fable ne tourne que s'il est choisi sur le ticket : lancé sur Opus."]
+
+
+@case
+def a_run_begun_on_fable_by_the_runner_carries_on_on_opus(state_home: Path) -> None:
     runner, ticket = _modelled("Audit complet", "Tout le dépôt.")
     journal.Run.start(ticket=ticket.id, model="fable", chosen=True, escalated=True).end("failed")
     job = runner.prepare(ticket)

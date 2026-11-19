@@ -367,8 +367,12 @@ _SAID: dict[str, dict[str, str]] = {
         "fr": "gardé depuis l'escalade vers {model}, qui n'a lieu qu'une fois",
     },
     "fable-refused": {
-        "en": "Fable is turned off in the settings: run on Opus.",
-        "fr": "Fable désactivé dans les réglages : lancé sur Opus.",
+        "en": "Fable only runs when it is chosen on the ticket: run on Opus.",
+        "fr": "Fable ne tourne que s'il est choisi sur le ticket : lancé sur Opus.",
+    },
+    "fable-by-hand": {
+        "en": "Model: Fable, as chosen on the ticket.",
+        "fr": "Modèle : Fable, tel que choisi sur le ticket.",
     },
     "model-resumed": {
         "en": "the model the interrupted session began on",

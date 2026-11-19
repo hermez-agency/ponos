@@ -692,7 +692,15 @@ class Tickets(Base):
         plan: bool = False,
         attempts: int | str = 1,
         validation: str = "",
+        by_hand: bool = False,
     ) -> dict[str, Any]:
+        """Write a new ticket on the board.
+
+        `by_hand` is a person choosing in the console: the only way a Model of
+        Fable is written as such. Anywhere else — MCP, an `On` prompt, a hook,
+        an idea — it is capped to Opus here, since once written nobody can tell
+        who wrote the column (see models.py).
+        """
         title = title.strip()
         if not title:
             raise ValueError("a ticket needs a title")
@@ -728,7 +736,9 @@ class Tickets(Base):
         if subtype and kind in ("", "code"):
             values[settings.prop("subtype")] = subtypes.option(subtype)
         if model.strip():
-            values[settings.prop("model")] = model.strip()
+            values[settings.prop("model")] = (
+                model.strip() if by_hand else models.allowed(model.strip())
+            )
         if on.strip():
             values[settings.prop("on")] = on.strip()
         # « Plan d'abord »: a code ticket's, like the sub-type — see planning.py.
