@@ -11,6 +11,7 @@ import { CommandMenu, useCommands } from "./composer/command-menu"
 import { Field } from "./composer/field"
 import { RecordingMeter } from "./composer/recording-meter"
 import { useAttachments } from "./composer/use-attachments"
+import { useGrowing } from "./composer/use-growing"
 import { useDictation, type Dictation } from "./composer/use-dictation"
 import { useStopOnEscape } from "./composer/use-stop-on-escape"
 
@@ -33,9 +34,6 @@ export type { Dictation }
  * `recording-meter`), the `>` mode (`command-menu`) and the buttons. What is
  * left here is the field, and what binds them to it.
  */
-
-/** About eight lines of the field, past which it scrolls instead of growing. */
-const TALLEST = 200
 
 export interface ComposerHandle {
   /** Files handed in from outside the bar — dropped on the drawer around it. */
@@ -125,12 +123,7 @@ export function Composer({
   React.useImperativeHandle(ref, () => ({ add: files.add, focus: () => field.current?.focus() }), [files.add])
 
   // The field grows with what is written, up to a point.
-  React.useLayoutEffect(() => {
-    const element = field.current
-    if (!element) return
-    element.style.height = "auto"
-    element.style.height = `${Math.min(element.scrollHeight, TALLEST)}px`
-  }, [text, recording])
+  useGrowing(field, text, recording)
 
   const { command } = menu
 

@@ -25,7 +25,7 @@ export function Field({
         autoComplete="off"
         {...props}
         className={cn(
-          "placeholder:text-muted-foreground max-h-[200px] min-h-6 w-full flex-1 resize-none bg-transparent text-[0.9375rem] leading-6 outline-none disabled:opacity-60",
+          "placeholder:text-muted-foreground field-sizing-content max-h-[200px] min-h-6 w-full flex-1 resize-none bg-transparent text-[0.9375rem] leading-6 outline-none disabled:opacity-60",
           "scroll-thin",
           command && "text-tr-amber font-mono text-sm",
           className
