@@ -503,31 +503,6 @@ export function Chip({
   )
 }
 
-export function Away({ label, href }: { label: string; href: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-      className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline"
-    >
-      {label}
-      <ExternalLink className="size-3" />
-    </a>
-  )
-}
-
-/** The pull request, the session — whichever the ticket has. */
-export function TicketLinks({ ticket }: { ticket: Ticket }) {
-  const t = useT()
-  return (
-    <>
-      {ticket.pull_request ? <Away label={t("pull request")} href={ticket.pull_request} /> : null}
-      {ticket.session_link ? <Away label={t("session")} href={ticket.session_link} /> : null}
-    </>
-  )
-}
-
 /* A move made from the console that is not on the board yet — or will not be,
  * and why. On the card itself, because that is where the column it claims to be
  * in is drawn: a card standing in Review that the board has in Done has to say

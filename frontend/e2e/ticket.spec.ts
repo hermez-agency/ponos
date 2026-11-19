@@ -69,14 +69,22 @@ test("a ticket's page says its type, model and cost under its mission, and the o
   // Always there, even before anything ran: what it is, on what, for how much.
   const summary = page.locator('[data-slot="ticket-summary"]')
   await expect(summary).toBeVisible()
-  // Above the tabs, so it is seen without scrolling.
+  // Where it stands comes first, with what it waits for; the facts are a
+  // column beside the tabs on a page this wide, level with the status.
+  const status = page.locator('[data-slot="ticket-status"]')
+  await expect(status.locator('[data-slot="ticket-status-word"]')).toHaveText("Ready")
   const tabsBox = await page.getByRole("tablist").boundingBox()
+  const statusBox = await status.boundingBox()
   const summaryBox = await summary.boundingBox()
+  expect(statusBox!.y).toBeLessThan(tabsBox!.y)
   expect(summaryBox!.y).toBeLessThan(tabsBox!.y)
+  expect(summaryBox!.x).toBeGreaterThan(statusBox!.x + statusBox!.width)
+  // Each fact under its name.
+  await expect(summary.locator("dt").first()).toBeVisible()
 
   // A ticket neither running nor waiting opens on its mission — its result, once it has one.
   const tabs = page.getByRole("tablist")
-  await expect(tabs.getByRole("tab")).toHaveText(["Mission", "Discussion", "Live", "Journal"])
+  await expect(tabs.getByRole("tab")).toHaveText(["Mission", "Discussion", "Activity"])
   await expect(tabs.getByRole("tab", { name: "Mission" })).toHaveAttribute("aria-selected", "true")
   await expect(page.getByRole("tabpanel")).toContainText("Part 40")
 
@@ -85,7 +93,7 @@ test("a ticket's page says its type, model and cost under its mission, and the o
   await page.keyboard.press("ArrowRight")
   await expect(tabs.getByRole("tab", { name: "Discussion" })).toBeFocused()
   await page.keyboard.press("ArrowRight")
-  const live = tabs.getByRole("tab", { name: "Live" })
+  const live = tabs.getByRole("tab", { name: "Activity" })
   await expect(live).toHaveAttribute("aria-selected", "true")
   await expect(page.getByText("No journal is left for this ticket", { exact: false })).toBeVisible()
   await expect(page.getByText("Part 40")).not.toBeAttached()
@@ -96,7 +104,7 @@ test("a ticket's page says its type, model and cost under its mission, and the o
   await page.waitForTimeout(500)
   expect(reads).toHaveLength(1)
   await page.reload()
-  await expect(page.getByRole("tab", { name: "Live" })).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true")
   await expect(page.getByText("No journal is left for this ticket", { exact: false })).toBeVisible()
 })
 
@@ -114,7 +122,7 @@ test("a ticket with sessions says the model the last one announced, as provider/
 test("a ticket that waits on an answer shows the 15 minutes it worked and why the clock is stopped", async ({ page }) => {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await page.goto("/?view=console/tickets/read/00000000000000000000000000000a5c")
-  await page.getByRole("tab", { name: "Journal" }).click()
+  await page.getByRole("tab", { name: "Activity" }).click()
   const time = page.locator('[data-slot="ticket-time"]')
   // Ten minutes, an hour of waiting, five more: the hour is not in it.
   await expect(time).toHaveText("15 min")

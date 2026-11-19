@@ -14,7 +14,7 @@ import { underTheCorner } from "./corner"
  */
 
 const PHONE = { width: 360, height: 780 }
-/** A ticket with a journal, so its Live tab has a button to cover. */
+/** A ticket with a journal, so its Activity tab has a button to cover. */
 const ASKING = "00000000000000000000000000000a5c"
 
 const PAGES: [string, RegExp][] = [

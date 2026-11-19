@@ -14,7 +14,7 @@ const ASKING = "/?view=console/tickets/read/00000000000000000000000000000a5c"
 async function open(page: Page) {
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   await page.goto(ASKING)
-  await page.getByRole("tab", { name: "Live" }).click()
+  await page.getByRole("tab", { name: "Activity" }).click()
   await expect(page).toHaveURL(/[?&]tab=live$/)
 }
 

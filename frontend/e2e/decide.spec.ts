@@ -203,14 +203,19 @@ test.describe("on a desktop", () => {
     await expect(panel(page).getByRole("textbox")).toHaveValue(/Take the screenshots that were asked for/)
   })
 
-  test("on the page of a ticket in review, Decide is said once: the tab, and no button beside it", async ({ page }) => {
+  test("on the page of a ticket in review, Decide is the filled button beside its status, until its tab is open", async ({ page }) => {
     await open(page, `/?view=console/tickets/read/${REVIEW}`)
-    const line = page.getByRole("tablist").locator("..")
-    await expect(tab(page)).toBeVisible()
-    await expect(line.getByText("Decide", { exact: true })).toHaveCount(1)
-    await expect(page.locator(`[data-decide="${REVIEW}"]`)).toHaveCount(0)
-    // The phone's line pointing at it stays off a wide screen.
-    await expect(page.locator('[data-slot="ticket-decide-cue"]')).toBeHidden()
+    const status = page.locator('[data-slot="ticket-status"]')
+    await expect(status.locator('[data-slot="ticket-status-word"]')).toHaveText("In review")
+    await expect(status).toContainText("Your decision is awaited.")
+    // What the ticket waits for is the first tab.
+    await expect(page.getByRole("tablist").getByRole("tab").first()).toHaveText(/^Decide/)
+    const button = status.locator(`[data-decide="${REVIEW}"]`)
+    await expect(button).toHaveAttribute("data-variant", "default")
+    await button.click()
+    await expect(tab(page)).toHaveAttribute("aria-selected", "true")
+    // On its tab already: the button would only point at where you are.
+    await expect(button).toHaveCount(0)
   })
 })
 
@@ -220,9 +225,10 @@ test.describe("on a phone", () => {
   test("on the page of a ticket in review, the way to Decide is on the first screen", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
     await open(page, `/?view=console/tickets/read/${REVIEW}`)
-    const cue = page.locator('[data-slot="ticket-decide-cue"]')
+    const cue = page.locator(`[data-slot="ticket-status"] [data-decide="${REVIEW}"]`)
     await expect(cue).toBeInViewport({ ratio: 1 })
-    await expect(cue).not.toContainText("Decide")
+    // The tab is not drawn on a phone until it is the one open: four tabs fit the width.
+    await expect(tab(page)).toBeHidden()
     await cue.tap()
     await expect(tab(page)).toHaveAttribute("aria-selected", "true")
     await expect(panel(page)).toBeVisible()
@@ -257,7 +263,7 @@ test.describe("on a phone", () => {
       })
     })
     await open(page, `/?view=console/tickets/read/${REVIEW}`)
-    await page.locator('[data-slot="ticket-decide-cue"]').tap()
+    await page.locator(`[data-slot="ticket-status"] [data-decide="${REVIEW}"]`).tap()
     const jobs = panel(page).locator('[data-slot="decision-checks"] li')
     await expect(jobs).toHaveCount(3)
     await expect(jobs.first()).toHaveAttribute("data-state", "passed")

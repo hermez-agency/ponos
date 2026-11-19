@@ -80,7 +80,8 @@ test("a reader sees the board and the tickets, is offered nothing to change them
   await reader.goto(page_of(LOOKED_AT))
   await expect(reader.getByRole("heading", { name: "A ticket a reader looks at" })).toBeVisible()
   await expect(reader.locator('[data-slot="ticket-decide-tab"]')).toHaveCount(0)
-  await expect(reader.locator('[data-slot="ticket-decide-cue"]')).toHaveCount(0)
+  await expect(reader.locator('[data-slot="ticket-status"]')).toContainText("Waiting for a decision.")
+  await expect(reader.locator('[data-slot="ticket-status"] button')).toHaveCount(0)
   await reader.locator('[data-slot="ticket-talk-tab"]').click()
   await expect(reader.getByText("Adds a share button under each article.")).toBeVisible()
   await expect(reader.locator('[data-slot="composer"]')).toHaveCount(0)
@@ -156,8 +157,8 @@ test("a member validates a ticket in review, and the comment on it says who", as
 
   // And the ticket's own history, from the console, says it too.
   await member.goto(page_of(VALIDATED))
-  // Under the Journal, with what the sessions said.
-  await member.locator('[data-slot="ticket-journal-tab"]').click()
+  // Under the journal, on Activity, with what the sessions said.
+  await member.locator('[data-slot="ticket-live-tab"]').click()
   const audit = member.locator('[data-slot="ticket-audit"]')
   await expect(audit).toContainText("Léa")
   await expect(audit).toContainText("validated it")
