@@ -7,7 +7,7 @@
  * drawn from last week's cache would be worse than a board that says it cannot
  * be reached.
  *
- * `vite.config.ts` writes this file into the build with `cba614280e33` replaced by
+ * `vite.config.ts` writes this file into the build with `d8b67ad52700` replaced by
  * a hash of the files it shipped: a new deployment is a different `sw.js`, which
  * is how the browser knows to install it — and the old cache is dropped when
  * the new worker takes over. It does not take over by itself: the page asks
@@ -19,7 +19,7 @@
  * what it said rather than stacking under it — and touching it opens the
  * ticket's decision, in the console already open when there is one.
  */
-const BUILD = "cba614280e33"
+const BUILD = "d8b67ad52700"
 const CACHE = `ponos-shell-${BUILD}`
 const OFFLINE = "/static/offline.html"
 

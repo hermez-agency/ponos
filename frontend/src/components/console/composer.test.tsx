@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
-import { beforeEach, describe, expect, test, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
 
 import type { Attached } from "@/lib/types"
 
@@ -13,7 +13,19 @@ import { Composer } from "./composer"
  *
  * The toasts are watched rather than drawn: what is checked is the sentence
  * the bar hands them, in English, which is its key.
+ *
+ * The bar is drawn as in Chrome, which sizes the field itself
+ * (`field-sizing: content`); jsdom is told so before the bar is imported,
+ * since it asks once. The browsers that do not are drawn at the end.
  */
+
+const sizing = vi.hoisted(() => {
+  const state = { itself: true }
+  vi.spyOn(CSS, "supports").mockImplementation(
+    (property: string, value?: string) => property === "field-sizing" && value === "content" && state.itself
+  )
+  return state
+})
 
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), message: vi.fn(), success: vi.fn() }) }))
 
@@ -209,5 +221,124 @@ describe("the > commands", () => {
     await user.type(field, ">st")
     expect(screen.queryByRole("listbox")).toBeNull()
     expect(screen.queryByText("command")).toBeNull()
+  })
+})
+
+/* jsdom lays nothing out: the field is given the geometry of a browser's, a
+ * line of 24 px for each line written (forty letters to one) and as tall as
+ * its height says, or one line — and every look at what overflows it counted,
+ * with the height it was taken at. */
+const LINE = 24
+const read: string[] = []
+const lineCount = (text: string) =>
+  text.split("\n").reduce((rows, line) => rows + Math.max(1, Math.ceil(line.length / 40)), 0)
+const tall = (field: HTMLTextAreaElement) => parseInt(field.style.height) || LINE
+
+beforeAll(() => {
+  Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
+    configurable: true,
+    get(this: HTMLTextAreaElement) {
+      read.push(this.style.height)
+      return Math.max(lineCount(this.value) * LINE, tall(this))
+    },
+  })
+  Object.defineProperty(HTMLTextAreaElement.prototype, "clientHeight", {
+    configurable: true,
+    get(this: HTMLTextAreaElement) {
+      return tall(this)
+    },
+  })
+})
+afterAll(() => {
+  delete (HTMLTextAreaElement.prototype as { scrollHeight?: number }).scrollHeight
+  delete (HTMLTextAreaElement.prototype as { clientHeight?: number }).clientHeight
+})
+beforeEach(() => {
+  read.length = 0
+})
+
+const NEWLINE = "{Shift>}{Enter}{/Shift}"
+
+describe("the field, where the browser sizes it", () => {
+  test("is never measured: it grows by its own CSS, as tall as eight lines", async () => {
+    const user = userEvent.setup()
+    const { field } = draw()
+    expect(field.className).toContain("field-sizing-content")
+    expect(field.className).toContain("max-h-[200px]")
+
+    await user.type(field, `one${NEWLINE}two${NEWLINE}three`)
+    expect(field.value).toBe("one\ntwo\nthree")
+    expect(read).toEqual([])
+    expect(field.style.height).toBe("")
+  })
+})
+
+describe("the field, where the browser does not size it", () => {
+  let Measured: typeof Composer
+
+  beforeAll(async () => {
+    sizing.itself = false
+    vi.resetModules()
+    ;({ Composer: Measured } = await import("./composer"))
+  })
+  afterAll(() => {
+    sizing.itself = true
+  })
+
+  const drawMeasured = () => {
+    const onSend = vi.fn(async () => true)
+    render(<Measured busy={false} placeholder={PLACEHOLDER} onSend={onSend} />)
+    return screen.getByRole("textbox", { name: PLACEHOLDER }) as HTMLTextAreaElement
+  }
+
+  test("grows a line at a time, never collapsed to measure a longer text", async () => {
+    const user = userEvent.setup()
+    const field = drawMeasured()
+    await user.type(field, "one")
+    expect(field.style.height).toBe("")
+
+    await user.type(field, `${NEWLINE}two`)
+    expect(field.style.height).toBe("48px")
+    await user.type(field, `${NEWLINE}three`)
+    expect(field.style.height).toBe("72px")
+    // A long line wraps, and the field grows with it.
+    await user.type(field, ` ${"x".repeat(40)}`)
+    expect(field.style.height).toBe("96px")
+    expect(read).not.toContain("auto")
+  })
+
+  test("stops at about eight lines, then scrolls", async () => {
+    const user = userEvent.setup()
+    const field = drawMeasured()
+    await user.type(field, Array.from({ length: 12 }, (_, line) => `line ${line}`).join(NEWLINE))
+    expect(field.style.height).toBe("200px")
+    read.length = 0
+    await user.type(field, `${NEWLINE}more`)
+    expect(read).toEqual([])
+    expect(field.style.height).toBe("200px")
+  })
+
+  test("shrinks when lines go, and a one-line field is not measured as it is emptied", async () => {
+    const user = userEvent.setup()
+    const field = drawMeasured()
+    await user.type(field, `one${NEWLINE}two`)
+    expect(field.style.height).toBe("48px")
+    await user.type(field, "{Backspace}{Backspace}{Backspace}{Backspace}")
+    expect(field.value).toBe("one")
+    expect(field.style.height).toBe("")
+
+    read.length = 0
+    await user.type(field, "{Backspace}{Backspace}")
+    expect(read).toEqual([])
+  })
+
+  test("is one line again once the message is sent", async () => {
+    const user = userEvent.setup()
+    const field = drawMeasured()
+    await user.type(field, `one${NEWLINE}two${NEWLINE}three`)
+    expect(field.style.height).toBe("72px")
+    await user.type(field, "{Enter}")
+    await waitFor(() => expect(field.value).toBe(""))
+    expect(field.style.height).toBe("")
   })
 })
