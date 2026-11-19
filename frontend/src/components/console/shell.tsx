@@ -6,6 +6,8 @@ import { Link, getPorts, useAdminPageTitle, useCurrentViewResourceContext } from
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useConsole, useStatus, useSync } from "@/hooks/use-console"
+import { useBoardWith } from "@/lib/board-store"
+import type { Board } from "@/lib/types"
 import { hotkeyLabel } from "@/hooks/use-hotkeys"
 import { useRunnerMood } from "@/hooks/use-mood"
 import { useTheme } from "@/hooks/use-theme"
@@ -65,9 +67,11 @@ export function Mark() {
  * entry's `badge`, drawn by the package at its end, the entry itself — its
  * link, whether it is lit — staying the package's.
  */
+const waitingForYou = (board: Board) =>
+  board.tickets.filter((ticket) => ticket.column === "blocked" || ticket.column === "review").length
+
 export function BoardCount() {
-  const { board } = useConsole()
-  return board.tickets.filter((ticket) => ticket.column === "blocked" || ticket.column === "review").length || null
+  return useBoardWith(waitingForYou) || null
 }
 
 /* -- the end of the bar --------------------------------------------------- */

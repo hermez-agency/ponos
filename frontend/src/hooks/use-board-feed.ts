@@ -10,7 +10,9 @@ import { conflictSaid } from "@/components/console/ticket-bits"
 
 /* The board as the stream brings it: whole once, then by what changed.
  *
- * Besides holding it, this is where a move that went wrong is said — once,
+ * It is held by the store (`board-store.ts`), not here: a board in React's
+ * state drew again whatever read it, at every move. Besides handing it over,
+ * this is where a move that went wrong is said — once,
  * when it stops being on its way, and not again by the next tab or reload.
  */
 
@@ -38,13 +40,18 @@ function rememberConflicts(kept: string[]) {
   }
 }
 
-const syncs = () => new Map((currentBoard()?.tickets ?? []).map((item) => [item.id, item.sync]))
+/* Where the move of each ticket stood before the board moved: of the tickets
+ * `only` names, or of all of them. A move of the board names a few, and a map
+ * of every ticket on a board of 2 000 was made and thrown away at each. */
+function syncs(only?: ReadonlySet<string>): Map<string, Ticket["sync"]> {
+  const held = new Map<string, Ticket["sync"]>()
+  for (const item of currentBoard()?.tickets ?? []) if (!only || only.has(item.id)) held.set(item.id, item.sync)
+  return held
+}
 
 /** `follow`: the tickets that moved, for the open one (`useTicketTalk`).
  *  `lost`: changes that do not follow from the board held here, which asks for it whole. */
 export function useBoardFeed(follow: (touched: Ticket[]) => void, lost: () => void) {
-  const [board, setBoard] = React.useState<Board>({ tickets: [], columns: [] })
-
   /* The board moved, whole or by a few tickets: `touched` are the tickets
    * that are new or changed, the only ones worth a look. */
   const boardMoved = React.useCallback(
@@ -68,7 +75,6 @@ export function useBoardFeed(follow: (touched: Ticket[]) => void, lost: () => vo
         })
       }
       rememberConflicts(kept)
-      setBoard(fresh)
       follow(touched)
     },
     [follow]
@@ -88,7 +94,7 @@ export function useBoardFeed(follow: (touched: Ticket[]) => void, lost: () => vo
     // board held here — one was lost on the way — are worth nothing: the whole
     // board is asked for again.
     changes: (changes: BoardChanges) => {
-      const before = syncs()
+      const before = syncs(new Set(changes.changed.map((entry) => entry.ticket.id)))
       const held = currentBoard()
       const fresh = applyChanges(changes)
       if (!fresh) return lost()
@@ -102,5 +108,5 @@ export function useBoardFeed(follow: (touched: Ticket[]) => void, lost: () => vo
     },
   }
 
-  return { board, on }
+  return { on }
 }

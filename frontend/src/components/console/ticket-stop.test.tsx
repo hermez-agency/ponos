@@ -24,7 +24,8 @@ vi.mock("@/hooks/use-console", () => ({
 
 vi.mock("@/lib/board-store", () => ({
   titleOf: (ticket: { title: string }) => ticket.title,
-  useBoard: () => ({ columns: world.columns, cancel: world.cancel, tickets: [] }),
+  useBoardWith: <T,>(select: (board: unknown) => T) =>
+    select({ columns: world.columns, cancel: world.cancel, tickets: [] }),
 }))
 
 vi.mock("./ticket-bits", () => ({ columnTitle: (_key: string, name?: string) => name ?? "Ready" }))

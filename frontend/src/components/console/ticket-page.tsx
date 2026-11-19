@@ -18,13 +18,14 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConsole, useSteps } from "@/hooks/use-console"
+import { useBoardWith } from "@/lib/board-store"
 import { ApiError, why } from "@/lib/api"
 import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
 import { useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import { isFinished } from "@/lib/result"
-import type { TicketDetail } from "@/lib/types"
+import type { Board, TicketDetail } from "@/lib/types"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
@@ -319,9 +320,11 @@ function useBrief(page: TicketDetail | undefined, finished: boolean) {
  * session, the machine that took it — are one "…" away, said in the page and
  * not in a tooltip, which a finger cannot read.
  */
+const boardColumns = (board: Board) => board.columns
+
 function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession: () => void }) {
   const t = useT()
-  const { board } = useConsole()
+  const columns = useBoardWith(boardColumns)
   // Until the page's own read has said, a model written on the ticket is the one it has.
   const used =
     ticket.model_in_use ??
@@ -332,7 +335,7 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
   // the console's own, in its language, where it has one.
   const status = LABEL[ticket.column]
     ? t(LABEL[ticket.column])
-    : capital(columnTitle(ticket.column, board.columns.find((item) => item.key === ticket.column)?.name))
+    : capital(columnTitle(ticket.column, columns.find((item) => item.key === ticket.column)?.name))
   const cost = typeof ticket.cost === "number" && ticket.cost ? money(ticket.cost) : ""
   const took = typeof ticket.duration === "number" && ticket.duration ? lasted(ticket.duration) : ""
   const [more, setMore] = React.useState(false)

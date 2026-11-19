@@ -85,9 +85,9 @@ import {
   replaceTicket,
   subscribeBoard,
   titleOf,
-  useBoard,
+  useBoardWith,
 } from "@/lib/board-store"
-import { counted, t, useT } from "@/lib/i18n"
+import { counted, currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import { DEFAULT_SCORE, readScore } from "@/lib/priority"
 import { layoutOf, useLayoutInTheAddress, useRememberedLayout } from "@/lib/resource-view"
@@ -100,7 +100,7 @@ import {
   useSelecting,
   useSelection,
 } from "@/lib/selection-store"
-import type { ColumnKey, Ticket, TicketDetail } from "@/lib/types"
+import type { Board, ColumnKey, Ticket, TicketDetail } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { canAct, readOnly } from "@/lib/role"
 import { usePhone } from "@/lib/phone"
@@ -174,7 +174,7 @@ export type TicketItem = Ticket & {
   took: string
   /** When it is due, written the way the console writes a date. */
   due: string
-  /** When it last changed, in the words a card has room for. */
+  /** When it last changed: the instant, said as an age where it is drawn (`AgoCell`). */
   changed: string
 }
 
@@ -199,17 +199,44 @@ export interface TicketWrite {
   on?: string
 }
 
-const item = (ticket: Ticket | TicketDetail): TicketItem => ({
-  ...ticket,
-  "@id": `/api/tickets/${ticket.id}`,
-  "@type": TICKETS,
-  // The card, the table and the page's header all read the title from here.
-  title: titleOf(ticket),
-  spent: typeof ticket.cost === "number" && ticket.cost ? money(ticket.cost) : "",
-  took: typeof ticket.duration === "number" && ticket.duration ? lasted(ticket.duration) : "",
-  due: when(ticket.scheduled),
-  changed: ago(ticket.edited),
-})
+/* One row per ticket, kept for as long as the ticket is the same object.
+ *
+ * The stream changes a few tickets at a time and keeps the others as they were
+ * (`applyChanges`), but the list is read again whole at each change: 2 000
+ * rows made again — an object, a cost and a duration written for each — were
+ * 600 ms of every move of the board, and a new row is a card drawn again,
+ * however memoised. The same ticket gives the same row now, and only the cards
+ * that moved are drawn.
+ *
+ * Nothing in a row may depend on the hour, or it would be stale here: the age
+ * is drawn from the instant where it is shown (`AgoCell`). What depends on the
+ * language — the title of an untitled ticket, a cost, a duration, a date — is
+ * made again when the language changes. */
+let rows = new WeakMap<Ticket | TicketDetail, TicketItem>()
+let rowsIn = currentLanguage()
+
+const item = (ticket: Ticket | TicketDetail): TicketItem => {
+  if (rowsIn !== currentLanguage()) {
+    rows = new WeakMap()
+    rowsIn = currentLanguage()
+  }
+  let row = rows.get(ticket)
+  if (!row) {
+    row = {
+      ...ticket,
+      "@id": `/api/tickets/${ticket.id}`,
+      "@type": TICKETS,
+      // The card, the table and the page's header all read the title from here.
+      title: titleOf(ticket),
+      spent: typeof ticket.cost === "number" && ticket.cost ? money(ticket.cost) : "",
+      took: typeof ticket.duration === "number" && ticket.duration ? lasted(ticket.duration) : "",
+      due: when(ticket.scheduled),
+      changed: ticket.edited,
+    }
+    rows.set(ticket, row)
+  }
+  return row
+}
 
 /** The column's name, as the board spells it. */
 export function columnName(key: string): string {
@@ -764,20 +791,9 @@ function DashboardTop({
   const latest = React.useRef(fetchData)
   latest.current = fetchData
   React.useEffect(() => subscribeBoard(() => latest.current()), [])
-  // On a phone the dashboard opens on what waits for you, before the health
-  // band and the figures (see `to-handle.tsx`).
-  const phone = usePhone()
   // The figures are the board's: a ticket's page is drawn under the same
   // `top`, and has its own column to say what it is doing.
-  if (!loading)
-    return listing ? (
-      <>
-        {phone ? <ToHandle /> : null}
-        <HealthBand />
-        <RunnerStrip action={<IdeasButton inline />} />
-        <StatisticsBand />
-      </>
-    ) : null
+  if (!loading) return listing ? <DashboardBands /> : null
   return (
     <div className="bg-background fixed inset-0 z-[51] flex flex-col items-center justify-center gap-3">
       <Robot state="thinking" size={96} />
@@ -785,6 +801,27 @@ function DashboardTop({
     </div>
   )
 }
+
+/* The bands over the board, apart from the list they sit on.
+ *
+ * Every reread of the list — every move of the board, every few seconds while
+ * a ticket runs — draws the package's view twice, once loading and once read,
+ * and this top with it. The bands read nothing of the list: memoised, they are
+ * drawn again for what they read themselves, and the charts of the period not
+ * at all. */
+const DashboardBands = React.memo(function DashboardBands() {
+  // On a phone the dashboard opens on what waits for you, before the health
+  // band and the figures (see `to-handle.tsx`).
+  const phone = usePhone()
+  return (
+    <>
+      {phone ? <ToHandle /> : null}
+      <HealthBand />
+      <RunnerStrip action={<IdeasButton inline />} />
+      <StatisticsBand />
+    </>
+  )
+})
 
 /* The board's own empty line.
  *
@@ -880,13 +917,38 @@ const WORK_PAGE = 50
  * ticket and back to the board is not starting again from the first page. */
 const opened = new Map<string, number>()
 
-const touched = (row: RowInterface) => Date.parse(String(row.data?.edited ?? "")) || 0
+const pageOf = (column: string) => (TERMINAL.has(column) ? TERMINAL_PAGE : WORK_PAGE)
+
+/* The rows of each column, in the order it draws them: the terminal ones the
+ * latest first. Grouped once for the whole board rather than filtered again by
+ * each column, and sorted on a key read once per row — `Date.parse` in the
+ * comparison was 48 000 parses of the history at every move of the board. */
+function byColumn(rows: RowInterface[]): Map<string, RowInterface[]> {
+  const grouped = new Map<string, RowInterface[]>()
+  for (const row of rows) {
+    const key = String(row.data?.column ?? "")
+    const own = grouped.get(key)
+    if (own) own.push(row)
+    else grouped.set(key, [row])
+  }
+  for (const key of TERMINAL) {
+    const own = grouped.get(key)
+    if (!own) continue
+    const touched = new Map(own.map((row) => [row, Date.parse(String(row.data?.edited ?? "")) || 0]))
+    own.sort((a, b) => (touched.get(b) ?? 0) - (touched.get(a) ?? 0))
+  }
+  return grouped
+}
 
 /** One column of the board, as the package draws it — cut short, with the way to the rest. */
 function BoardColumn({
   column,
   label,
-  rows,
+  mine,
+  drawn,
+  carried,
+  onMore,
+  onDropped,
   total,
   series,
   places,
@@ -895,7 +957,16 @@ function BoardColumn({
 }: {
   column: string
   label: string
-  rows: RowInterface[]
+  /** Every row of the column, in its order. */
+  mine: RowInterface[]
+  /** The rows it draws: its first pages, and the cards dropped on it. */
+  drawn: RowInterface[]
+  /** The cards drawn in every column, its own among them (see `BoardColumns`). */
+  carried: RowInterface[]
+  /** Draws one more page. */
+  onMore: () => void
+  /** A card was dropped here, by id. */
+  onDropped: (id: string) => void
   /** How many the column holds, search or not — said only while one is on. */
   total?: number
   /** The board's own columns, not a project's: they offer to go through their cards. */
@@ -905,15 +976,6 @@ function BoardColumn({
   dragging: boolean
   onDragging: (dragging: boolean) => void
 }) {
-  const page = TERMINAL.has(column) ? TERMINAL_PAGE : WORK_PAGE
-  const [shown, setShown] = React.useState(() => opened.get(column) ?? page)
-  // The tickets dropped here since the board was opened, by id.
-  const [dropped, setDropped] = React.useState<ReadonlySet<string>>(() => new Set())
-  const mine = React.useMemo(() => {
-    const own = rows.filter((row) => row.data?.column === column)
-    return TERMINAL.has(column) ? own.sort((a, b) => touched(b) - touched(a)) : own
-  }, [rows, column])
-  const drawn = mine.filter((row, index) => index < shown || dropped.has(String(row.data?.id)))
   const left = mine.length - drawn.length
   const ids = drawn.map((row) => String(row.data?.id))
   const selection = useSelection()
@@ -933,21 +995,10 @@ function BoardColumn({
       )}
     />
   ) : null
-  // The package's column finds the card dropped on it among the rows it is
-  // handed, and draws only those of its own column: handed the others too, a
-  // card carried from another column is one it knows.
-  const carried = [...rows.filter((row) => row.data?.column !== column), ...drawn]
-
-  const more = () => {
-    const next = shown + page
-    opened.set(column, next)
-    setShown(next)
-  }
-
   // The package's column writes the drop; this only remembers which card it was.
   const keepDropped = (event: React.DragEvent) => {
     const id = event.dataTransfer.getData("text")
-    if (id && !dropped.has(id)) setDropped(new Set(dropped).add(id))
+    if (id) onDropped(id)
   }
 
   // The package draws its column 18rem wide and rigid; the wrapper is what
@@ -976,7 +1027,7 @@ function BoardColumn({
         rows={carried}
       />
       {left > 0 ? (
-        <Button variant="outline" size="sm" onClick={more}>
+        <Button variant="outline" size="sm" onClick={onMore}>
           {t("Show more ({{count}} left)", { count: String(left) })}
         </Button>
       ) : null}
@@ -1134,8 +1185,21 @@ function DropZone({
  * columns: a column with tickets stays where it was, saying how many of them
  * the search kept — it would otherwise be a board whose columns move at every
  * letter typed. */
+/* What the columns read of the board: everything but its tickets, which come
+ * as rows — the moves of the board leave these as they were, and the columns
+ * are drawn again for the rows that changed, not before them as well. */
+const columnsOf = (board: Board) => board.columns
+const validates = (board: Board) => board.validate
+const cancels = (board: Board) => board.cancel
+const placesOf = (board: Board) => board.places
+
 function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
-  const board = useBoard()
+  const board = {
+    columns: useBoardWith(columnsOf),
+    validate: useBoardWith(validates),
+    cancel: useBoardWith(cancels),
+    places: useBoardWith(placesOf),
+  }
   const { kept: rows, filtering } = useTicketFilter(all)
   const everyTicket = React.useMemo(() => all.map((row) => row.data as Ticket), [all])
   const { resource } = useCurrentViewResourceContext()
@@ -1171,6 +1235,37 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
   const totals = (key: string) =>
     filtering ? all.filter((row) => row.data?.column === key).length : undefined
   const hidden = emptyShown ? 0 : empty.size
+
+  // How far each column is opened, and the cards dropped on each since the
+  // board was: here rather than in each column, because every column needs
+  // what all of them draw (see `carried`).
+  const [, opening] = React.useReducer((count: number) => count + 1, 0)
+  const [dropped, setDropped] = React.useState<ReadonlyMap<string, ReadonlySet<string>>>(() => new Map())
+  const grouped = React.useMemo(() => byColumn(rows), [rows])
+  const drawnOf = (key: string) => {
+    const shown = opened.get(key) ?? pageOf(key)
+    const kept = dropped.get(key)
+    return (grouped.get(key) ?? []).filter(
+      (row, index) => index < shown || Boolean(kept?.has(String(row.data?.id)))
+    )
+  }
+  const drawnBy = new Map(columns.map((column) => [column.key, drawnOf(column.key)]))
+  // The package's column finds the card dropped on it among the rows it is
+  // handed, and draws only those of its own column: handed the cards the other
+  // columns draw too, a card carried from one of them is one it knows. Only
+  // those: a card is carried from where it is drawn, and handing each column
+  // the whole history of Done had the package index 2 000 rows per column at
+  // every move of the board.
+  const carried = [...drawnBy.values()].flat()
+  const openMore = (key: string) => {
+    opened.set(key, (opened.get(key) ?? pageOf(key)) + pageOf(key))
+    opening()
+  }
+  const keepDropped = (key: string, id: string) =>
+    setDropped((was) => {
+      if (was.get(key)?.has(id)) return was
+      return new Map(was).set(key, new Set(was.get(key)).add(id))
+    })
 
   React.useEffect(() => {
     const element = strip.current
@@ -1253,7 +1348,11 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
                 key={column.key}
                 column={column.key}
                 label={name}
-                rows={rows}
+                mine={grouped.get(column.key) ?? []}
+                drawn={drawnBy.get(column.key) ?? []}
+                carried={carried}
+                onMore={() => openMore(column.key)}
+                onDropped={(id) => keepDropped(column.key, id)}
                 total={totals(column.key)}
                 series={resource["@id"] !== PROJECT_TICKETS}
                 places={resource["@id"] !== PROJECT_TICKETS ? board.places : undefined}
@@ -1408,6 +1507,9 @@ const IdCell: InputControllerComponentInterface = ({ formInput }) => (
   <span className="text-muted-foreground font-mono text-xs">#{String(formInput.value ?? "")}</span>
 )
 
+/** When a ticket last changed, in the words a cell has room for, as of the moment it is drawn. */
+const AgoCell: InputControllerComponentInterface = ({ formInput }) => <>{ago(String(formInput.value ?? ""))}</>
+
 const shared = rowForm.inputs ?? {}
 
 const projectRowForm: FormInterface = {
@@ -1418,7 +1520,7 @@ const projectRowForm: FormInterface = {
     priority: shared.priority,
     type: { label: "Type", readonly: true },
     spent: shared.spent,
-    changed: { label: "Last modified", readonly: true },
+    changed: { label: "Last modified", readonly: true, controller: AgoCell },
   },
 }
 
