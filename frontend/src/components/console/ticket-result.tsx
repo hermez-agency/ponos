@@ -2,8 +2,6 @@ import * as React from "react"
 import {
   CopyIcon,
   Download,
-  ExternalLink,
-  GitBranch,
   History,
   MessageSquarePlus,
   Pencil,
@@ -29,7 +27,7 @@ import type { ResultVersion, TicketDetail } from "@/lib/types"
 import { Eyebrow } from "./frame"
 import { Markdown } from "./markdown"
 import { PreviewPairs } from "./preview-pairs"
-import { TicketCi, when } from "./ticket-bits"
+import { when } from "./ticket-bits"
 
 /* A ticket opened: its result, in a tab of its own, and its mission in another.
  *
@@ -39,7 +37,7 @@ import { TicketCi, when } from "./ticket-bits"
  * part of its own now (results.py), the first thing the page shows once the
  * work is over, with what one does with a deliverable: copy it, download it,
  * retouch it, send it back with an instruction. What the sessions said of
- * themselves is the Journal tab.
+ * themselves is the journal, on the Activity tab.
  *
  * The mission and the result shared one tab for a while, the mission folded
  * above once there was a result — a tab called « Mission », then « Result »,
@@ -290,9 +288,12 @@ export function TicketResult({
           </div>
         ) : ticket.pull_request ? (
           // A change that wrote no result of its own still has one: its pull
-          // request, and what the session said it changed.
+          // request — said above the tabs, once for the whole view — and what
+          // the session said it changed.
           <>
-            <PullRequestCard ticket={ticket} />
+            <p className="text-muted-foreground text-sm" data-slot="ticket-result-is-pr">
+              {t("This ticket wrote no result of its own: its pull request, above, is the result.")}
+            </p>
             {changes(journal) ? (
               <div data-slot="ticket-result-changes" className="bg-card rounded-xl border px-4 py-3">
                 <Markdown text={changes(journal)} />
@@ -302,7 +303,7 @@ export function TicketResult({
         ) : journal.trim() && !running ? (
           <p className="text-tr-amber flex items-center gap-1.5 text-sm" data-slot="ticket-no-result">
             <TriangleAlert className="size-4" />
-            {t("No result rendered: the session said what it did, in the Journal tab, but handed back no deliverable.")}
+            {t("No result rendered: the session said what it did, in the Activity tab, but handed back no deliverable.")}
           </p>
         ) : (
           <p className="text-muted-foreground text-sm">
@@ -311,50 +312,8 @@ export function TicketResult({
         )
       ) : null}
 
-      {ticket.pull_request && body.trim() ? <PullRequestCard ticket={ticket} /> : null}
       <PreviewPairs ticket={ticket.id} shots={previews} />
     </section>
-  )
-}
-
-/* A code ticket's pull request, as its result shows it: where it stands, its
- * checks, and the way to its diff. */
-function PullRequestCard({ ticket }: { ticket: TicketDetail }) {
-  const t = useT()
-  const number = ticket.pull_request.match(/\/pull\/(\d+)/)?.[1]
-  const state =
-    ticket.column === "done"
-      ? t("merged")
-      : ticket.column === "validated"
-        ? t("validated, being merged")
-        : ticket.column === "review"
-          ? t("open, waiting for your review")
-          : ticket.column === "cancelled"
-            ? t("closed")
-            : t("open")
-  return (
-    <div data-slot="ticket-result-pr" className="bg-card flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-4 py-3 text-sm">
-      <a
-        href={ticket.pull_request}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="inline-flex items-center gap-1.5 font-semibold underline-offset-2 hover:underline"
-      >
-        <GitBranch className="size-4" />
-        {number ? `PR #${number}` : t("pull request")}
-      </a>
-      <span className="text-muted-foreground">{state}</span>
-      {ticket.ci ? <TicketCi ci={ticket.ci} slot="ticket-result-ci" /> : null}
-      <a
-        href={`${ticket.pull_request.replace(/\/+$/, "")}/files`}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="text-primary ml-auto inline-flex items-center gap-1 underline-offset-2 hover:underline"
-      >
-        {t("View the diff")}
-        <ExternalLink className="size-3.5" />
-      </a>
-    </div>
   )
 }
 

@@ -154,9 +154,16 @@ function RecordWindow({
         // Said out loud, though the page behind is already hidden from a screen
         // reader while it is open: some read the attribute and nothing else.
         aria-modal="true"
+        // The window itself takes the focus, not the first thing in it that
+        // can: that was the goal's choice, under the title, ringed as if it
+        // were what the window is for. Tab goes on from the top all the same.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          ;(event.currentTarget as HTMLElement | null)?.focus()
+        }}
         // Described by its line under the title when it has one.
         {...(description ? {} : { "aria-describedby": undefined })}
-        className={cn("gap-0 p-0 sm:max-w-3xl", className)}
+        className={cn("gap-0 p-0 outline-none sm:max-w-3xl", className)}
       >
         <DialogHeader className="flex-row items-start gap-2 border-b px-5 py-3 text-left sm:text-left">
           <div className="min-w-0 flex-1">

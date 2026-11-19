@@ -78,8 +78,10 @@ deliverable:
   ticket that has one is handed it, to start from), and what it hands back is a new
   version, the one before kept.
 
-The discussion, the live session, *Decide* and the **Journal** are the other tabs; what the
-ticket cost, its model and its session are under them, not above. A card in review,
+The discussion, *Decide* and **Activity** — the live session, and the journal Ponos writes at
+the end of each — are the other tabs. Above them, on every one: where the ticket stands and
+what it waits for, with its gestures; what it is and what it cost, each under its name; and
+its pull request, once, with its checks. A card in review,
 validated or done shows the first lines of its result, and so do the notifications of
 its end (Telegram, Slack, the phone's push). `ponos show <ticket>` prints the three parts,
 `ponos show <ticket> --result` the result alone; the MCP's `get_task` answers `mission`,

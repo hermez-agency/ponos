@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 /* A ticket finished opens on its result, the mission in a tab beside it: the
- * post ready to copy, the session's account apart in the Journal tab — see
+ * post ready to copy, the session's account apart, in the journal of the Activity tab — see
  * `ticket-result.tsx`. Before the work is over there is no Result tab. */
 
 const WRITTEN = "0000000000000000000000000000b0a7"
@@ -20,7 +20,7 @@ test.beforeEach(async ({ context }) => {
 test("a writing ticket opens on its post, ready to copy, its mission in a tab of its own", async ({ page }) => {
   await page.goto(`/?view=console/tickets/read/${WRITTEN}`)
   const tabs = page.getByRole("tablist")
-  await expect(tabs.getByRole("tab")).toHaveText(["Result", "Mission", "Discussion", "Live", "Journal"])
+  await expect(tabs.getByRole("tab")).toHaveText(["Result", "Mission", "Discussion", "Activity"])
   await expect(tabs.getByRole("tab", { name: "Result" })).toHaveAttribute("aria-selected", "true")
   // The mission is not under the result any more: it has its tab.
   await expect(page.locator('[data-slot="ticket-mission"]')).toHaveCount(0)
@@ -46,10 +46,12 @@ test("a writing ticket opens on its post, ready to copy, its mission in a tab of
   await expect(mission.getByRole("button")).toHaveCount(0)
   await expect(page.locator('[data-slot="ticket-result"]')).toHaveCount(0)
 
-  // What the session said of itself is the journal's.
-  await page.getByRole("tab", { name: "Journal" }).click()
-  await expect(page.getByRole("tabpanel")).toContainText("I read it twice before handing it back.")
-  await expect(page).toHaveURL(/[?&]tab=journal$/)
+  // What the session said of itself is the journal's, on Activity.
+  await page.getByRole("tab", { name: "Activity" }).click()
+  await expect(page.getByRole("tabpanel").locator('[data-slot="ticket-journal"]')).toContainText(
+    "I read it twice before handing it back."
+  )
+  await expect(page).toHaveURL(/[?&]tab=live$/)
   // The facts — what it cost, which model — stay above the tabs.
   await expect(page.locator('[data-slot="ticket-summary"]')).toBeVisible()
 })
@@ -75,18 +77,20 @@ test("a result retouched by hand is a new version, the one before kept", async (
 test("a ticket not finished has no Result tab, and an address naming it opens the mission", async ({ page }) => {
   await page.goto(`/?view=console/tickets/read/${LONG}&tab=result`)
   const tabs = page.getByRole("tablist")
-  await expect(tabs.getByRole("tab")).toHaveText(["Mission", "Discussion", "Live", "Journal"])
+  await expect(tabs.getByRole("tab")).toHaveText(["Mission", "Discussion", "Activity"])
   await expect(tabs.getByRole("tab", { name: "Mission" })).toHaveAttribute("aria-selected", "true")
   await expect(page.getByRole("tabpanel")).toContainText("Part 40")
   await expect(page).toHaveURL(/[?&]tab=mission$/)
 })
 
-test("a code ticket that wrote no result shows its pull request in its place", async ({ page }) => {
+test("a code ticket that wrote no result points at its pull request, said once above the tabs", async ({ page }) => {
   await page.goto(`/?view=console/tickets/read/${CODE}`)
   const tabs = page.getByRole("tablist")
   await expect(tabs.getByRole("tab", { name: "Result" })).toHaveAttribute("aria-selected", "true")
-  const card = page.getByRole("tabpanel").locator('[data-slot="ticket-result-pr"]')
+  const card = page.locator('[data-slot="ticket-delivery"]')
   await expect(card).toBeVisible()
+  await expect(page.getByRole("tabpanel").locator('[data-slot="ticket-result-is-pr"]')).toBeVisible()
+  await expect(page.getByRole("link", { name: /^PR #/ })).toHaveCount(1)
   await expect(card.getByRole("link", { name: /^PR #/ })).toHaveAttribute("href", /\/pull\/\d+$/)
   await expect(card.getByRole("link", { name: /View the diff/ })).toHaveAttribute("href", /\/files$/)
   await expect(page.getByRole("tabpanel")).not.toContainText("No result rendered")
@@ -101,7 +105,7 @@ test("the Result tab comes when the ticket goes into review, without a reload", 
   const { id } = (await created.json()) as { id: string }
   await page.goto(`/?view=console/tickets/read/${id}`)
   const tabs = page.getByRole("tablist")
-  await expect(tabs.getByRole("tab")).toHaveText(["Mission", "Discussion", "Live", "Journal"])
+  await expect(tabs.getByRole("tab")).toHaveText(["Mission", "Discussion", "Activity"])
 
   const moved = await page.request.post(`/api/tickets/${id}/status`, {
     data: { column: "review" },
@@ -109,12 +113,13 @@ test("the Result tab comes when the ticket goes into review, without a reload", 
   })
   expect(moved.ok()).toBeTruthy()
   await expect(tabs.getByRole("tab", { name: "Result" })).toBeVisible({ timeout: 15_000 })
-  await expect(tabs.getByRole("tab").first()).toHaveText("Result")
+  // After Decide, which a ticket in review is waiting for.
+  await expect(tabs.getByRole("tab")).toHaveText([/^Decide/, "Result", "Mission", "Discussion", "Activity"])
   // The reader stays on the tab they were reading.
   await expect(tabs.getByRole("tab", { name: "Mission" })).toHaveAttribute("aria-selected", "true")
 })
 
-test("on a phone, the facts are a strip above the result, which is still on the first screen", async ({ page }) => {
+test("on a phone, the status and the facts are above the result, which is still on the first screen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/?view=console/tickets/read/${WRITTEN}`)
   const result = page.locator('[data-slot="ticket-result-body"]')
@@ -123,5 +128,12 @@ test("on a phone, the facts are a strip above the result, which is still on the 
   const strip = await summary.boundingBox()
   const above = await result.boundingBox()
   expect(strip!.y).toBeLessThan(above!.y)
+  const status = await page.locator('[data-slot="ticket-status"]').boundingBox()
+  expect(status!.y).toBeLessThan(strip!.y)
+  // Folded to a line: the rarer facts are a "Details" away, in the page.
+  await expect(summary.getByText("Creation")).toBeHidden()
+  await summary.locator('[data-slot="ticket-summary-more"]').click()
+  await expect(summary.getByText("Creation")).toBeVisible()
+  await summary.locator('[data-slot="ticket-summary-more"]').click()
   await page.screenshot({ path: "/tmp/ponos-result-phone.png" })
 })

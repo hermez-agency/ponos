@@ -2,13 +2,10 @@ import * as React from "react"
 import { useLocation, useRouter } from "@tanstack/react-router"
 import {
   ArrowLeft,
-  ChevronRight,
   CircleAlert,
   CopyIcon,
-  GitBranch,
   MessageCircleQuestion,
   RotateCw,
-  Scale,
   Zap,
 } from "lucide-react"
 import { ActionList } from "react-data-form"
@@ -18,14 +15,12 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConsole, useSteps } from "@/hooks/use-console"
-import { useBoardWith } from "@/lib/board-store"
 import { ApiError, why } from "@/lib/api"
 import { copy } from "@/lib/copy"
 import { type DecisionTab, actionOf } from "@/lib/decision"
-import { useT } from "@/lib/i18n"
-import { money } from "@/lib/numbers"
+import { useFrench, useT } from "@/lib/i18n"
 import { isFinished } from "@/lib/result"
-import type { Board, TicketDetail } from "@/lib/types"
+import type { TicketDetail } from "@/lib/types"
 import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
@@ -38,7 +33,6 @@ import {
 
 import { EmptyState } from "./empty-state"
 import { Markdown } from "./markdown"
-import { PriorityBadge } from "./priority"
 import { Robot } from "./robot"
 import { Pulse, TicketLive } from "./session-log"
 import { TicketTabContext, WINDOW_TAB } from "./ticket-decision"
@@ -46,27 +40,14 @@ import { TicketDecision } from "./ticket-decision-panel"
 import { TicketAudit } from "./ticket-audit"
 import { TicketOn } from "./ticket-on"
 import { TicketValidation } from "./ticket-validation"
-import { TicketProjectChoice } from "./ticket-project"
-import { TicketEstimate } from "./ticket-estimate"
+import { TicketGoal } from "./ticket-goal"
 import { TicketMission, TicketResult } from "./ticket-result"
-import { TicketTime } from "./ticket-time"
-import {
-  SEED,
-  LABEL,
-  NO_COMMIT,
-  choiceWord,
-  columnTitle,
-  TicketActions,
-  TicketBlock,
-  TicketCi,
-  TicketEarlier,
-  TicketLinks,
-  TicketSubtype,
-  ago,
-  capital,
-  lasted,
-  when,
-} from "./ticket-bits"
+import { TicketDelivery, TicketFacts, TicketStatus } from "./ticket-status"
+import { useCloseWindow } from "./record-window"
+import { Eyebrow } from "./frame"
+
+/* What only an opened ticket says, in French: fetched with its page, see `ticket-french.ts`. */
+const words = () => import("@/lib/ticket-french").then((module) => module.TICKET_FRENCH)
 
 // The Discussion tab is opened on demand: its chat stays out of the first load.
 const TicketTalk = React.lazy(() => import("./ticket-talk").then((module) => ({ default: module.TicketTalk })))
@@ -79,11 +60,12 @@ const TicketTalk = React.lazy(() => import("./ticket-talk").then((module) => ({ 
  * notes between, is read here from `/api/tickets/<id>`, once per opening (see
  * `readTicket`). Opening this page is also what loads the ticket's discussion.
  *
- * It opens the way the board's cards do and then says more: the column and the
- * metadata, as a strip above the tabs — see `TicketSummary`.
+ * It opens on where the ticket stands and what it is waiting for, then what it
+ * is and its pull request — the three blocks of `ticket-status.tsx`, the same
+ * in the window over the board and on the page.
  *
- * Under them, three tabs: the brief;
- * the discussion; and the session. They were sections folded one under the
+ * Under them, the tabs: the brief;
+ * the discussion; and what happened — the session and the journal. They were sections folded one under the
  * other for a while, all three on one page — and a running session, open at the
  * bottom of a long brief, was a page you scrolled to the end of every time it
  * moved. A tab is one thing at a time, the whole height for it, and the tab
@@ -94,11 +76,28 @@ const TicketTalk = React.lazy(() => import("./ticket-talk").then((module) => ({ 
  * header is this file's too — see `TicketHead`.
  */
 
+/** A page with room for a column beside the ticket's tabs. */
+const WIDE = "(width >= 80rem)"
+
+function useWide(): boolean {
+  return React.useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia(WIDE)
+      query.addEventListener("change", listener)
+      return () => query.removeEventListener("change", listener)
+    },
+    () => window.matchMedia(WIDE).matches
+  )
+}
+
 export function TicketPage() {
   const context = useCurrentViewResourceContext()
+  const inWindow = useCloseWindow()
   const page = context.data as TicketDetail | undefined
   const { ticket: open, openTicket } = useConsole()
   const t = useT()
+  // Not drawn in English while its French is on the way: the lines it will fill meanwhile.
+  const worded = useFrench(words)
   // The stream keeps the open ticket fresher than the page read once: the
   // column and the progress line are read from it where it is the same ticket.
   const ticket = page ? (open && open.id === page.id ? { ...page, ...open } : page) : null
@@ -115,78 +114,51 @@ export function TicketPage() {
     if (page) openTicket(page)
   }, [page, openTicket])
 
+  // On the ticket's own page, wide enough, the facts are a column beside the
+  // tabs; in the window over a list, or narrower, a line above them.
+  const rail = useWide() && inWindow === null
+
   // The board, in the layout it was left in: coming back onto the cards, when
   // the table is what you were reading the board in, is losing your place.
   const back = boardHref()
 
   return (
     <div>
-      {ticket ? (
+      {ticket && worded ? (
         <>
-          {/* On a phone, the Decide tab is under the checks and the summary,
-              below the first screen: the page's first line points at it, in
-              other words than the tab's. Not on the tab already. */}
-          {ticket.column === "review" && shown !== "decide" && canAct() ? (
-            <Button
-              variant="outline"
-              data-slot="ticket-decide-cue"
-              className="text-tr-pink hover:text-tr-pink mb-3 w-full justify-start sm:hidden"
-              onClick={() => goTo("decide")}
-            >
-              <Scale />
-              {t("Your decision is awaited")}
-              <ChevronRight className="ml-auto" />
-            </Button>
-          ) : null}
-
-          {/* What it is, what it cost, which model, the pull request: first, and
-              on every tab — what one opens a ticket to find out. */}
-          <TicketSummary
-            ticket={{ ...ticket, model_in_use: brief.model }}
-            onSession={() => setAsked({ tab: "live", at: Date.now() })}
-          />
-
-          {/* Why it stopped, as on its card: the gesture it proposes is
-              among the actions below, the answer in the discussion. Not a
-              session that committed nothing, which is no fault when there was
-              nothing to change: the discussion says it in passing, on the
-              session's line. */}
-          {ticket.block && ticket.block.code !== NO_COMMIT ? (
-            <div className="mb-3 flex flex-col gap-2">
-              <TicketBlock block={ticket.block} />
-              {/* Stopped on its project: another one, chosen here, and run again. */}
-              <TicketProjectChoice ticket={ticket} />
-            </div>
-          ) : null}
-
-          {/* Where the pull request's checks stand, and each one. */}
-          {ticket.ci ? (
-            <div className="mb-3">
-              <TicketCi ci={ticket.ci} detailed />
-            </div>
-          ) : null}
-
-          {/* What the last pass said, that its card no longer draws: only while
-              it waits in ready, the stream moving it on before the page is read again. */}
-          {ticket.earlier && (ticket.column === "ready" || ticket.column === "draft") ? (
-            <div className="mb-3">
-              <TicketEarlier earlier={ticket.earlier} />
-            </div>
-          ) : null}
-
-          {/* Priority, model and date are the grid's: the tags the card wears
-              would say them a second time, one line above. */}
-          {/* Chosen once per ticket, not every time the column moves: a
-              tab that switched itself under the reader would lose them. */}
+          {/* Where it stands and what it waits for, with its gestures: first,
+              and on every tab — what one opens a ticket to find out. Then what
+              it is and what it cost, the pull request once, and the tabs. On a
+              page wide enough, the facts are a column beside them. */}
           <TicketTabContext.Provider value={tabs}>
-            <TicketTabs
-              key={ticket.id}
-              ticket={ticket}
-              brief={brief}
-              talking={open?.id === ticket.id}
-              asked={asked}
-              onTab={setShown}
-            />
+          <div
+            data-slot="ticket-view"
+            className={cn("min-w-0 gap-3", rail ? "grid items-start gap-x-8" : "flex flex-col")}
+            // Said here rather than as two classes: the first load's stylesheet has no room to spare.
+            style={rail ? { gridTemplateColumns: "minmax(0, 1fr) 18rem", gridTemplateRows: "auto 1fr" } : undefined}
+          >
+            <TicketStatus ticket={ticket} />
+            <div className={cn(rail && "sticky top-4 col-start-2 row-span-2 row-start-1")}>
+              <TicketFacts
+                ticket={{ ...ticket, model_in_use: brief.model }}
+                rail={rail}
+                onSession={() => setAsked({ tab: "live", at: Date.now() })}
+              />
+            </div>
+            <div className={cn("flex min-w-0 flex-col gap-3", rail && "col-start-1")}>
+              <TicketDelivery ticket={ticket} />
+              {/* Chosen once per ticket, not every time the column moves: a
+                  tab that switched itself under the reader would lose them. */}
+              <TicketTabs
+                key={ticket.id}
+                ticket={ticket}
+                brief={brief}
+                talking={open?.id === ticket.id}
+                asked={asked}
+                onTab={setShown}
+              />
+            </div>
+          </div>
           </TicketTabContext.Provider>
         </>
       ) : context.loadError instanceof ApiError && context.loadError.status === 404 ? (
@@ -206,7 +178,7 @@ export function TicketPage() {
             "This ticket does not exist: it was deleted, or was never on this board."
           )}
         </EmptyState>
-      ) : context.error ? (
+      ) : context.error && !ticket ? (
         // Why, as the server said it, and the two ways on from here: a
         // board that did not answer often answers the second time.
         <EmptyState
@@ -317,173 +289,6 @@ function useBrief(page: TicketDetail | undefined, finished: boolean) {
   }
 }
 
-/* What the page says about the ticket, as a strip of one or two lines.
- *
- * It sits under the title and above the tabs, so the status, the cost and the
- * pull request are in view whichever tab is open. First what the ticket is —
- * project, type, priority, where it stands —, then what running it came to:
- * the pull request, the cost, the model, the time. What a ticket does not have
- * yet says nothing at all rather than "—". The details few look for — the
- * session, the machine that took it — are one "…" away, said in the page and
- * not in a tooltip, which a finger cannot read.
- */
-const boardColumns = (board: Board) => board.columns
-
-function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession: () => void }) {
-  const t = useT()
-  const columns = useBoardWith(boardColumns)
-  // Until the page's own read has said, a model written on the ticket is the one it has.
-  const used =
-    ticket.model_in_use ??
-    (ticket.model ? { label: ticket.model_label ?? ticket.model, full: ticket.model, default: false } : undefined)
-  const created = ago(ticket.created)
-  const pull = ticket.pull_request.match(/\/pull\/(\d+)/)?.[1]
-  // The board's word for the column is its own, often English ("Progress"):
-  // the console's own, in its language, where it has one.
-  const status = LABEL[ticket.column]
-    ? t(LABEL[ticket.column])
-    : capital(columnTitle(ticket.column, columns.find((item) => item.key === ticket.column)?.name))
-  const cost = typeof ticket.cost === "number" && ticket.cost ? money(ticket.cost) : ""
-  const took = typeof ticket.duration === "number" && ticket.duration ? lasted(ticket.duration) : ""
-  const [more, setMore] = React.useState(false)
-  const details = Boolean(ticket.session || ticket.runner)
-  // The branch, on the repository the pull request is on: that is where it is read.
-  const branchUrl = ticket.branch && /\/pull\/\d+/.test(ticket.pull_request)
-    ? ticket.pull_request.replace(/\/pull\/\d+.*$/, `/tree/${ticket.branch.split("/").map(encodeURIComponent).join("/")}`)
-    : ""
-  const sep = <span className="text-muted-foreground/60">·</span>
-  const line = "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
-  const executed = Boolean(ticket.pull_request || ticket.branch || cost || used?.label || ticket.worktime || took)
-  return (
-    <div
-      data-slot="ticket-summary"
-      className="bg-card mb-4 flex min-w-0 flex-col gap-1 rounded-xl border px-3.5 py-2.5 text-sm"
-    >
-      <div className={line}>
-        <span className="font-semibold">{ticket.project || t("no project — a document")}</span>
-        {ticket.type ? (
-          <>
-            {sep}
-            <span>{choiceWord(ticket.type)}</span>
-          </>
-        ) : null}
-        {ticket.subtype ? <TicketSubtype subtype={ticket.subtype} /> : null}
-        {typeof ticket.priority === "number" ? (
-          <>
-            {sep}
-            <PriorityBadge score={ticket.priority} />
-          </>
-        ) : null}
-        {sep}
-        <span className="inline-flex items-center gap-1.5">
-          <span className={cn("size-1.5 shrink-0 rounded-full", SEED[ticket.column] ?? "bg-muted-foreground")} />
-          {status}
-        </span>
-        {created ? (
-          <span className="text-muted-foreground">
-            {t("created")} {created}
-          </span>
-        ) : null}
-        {ticket.scheduled ? (
-          <span className="text-muted-foreground">
-            {t("scheduled")} {when(ticket.scheduled)}
-          </span>
-        ) : null}
-        {ticket.estimate ? <TicketEstimate estimate={ticket.estimate} /> : null}
-      </div>
-      {executed || details ? (
-        <div className={line}>
-          {ticket.pull_request ? (
-            <a
-              href={ticket.pull_request}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline"
-            >
-              <GitBranch className="size-3.5" />
-              {pull ? `PR #${pull}` : t("pull request")}
-            </a>
-          ) : null}
-          {ticket.branch ? (
-            branchUrl ? (
-              <a
-                href={branchUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                data-slot="ticket-summary-branch"
-                className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-xs underline-offset-2 hover:underline"
-              >
-                <GitBranch className="size-3.5 shrink-0" />
-                <span className="truncate">{ticket.branch}</span>
-              </a>
-            ) : (
-              <span data-slot="ticket-summary-branch" className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-xs">
-                <GitBranch className="size-3.5 shrink-0" />
-                <span className="truncate">{ticket.branch}</span>
-              </span>
-            )
-          ) : null}
-          {cost ? <span>{cost}</span> : null}
-          {/* The column empty is not "no model": it is the one the session
-              announced, or the runner's, or Claude Code's own. The server
-              says which, as provider/model; the full identifier is the tooltip. */}
-          {used?.label ? (
-            <span title={used.full}>
-              {used.label.replace(/^claude\//, "")}
-              {used.default ? <span className="text-muted-foreground font-normal"> · {t("default")}</span> : null}
-            </span>
-          ) : null}
-          {/* The runs' time with the clock stopped while it waited — not the
-              time since it was made, which holds the queue and the review. */}
-          {ticket.worktime ? (
-            <span className="inline-flex min-w-0 items-center gap-1">
-              <span className="text-muted-foreground">{t("worked")}</span>
-              <TicketTime time={ticket.worktime} />
-            </span>
-          ) : null}
-          {/* The last session alone: the column the runner writes after each run. */}
-          {took ? <span className="text-muted-foreground">{t("last session {{time}}", { time: took })}</span> : null}
-          {details ? (
-            <button
-              type="button"
-              data-slot="ticket-summary-more"
-              aria-expanded={more}
-              aria-label={t("More details")}
-              onClick={() => setMore((was) => !was)}
-              className="text-muted-foreground hover:text-foreground cursor-pointer rounded px-1 font-mono text-xs"
-            >
-              …
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-      {/* Said in the page, not in a tooltip: a finger has no hover. */}
-      {more && details ? (
-        <div data-slot="ticket-summary-details" className={cn(line, "text-muted-foreground")}>
-          {ticket.session ? (
-            <span className="inline-flex items-center gap-1.5">
-              {t("session")}
-              <button
-                type="button"
-                onClick={onSession}
-                className="text-foreground cursor-pointer font-mono text-xs underline-offset-2 hover:underline"
-                title={ticket.session}
-              >
-                {ticket.session.slice(0, 8)}
-              </button>
-            </span>
-          ) : null}
-          {ticket.runner ? (
-            <span>
-              {t("taken by")} <span className="font-mono text-xs">{ticket.runner}</span>
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 /* The tabs of a ticket: its brief, its discussion, its session — and, on one
  * in review, what you decide (see `ticket-decision.tsx`).
  *
@@ -520,20 +325,39 @@ function TicketSummary({ ticket, onSession }: { ticket: TicketDetail; onSession:
  * by itself, with the stream, the moment the ticket goes into review — without
  * taking the reader off the tab they are reading.
  *
+ * Activity is what happened, in one place: the session — its steps, live
+ * while it runs — and the journal Ponos writes at the end of each, with who
+ * did what on the ticket. They were two tabs, Live and Journal, the first one
+ * empty of anything live on nine tickets out of ten; a running ticket reads
+ * its session first, any other the journal first. The tab is still `live` in
+ * an address, and `&tab=journal` opens it too.
+ *
  * The status, the actions and the session's whereabouts stay above the tabs,
- * on every one of them, the block of facts first.
+ * on every one of them — see `ticket-status.tsx`.
  * `talking` says the discussion held is this ticket's, and not still the last
  * one's.
  */
-const TABS = ["result", "mission", "discussion", "live", "decide", "journal"] as const
+const TRIGGER =
+  "data-[state=active]:border-b-primary -mb-px h-10 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-2.5 data-[state=active]:bg-transparent data-[state=active]:shadow-none sm:px-3"
+
+const TABS = ["result", "mission", "discussion", "live", "decide"] as const
 type Tab = (typeof TABS)[number]
 
 const isTab = (value: string | null | undefined): value is Tab => TABS.includes(value as Tab)
 
 /** A tab named in an address, as it is called now: Unblock was folded into the
- * discussion, and the Brief became the mission. */
+ * discussion, the Brief became the mission, and the Journal is read under the
+ * session, on Activity. */
 const tabNamed = (value: string | null): Tab | undefined =>
-  value === "unblock" ? "discussion" : value === "brief" ? "mission" : isTab(value) ? value : undefined
+  value === "unblock"
+    ? "discussion"
+    : value === "brief"
+      ? "mission"
+      : value === "journal"
+        ? "live"
+        : isTab(value)
+          ? value
+          : undefined
 
 /** The query string with its tab said again, under `key` — the rest of it left exactly as written. */
 function withTab(searchStr: string, tab: Tab, key: string): string {
@@ -651,23 +475,40 @@ function TicketTabs({
       }}
       className="gap-4"
     >
-      {/* The whole width on a phone, three equal thirds: a tab list sized to
-          its words leaves the third one to be scrolled to. */}
-      {/* The ticket's gestures on the tabs' line, at its end: a row of their
-          own, for a "…" that most tickets hold alone, was a line lost. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b">
-      <TabsList className="scroll-thin h-auto w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 sm:w-fit">
+      {/* A line of its own, the whole width: five tabs at most, which a phone
+          holds without one cut at its edge. The ticket's gestures are above,
+          with its status. */}
+      <div className="border-b">
+      {/* Scrolled sideways only: the pixel by which its tabs sit on the line
+          under them made it a thing the wheel scrolled, one pixel, instead of the page. */}
+      <TabsList className="scroll-thin -mb-px h-auto w-full justify-start gap-0.5 overflow-x-auto overflow-y-hidden rounded-none bg-transparent p-0 pb-px sm:gap-1">
+        {/* What the ticket waits for, first. */}
+        {deciding && action ? (
+          <TabsTrigger
+          value={deciding} data-slot="ticket-decide-tab"
+          // On a phone the filled button above the tabs is the way in: the tab
+          // shows once it is the one open, and the four others fit the width.
+          className={cn(TRIGGER, "max-sm:data-[state=inactive]:hidden")}
+        >
+            {t(action)}
+            <CircleAlert
+              data-slot="ticket-decide-badge"
+              className="text-tr-pink size-4"
+              aria-label={t("your decision is awaited")}
+            />
+          </TabsTrigger>
+        ) : null}
         {finished ? (
           <TabsTrigger
             value="result" data-slot="ticket-result-tab"
-            className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            className={TRIGGER}
           >
             {t("Result")}
           </TabsTrigger>
         ) : null}
         <TabsTrigger
           value="mission" data-slot="ticket-mission-tab"
-          className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          className={TRIGGER}
         >
           {t("Mission")}
           {brief.on?.trim() ? (
@@ -680,7 +521,7 @@ function TicketTabs({
         </TabsTrigger>
         <TabsTrigger
           value="discussion" data-slot="ticket-talk-tab"
-          className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          className={TRIGGER}
         >
           {t("Discussion")}
           {waiting ? (
@@ -698,9 +539,9 @@ function TicketTabs({
         </TabsTrigger>
         <TabsTrigger
           value="live" data-slot="ticket-live-tab"
-          className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          className={TRIGGER}
         >
-          {t("Live")}
+          {t("Activity")}
           {running ? (
             <>
               <Pulse />
@@ -708,27 +549,7 @@ function TicketTabs({
             </>
           ) : null}
         </TabsTrigger>
-        {deciding && action ? (
-          <TabsTrigger
-          value={deciding} data-slot="ticket-decide-tab"
-          className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-            {t(action)}
-            <CircleAlert
-              data-slot="ticket-decide-badge"
-              className="text-tr-pink size-4"
-              aria-label={t("your decision is awaited")}
-            />
-          </TabsTrigger>
-        ) : null}
-        <TabsTrigger
-          value="journal" data-slot="ticket-journal-tab"
-          className="data-[state=active]:border-b-primary -mb-px h-9 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          {t("Journal")}
-        </TabsTrigger>
       </TabsList>
-      <TicketActions ticket={ticket} className="ml-auto pb-1" />
       </div>
 
       {finished ? (
@@ -764,27 +585,33 @@ function TicketTabs({
           </div>
         )}
       </TabsContent>
-      <TabsContent value="journal">
-        <section data-slot="ticket-journal" className="flex flex-col gap-2">
-          {brief.content === undefined ? (
-            <BriefPending brief={brief} />
-          ) : brief.journal?.trim() ? (
-            <Markdown text={brief.journal} />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              {t("Nothing yet: Ponos writes this part at the end of every session.")}
-            </p>
-          )}
-        </section>
-        <TicketAudit ticket={ticket} />
-      </TabsContent>
       <TabsContent value="discussion">
         <React.Suspense fallback={null}>
           <TicketTalk ticket={ticket} onSession={() => show("live", true)} />
         </React.Suspense>
       </TabsContent>
       <TabsContent value="live">
-        <TicketLive ticket={ticket} />
+        {/* What somebody opening it has come for, first: the session while it
+            writes, what the sessions said of themselves once they are over. */}
+        <div className={cn("flex gap-8", running ? "flex-col" : "flex-col-reverse")}>
+          <section data-slot="ticket-session" className="flex flex-col gap-2">
+            <Eyebrow>{t("Session")}</Eyebrow>
+            <TicketLive ticket={ticket} />
+          </section>
+          <section data-slot="ticket-journal" className="flex flex-col gap-2">
+            <Eyebrow>{t("Journal")}</Eyebrow>
+            {brief.content === undefined ? (
+              <BriefPending brief={brief} />
+            ) : brief.journal?.trim() ? (
+              <Markdown text={brief.journal} />
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                {t("Nothing yet: Ponos writes this part at the end of every session.")}
+              </p>
+            )}
+            <TicketAudit ticket={ticket} />
+          </section>
+        </div>
       </TabsContent>
       {deciding ? (
         <TabsContent value={deciding}>
@@ -829,7 +656,8 @@ function BriefPending({ brief }: { brief: ReturnType<typeof useBrief> }) {
  * and nothing to read the rest in. It lets a view replace the title and the
  * actions, but the line under them only with the whole header: so this is the
  * whole header, the same shapes, the short id with a button that copies the
- * long one, and a title that takes a second line before it gives up.
+ * long one, a title that takes a second line before it gives up, and the goal
+ * the ticket serves — what its window says in its own header.
  */
 export function TicketHead() {
   const page = useCurrentViewResourceContext().data as TicketDetail | undefined
@@ -843,7 +671,7 @@ export function TicketHead() {
   }
   return (
     <header data-slot="admin-header" className="w-full">
-      <div className="border-border flex flex-wrap items-end gap-x-6 gap-y-4 border-b pb-5">
+      <div className="border-border flex flex-wrap items-end gap-x-6 gap-y-4 border-b pb-4">
         <div className="min-w-0 flex-1">
           <Link
             to={boardHref()}
@@ -859,27 +687,26 @@ export function TicketHead() {
             {ticket ? ticket.title : t("Ticket")}
           </h2>
           {ticket ? (
-            <p className="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
-              {t("Ticket")} · <span className="font-mono">#{ticket.short}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                onClick={copyIt}
-                title={t("Copy the full id")}
-                aria-label={t("Copy the full id")}
-              >
-                <CopyIcon />
-              </Button>
-            </p>
+            <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <p className="flex items-center gap-1">
+                {t("Ticket")} · <span className="font-mono">#{ticket.short}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={copyIt}
+                  title={t("Copy the full id")}
+                  aria-label={t("Copy the full id")}
+                >
+                  <CopyIcon />
+                </Button>
+              </p>
+              {/* The goal it serves, as under the title of its window. The pull
+                  request and the session are in the page, each said once. */}
+              <TicketGoal ticket={ticket} />
+            </div>
           ) : null}
         </div>
-        {/* The pull request, the session: where else the ticket is. */}
-        {ticket ? (
-          <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 md:w-auto">
-            <TicketLinks ticket={ticket} />
-          </div>
-        ) : null}
       </div>
     </header>
   )

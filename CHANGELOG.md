@@ -16,6 +16,10 @@ somebody cuts a release; see CONTRIBUTING.md, « Cutting one ».
 
 ## [Unreleased]
 
+### Changed
+
+- **La vue d'un ticket, refaite — en fenêtre comme en page.** Elle s'ouvre sur **où en est le ticket** : son statut, dans la couleur de sa colonne, une phrase sur ce qu'il attend (« Votre décision est attendue », la cause d'un arrêt et quoi en faire, la phase d'un run) et ses gestes au même endroit, le principal en bouton plein (**Décider**, **Débloquer**). Dessous, **ce qu'il est et ce qu'il a coûté**, chaque fait sous son nom : une ligne et un « Détails » en fenêtre et sur téléphone, une colonne à côté des onglets sur une page large. La **pull request** n'est plus dite qu'une fois (elle l'était trois fois, et sa CI deux), au-dessus des onglets, avec ses checks et le lien vers le diff. Les onglets passent de six à cinq au plus : *En direct* et *Journal* deviennent **Activité** (la session, puis le journal — le journal d'abord quand rien ne tourne ; `&tab=live` et un ancien `&tab=journal` y mènent), *Décider* passe en premier et, sur téléphone, ne se dessine qu'une fois ouvert — plus d'onglet coupé au bord de l'écran. La page porte l'objectif du ticket sous son titre, comme la fenêtre ; la fenêtre ne pose plus le focus sur le choix de l'objectif à l'ouverture. Parti avec : la ligne « Votre décision est attendue » propre au téléphone (le bandeau la dit partout), les liens « pull request » et « session » de l'en-tête de la page (la PR a son bloc, la session est dans les faits) et la carte de PR répétée dans l'onglet Résultat. L'audit, les trois directions pesées et les captures avant/après sont dans `notes/design/ticket-view/`.
+
 ## [0.3.0] - 2026-11-19
 
 ### Added
