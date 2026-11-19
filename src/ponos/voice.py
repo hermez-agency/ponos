@@ -233,6 +233,7 @@ _SAID: dict[str, dict[str, str]] = {
     # Whose decision that was: a project may hold its own automatic validation,
     # and a report that only said "validated" would leave you guessing which
     # switch to turn off. See project_settings.py.
+    "forced-by-ticket": {"en": "the ticket's setting", "fr": "réglage du ticket"},
     "forced-by-project": {"en": "the project's setting", "fr": "réglage du projet"},
     "forced-by-global": {"en": "the global setting", "fr": "réglage global"},
     "forced-by-repair": {

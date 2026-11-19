@@ -226,6 +226,27 @@ export const PlanInputController: InputControllerComponentInterface = ({ formInp
   )
 }
 
+/* Force validated, ticket by ticket: inherited from the project or the global
+ * setting unless the ticket says otherwise, in either direction. */
+export const ValidationInputController: InputControllerComponentInterface = (props) => (
+  <div className="flex flex-col gap-1" data-slot="validation-input">
+    <SegmentedInputController
+      {...props}
+      formInput={{
+        ...props.formInput,
+        valueOptions: [
+          { value: "", label: t("Inherited"), description: t("The project's setting, or the global one.") },
+          { value: "forced", label: t("Forced"), description: t("Validated as soon as the session succeeds.") },
+          { value: "free", label: t("Not forced"), description: t("Waits for the review, whatever the project or the global setting says.") },
+        ],
+      }}
+    />
+    <span className="text-muted-foreground text-xs">
+      {t("Whether the ticket is validated without waiting for you: inherited from the project, then the global setting.")}
+    </span>
+  </div>
+)
+
 /* The « On » prompt: a few lines, under the other advanced options, with what
  * it is for and an example. Optional — empty, nothing runs. */
 export const OnInputController: InputControllerComponentInterface = ({ formInput, onChange }) => {
@@ -359,6 +380,7 @@ export function NewTicketFields() {
           {/* A code ticket's, like the sub-type: an empty type may turn out to be code. */}
           {code || !type ? field("plan") : null}
           {field("model")}
+          {field("validation")}
           {field("on")}
           {estimate ? (
             <p className="text-xs">

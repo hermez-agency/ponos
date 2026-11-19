@@ -814,7 +814,7 @@ one.
 Ticked, a ticket of that type no longer stops in *In review*: as soon as its session has
 succeeded, the runner does what moving it to *Validated* would have set off, then moves it
 to *Done*. Its report says so, and says whose decision it was — *Validated automatically
-(Force validated: Code) — the global setting*, or *— the project's setting*.
+(Force validated: Code) — the global setting*, *— the project's setting* or *— the ticket's setting*.
 
 **Project by project.** The four switches above are every project's, until a project has
 its own: on its page in the console, the *Settings* tab has *Its own automatic validation*.
@@ -825,6 +825,19 @@ global ones — merging unread on a project of your own, every pull request read
 client's, whatever `config.toml` says. They are kept in the runner's local database
 (`ponos.db`), not on the board, and survive a restart; *Settings › Automatic validation*
 names the projects that have their own, and so does `ponos doctor`.
+
+**Ticket by ticket.** A ticket inherits by default: its project's switches when the project
+has its own, the global ones otherwise. In the ticket itself — the *Force validated* field of
+the *New ticket* dialog, the same section on the ticket's page under *Mission*, the
+`validation` field of `POST /api/tickets` (and `POST /api/tickets/<id>/validation` to change
+it), the `validation` argument of the MCP's `create_task` — it can be set to **Forced**
+(validated as soon as the session succeeds) or **Not forced** (waits in *In review* even where
+the project or the global setting forces); **Inherited** hands it back. The order is
+ticket, then project, then global, and it only concerns the ticket's own type. The ticket's
+page shows what *Inherited* amounts to, and its source. The word is read when the validation
+is decided, so one changed during the session counts; it can no longer be changed once the
+ticket is done. It lives in `ponos.db` with the ticket, not on the board. The ticket that
+repairs a red base is validated whatever any of them says.
 
 - **Code** — the pull request is opened, its CI waited for (at most
   `checks_timeout_minutes`, only on a repository with workflows; a red check is run again

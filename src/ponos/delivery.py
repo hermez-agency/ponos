@@ -474,8 +474,9 @@ class Delivery(Base):
     def _forced(self, kind: str, project: Project, ticket: Ticket | None = None) -> str:
         """The line saying a ticket of that type is validated without you, or "".
 
-        The project's own automatic validation when it has one, the file's
-        otherwise; the line says which of the two decided. Asked only once the
+        The ticket's own setting when it has one, then the project's own
+        automatic validation when it has one, the file's otherwise; the line
+        says which of the three decided. Asked only once the
         session has succeeded — a failed or blocked ticket never gets this far.
 
         The ticket that repairs a red base is validated whatever those say:
@@ -483,7 +484,9 @@ class Delivery(Base):
         left in review for a person is how #331 stayed open, green, while the
         rest stood still. `_force_merge` still waits for its CI to be green.
         """
-        source = project_settings.forced_validation(self.config, kind, project.page_id)
+        source = project_settings.forced_validation(
+            self.config, kind, project.page_id, ticket.id if ticket else ""
+        )
         if not source and ticket and kind == "code" and state.is_repair(ticket.id):
             source = "repair"
         if not source:

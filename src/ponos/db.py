@@ -730,6 +730,13 @@ def _tickets(connection: sqlite3.Connection) -> None:
     connection.execute("CREATE INDEX mirror_queue_by_ticket ON mirror_queue (ticket, id)")
 
 
+def _tickets_have_a_validation(connection: sqlite3.Connection) -> None:
+    # « Force validated » ticket par ticket — see project_settings.py. Empty: the
+    # ticket inherits the project's or the file's; "forced" or "free" decides
+    # for itself, whatever they say. Ledger-only, like `attempts`.
+    connection.execute("ALTER TABLE tickets ADD COLUMN validation TEXT NOT NULL DEFAULT ''")
+
+
 def _tickets_have_attempts(connection: sqlite3.Connection) -> None:
     # « Tentatives » — see attempts.py. `attempts` is how many tries the author
     # asked for (1 or 2); `twin` is the other ticket of a pair, whichever of the
@@ -1381,6 +1388,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _projectless,
     _one_ticket_per_due_moment,
     _network_retries,
+    _tickets_have_a_validation,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

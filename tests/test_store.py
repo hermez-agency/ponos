@@ -24,7 +24,7 @@ from support import (
 )
 
 from ponos import config as C
-from ponos import db, ideas, ledger, pages, projects, state, store
+from ponos import db, ideas, ledger, pages, projects, state, store, tickets
 from ponos import ticket as ticket_module
 from ponos.web import api as web_api
 from ponos.web import board as web_board
@@ -679,6 +679,47 @@ def a_ticket_created_from_the_console_carries_its_priority_type_and_model() -> N
             pass
         else:
             raise AssertionError("a type that is none of the four must be refused")
+
+
+@case
+def a_ticket_keeps_its_own_force_validated_from_creation_to_its_end() -> None:
+    """Said at creation or later, three words only, and frozen once the ticket is done."""
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        bare = api.create_ticket("Hérité", ready=False)["id"]
+        record = tickets.get(bare)
+        assert record is not None and record.validation == "", "a ticket inherits by default"
+        forced = api.create_ticket("Forcé", ready=False, validation="forced")["id"]
+        record = tickets.get(forced)
+        assert record is not None and record.validation == "forced"
+        before = len(tickets.listing())
+        try:
+            api.create_ticket("Sans sens", validation="maybe")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("an unknown word must be refused")
+        assert len(tickets.listing()) == before, "and nothing created for it"
+
+        assert api.set_validation(bare, "free") == {"id": bare, "validation": "free"}
+        read = api._validation_of(bare)
+        assert read["validation"] == "free" and read["validation_inherited"] in (
+            "",
+            "global",
+            "project",
+        )
+        assert api.set_validation(bare, "inherit")["validation"] == ""
+        tickets.update(bare, status="done")
+        try:
+            api.set_validation(bare, "forced")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a finished ticket's setting no longer changes")
 
 
 @case

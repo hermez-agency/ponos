@@ -33,7 +33,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from . import db, planning
+from . import db, planning, tickets
 from . import diagnostic as diagnostic_module
 from . import preview as preview_module
 from .config import BROWSERS, Config
@@ -481,17 +481,31 @@ def owning_setup() -> list[dict[str, str]]:
     return owning
 
 
-def forced_validation(config: Config, kind: str, project: str) -> str:
+# What a ticket may say about its own validation, as `tickets.Record.validation`.
+FORCED = "forced"
+FREE = "free"
+OVERRIDES = ("", FORCED, FREE)
+
+
+def forced_validation(config: Config, kind: str, project: str, ticket: str = "") -> str:
     """Whose decision it is to validate a ticket of that type on that project.
 
-    "project" or "global" when it is validated without waiting for anybody —
-    which of the two said so is what the ticket's report says — and "" when it
-    waits for its review. The project's own switches when it has them, even
-    against the file's, in either direction; the file's otherwise.
+    "ticket", "project" or "global" when it is validated without waiting for
+    anybody — which of them said so is what the ticket's report says — and ""
+    when it waits for its review. The ticket's own word first, read now so that
+    a change made during its session is the one acted on; then the project's
+    own switches when it has them, even against the file's, in either
+    direction; the file's otherwise. The ticket's word is about its type only:
+    it counts for the four types that may be forced, as the others never are.
     """
     if not kind:
         return ""
     try:
+        record = tickets.get(ticket) if ticket else None
+        if record is not None and record.validation == FORCED:
+            return "ticket"
+        if record is not None and record.validation == FREE:
+            return ""
         own = validation(project)
     except db.ERRORS:
         return ""

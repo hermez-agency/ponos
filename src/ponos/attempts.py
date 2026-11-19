@@ -53,6 +53,7 @@ def sibling(page: str) -> tickets.Record | None:
         on_change=record.on_change,
         priority=record.priority,
         plan_first=record.plan_first,
+        validation=record.validation,
         scheduled=record.scheduled,
         status="ready",
         attempts=1,

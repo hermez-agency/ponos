@@ -34,6 +34,8 @@ from .. import (
     journal,
     models,
     preview,
+    project_settings,
+    projectless,
     session,
     state,
     stopping,
@@ -51,7 +53,7 @@ from .. import priority as priority_module
 from .. import results as results_module
 from .. import tickets as tickets_module
 from .. import transitions as transitions_module
-from ..config import BoardNames, state_dir
+from ..config import VALIDATED, BoardNames, state_dir
 from ..schedules import scheduled_for
 from ..ticket import short_id
 from . import board as board_module
@@ -635,8 +637,24 @@ class Tickets(Base):
             "journal": parts.done,
             **_results(page_id, parts.result),
             "on": str(store.read(page, settings.prop("on")) or ""),
+            **self._validation_of(page_id),
             "previews": preview.listing(page_id),
         }
+
+    def _validation_of(self, page_id: str) -> dict[str, Any]:
+        """The ticket's own Force validated, and what it would be without one.
+
+        `validation_inherited` is "project" or "global" when the ticket, left to
+        inherit, is validated without review, and "" when it waits for it.
+        """
+        record = tickets_module.get(page_id)
+        if record is None:
+            return {}
+        kind = record.kind if record.kind in VALIDATED else "code"
+        inherited = project_settings.forced_validation(
+            self.config, kind, record.project if record.project != projectless.ID else ""
+        )
+        return {"validation": record.validation, "validation_inherited": inherited}
 
     def _branch_of(self, page: Any, card: dict[str, Any]) -> str:
         """The branch a ticket that ran left in its repository, "" when it has none to show.
@@ -673,6 +691,7 @@ class Tickets(Base):
         goal: str = "",
         plan: bool = False,
         attempts: int | str = 1,
+        validation: str = "",
     ) -> dict[str, Any]:
         title = title.strip()
         if not title:
@@ -684,6 +703,7 @@ class Tickets(Base):
         subtype = subtype.strip()
         if subtype and subtype not in subtypes.KEYS:
             raise ValueError(f"unknown sub-type “{subtype}”")
+        word = self._validation_word(validation)
         settings = self.config.board
         values: dict[str, Any] = {}
         # Ready means "start it now"; anything else means the ticket is being
@@ -720,11 +740,40 @@ class Tickets(Base):
         tries = attempts_module.wanted(attempts)
         if tries > 1 and kind in ("", "code"):
             tickets_module.update(page_id, attempts=tries)
+        # « Force validated » of its own, when it says one — see project_settings.py.
+        if word:
+            tickets_module.update(page_id, validation=word)
         # Both parts from the start, whoever writes it — the console, the MCP,
         # an agent, a trigger: see ticket_page.py.
         self.runner.client.append_markdown(page_id, ticket_page.template(self.runner.voice, body))
         self.watch.nudge()
         return {"id": page_id, "title": title}
+
+    @staticmethod
+    def _validation_word(value: object) -> str:
+        """What a ticket may say of its validation: "" (inherit), "forced" or "free"."""
+        word = str(value or "").strip().lower()
+        word = {"inherit": "", "inherited": "", "on": "forced", "off": "free"}.get(word, word)
+        if word not in project_settings.OVERRIDES:
+            raise ValueError(f"unknown validation “{value}”: inherit, forced or free")
+        return word
+
+    def set_validation(self, page_id: str, validation: str) -> dict[str, Any]:
+        """Give a ticket its own Force validated, or hand it back to the project's.
+
+        Until the ticket is done: the word is read when the validation is
+        decided, so one written during its session counts. In the ledger only,
+        like the attempts: the board has no column for it.
+        """
+        word = self._validation_word(validation)
+        record = tickets_module.get(page_id)
+        if record is None:
+            raise LookupError(f"no ticket with id {page_id}")
+        if record.status in ("done", "cancelled"):
+            raise ValueError("a finished ticket's validation can no longer change")
+        tickets_module.update(page_id, validation=word)
+        self.watch.nudge()
+        return {"id": page_id.replace("-", ""), "validation": word}
 
     def set_on(self, page_id: str, prompt: str) -> dict[str, Any]:
         """Write the prompt a ticket runs at each change of its status; empty removes it.

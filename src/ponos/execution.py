@@ -1550,7 +1550,7 @@ class Execution(Base):
         forced = refused = ""
         later = False
         if pull_request:
-            forced = self._forced("code", job.project)
+            forced = self._forced("code", job.project, job.ticket)
         if forced:
             self.say(f"    · {forced}")
             refused, later = self._force_merge(job, pull_request)
@@ -1951,7 +1951,9 @@ class Execution(Base):
         ticket waits in review as it always did.
         """
         following = (
-            self._forced("publication", job.project) if prepared and not pull_request else ""
+            self._forced("publication", job.project, job.ticket)
+            if prepared and not pull_request
+            else ""
         )
         forced = bool(following)
         postponed = forced and bool(self.under_reserve())
