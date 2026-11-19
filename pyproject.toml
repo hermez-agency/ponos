@@ -16,7 +16,7 @@
 
 [project]
 name = "ponos"
-version = "0.2.0"
+version = "0.3.0"
 description = "Tickets turned into Claude Code sessions, on a board of its own."
 readme = "README.md"
 license = "MIT"

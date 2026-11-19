@@ -1,6 +1,6 @@
 services:
   ponos:
-    image: ghcr.io/hermez-agency/ponos:0.2.0
+    image: ghcr.io/hermez-agency/ponos:0.3.0
     restart: unless-stopped
     # The image's own user, said again so that nothing runs it as root: Claude
     # Code refuses bypassPermissions to root.
