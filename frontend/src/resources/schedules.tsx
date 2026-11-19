@@ -46,7 +46,7 @@ import {
   SegmentsInputController,
   TimeInputController,
 } from "@/components/console/recurrence-dialog-lazy"
-import { GoalOfInputController, PillsInputController, ProjectInputController } from "@/components/console/new-ticket-lazy"
+import { GoalOfInputController, OnInputController, PillsInputController, ProjectInputController } from "@/components/console/new-ticket-lazy"
 import { PriorityInputController } from "@/components/console/priority"
 import { recordWindow, useOpensOverTheList } from "@/components/console/record-window"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -118,6 +118,8 @@ export interface ScheduleWrite {
   priority?: string | number | null
   type?: string
   subtype?: string
+  /** The prompt every ticket is born with, copied as written: empty, they have none. */
+  on?: string
   /** The page of the project its tickets are for, written as `project`: empty, they come back as documents. */
   project_id?: string
   /** The page of the goal its tickets serve, written as `goal`: empty, they serve none. */
@@ -453,6 +455,8 @@ const fields: FormInterface["inputs"] = {
     controller: ProjectInputController,
     getValueOptions: projectChoices,
   },
+  // The prompt each ticket is born with, as the ticket page writes it.
+  on: { label: "Automation (On)", controller: OnInputController },
   // The goal every ticket it makes serves: none unless chosen.
   goal_id: { label: "Goal", controller: GoalOfInputController },
   // The page body, and the part of a schedule that says what to do: every
@@ -1011,6 +1015,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         priority: readScore(patch.priority) ?? "",
         type: patch.type ?? "",
         subtype: patch.subtype ?? "",
+        ...(patch.on === undefined ? {} : { on: patch.on }),
         ...(patch.project_id === undefined ? {} : { project: patch.project_id }),
         ...(patch.goal_id === undefined ? {} : { goal: patch.goal_id }),
         ...(patch.body === undefined ? {} : { body: patch.body }),
@@ -1031,6 +1036,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         priority: readScore(fresh.priority) ?? "",
         type: fresh.type ?? "",
         subtype: fresh.subtype ?? "",
+        ...(fresh.on ? { on: fresh.on } : {}),
         project: fresh.project_id ?? "",
         ...(fresh.goal_id ? { goal: fresh.goal_id } : {}),
         ...(fresh.body ? { body: fresh.body } : {}),

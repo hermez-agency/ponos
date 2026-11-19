@@ -74,6 +74,8 @@ class Schedule:
     # The goal its tickets serve, as a page id, "" for none. Whether that goal is
     # still there to serve is asked when a ticket is born, not here.
     goal: str = ""
+    # The `On` prompt every ticket is born with, copied as written; "" for none.
+    on: str = ""
     problem: str = ""
 
 
@@ -148,6 +150,7 @@ def read(page: store.Page, settings: BoardNames) -> Schedule:
         kind=str(value("type") or "").strip(),
         subtype=str(value("subtype") or "").strip(),
         goal=first("goal"),
+        on=str(value("on") or ""),
     )
     schedule.problem = _problem(schedule)
     return schedule

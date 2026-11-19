@@ -214,8 +214,9 @@ class Recurrence(Base):
         than linked, so the ticket reads on its own and its history shows what
         was actually asked for that day.
 
-        The project, the model, the priority, the type and the sub-type are
-        copied too. The type above all: a ticket born with one is never
+        The project, the model, the priority, the type, the sub-type and the
+        `On` prompt are copied too (the prompt as written: changing it on the
+        schedule leaves the tickets already born alone). The type above all: a ticket born with one is never
         classified (see `Preparation._kind`), and a brief long and well written
         enough reads as « Rédaction » to a classifier — a code ticket that then
         writes its answer in the page and goes to done, its pull request opened
@@ -239,6 +240,7 @@ class Recurrence(Base):
             ("model", schedule.model),
             ("type", schedule.kind),
             ("subtype", schedule.subtype),
+            ("on", schedule.on),
         ):
             if value:
                 values[settings.prop(key)] = value

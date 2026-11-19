@@ -39,7 +39,7 @@ class Schedules(Base):
         """Change one row of the Schedules database from the console.
 
         Only the columns a schedule is *written* in — the cadence, the hour,
-        the day, the tick, and the six a ticket inherits. Never `Next`
+        the day, the tick, and the seven a ticket inherits. Never `Next`
         or `Last`: those are what a pass writes back, and a console that let you
         edit them would let you make an occurrence happen twice.
         """
@@ -54,6 +54,7 @@ class Schedules(Base):
             "active": settings.prop("active"),
             "model": settings.prop("model"),
             "priority": settings.prop("priority"),
+            "on": settings.prop("on"),
         }
         written: dict[str, Any] = {}
         for key, name in writable.items():
@@ -375,6 +376,7 @@ class Schedules(Base):
             "project_id": schedule.project.replace("-", ""),
             "model": schedule.model,
             "priority": schedule.priority,
+            "on": schedule.on,
             # By their keys, as the form sends them back: `code`, `bug`.
             "type": self.config.board.kind_of(schedule.kind),
             "subtype": subtypes.of(schedule.subtype),

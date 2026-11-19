@@ -916,6 +916,8 @@ class Schedule(Shape):
     """What its tickets are born as, by their keys — `code`, `bug` — empty to let them be
     guessed."""
     subtype: str = omitted()
+    on: str = omitted()
+    """The `On` prompt each ticket is born with, empty for none."""
     goal: str = omitted()
     """The name of the goal its tickets serve, empty for none."""
     goal_id: str = omitted()
