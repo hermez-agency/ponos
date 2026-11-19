@@ -51,6 +51,7 @@ _TEXT = (
     "role",
     "goal",
     "twin",
+    "validation",
 )
 _NUMBERS = ("priority", "cost", "duration", "attempts")
 _FLAGS = ("waiting", "plan_first")
@@ -86,6 +87,8 @@ class Record:
     plan_first: bool = False
     attempts: int = 1
     twin: str = ""
+    # "" inherits the project's or the file's Force validated, "forced" and "free" overrule them.
+    validation: str = ""
     created_at: str = ""
     edited_at: str = ""
     after: list[str] = field(default_factory=list)

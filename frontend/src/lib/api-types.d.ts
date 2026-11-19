@@ -1460,6 +1460,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/validation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Ticket Validation
+         * @description The ticket's own Force validated: "inherit", "forced" or "free".
+         */
+        post: operations["set_ticket_validation_api_tickets__ticket_id__validation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/goal": {
         parameters: {
             query?: never;
@@ -4063,6 +4083,8 @@ export interface components {
             plan: boolean;
             /** @default 1 */
             attempts: unknown;
+            /** @default  */
+            validation: string;
         } & {
             [key: string]: unknown;
         };
@@ -5469,6 +5491,16 @@ export interface components {
             model_in_use?: components["schemas"]["ModelInUse"];
             /** @description The prompt run at every change of the ticket's status, empty for none. */
             on?: string;
+            /**
+             * @description Its own Force validated: empty to inherit the project's or the global one, `forced`, or
+             *     `free` (waits for the review whatever they say).
+             */
+            validation?: string;
+            /**
+             * @description What it inherits: `project` or `global` when that validates it without a review, empty when
+             *     it waits for one.
+             */
+            validation_inherited?: string;
             /** @description The before/after captures of its pages, empty when none were taken. */
             previews?: components["schemas"]["PreviewShot"][];
             /** @description On a ready or draft ticket only: the line its card no longer draws — see `_notes`. */
@@ -5503,6 +5535,11 @@ export interface components {
             result: string;
             /** @description Every version, the newest first. */
             results: components["schemas"]["ResultVersion"][];
+        };
+        TicketValidation: {
+            id: string;
+            /** @description The ticket's own Force validated: "" to inherit, "forced" or "free". */
+            validation: string;
         };
         Title: {
             /** @default  */
@@ -8828,6 +8865,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketPriority"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_validation_api_tickets__ticket_id__validation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketValidation"];
                 };
             };
             /** @description Validation Error */

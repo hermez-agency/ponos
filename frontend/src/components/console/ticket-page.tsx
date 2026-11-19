@@ -45,6 +45,7 @@ import { TicketTabContext, WINDOW_TAB } from "./ticket-decision"
 import { TicketDecision } from "./ticket-decision-panel"
 import { TicketAudit } from "./ticket-audit"
 import { TicketOn } from "./ticket-on"
+import { TicketValidation } from "./ticket-validation"
 import { TicketProjectChoice } from "./ticket-project"
 import { TicketEstimate } from "./ticket-estimate"
 import { TicketMission, TicketResult } from "./ticket-result"
@@ -255,6 +256,8 @@ function useBrief(page: TicketDetail | undefined, finished: boolean) {
     results?: TicketDetail["results"]
     journal?: string
     on?: string
+    validation?: string
+    validation_inherited?: string
     model?: TicketDetail["model_in_use"]
     previews?: TicketDetail["previews"]
     problem?: string
@@ -282,6 +285,8 @@ function useBrief(page: TicketDetail | undefined, finished: boolean) {
           results: detail.results,
           journal: detail.journal,
           on: detail.on,
+          validation: detail.validation,
+          validation_inherited: detail.validation_inherited,
           model: detail.model_in_use,
           previews: detail.previews,
         }),
@@ -300,6 +305,8 @@ function useBrief(page: TicketDetail | undefined, finished: boolean) {
     results: mine?.results,
     journal: mine?.journal,
     on: mine?.on,
+    validation: mine?.validation,
+    validation_inherited: mine?.validation_inherited,
     model: mine?.model,
     previews: mine?.previews,
     problem: mine?.problem,
@@ -746,6 +753,13 @@ function TicketTabs({
         ) : (
           <div className="flex flex-col gap-6">
             <TicketMission mission={brief.mission ?? brief.content} />
+            <TicketValidation
+              ticket={{
+                ...ticket,
+                validation: brief.validation ?? "",
+                validation_inherited: brief.validation_inherited ?? "",
+              }}
+            />
             <TicketOn ticket={{ ...ticket, on: brief.on ?? "" }} />
           </div>
         )}

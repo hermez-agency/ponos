@@ -15,7 +15,7 @@ from typing import Any
 from support import _board, _config, _environment, _local_api, _saved, _state, _state_home, case
 
 from ponos import config as C
-from ponos import db, github_checks, project_settings, state, update, vault, voice
+from ponos import db, github_checks, project_settings, state, tickets, update, vault, voice
 from ponos.__main__ import build_parser
 from ponos.web import settings as web_settings
 
@@ -159,6 +159,50 @@ def the_validation_line_says_whose_decision_it_was() -> None:
     assert line == "Validated automatically (Force validated: Code) — the project's setting"
     assert french.say("forced-by-global") == "réglage global"
     assert french.say("forced-by-project") == "réglage du projet"
+    assert french.say("forced-by-ticket") == "réglage du ticket"
+    line = english.say("forced-validation", kind="Code", source=english.say("forced-by-ticket"))
+    assert line.endswith("— the ticket's setting")
+
+
+@case
+def a_ticket_overrules_its_project_and_the_file_both_ways() -> None:
+    """Ticket, then project, then file; an inheriting ticket is the board as it was.
+
+    The ticket's word is read when the validation is asked, so one written
+    after the session started is the one acted on — and it says "ticket".
+    """
+    eager = _config('[runner]\nforce_validated = ["code"]\n')
+    quiet = _config("")
+    page = "1234abcd-0000-0000-0000-00000000beef"
+    ticket = "feed" * 8
+    with _state():
+        try:
+            tickets.create("T", id=ticket)
+            check = project_settings.forced_validation
+            # Inherited: the file's, then the project's.
+            assert check(eager, "code", page, ticket) == "global"
+            assert check(quiet, "code", page, ticket) == ""
+            project_settings.set_validation(page, "Client", {"code": True})
+            assert check(quiet, "code", page, ticket) == "project"
+            # Forced against a project that is not, and against a file that is not.
+            project_settings.set_validation(page, "Client", {"code": False})
+            tickets.update(ticket, validation="forced")
+            assert check(eager, "code", page, ticket) == "ticket"
+            assert check(quiet, "code", "", ticket) == "ticket"
+            # Not forced against a project and a file that both force.
+            project_settings.set_validation(page, "Client", {"code": True})
+            tickets.update(ticket, validation="free")
+            assert check(eager, "code", page, ticket) == ""
+            assert check(eager, "code", "", ticket) == ""
+            # Handed back: the project decides again. A ticket the ledger does not know inherits.
+            tickets.update(ticket, validation="")
+            assert check(eager, "code", page, ticket) == "project"
+            assert check(eager, "code", page, "0" * 32) == "project"
+            # Whichever the word, no type is no validation.
+            tickets.update(ticket, validation="forced")
+            assert check(eager, "", page, ticket) == ""
+        finally:
+            db.close()
 
 
 @case

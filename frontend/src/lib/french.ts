@@ -1314,6 +1314,24 @@ export const FRENCH: Record<string, string> = {
   "If it goes to validated, create the deployment ticket.":
     "Si on passe en validé, crée le ticket de déploiement.",
   "Save the prompt": "Enregistrer le prompt",
+  Inherited: "Hérité",
+  Forced: "Forcé",
+  "Not forced": "Non forcé",
+  "The project's setting, or the global one.": "Le réglage du projet, sinon le réglage global.",
+  "Validated as soon as the session succeeds.": "Validé dès que la session réussit.",
+  "Waits for the review, whatever the project or the global setting says.":
+    "Attend la revue, quoi que disent le projet ou le réglage global.",
+  "Whether the ticket is validated without waiting for you: inherited from the project, then the global setting.":
+    "Si le ticket est validé sans vous attendre : hérité du projet, puis du réglage global.",
+  "Force validated saved": "Force validated enregistré",
+  "Validated as soon as the session succeeds — the ticket's setting.":
+    "Validé dès que la session réussit — réglage du ticket.",
+  "Waits for the review — the ticket's setting.": "Attend la revue — réglage du ticket.",
+  "Validated as soon as the session succeeds — the project's setting.":
+    "Validé dès que la session réussit — réglage du projet.",
+  "Validated as soon as the session succeeds — the global setting.":
+    "Validé dès que la session réussit — réglage global.",
+  "Waits for the review.": "Attend la revue.",
   Automation: "Automatisation",
   "Automation (On)": "Automatisation (On)",
   "No prompt on this ticket.": "Aucun prompt sur ce ticket.",

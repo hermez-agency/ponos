@@ -177,6 +177,14 @@ export const api = {
         body: { priority },
       })
     ),
+  /** The ticket's own Force validated: empty to inherit, `forced`, or `free`. */
+  setValidation: (ticket: string, validation: string) =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/validation", {
+        params: { path: { ticket_id: ticket } },
+        body: { validation },
+      })
+    ),
   schedules: () => answer(client.GET("/api/schedules")),
   schedule: (id: string) =>
     answer(client.GET("/api/schedules/{schedule_id}", { params: { path: { schedule_id: id } } })),
@@ -361,10 +369,12 @@ export const api = {
     plan?: boolean
     /** The prompt run at every change of its status; empty for none. */
     on?: string
+    /** Its own Force validated: empty to inherit, `forced`, or `free` (waits for the review). */
+    validation?: string
   }) =>
     answer(
       client.POST("/api/tickets", {
-        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, ...ticket },
+        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, validation: "", ...ticket },
       })
     ),
   /** `from` is the status the card showed: the board saying anything else by

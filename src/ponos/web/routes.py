@@ -263,6 +263,7 @@ class NewTicket(Payload):
     goal: str = ""
     plan: bool = False
     attempts: Any = 1
+    validation: str = ""
 
 
 class On(Payload):
@@ -1268,6 +1269,7 @@ def create_ticket(
         payload.goal,
         payload.plan,
         payload.attempts,
+        payload.validation,
     )
     _done(request, str(created.get("id", "")), "created", "ready" if payload.ready else "draft")
     return answer(created)
@@ -1309,6 +1311,16 @@ def set_ticket_priority(
 ) -> Response:
     done = _api(request).set_priority(ticket_id, payload.get("priority", ""))
     _done(request, ticket_id, "priority", str(payload.get("priority", "")))
+    return answer(done)
+
+
+@router.post("/api/tickets/{ticket_id:page}/validation", response_model=answers.TicketValidation)
+def set_ticket_validation(
+    request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    """The ticket's own Force validated: "inherit", "forced" or "free"."""
+    done = _api(request).set_validation(ticket_id, str(payload.get("validation", "")))
+    _done(request, ticket_id, "validation", str(done["validation"] or "inherit"))
     return answer(done)
 
 

@@ -48,6 +48,7 @@ import {
   PillsInputController,
   OnInputController,
   PlanInputController,
+  ValidationInputController,
   ProjectInputController,
   SegmentedInputController,
 } from "@/components/console/new-ticket-lazy"
@@ -197,6 +198,8 @@ export interface TicketWrite {
   plan?: boolean
   /** The prompt run at every change of its status; empty for none. */
   on?: string
+  /** Its own Force validated: empty to inherit, `forced` or `free`. */
+  validation?: string
 }
 
 /* One row per ticket, kept for as long as the ticket is the same object.
@@ -463,6 +466,12 @@ const createForm: FormInterface = {
       label: "Automation (On)",
       defaultValue: "",
       controller: OnInputController,
+    },
+    // Force validated of its own: inherited unless the ticket says otherwise.
+    validation: {
+      label: "Force validated",
+      defaultValue: "",
+      controller: ValidationInputController,
     },
     // Said by the button that sends the form: "Save as draft" or "Launch the ticket".
     ready: { defaultValue: true, hidden: () => true },
@@ -1483,6 +1492,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
         goal: String(fresh.goal ?? ""),
         plan: fresh.plan === true,
         on: String(fresh.on ?? ""),
+        validation: String(fresh.validation ?? ""),
       }),
     rollback: () => dropTicket(card.id),
     failure: t("The ticket could not be created"),

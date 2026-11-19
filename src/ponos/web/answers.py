@@ -298,6 +298,12 @@ class TicketDetail(Ticket):
     """The model it runs on: the last session's own word, then the column, then the defaults."""
     on: str = omitted()
     """The prompt run at every change of the ticket's status, empty for none."""
+    validation: str = omitted()
+    """Its own Force validated: empty to inherit the project's or the global one, `forced`, or
+    `free` (waits for the review whatever they say)."""
+    validation_inherited: str = omitted()
+    """What it inherits: `project` or `global` when that validates it without a review, empty when
+    it waits for one."""
     previews: list[PreviewShot] = omitted()
     """The before/after captures of its pages, empty when none were taken."""
     earlier: Earlier = omitted()
@@ -449,6 +455,12 @@ class TicketPriority(Shape):
     id: str
     priority: int
     """The score it now has, from 0 to 100."""
+
+
+class TicketValidation(Shape):
+    id: str
+    validation: str
+    """The ticket's own Force validated: "" to inherit, "forced" or "free"."""
 
 
 class Moved(Shape):

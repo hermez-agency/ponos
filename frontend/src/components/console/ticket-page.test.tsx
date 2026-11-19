@@ -84,6 +84,7 @@ vi.mock("./session-log", () => ({
 vi.mock("./ticket-talk", () => ({ TicketTalk: () => <p>the discussion</p> }))
 
 vi.mock("./ticket-on", () => ({ TicketOn: () => null }))
+vi.mock("./ticket-validation", () => ({ TicketValidation: () => null }))
 
 vi.mock("./ticket-decision", async () => {
   const { createContext } = await import("react")

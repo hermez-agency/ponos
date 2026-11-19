@@ -555,6 +555,13 @@ TOOLS: list[dict[str, Any]] = [
                     "la tâche, avec l'ancien statut, le nouveau et la tâche. Vide : rien ne "
                     "s'exécute.",
                 },
+                "validation": {
+                    "type": "string",
+                    "enum": ["inherit", "forced", "free"],
+                    "description": "Force validated de la tâche : inherit (défaut) suit le projet "
+                    "puis le réglage global, forced la valide dès que la session réussit, free "
+                    "l'attend en review même si le projet ou le global forcent.",
+                },
             },
             ("title",),
         ),
@@ -1588,6 +1595,7 @@ def create_task(
     goal: str = "",
     model: str = "",
     on: str = "",
+    validation: str = "",
 ) -> dict[str, Any]:
     if not title.strip():
         raise ToolError("Une tâche a besoin d'un titre.")
@@ -1603,6 +1611,7 @@ def create_task(
         goal=served["id"] if served else "",
         model=model,
         on=on,
+        validation=validation,
     )
     return {
         "id": created["id"].replace("-", ""),
