@@ -148,6 +148,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `runner.timeout_minutes` | `30` | past this, the session is killed and the ticket fails |
 | `runner.log_max_mb` | `4096` | the most `logs/` may hold, service journal included; past it the oldest logs are removed down to 90 % of it, never those of a ticket in use — see [What `clean` removes](usage.md#what-clean-removes-and-what-it-refuses-to) |
 | `runner.wait_for_credits` | `true` | a spent subscription window puts the runner to sleep instead of failing tickets — see [When the credits run out](credits.md#when-the-credits-run-out) |
+| `runner.network_retries` | `3` | tries, after 5, 15 then 45 minutes, of a ticket whose session was cut by the network or the API; `0` fails it at once — see [When the network is cut](credits.md#when-the-network-is-cut) |
 | `runner.model` | `""` | `"opus"`, `"sonnet"`… empty = the CLI's default |
 | `runner.language` | `""` | `"fr"` to be answered in French — see [The language it answers in](board.md#the-language-it-answers-in) |
 | `runner.app_language` | `""` | the language the console opens in; empty follows `runner.language` — see [The language it answers in](board.md#the-language-it-answers-in) |

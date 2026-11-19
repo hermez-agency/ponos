@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import IO, Any
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import config, credits, disk, leftovers, vault
+from . import config, credits, disk, leftovers, resources, vault
 from .question import Question, caveats, lesson, memories, parse
 
 logger = logging.getLogger(__name__)
@@ -85,6 +85,9 @@ class Outcome:
     # Why it is believed to have been killed from outside, once the runner has
     # looked and given it its one more try: empty for every other ending.
     killed: str = ""
+    # Ended on the network or the API being away (EAI_AGAIN, an overloaded API…):
+    # neither a question nor the ticket's failure — see `Reports._network_retry`.
+    network: bool = False
 
     @property
     def concluded(self) -> bool:
@@ -727,6 +730,14 @@ def _outcome(
         # As far off as any wait may be: a sign-in is what ends this one, and
         # the moment is only there for a runner that never hears of one.
         resets_at = time.time() + credits.LONGEST_WAIT if signed_out else credits.reached(said)
+    # A cut is a failure's, or a stop whose whole answer is the error: a long
+    # answer that merely mentions one is a session that talked about it.
+    cut = (
+        not resets_at
+        and not over_budget
+        and (failed or (blocked and len(answer) < 1200))
+        and resources.api_cut(f"{answer}\n{_tail(stderr_path)}" if failed else answer)
+    )
 
     return Outcome(
         ok=not failed and not blocked,
@@ -749,6 +760,7 @@ def _outcome(
         over_budget=over_budget,
         code=code,
         resulted=bool(final),
+        network=cut,
     )
 
 

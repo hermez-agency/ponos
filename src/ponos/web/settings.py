@@ -497,6 +497,15 @@ SECTIONS: tuple[Section, ...] = (
                 "On: the ticket waits, ticked Waiting for credit, and starts again when the "
                 "usage window resets. Off: every ticket fails until then.",
             ),
+            Field(
+                "runner",
+                "network_retries",
+                "int",
+                "Tries after a network or API cut",
+                "A session cut by the network is put back in line after 5, 15 then 45 minutes, "
+                "this many times at most, then the ticket stops on the real cause. 0: it stops at once.",
+                minimum=0,
+            ),
         ),
     ),
     Section(

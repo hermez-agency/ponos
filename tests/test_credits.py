@@ -514,6 +514,112 @@ def a_runner_told_not_to_wait_fails_on_the_quota_as_it_always_did(state_home: Pa
     assert "the credits are out" not in _board(runner).comments_written[0]
 
 
+# -- a network or API cut ----------------------------------------------------
+
+
+def _cut(
+    text: str = "API Error: Can't reach the API server — check your internet or DNS (EAI_AGAIN)",
+) -> session.Outcome:
+    """What `session.run` hands back when the line to the API was away."""
+    return session.Outcome(
+        ok=False,
+        blocked=False,
+        session_id="s-1",
+        summary="",
+        log=Path("/dev/null"),
+        error=text,
+        network=True,
+    )
+
+
+def _network_down(page: store.Page) -> Runner:
+    runner = _board_runner([page], {})
+    runner.config.runner.auto_update = False
+    runner._run_session = lambda job, template: _cut()  # type: ignore[assignment, method-assign, misc]  # a double: no session
+    return runner
+
+
+@case
+def a_network_cut_is_read_apart_from_a_question_and_a_failure() -> None:
+    from ponos import resources
+
+    for said in (
+        "API Error: Can't reach the API server — check your internet or DNS (EAI_AGAIN)",
+        "getaddrinfo ENOTFOUND api.anthropic.com",
+        "read ECONNRESET",
+        "API Error: 529 overloaded_error",
+        "API Error: 503 Service Unavailable",
+    ):
+        assert resources.api_cut(said), said
+    for said in ("claude exited with code 1", "Which database should I use?", ""):
+        assert not resources.api_cut(said), said
+
+
+@case
+def a_session_cut_by_the_network_goes_back_in_line_with_a_delay(state_home: Path) -> None:
+    page = _reviewed("p-doc", "progress", None)
+    runner = _network_down(page)
+    result = runner._execute_document(_doc_job(page))
+    assert result is not None and result["status"] == "network-retry"
+    written = _board(runner).written[0][1]
+    assert written["statut"] == "ready", "not blocked, not failed"
+    assert written["Scheduled"], "dated: the queue's own « not before »"
+    assert written["Session"] == "s-1", "its conversation is carried on"
+    assert _board(runner).comments_written[0].startswith("↩️"), "a retry, not a question"
+    assert "network cut, new try at" in _board(runner).comments_written[0]
+    assert state.network_attempts(ticket_module.Ticket(page).id) == 1
+
+
+@case
+def the_waits_grow_and_the_last_try_ends_on_the_real_cause(state_home: Path) -> None:
+    page = _reviewed("p-doc", "progress", None)
+    runner = _network_down(page)
+    runner.config.runner.network_retries = 2
+    for count in (1, 2):
+        result = runner._execute_document(_doc_job(page))
+        assert result is not None and result["status"] == "network-retry"
+        assert state.network_attempts(ticket_module.Ticket(page).id) == count
+    result = runner._execute_document(_doc_job(page))
+    assert result is not None and result["status"] == "blocked"
+    assert result["code"] == "session.network"
+    assert "EAI_AGAIN" in str(_board(runner).written[-1][1]) + "".join(
+        _board(runner).comments_written
+    )
+
+
+@case
+def a_validated_publication_cut_by_the_network_goes_back_to_validated(state_home: Path) -> None:
+    """The decision to publish stands: the retry publishes it, nothing is proposed again."""
+    page = _reviewed("p-post", "validated", None)
+    runner = _network_down(page)
+    result = runner._publish(ticket_module.Ticket(page), projects.Project(name="", path=None))
+    assert result is not None and result["status"] == "network-retry"
+    assert _board(runner).written[-1][1]["statut"] == "validated"
+    assert state.claims() == {}, "the claim is let go of on the way out"
+
+
+@case
+def a_ticket_waiting_on_the_network_starts_once_the_api_answers(state_home: Path) -> None:
+    from ponos import board, resources
+
+    page = _reviewed("p-doc", "ready", None)
+    runner = _board_runner([page], {})
+    ticket = ticket_module.Ticket(page)
+    state.network_retried(ticket.id)
+    answers = [False]
+    resources.reachable = lambda timeout=3.0: answers[0]  # a double
+    board._probe = (board.NEVER, True)
+    try:
+        moment = runner._moment(ticket)
+        assert moment is not None and moment > datetime.now().astimezone(), "held while it is down"
+        answers[0], board._probe = True, (board.NEVER, True)
+        assert runner._moment(ticket) is None, "free once it answers"
+    finally:
+        import importlib
+
+        importlib.reload(resources)
+
+
 # -- stopping short of the wall ------------------------------------------------
 
 

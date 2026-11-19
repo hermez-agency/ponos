@@ -168,6 +168,24 @@ def network_error(text: str) -> bool:
     return bool(_NETWORK.search(text or ""))
 
 
+_API_CUT = re.compile(
+    r"EAI_AGAIN|ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNABORTED|EHOSTUNREACH|ENETUNREACH"
+    r"|can'?t reach the API server|unable to connect to api|connection error"
+    r"|overloaded_error|\boverloaded\b|API Error:?\s*\(?5\d\d"
+    r"|(?:status|error|code)\W{0,3}5(?:0[0234]|29)\b|socket hang up",
+    re.IGNORECASE,
+)
+
+
+def api_cut(text: str) -> bool:
+    """Does what a session ended on read as the network or the API being away?
+
+    EAI_AGAIN and its kin, an overloaded API, a 5xx: the cause is not the
+    ticket's and a later try may well work, unlike a refusal or a question.
+    """
+    return bool(_API_CUT.search(text or ""))
+
+
 def signal_name(code: int) -> str:
     """A process's exit status said as the signal that ended it, or ''.
 

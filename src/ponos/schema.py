@@ -211,6 +211,7 @@ class RunnerTable(Table):
     timeout_minutes: AtLeast1 = Runner.timeout_minutes
     log_max_mb: AtLeast1 = Runner.log_max_mb
     wait_for_credits: bool = Runner.wait_for_credits
+    network_retries: AtLeast0 = Runner.network_retries
 
     model: Text = Runner.model
     # Kept as the file wrote it: `voice` reads it down to a language it

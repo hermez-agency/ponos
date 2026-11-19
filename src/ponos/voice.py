@@ -574,6 +574,14 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "the session stopped without writing an answer",
         "fr": "la session s'est arrêtée sans écrire de réponse",
     },
+    "network-cut": {
+        "en": "the network or the API was away, at every new try",
+        "fr": "le réseau ou l'API était coupé, à chaque nouvel essai",
+    },
+    "network-retry": {
+        "en": "network cut, new try at {when} (try {count} of {limit})",
+        "fr": "coupure réseau, nouvel essai à {when} (essai {count} sur {limit})",
+    },
     "no-answer-detail": {
         "en": "{summary}\n\nNothing was written to ANSWER.md.",
         "fr": "{summary}\n\nRien n'a été écrit dans ANSWER.md.",

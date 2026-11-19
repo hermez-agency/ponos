@@ -252,6 +252,10 @@ class Runner:
     # behaviour — an exhausted quota is reported as the session failure it looks
     # like. See credits.py.
     wait_for_credits: bool = True
+    # A session that ends on the network or the API being away (EAI_AGAIN, an
+    # overloaded API…) is put back in line after 5, 15 then 45 minutes, this
+    # many times at most; then it stops on the real cause. Zero fails at once.
+    network_retries: int = 3
     # How much of the window to leave alone, as a percentage. The runner starts
     # nothing new past `100 - this`, so there is still a subscription left to
     # open a terminal with — a runner that spends the last of it is a runner you

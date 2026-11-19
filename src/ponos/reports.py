@@ -69,7 +69,10 @@ COMMENT_CHARS = 2000
 # The endings of a run that did no work — out of credit, put back in the queue,
 # cut by the network: its line goes into the ticket's history, but the report
 # above it stays the last one a session wrote (ticket_page.py).
-UNWORKED = ("waiting", "requeued", "interrupted")
+UNWORKED = ("waiting", "requeued", "interrupted", "network-retry")
+
+# Minutes before each new try of a ticket the network cut: the last one repeats.
+NETWORK_WAITS = (5, 15, 45)
 
 # What a session identifier looks like — `session.new_id` draws a UUID4. Matched
 # rather than trusted because the Session column is a column like any other: a
@@ -648,6 +651,12 @@ class Reports(Base):
                 said.say("over-ticket-budget", limit=limit),
                 said.say("over-ticket-budget-detail"),
             )
+        if outcome.network:
+            return (
+                "session.network",
+                said.say("network-cut"),
+                outcome.summary or outcome.error,
+            )
         sentence = said.say(blocks.cause(code).said[0])
         return code, sentence, (outcome.summary if outcome.blocked else outcome.error) or ""
 
@@ -953,6 +962,57 @@ class Reports(Base):
         other and is reported as one — which is what the runner always did.
         """
         return bool(outcome.exhausted and self._waits_for_credits)
+
+    def _network_retry(
+        self,
+        ticket: Ticket,
+        status: str,
+        outcome: session.Outcome,
+        home: Path | None = None,
+    ) -> dict[str, Any] | None:
+        """Put a ticket whose session was cut by the network back in line, for later.
+
+        Not a question and not a failure: the ticket is untouched, the line to
+        the API was away. It goes back to `status` — ready for a ticket,
+        validated for a publication, so that the decision already taken is not
+        asked again — dated a little later, 5 then 15 then 45 minutes, and
+        ticked so that its session is resumed. The date is the queue's own
+        "not before": nothing new is invented to hold it. Past
+        `runner.network_retries` tries it returns None, and the caller ends the
+        ticket on its real cause. Before each new try the board looks at the
+        network first — see `Board._moment` — so no session is paid for nothing.
+        """
+        limit = self.config.runner.network_retries
+        if not outcome.network or limit <= 0 or self.dry_run:
+            return None
+        tries = state.network_attempts(ticket.id)
+        if tries >= limit:
+            return None
+        count = state.network_retried(ticket.id)
+        minutes = NETWORK_WAITS[min(count, len(NETWORK_WAITS)) - 1]
+        until = datetime.now().astimezone() + timedelta(minutes=minutes)
+        said = self.voice
+        why = said.say("network-retry", when=until.strftime("%H:%M"), count=count, limit=limit)
+        self.say(f"    ↩ {ticket.title} — {why}")
+        self._set(
+            ticket,
+            **{
+                self.config.board.prop("status"): status,
+                self.config.board.prop("waiting"): True,
+                self.config.board.prop("due"): until.isoformat(timespec="minutes"),
+                self.config.board.prop("session"): self._session_value(outcome.session_id, home),
+            },
+        )
+        self._comment(ticket, f"{voice_module.MARKS['requeued']} {why}")
+        return {
+            "ticket": ticket.title,
+            "id": ticket.id,
+            "status": "network-retry",
+            "reason": why,
+            "session": outcome.session_id,
+            "seconds": round(outcome.seconds, 1),
+            "cost_usd": outcome.cost_usd,
+        }
 
     def _hold_credits(self, outcome: session.Outcome) -> None:
         """Put the runner to sleep until the credits come back.

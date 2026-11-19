@@ -368,6 +368,9 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Patienter quand la limite de l'abonnement est atteinte",
   "On: the ticket waits, ticked Waiting for credit, and starts again when the usage window resets. Off: every ticket fails until then.":
     "Activé : le ticket patiente, coché En attente de crédit, et repart quand la fenêtre d'usage se renouvelle. Désactivé : chaque ticket échoue jusque-là.",
+  "Tries after a network or API cut": "Essais après une coupure réseau ou API",
+  "A session cut by the network is put back in line after 5, 15 then 45 minutes, this many times at most, then the ticket stops on the real cause. 0: it stops at once.":
+    "Une session coupée par le réseau est remise en file après 5, 15 puis 45 minutes, ce nombre de fois au plus, puis le ticket s'arrête sur la vraie cause. 0 : il s'arrête tout de suite.",
   "At 5, no new ticket starts past 95 % of the session or weekly limit, so you still have Claude for yourself. Running tickets finish. From 0 (use it all) to 50.":
     "À 5, aucun nouveau ticket ne démarre au-delà de 95 % de la limite de session ou de la semaine : il vous reste Claude pour vous. Les tickets en cours vont au bout. De 0 (tout utiliser) à 50.",
   "Open a pull request": "Ouvrir une pull request",

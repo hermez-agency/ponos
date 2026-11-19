@@ -754,6 +754,14 @@ def _kind_switches(connection: sqlite3.Connection) -> None:
     )
 
 
+def _network_retries(connection: sqlite3.Connection) -> None:
+    # The tickets a cut network or API put back in line, and how many times:
+    # the count that stops a ticket looping on an outage (reports.py).
+    connection.execute(
+        "CREATE TABLE network_retries (ticket TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0)"
+    )
+
+
 def _schedules_to_review(connection: sqlite3.Connection) -> None:
     # The schedules an MCP client wrote and nobody has turned on yet: the
     # console marks them "to review" until the first activation.
@@ -1372,6 +1380,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _schedules_to_review,
     _projectless,
     _one_ticket_per_due_moment,
+    _network_retries,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

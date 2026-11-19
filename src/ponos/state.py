@@ -691,6 +691,41 @@ def switch_kind(ticket_id: str) -> None:
         pass
 
 
+def network_attempts(ticket_id: str) -> int:
+    """How many times a cut network or API has put this ticket back in line."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            row = connection.execute(
+                "SELECT attempts FROM network_retries WHERE ticket = ?", (ticket_id,)
+            ).fetchone()
+    except db.ERRORS:
+        return 0
+    return int(row[0]) if row else 0
+
+
+def network_retried(ticket_id: str) -> int:
+    """One more retry spent on this ticket: the count it stands at."""
+    try:
+        with db.transaction() as connection:
+            connection.execute(
+                "INSERT INTO network_retries (ticket, attempts) VALUES (?, 1)"
+                " ON CONFLICT(ticket) DO UPDATE SET attempts = attempts + 1",
+                (ticket_id,),
+            )
+    except db.ERRORS:
+        return network_attempts(ticket_id)
+    return network_attempts(ticket_id)
+
+
+def forget_network_retries(ticket_id: str) -> None:
+    """A session that was not cut: the next cut starts counting from zero."""
+    try:
+        with db.transaction() as connection:
+            connection.execute("DELETE FROM network_retries WHERE ticket = ?", (ticket_id,))
+    except db.ERRORS:
+        pass
+
+
 def mended(ticket_id: str, head: str) -> bool:
     """Has a session already been sent after the red checks of the ticket's branch at `head`?
 

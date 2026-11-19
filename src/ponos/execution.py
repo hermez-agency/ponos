@@ -250,6 +250,8 @@ class Execution(Base):
         if live:
             live.close()
         self._hold_credits(outcome)
+        if not outcome.network and not self.dry_run:
+            state.forget_network_retries(job.ticket.id)
         self._propose_lesson(job, outcome)
         self._propose_memories(job, outcome)
         return outcome
@@ -863,6 +865,11 @@ class Execution(Base):
                 else "",
                 home=job.session_home or job.project.path,
             )
+
+        if cut := self._network_retry(
+            ticket, self.config.board.state("ready"), outcome, job.session_home or job.project.path
+        ):
+            return cut
 
         if job.planning == "propose" and (proposed := self._plan_proposed(job, outcome)):
             return proposed
@@ -1689,6 +1696,11 @@ class Execution(Base):
                 outcome,
                 home=job.session_home,
             )
+
+        if cut := self._network_retry(
+            ticket, self.config.board.state("ready"), outcome, job.session_home
+        ):
+            return cut
 
         if switched := self._switch_to_code(job, outcome):
             return switched
