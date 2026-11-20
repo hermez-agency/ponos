@@ -1716,6 +1716,7 @@ export const FRENCH: Record<string, string> = {
   "See the session": "Voir la session",
   "Answer Ponos or give it an instruction…": "Répondez à Ponos ou donnez-lui une consigne…",
   "Same model": "Même modèle",
+  "Give it once it has finished what it is doing": "Le lui donner une fois qu'il a fini ce qu'il fait",
   "Same model ({{model}})": "Même modèle ({{model}})",
   "Ponos is working…": "Ponos travaille…",
   Confirm: "Confirmer",

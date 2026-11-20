@@ -222,3 +222,24 @@ def telling_a_running_ticket_steers_it_and_writes_no_comment(state_home: Path) -
         assert outcome.ok, outcome.error
         assert len(client.written) == 1, "steered: nothing written under the ticket"
         assert any(one.get("text") == "go left" for one in events if one.get("type") == "ponos")
+
+
+@case
+def a_channel_message_says_by_its_first_word_that_it_is_for_after() -> None:
+    from ponos import channels
+
+    assert channels.afterwards("après : lance aussi les tests") == (
+        "lance aussi les tests",
+        steering.FOLLOW,
+    )
+    assert channels.afterwards("/later run the tests") == ("run the tests", steering.FOLLOW)
+    assert channels.afterwards("non, pas ce fichier") == ("non, pas ce fichier", steering.STEER)
+    assert channels.afterwards("suite") == ("suite", steering.STEER), "a word alone is a message"
+
+
+@case
+def the_console_gives_a_message_for_after_to_the_follow_up_hook(state_home: Path) -> None:
+    path = steering.prepare("s4")
+    assert steering.send("s4", "later", steering.FOLLOW)
+    assert steering.hook(steering.STEER, path) == {}
+    assert steering.hook(steering.FOLLOW, path)["decision"] == "block"

@@ -22,7 +22,7 @@ export interface TicketTalk {
   openTicket: (ticket: Ticket) => void
   closeTicket: () => void
   rereadTalk: () => void
-  tell: (text: string) => Promise<void>
+  tell: (text: string, mode?: "steer" | "follow") => Promise<void>
 }
 
 export function useTicketTalk() {
@@ -92,7 +92,7 @@ export function useTicketTalk() {
    * what came back on the stream. */
   const drawn = React.useRef<Message[]>([])
 
-  const tell = React.useCallback(async (text: string) => {
+  const tell = React.useCallback(async (text: string, mode: "steer" | "follow" = "steer") => {
     const id = openId.current
     const words = text.trim()
     if (!id || !words) return
@@ -103,7 +103,7 @@ export function useTicketTalk() {
         setTalk((messages) => [...messages, local])
         setTalkWaiting(false)
       },
-      request: () => api.tell(id, words),
+      request: () => api.tell(id, words, mode),
       rollback: () => {
         drawn.current = drawn.current.filter((message) => message !== local)
         setTalk((messages) => messages.filter((message) => message !== local))

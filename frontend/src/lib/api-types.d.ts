@@ -5144,19 +5144,15 @@ export interface components {
             sentences: string[];
             language: string;
         };
-        /** @description The statistics of one period — `web/statistics.py`. */
-        /** Spoken */
         Spoken: {
             /** @default  */
             text: string;
-            /**
-             * @description To a session that runs: `steer` (a correction, the default) or `follow` (when it has finished).
-             * @default
-             */
+            /** @default  */
             mode: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The statistics of one period — `web/statistics.py`. */
         Statistics: {
             from: string;
             to: string;

@@ -217,8 +217,10 @@ being only what it was: the thing that wakes a blocked ticket.
 
 A message sent to a ticket **whose session is running** is not written under it for
 the next pass: it is given to the agent. From the console's ticket view, and from
-Telegram or Slack when you answer on the ticket, there are two ways to say it, set by
-`mode` in `POST /api/tickets/<id>/talk`:
+Telegram or Slack when you answer on the ticket, there are two ways to say it: a box
+*Give it once it has finished what it is doing* above the console's message bar (`mode` in
+`POST /api/tickets/<id>/talk`), and, from a channel, a message that opens with `later`,
+`after` or `après` (with or without a slash, then an optional colon):
 
 - **`steer`** (the default), a correction — « non, pas ce fichier ». It is handed over
   after the tool call under way, at the end of the turn, and the session is not stopped;

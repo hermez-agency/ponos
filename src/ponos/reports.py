@@ -514,7 +514,8 @@ class Reports(Base):
                     said = channels.answer(reply, self.voice, self.asked(reply.ticket))
                     # A session going on the ticket is spoken to, not written
                     # under — see steering.py. Nothing runs: the comment it was.
-                    if steering.route(reply.ticket, redaction.masked(reply.text), said):
+                    given, how = channels.afterwards(redaction.masked(reply.text))
+                    if steering.route(reply.ticket, given, said, how):
                         self.say(
                             f"  ↩ {reply.title or reply.ticket} — given to the running session"
                         )

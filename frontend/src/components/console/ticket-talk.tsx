@@ -101,6 +101,8 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
   // The message held back once for a secret in it: sent, masked, if pressed again as it is.
   const [warned, setWarned] = React.useState("")
   const [model, setModel] = React.useState("")
+  // To a session that runs: given when it has finished what it does, not as a correction now.
+  const [after, setAfter] = React.useState(false)
   const [abandoning, setAbandoning] = React.useState(false)
   // Answered: the replies are done with, though the stream has yet to say the ticket moved.
   const [answered, setAnswered] = React.useState(false)
@@ -215,7 +217,7 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
       return done
     }
     // Drawn under the discussion now; a refusal is a toast and takes it off again.
-    await tell(text)
+    await tell(text, after ? "follow" : "steer")
     // An answer to its question, or its name: Ponos is going to say something.
     if (talkWaiting || text.toLowerCase().includes(mention.toLowerCase())) setSent(answers)
     return true
@@ -361,6 +363,12 @@ export function TicketTalk({ ticket, onSession }: { ticket: Ticket; onSession: (
       </div>
 
       {problem ? <p className="text-destructive text-xs">{problem}</p> : null}
+      {acting && ticket.column === "running" ? (
+        <label className="text-muted-foreground flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={after} onChange={(event) => setAfter(event.target.checked)} />
+          {t("Give it once it has finished what it is doing")}
+        </label>
+      ) : null}
       {/* A reader reads the discussion, and has nothing to type into it. */}
       {acting ? <Composer
         className="mx-0 max-w-none"
