@@ -57,6 +57,7 @@ ponos notify --digest        # send the digest of the period under way, now
 ponos mcp token    # a key to the MCP server, for a client that cannot sign in (--read-only, --name)
 ponos mcp list     # the address to paste in Claude, the MCP clients and their last writes (-n, --number: how many)
 ponos mcp revoke <client>    # take back every key of one client
+ponos hook pre-tool-use --rules <file>   # what Claude Code runs before each tool: the guards of a session (guide/safety.md)
 ponos vault list   # Ponos's own vault: names, projects, last use — never a value
 ponos vault set <NAME> --project <P>   # keep a value, read from stdin or asked without echo (--kind login|note, --description, --expires, --url for its site, given as <NAME>_URL)
 ponos vault rm <NAME>       # remove an entry for good (--yes without a terminal)

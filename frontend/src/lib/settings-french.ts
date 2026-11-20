@@ -1250,4 +1250,20 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "In the repositories": "Dans les dépôts",
   "Skills the projects' repositories already hold. Read only: they are changed in their repository.":
     "Les skills que les dépôts des projets ont déjà. En lecture seule : elles se changent dans leur dépôt.",
+  "Guards": "Garde-fous",
+  "None.": "Aucun.",
+  "Refused before the tool runs, with the reason given to the agent. The file's rules and this repository's own (.ponos.toml).":
+    "Refusé avant que l'outil s'exécute, avec la raison donnée à l'agent. Les règles du fichier et celles de ce dépôt (.ponos.toml).",
+  "Refused before the tool runs, with the reason given to the agent. The file's rules; add this repository's own in its .ponos.toml.":
+    "Refusé avant que l'outil s'exécute, avec la raison donnée à l'agent. Les règles du fichier ; ajoutez celles de ce dépôt dans son .ponos.toml.",
+  "Read only": "Lecture seule",
+  "Forbidden": "Interdits",
+  "Forbidden commands": "Commandes interdites",
+  "Push to the default branch": "Push sur la branche par défaut",
+  "Force push": "Push forcé",
+  "Branch deletion": "Suppression de branche",
+  "refused": "refusé",
+  "allowed": "autorisé",
+  "Latest refusals": "Derniers refus",
+  "Nothing refused yet.": "Rien de refusé pour l'instant.",
 }

@@ -813,6 +813,20 @@ class Permissions:
 
 
 @dataclass
+class Guards:
+    """`[guards]`: what no session may do, checked before each tool. See guards.py.
+
+    The file says what it adds; a project adds its own in its `.ponos.toml`.
+    The three git actions are forbidden unless `allow_git` names them.
+    """
+
+    read_only: tuple[str, ...] = ()
+    forbidden: tuple[str, ...] = ()
+    commands: tuple[str, ...] = ()
+    allow_git: tuple[str, ...] = ()
+
+
+@dataclass
 class Vault:
     """Where a project's keys are read. See vault.py.
 
@@ -849,6 +863,7 @@ class Config:
     budget: Budget = field(default_factory=Budget)
     review: Review = field(default_factory=Review)
     permissions: Permissions = field(default_factory=Permissions)
+    guards: Guards = field(default_factory=Guards)
     vault: Vault = field(default_factory=Vault)
     install: Install = field(default_factory=Install)
     # The board's vocabulary — its columns, statuses and types: see `PROPERTIES`.
@@ -1477,6 +1492,7 @@ def load(path: Path | None = None, *, secrets: dict[str, str] | None = None) -> 
         budget=Budget(**file.budget.model_dump()),
         review=Review(),
         permissions=Permissions(**file.permissions.model_dump()),
+        guards=Guards(**file.guards.model_dump()),
         vault=_vault(file.vault),
         install=Install(extras=file.install.extras),
         github=dict(file.github),

@@ -197,6 +197,18 @@ class Run:
             many=True,
         )
 
+    def note(self, step: progress.Step) -> None:
+        """One line of the story the session did not write itself — a guard that blocked it."""
+        if not self.open:
+            return
+        self.position += 1
+        self._write(
+            "INSERT INTO steps (run, position, at, kind, tool, text, cost_usd)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(self.id, self.position, _now(), *_row(step), self.cost)],
+            many=True,
+        )
+
     def again(self, session: str, log: Path | str) -> None:
         """The session was started over: same run, a new session and its own log."""
         if self.open:
@@ -280,6 +292,25 @@ def _ticket_key(connection: sqlite3.Connection, reference: str) -> str:
         (key[-8:],),
     ).fetchone()
     return str(found[0]) if found else key
+
+
+def guard_blocks(project: str, limit: int = 20) -> list[dict[str, Any]]:
+    """What the guards of a project blocked, newest first — see guards.py."""
+    try:
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT runs.ticket, runs.title, steps.at, steps.text FROM steps"
+                " JOIN runs ON runs.id = steps.run"
+                " WHERE steps.tool = 'Guard' AND runs.project = ?"
+                " ORDER BY steps.id DESC LIMIT ?",
+                (project, limit),
+            ).fetchall()
+    except _FAILURES:
+        return []
+    return [
+        {"ticket": str(row[0]), "title": str(row[1] or ""), "at": str(row[2]), "text": str(row[3])}
+        for row in rows
+    ]
 
 
 def _run(row: sqlite3.Row | tuple[Any, ...], names: list[str]) -> dict[str, Any]:
