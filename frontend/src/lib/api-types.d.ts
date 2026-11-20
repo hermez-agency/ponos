@@ -5145,6 +5145,18 @@ export interface components {
             language: string;
         };
         /** @description The statistics of one period — `web/statistics.py`. */
+        /** Spoken */
+        Spoken: {
+            /** @default  */
+            text: string;
+            /**
+             * @description To a session that runs: `steer` (a correction, the default) or `follow` (when it has finished).
+             * @default
+             */
+            mode: string;
+        } & {
+            [key: string]: unknown;
+        };
         Statistics: {
             from: string;
             to: string;
@@ -7804,7 +7816,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["Text"];
+                "application/json": components["schemas"]["Spoken"];
             };
         };
         responses: {

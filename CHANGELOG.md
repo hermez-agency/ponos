@@ -16,6 +16,10 @@ somebody cuts a release; see CONTRIBUTING.md, « Cutting one ».
 
 ## [Unreleased]
 
+### Added
+
+- **Corriger un ticket pendant qu'il tourne.** Un message envoyé depuis la console (vue du ticket) ou depuis Telegram et Slack à un ticket dont la session tourne est donné à l'agent au lieu d'attendre le passage suivant : en **correction** (`steer`, par défaut), à la fin du tour en cours, sans arrêter le travail, ou **à la suite** (`follow`, `mode` de `POST /api/tickets/<id>/talk`), quand l'agent a fini ce qu'il faisait et avant la clôture. Le message apparaît dans le journal du run, à sa place. Sans session qui tourne, le commentaire est écrit comme avant. Voir `guide/tickets.md`, « Correcting a ticket while it runs ».
+
 ### Changed
 
 - **La vue d'un ticket en deux colonnes** (direction B, à comparer avec la refonte ci-dessous). Là où l'écran a la place — une page dès 1280 px, la fenêtre dès 1024 px, qui s'élargit alors à 1024 px —, les onglets sont à gauche et un **rail** reste visible à droite : le statut dans la couleur de sa colonne et son geste principal, puis chaque fait sous son nom, puis la pull request et ses checks. Les réglages s'y modifient en place : **priorité**, **modèle** de la prochaine session (`POST /api/tickets/<id>/model`, noté dans l'historique du ticket), **projet** d'un ticket qui n'a pas encore tourné, et *Force validated*, qui quitte l'onglet *Mission*. Sur téléphone et dans une fenêtre étroite, une seule colonne, les faits repliés sous « Détails ». Captures et comparaison dans `notes/design/ticket-view/two-columns/` et `audit.md`.

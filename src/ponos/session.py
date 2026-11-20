@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import IO, Any
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import config, credits, disk, leftovers, resources, vault
+from . import config, credits, disk, leftovers, resources, steering, vault
 from .question import Question, caveats, lesson, memories, parse
 
 logger = logging.getLogger(__name__)
@@ -265,6 +265,7 @@ def run(
     attribution: bool = False,
     adopted: Handle | None = None,
     track: Callable[[Handle], None] | None = None,
+    steerable: bool = False,
 ) -> Outcome:
     """One session, from its start to what it came to.
 
@@ -296,6 +297,7 @@ def run(
             chrome=chrome,
             mcp_config=mcp_config,
             attribution=attribution,
+            steerable=steerable,
         )
         skip = 0
         if track is not None:
@@ -321,6 +323,7 @@ def launch(
     chrome: bool = True,
     mcp_config: Path | None = None,
     attribution: bool = False,
+    steerable: bool = False,
 ) -> Handle:
     """Start a session detached from this process, and say where to follow it."""
     binary = available()
@@ -328,6 +331,9 @@ def launch(
         raise FileNotFoundError("claude not found in PATH")
 
     session_id = session_id or new_id()
+    # A queue for the messages a person sends while it runs, and the hooks that
+    # read it: only a session of a ticket's work, which is what one corrects.
+    steered = steering.prepare(session_id) if steerable else None
     command = _command(
         binary,
         session_id,
@@ -338,6 +344,7 @@ def launch(
         chrome=chrome,
         mcp_config=mcp_config,
         attribution=attribution,
+        steered=steered,
     )
 
     # What the caller adds comes last: an OpenRouter key configured for the
@@ -473,6 +480,9 @@ def follow(
     texts: list[str] = []
     interrupted = timed_out = False
     consumed = 0  # the bytes of the complete lines read so far
+    # What the hooks have handed over: not reported again to a runner that
+    # adopts the session, which has the journal's steps already.
+    handed = steering.size(handle.session_id) if skip else 0
     buffer = b""
     child = _CHILDREN.get(handle.pid)
     reading: IO[bytes] | None = None
@@ -502,6 +512,10 @@ def follow(
                     for block in event.get("message", {}).get("content", []):
                         if block.get("type") == "text":
                             texts.append(block.get("text", ""))
+            messages, handed = steering.delivered(handle.session_id, handed)
+            for message in messages:
+                if on_event is not None:
+                    on_event = _listen(on_event, steering.event(message))
             if ended and not chunk:
                 last = _parse(buffer.decode("utf-8", errors="replace")) if buffer.strip() else None
                 if last is not None and last.get("type") == "result":
@@ -609,6 +623,15 @@ UNSIGNED = json.dumps(
 )
 
 
+def _settings(attribution: bool, steered: Path | None) -> list[str]:
+    """The `--settings` of a session: unsigned, and listening to its queue when it has one."""
+    if steered is None:
+        return [] if attribution else ["--settings", UNSIGNED]
+    given: dict[str, Any] = {} if attribution else json.loads(UNSIGNED)
+    given["hooks"] = steering.hooks(steered)
+    return ["--settings", json.dumps(given, separators=(",", ":"))]
+
+
 def _command(
     binary: str,
     session_id: str,
@@ -620,6 +643,7 @@ def _command(
     chrome: bool = True,
     mcp_config: Path | None = None,
     attribution: bool = False,
+    steered: Path | None = None,
 ) -> list[str]:
     """The CLI's command line for one session.
 
@@ -627,6 +651,8 @@ def _command(
     Ponos's own browser instead, the `ponos-browser` server `mcp_config`
     names (browser.py) — added to the servers Claude Code already has.
     `attribution` false is `[claude] attribution` off: see `UNSIGNED`.
+    `steered` is the queue a ticket's messages are left in while the session
+    runs: the hooks that read it ride on the same `--settings` — see steering.py.
     """
     command = [
         binary,
@@ -650,7 +676,7 @@ def _command(
         "--verbose",
         "--permission-mode",
         permission_mode,
-        *([] if attribution else ["--settings", UNSIGNED]),
+        *_settings(attribution, steered),
     ]
     if model:
         command += ["--model", model]

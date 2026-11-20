@@ -24,6 +24,7 @@ from .. import (
     preview,
     question,
     redaction,
+    steering,
     store,
     voice,
 )
@@ -70,7 +71,7 @@ class Discussion(Base):
             ),
         }
 
-    def tell(self, page_id: str, text: str, who: str = "") -> dict[str, Any]:
+    def tell(self, page_id: str, text: str, who: str = "", mode: str = "") -> dict[str, Any]:
         """Say something to a ticket, as a comment on it.
 
         Which is already how a ticket is answered: a run that ends `blocked`
@@ -88,6 +89,10 @@ class Discussion(Base):
         before the comment, the stream or anything else sees it — see
         `redaction`. `who` is the name of the account that typed it, said on
         that line when the console is shared — see `web/accounts.py`.
+
+        `mode` is how a running session is spoken to: `steer` (the default) is a
+        correction, handed over after the tool call under way; `follow` waits
+        for the agent to finish what it was doing — see steering.py.
         """
         text = redaction.masked(text.strip())
         if not text:
@@ -103,10 +108,14 @@ class Discussion(Base):
         lines = channels.spelled(text, said, asked) if asked else [text]
         if lines and lines[-1] == " ".join(text.split()):
             lines[-1] = text
-        self.runner.client.comment(
-            page_id, "\n".join([f"{relayed}.", *lines]), _thread(comments, me)
-        )
-        self.runner.forget_comments(page_id)
+        comment = "\n".join([f"{relayed}.", *lines])
+        # A session going on this ticket is spoken to rather than written under:
+        # the message reaches the agent before the session closes and shows in
+        # the run's journal. Without one, it is the comment it always was.
+        reached = steering.route(page_id, text, comment, mode if mode in steering.MODES else "")
+        if not reached:
+            self.runner.client.comment(page_id, comment, _thread(comments, me))
+            self.runner.forget_comments(page_id)
         message = {
             "role": "you",
             "text": text,
