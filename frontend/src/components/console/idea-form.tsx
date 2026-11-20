@@ -7,6 +7,8 @@ import {
   useFormContext,
   type FormDecoratorPropsInterface,
   type InputControllerComponentInterface,
+  type ViolationInterface,
+  type ValueOptionInterface,
 } from "react-data-form"
 import { useCurrentViewResourceContext, type OpenFrameProps } from "react-resource-view"
 
@@ -240,7 +242,7 @@ export const IdeaTitleInputController: InputControllerComponentInterface = ({ fo
       />
       {invalid ? (
         <span id={`${id}-problem`} role="alert" className="text-destructive text-sm">
-          {formInput.violations?.map((violation) => violation.message).join(" ")}
+          {formInput.violations?.map((violation: ViolationInterface) => violation.message).join(" ")}
         </span>
       ) : null}
     </>
@@ -266,7 +268,7 @@ export const ChipsInputController: InputControllerComponentInterface = ({ formIn
   const value = String(formInput.value ?? "")
   return (
     <div role="group" aria-label={t(String(formInput.label ?? ""))} className="flex flex-wrap gap-1.5">
-      {(formInput.valueOptions ?? []).map((option) => {
+      {(formInput.valueOptions ?? []).map((option: ValueOptionInterface) => {
         const key = String(option.value ?? "")
         const chosen = key === value
         return (

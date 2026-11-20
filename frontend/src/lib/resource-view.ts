@@ -101,7 +101,14 @@ export function configureConsoleViews() {
  * of that moment. Defaults said again are the package's own way of building
  * every resource anew, and the getters are read again with them. */
 function declareDefaults() {
-  configureResourceView({ defaults: { components: { pagination: Pagination } } })
+  configureResourceView({
+    defaults: {
+      components: { pagination: Pagination },
+      // react-resource-view 2.2 draws a "Shown fields" menu over every list;
+      // the console offers it where a list says so — the board's List.
+      views: { list: { fields: { toggle: false } } },
+    },
+  })
 }
 
 // On import, so that a resource declared in any module finds the dialect in place.

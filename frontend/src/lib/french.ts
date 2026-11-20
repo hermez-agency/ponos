@@ -16,7 +16,9 @@
  * The words, one per thing, the same everywhere:
  *
  * - le tableau de bord — the console's page that draws the board (Dashboard);
- *   « Tableau » (Board) in a phone's bottom bar, where the three words are cut;
+ *   « Board » in a phone's bottom bar, where the three words are cut, and for
+ *   the board's own section and its tab, as in every language: the product's
+ *   word for it as a name, where « Tableau » read as « Table »;
  * - le tableau — the board itself, in a sentence: never « board »;
  * - un ticket — a card on it; lancer, relancer — what sends it to the runner;
  * - une récurrence — a ticket that comes back by itself (a schedule);
@@ -93,6 +95,8 @@ export const FRENCH: Record<string, string> = {
   Today: "Aujourd'hui",
   Week: "Semaine",
   Month: "Mois",
+  // A day of the month with more events than it shows: « +3 autres ».
+  more: "autres",
   // The two lines a form ends on, set from `i18n.ts` rather than read from a
   // declaration: they are handed to a toast as they stand.
   // Not `Saved`, which the package already says — and says on a card dropped in
@@ -103,6 +107,8 @@ export const FRENCH: Record<string, string> = {
   // or moved from the board's selection bar, and what a view says when the
   // server would not answer it: the schedules showed "Properties" in English.
   Properties: "Propriétés",
+  // The menu over the board's List that hides and shows its columns.
+  "Shown fields": "Champs affichés",
   "Reset to default": "Revenir au défaut",
   "Select all": "Tout sélectionner",
   "Deselect all": "Tout désélectionner",
@@ -1454,7 +1460,6 @@ export const FRENCH: Record<string, string> = {
   // Settings › Code › GitHub access.
   "What this console runs on": "Ce sur quoi tourne cette console",
   "Error": "Erreur",
-  "Board": "Tableau",
   "Find me ideas": "Trouve-moi des idées",
   "Ponos, find me ideas": "Ponos, trouve-moi des idées",
   "Ideas": "Idées",

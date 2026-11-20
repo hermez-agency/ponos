@@ -7,7 +7,9 @@
    `french.ts`. Same rule as there: the English sentence is the key. */
 
 export const HEALTH_FRENCH: Record<string, string> = {
-  // The board group: `ponos.db` read, or not.
+  // The board group: `ponos.db` read, or not. Its title is the board's name,
+  // « Board » in every language, as its section and its tab say it.
+  "Board": "Board",
   "The board cannot be read.": "Le tableau ne peut pas être lu.",
   "The board is ponos.db: {{count}} ticket(s).": "Le tableau est ponos.db : {{count}} ticket(s).",
   "Run `ponos doctor` again; if it says the same, see ponos.log.":

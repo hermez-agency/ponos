@@ -473,8 +473,10 @@ const fields: FormInterface["inputs"] = {
     },
     controller: MarkdownInputController,
   },
-  // Said by the box at the foot of the window: see `RecurrenceFoot`.
-  active: { hidden: () => true },
+  // Said by the box at the foot of the window: see `RecurrenceFoot`. Sent
+  // although drawn nowhere — a hidden field is left out of what react-data-form
+  // 0.4 submits unless it is kept.
+  active: { hidden: () => true, keepHiddenValue: true },
 }
 
 /* A new row starts weekly, on Monday at nine — the example the summary under

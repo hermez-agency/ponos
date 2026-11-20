@@ -22,7 +22,7 @@ Open `http://127.0.0.1:8787` and you get one page, four things:
 ```
 ┌───────────────┬──────────────────────────────┬─────────────────────────────┐
 │ Ponos         │        ● live  v0.9.2  ⟳  ☀  │  you                        │
-│               │ + New ticket   board · table │  Where is the SQLite ticket │
+│               │ + New ticket    Board · List │  Where is the SQLite ticket │
 │ ▸ Dashboard 4 │  Ready     1   In progress 1 │                             │
 │   Projects    │  ┌──────────┐  ┌──────────┐  │  workspace                  │
 │   Schedules   │  │ Retirer  │  │ Migrer   │  │  Six minutes in, on Trader  │
@@ -142,8 +142,23 @@ your board has not named, is not hidden: it sits in the first column, *Draft* (*
 in French), with the drafts. A long column draws its first fifty cards — *Done* and
 *Cancelled* their thirty latest — and *Show more* under it the next ones; a card you drop
 there stays in sight, wherever the queue ranks it. Seven columns do not fit a laptop, so the board scrolls sideways, and each
-edge with more beyond it shows a fade and an arrow. The *table* tab shows the same tickets
-as rows, one column per property.
+edge with more beyond it shows a fade and an arrow.
+
+**Three views of the same tickets: Board, List, Agenda.** The tabs over the board switch
+between them — *Board* in every language, as everywhere else in the console — and the one you
+picked is kept: in the address (`&variant=table`, `&variant=calendar`) and for the way back
+to the dashboard from another page. *List* shows the tickets as rows, one column per
+property; **Shown fields**, over the table, hides and shows its columns, and the choice is
+kept by this browser (react-resource-view's menu, in `localStorage`; *Reset to default* puts
+them all back). *Agenda* lays the tickets out on the day and hour they are
+[`Scheduled`](board.md#the-tickets-database) for — a ticket with no date is not on it —
+on react-resource-view's calendar: this week first, from Monday, every hour of the day, and
+*Day* and *Month* on its own switch. A click on a ticket opens it in the window a card opens
+it in. The moments the active recurring tickets (*Schedules*) will write a ticket are drawn
+beside them, in violet with a ↻, walked forward from their *Next* by their rule — several a
+day of the same schedule folded into one, « 24 launches » — and a click on one opens the
+schedule. A click on an empty day or hour opens *New ticket*, without its date for now:
+set it in *Scheduled for*.
 
 **Several cards at once.** An audit writes thirty drafts in one go, and launching them one
 card at a time was thirty clicks and thirty confirmations. Hover a card and tick the box in
