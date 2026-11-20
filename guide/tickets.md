@@ -343,8 +343,9 @@ two commands of Ponos — never with the console's API (its login expires and an
 never by importing Ponos's code or writing into `ponos.db`. The prompt of the session says so.
 
 ```sh
-ponos move <ticket> <status> [--from <status>]
+ponos move <ticket> <status> [--from <status>] [--at <when>]
 ponos comment <ticket> "text"
+ponos schedule <ticket> <when>
 ```
 
 - `ponos move` goes through the console's own path: the same checks (a ticket in progress that
@@ -354,7 +355,10 @@ ponos comment <ticket> "text"
   `paused`, `review`, `validated`, `done`, `cancelled` — or the word the board writes, in any
   case. `--from` refuses when the ticket is no longer in that status, like the `from` of the
   console: *« when this ticket is Done, move #next from Draft to Ready »* cannot fire twice, or
-  pull a ticket somebody paused meanwhile.
+  pull a ticket somebody paused meanwhile. `--at` dates the ticket before it moves — *« when this
+  one is Done, make #report ready for Monday 9:00 »* is `ponos move <id> ready --at "lundi 9h"` —
+  and `ponos schedule` dates it, moves the date or removes it (`now`) without touching its
+  status. The forms a date takes are in [Scheduled](board.md#the-tickets-database).
 - A refusal — unknown status or ticket, a transition the board does not take, a ticket that is
   not in the `--from` status — is written on the error output and ends with a non-zero code
   (`1`; `2` for a status that does not exist).

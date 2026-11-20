@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -793,3 +794,71 @@ def a_ticket_is_given_another_model_from_its_view() -> None:
         assert nudged.count, "the watcher is asked to look again"
         assert api.set_model(made, "")["model"] == "", "empty is the runner's"
         assert not store.read(board.page(made), settings.prop("model"))
+
+
+@case
+def a_ticket_is_scheduled_at_creation_moved_and_launched_now() -> None:
+    """« Programmé pour »: written with the ticket, changed from its view, removed by « Launch now ».
+
+    The runner holds it until then; a moment already past is refused, except
+    the empty one, and a finished ticket is no longer scheduled at all.
+    """
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        settings = api.config.board
+        soon = (datetime.now().astimezone() + timedelta(hours=2)).replace(second=0, microsecond=0)
+
+        made = api.create_ticket("Relancer le client", scheduled=soon.isoformat())["id"]
+        page = board.page(made)
+        assert store.read(page, settings.prop("status")) == settings.state("ready")
+        assert store.read(page, settings.prop("due")) == soon.isoformat(timespec="minutes")
+        card = api.ticket(made)
+        assert card["scheduled"] == soon.isoformat(timespec="minutes"), card["scheduled"]
+        eligible, waiting = api.runner.queue()
+        assert made not in [ticket.id for ticket in eligible], "not before its hour"
+        assert [(ticket.id, moment) for ticket, moment in waiting] == [(made, soon)]
+
+        later_on = soon + timedelta(days=1)
+        assert api.set_scheduled(made, later_on.isoformat())["scheduled"] == later_on.isoformat(
+            timespec="minutes"
+        )
+        assert store.read(board.page(made), settings.prop("due")) == later_on.isoformat(
+            timespec="minutes"
+        )
+
+        past = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+        before = len(tickets.listing())
+        refused: tuple[Callable[[], object], ...] = (
+            lambda: api.set_scheduled(made, past),
+            lambda: api.create_ticket("Trop tard", scheduled=past),
+            lambda: api.create_ticket("Illisible", scheduled="bientôt"),
+        )
+        for wrong in refused:
+            try:
+                wrong()
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("a date already past, or unreadable, must be refused")
+        assert len(tickets.listing()) == before, "and nothing created for it"
+        assert store.read(board.page(made), settings.prop("due")) == later_on.isoformat(
+            timespec="minutes"
+        ), "a refusal leaves the date as it was"
+
+        # « Launch now »: the date removed, and the ticket the runner's at once.
+        assert api.set_scheduled(made, "") == {"id": made, "scheduled": ""}
+        assert not store.read(board.page(made), settings.prop("due"))
+        eligible, waiting = api.runner.queue()
+        assert made in [ticket.id for ticket in eligible] and not waiting
+
+        tickets.update(made, status="done")
+        try:
+            api.set_scheduled(made, soon.isoformat())
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a finished ticket is no longer scheduled")

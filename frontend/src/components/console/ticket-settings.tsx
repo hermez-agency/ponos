@@ -1,15 +1,20 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api, why } from "@/lib/api"
 import { patchTicket, useBoardWith } from "@/lib/board-store"
 import { useT } from "@/lib/i18n"
+import { upcoming } from "@/lib/later"
 import { DEFAULT_SCORE, readScore } from "@/lib/priority"
 import { canAct } from "@/lib/role"
 import type { Board, Project, Ticket } from "@/lib/types"
 
+import { SchedulePicker } from "./schedule-picker"
+import { when } from "./ticket-bits"
 import { PROJECT_STOPS } from "./ticket-project"
 
 /* What a ticket's view lets you change about it, where its facts are listed.
@@ -209,5 +214,119 @@ export function ProjectField({ ticket, children }: { ticket: Ticket; children: R
         )}
       </SelectContent>
     </Select>
+  )
+}
+
+/** « Scheduled for »: when it may start, set, moved or removed until the ticket is over.
+ *
+ * In a popover rather than in the rail itself: five shortcuts and a date
+ * field are a question asked now and then, not a fact to read every time. Written
+ * on « Save », not at each key — a date half typed is a moment nobody chose —
+ * and the server refuses one already past, said in a toast with the date kept.
+ */
+export function ScheduledField({ ticket, children }: { ticket: Ticket; children: React.ReactNode }) {
+  const t = useT()
+  const [open, setOpen] = React.useState(false)
+  const [draft, setDraft] = React.useState(ticket.scheduled ?? "")
+  const [busy, setBusy] = React.useState(false)
+  if (!canAct() || settled(ticket.column)) return children
+  const save = async (next: string) => {
+    // Said here, in the page's language, rather than in the server's English.
+    if (next && !upcoming(next, Date.now())) {
+      toast.error(t("This moment has already passed: choose a later one, or none."))
+      return
+    }
+    const before = { scheduled: ticket.scheduled, held: ticket.held }
+    setBusy(true)
+    try {
+      const done = await api.setScheduled(ticket.id, next)
+      // The wait it is held for is the board's to say again, at its next read.
+      patchTicket(ticket.id, { scheduled: done.scheduled, ...(done.scheduled ? {} : { held: undefined }) })
+      setOpen(false)
+    } catch (error) {
+      patchTicket(ticket.id, before)
+      toast.error(t("The date could not be changed"), { description: why(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) setDraft(ticket.scheduled ?? "")
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-slot="ticket-scheduled-field"
+          aria-label={t("Change the date")}
+          className="hover:bg-accent -mx-1 rounded-md px-1 text-left underline-offset-2 hover:underline"
+        >
+          {ticket.scheduled ? children : <span className="text-muted-foreground">{t("As soon as possible")}</span>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="flex w-80 flex-col gap-3">
+        <p className="text-sm font-medium">{t("Scheduled for")}</p>
+        <SchedulePicker value={draft} onChange={setDraft} disabled={busy} />
+        <p className="text-muted-foreground text-xs">
+          {draft
+            ? t("It waits until {{at}}, in your timezone.", { at: when(draft) })
+            : t("No date: it starts as soon as a place is free.")}
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(false)}>
+            {t("Cancel")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            data-slot="ticket-scheduled-save"
+            disabled={busy || draft === (ticket.scheduled ?? "")}
+            onClick={() => void save(draft)}
+          >
+            {t("Save")}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** « Launch now », on a ticket held back by its date: the date taken away, and the ticket the runner's at its turn.
+ *
+ * Not « Run now »: that one jumps the queue, this one only stops waiting —
+ * on a ready ticket it is in the queue at once, on a validated one it is
+ * published or merged at the next look. In the view, under the line that says
+ * when it is due: the card keeps « Run now », and the first load its budget. */
+export function LaunchNow({ ticket }: { ticket: Ticket }) {
+  const t = useT()
+  const [busy, setBusy] = React.useState(false)
+  const launch = async () => {
+    const before = { scheduled: ticket.scheduled, held: ticket.held }
+    setBusy(true)
+    patchTicket(ticket.id, { scheduled: "", held: undefined })
+    try {
+      await api.setScheduled(ticket.id, "")
+    } catch (error) {
+      patchTicket(ticket.id, before)
+      toast.error(t("The date could not be removed"), { description: why(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Button
+      variant="outline"
+      size="xs"
+      disabled={busy}
+      data-slot="launch-now"
+      title={t("Remove the date: it no longer waits.")}
+      onClick={() => void launch()}
+    >
+      {t("Launch now")}
+    </Button>
   )
 }

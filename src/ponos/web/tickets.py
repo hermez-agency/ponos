@@ -32,6 +32,7 @@ from .. import (
     git,
     ids,
     journal,
+    later,
     models,
     preview,
     project_settings,
@@ -693,6 +694,7 @@ class Tickets(Base):
         attempts: int | str = 1,
         validation: str = "",
         by_hand: bool = False,
+        scheduled: str = "",
     ) -> dict[str, Any]:
         """Write a new ticket on the board.
 
@@ -700,6 +702,9 @@ class Tickets(Base):
         Fable is written as such. Anywhere else — MCP, an `On` prompt, a hook,
         an idea — it is capped to Opus here, since once written nobody can tell
         who wrote the column (see models.py).
+
+        `scheduled` holds it back until that moment — see later.py for what is
+        read, and why a moment already past is refused.
         """
         title = title.strip()
         if not title:
@@ -712,8 +717,13 @@ class Tickets(Base):
         if subtype and subtype not in subtypes.KEYS:
             raise ValueError(f"unknown sub-type “{subtype}”")
         word = self._validation_word(validation)
+        moment = later.written(scheduled)
         settings = self.config.board
         values: dict[str, Any] = {}
+        # Written with the status, in the same write: a ready ticket must never
+        # be seen by the daemon without the date that holds it back.
+        if moment:
+            values[settings.prop("due")] = moment
         # Ready means "start it now"; anything else means the ticket is being
         # written, and goes to the drafts, which the runner never picks up.
         values[settings.prop("status")] = settings.state("ready" if ready else "draft")
@@ -784,6 +794,30 @@ class Tickets(Base):
         tickets_module.update(page_id, validation=word)
         self.watch.nudge()
         return {"id": page_id.replace("-", ""), "validation": word}
+
+    def set_scheduled(self, page_id: str, value: str) -> dict[str, Any]:
+        """Hold a ticket back until a moment, move that moment, or let it go now with "".
+
+        Until the ticket is over: a date on a done ticket holds nothing back.
+        Straight to the board, as `set_priority`, the page read back held so
+        the next board sent already says it — and the daemon told, so that
+        « Launch now » is now and not at its next look.
+        """
+        record = tickets_module.get(page_id)
+        if record is None:
+            raise LookupError(f"no ticket with id {page_id}")
+        if record.status in ("done", "cancelled"):
+            raise ValueError("a finished ticket can no longer be scheduled")
+        moment = later.written(value)
+        client = self.runner.client
+        client.update(self.runner.database, page_id, {self.config.board.prop("due"): moment})
+        self.reader.hold(client.page(page_id))
+        self.watch.nudge()
+        if not moment:
+            from .. import daemon
+
+            daemon.nudge()
+        return {"id": page_id.replace("-", ""), "scheduled": moment}
 
     def set_on(self, page_id: str, prompt: str) -> dict[str, Any]:
         """Write the prompt a ticket runs at each change of its status; empty removes it.

@@ -307,6 +307,7 @@ function MoreFilter({
     pr: t("With a pull request"),
     credits: t("Waiting for credits"),
     sync: t("Move not synced"),
+    scheduled: t("Scheduled"),
   }
   const on = only.length + (cost > 0 ? 1 : 0)
   return (

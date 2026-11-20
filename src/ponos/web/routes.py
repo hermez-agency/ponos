@@ -264,10 +264,17 @@ class NewTicket(Payload):
     plan: bool = False
     attempts: Any = 1
     validation: str = ""
+    scheduled: str = ""
+    """Held back until then: ISO 8601, with its offset; empty runs it as soon as it may."""
 
 
 class On(Payload):
     on: str = ""
+
+
+class Scheduled(Payload):
+    scheduled: str = ""
+    """ISO 8601, with its offset; empty removes the date."""
 
 
 class Move(Payload):
@@ -1296,9 +1303,20 @@ def create_ticket(
         payload.attempts,
         payload.validation,
         by_hand=True,
+        scheduled=payload.scheduled,
     )
     _done(request, str(created.get("id", "")), "created", "ready" if payload.ready else "draft")
     return answer(created)
+
+
+@router.post("/api/tickets/{ticket_id:page}/scheduled", response_model=answers.TicketScheduled)
+def set_ticket_scheduled(
+    request: Request, ticket_id: str, payload: Scheduled = Body(default_factory=Scheduled)
+) -> Response:
+    """Hold a ticket back until a moment, move it, or remove it (« Launch now ») with ""."""
+    done = _api(request).set_scheduled(ticket_id, payload.scheduled)
+    _done(request, ticket_id, "scheduled", done["scheduled"] or "now")
+    return answer(done)
 
 
 @router.post("/api/tickets/{ticket_id:page}/on", response_model=answers.TicketOn)

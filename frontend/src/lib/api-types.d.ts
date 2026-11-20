@@ -1406,6 +1406,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Ticket Scheduled
+         * @description Hold a ticket back until a moment, move it, or remove it (« Launch now ») with "".
+         */
+        post: operations["set_ticket_scheduled_api_tickets__ticket_id__scheduled_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/on": {
         parameters: {
             query?: never;
@@ -2759,8 +2779,8 @@ export interface components {
             who: string;
             email: string;
             /** @enum {string} */
-            action: "created" | "moved" | "told" | "decided" | "priority" | "model" | "on" | "goal" | "launched" | "result" | "revise" | "forked";
-            /** @description The column moved to, the choice made, the priority set. */
+            action: "created" | "moved" | "told" | "decided" | "priority" | "scheduled" | "model" | "on" | "goal" | "launched" | "result" | "revise" | "forked";
+            /** @description The column moved to, the choice made, the priority set, the date set ("now" when removed). */
             detail: string;
         };
         /** @description The bell as the stream says it — a state, replayed to every tab that connects. */
@@ -4157,6 +4177,8 @@ export interface components {
             attempts: unknown;
             /** @default  */
             validation: string;
+            /** @default  */
+            scheduled: string;
         } & {
             [key: string]: unknown;
         };
@@ -4920,6 +4942,12 @@ export interface components {
             open: number;
             cost: number;
         };
+        Scheduled: {
+            /** @default  */
+            scheduled: string;
+        } & {
+            [key: string]: unknown;
+        };
         Schedules: {
             /** @description `runner.schedule`: off, and nothing is born however the rows are ticked. */
             enabled: boolean;
@@ -5638,6 +5666,11 @@ export interface components {
             result: string;
             /** @description Every version, the newest first. */
             results: components["schemas"]["ResultVersion"][];
+        };
+        TicketScheduled: {
+            id: string;
+            /** @description The moment it is held back until, ISO 8601 with its offset; empty for « now ». */
+            scheduled: string;
         };
         TicketValidation: {
             id: string;
@@ -8861,6 +8894,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_scheduled_api_tickets__ticket_id__scheduled_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Scheduled"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketScheduled"];
                 };
             };
             /** @description Validation Error */

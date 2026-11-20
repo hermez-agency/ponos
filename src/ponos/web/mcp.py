@@ -563,6 +563,13 @@ TOOLS: list[dict[str, Any]] = [
                     "puis le réglage global, forced la valide dès que la session réussit, free "
                     "l'attend en review même si le projet ou le global forcent.",
                 },
+                "scheduled": {
+                    "type": "string",
+                    "description": "Programmer la tâche pour plus tard : une fois lancée, Ponos "
+                    "ne la prend pas avant ce moment. ISO 8601 avec fuseau (« 2026-11-21T09:00+01:00 »), "
+                    "ou « demain 9h », « lundi 9h », « +2h », « +2d » (heure de la machine de Ponos). "
+                    "Une date passée est refusée. Vide : dès qu'une place se libère.",
+                },
             },
             ("title",),
         ),
@@ -1597,6 +1604,7 @@ def create_task(
     model: str = "",
     on: str = "",
     validation: str = "",
+    scheduled: str = "",
 ) -> dict[str, Any]:
     if not title.strip():
         raise ToolError("Une tâche a besoin d'un titre.")
@@ -1613,13 +1621,17 @@ def create_task(
         model=model,
         on=on,
         validation=validation,
+        scheduled=scheduled,
     )
+    # The moment as it was written, offset included: "demain 9h" said back as a date.
+    page = api.runner.client.page(created["id"]) if scheduled.strip() else None
     return {
         "id": created["id"].replace("-", ""),
         "title": created["title"],
         "project": chosen["name"] if chosen else "",
         "goal": served["name"] if served else "",
         "status": "draft",
+        "scheduled": str(store.read(page, api.config.board.prop("due")) or "") if page else "",
     }
 
 

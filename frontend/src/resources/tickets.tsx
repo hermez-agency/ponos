@@ -48,6 +48,7 @@ import {
   PillsInputController,
   OnInputController,
   PlanInputController,
+  ScheduledInputController,
   ValidationInputController,
   ProjectInputController,
   SegmentedInputController,
@@ -200,6 +201,8 @@ export interface TicketWrite {
   on?: string
   /** Its own Force validated: empty to inherit, `forced` or `free`. */
   validation?: string
+  /** Held back until then: ISO 8601 with the browser's offset; empty for « as soon as a place is free ». */
+  scheduled?: string
 }
 
 /* One row per ticket, kept for as long as the ticket is the same object.
@@ -467,6 +470,12 @@ const createForm: FormInterface = {
       // The box says its own name beside it: the field's label is for the screen reader.
       className: "[&_[data-slot=field-label]]:sr-only",
       hidden: () => !currentBoard()?.plan,
+    },
+    // « Scheduled for »: optional, a moment of the browser's timezone.
+    scheduled: {
+      label: "Scheduled for",
+      defaultValue: "",
+      controller: ScheduledInputController,
     },
     // The prompt run at every change of status: written here, kept on the page.
     on: {
@@ -1450,6 +1459,8 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
   if (!title) throw new FieldProblem("title", t("A ticket needs a title."))
   const score = readScore(fresh.priority)
   if (score === undefined) throw new FieldProblem("priority", t("A priority is a number from 0 to 100."))
+  // A moment already past is said under its field before this (`NewTicketFoot`); the server refuses it too.
+  const scheduled = String(fresh.scheduled ?? "")
   const project = knownProjects.get(String(fresh.project ?? ""))
   // A draft lands among the drafts, with the status the board keeps them
   // under, or none on a board that names no such option.
@@ -1480,7 +1491,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
     session_link: "",
     cost: null,
     duration: null,
-    scheduled: "",
+    scheduled,
     created: now,
     edited: now,
   }
@@ -1500,6 +1511,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
         plan: fresh.plan === true,
         on: String(fresh.on ?? ""),
         validation: String(fresh.validation ?? ""),
+        scheduled,
       }),
     rollback: () => dropTicket(card.id),
     failure: t("The ticket could not be created"),

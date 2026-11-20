@@ -185,6 +185,14 @@ export const api = {
         body: { model },
       })
     ),
+  /** Held back until a moment, ISO with its offset; empty is « Launch now ». A moment already past is refused. */
+  setScheduled: (ticket: string, scheduled: string) =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/scheduled", {
+        params: { path: { ticket_id: ticket } },
+        body: { scheduled },
+      })
+    ),
   /** The ticket's own Force validated: empty to inherit, `forced`, or `free`. */
   setValidation: (ticket: string, validation: string) =>
     answer(
@@ -382,10 +390,12 @@ export const api = {
     on?: string
     /** Its own Force validated: empty to inherit, `forced`, or `free` (waits for the review). */
     validation?: string
+    /** Held back until then: ISO 8601 with its offset; empty starts it as soon as a place is free. */
+    scheduled?: string
   }) =>
     answer(
       client.POST("/api/tickets", {
-        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, validation: "", ...ticket },
+        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, validation: "", scheduled: "", ...ticket },
       })
     ),
   /** `from` is the status the card showed: the board saying anything else by
