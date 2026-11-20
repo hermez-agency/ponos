@@ -67,7 +67,11 @@ test("a memory is added, filtered, searched, edited and deleted", async ({ page 
   await editor.getByLabel("The fact").fill("It is a ROG Ally X, not a Steam Deck.")
   await editor.getByLabel("Type").selectOption("reference")
   await editor.getByRole("button", { name: "Save", exact: true }).click()
-  await expect(page.getByText("It is a ROG Ally X, not a Steam Deck.")).toBeVisible()
+  // Saved once the editor is gone and the row is in the list: the list read
+  // after a save asks the filters of its own time, and a filter chosen before
+  // it lands would be drawn over — on a busy runner, it was.
+  await expect(editor).toHaveCount(0)
+  await expect(rows(page).filter({ hasText: "It is a ROG Ally X, not a Steam Deck." })).toHaveCount(1)
 
   await page.getByLabel("Filter by type").selectOption("reference")
   await expect(rows(page)).toHaveCount(1)
