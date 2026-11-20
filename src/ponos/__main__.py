@@ -1599,6 +1599,100 @@ def _remake_environment() -> int:
     return 0
 
 
+def command_export(args: argparse.Namespace) -> int:
+    """Write this Ponos to one archive — never its vault, never a secret. See transfer.py."""
+    from . import disk, transfer
+
+    categories = [
+        key
+        for key in transfer.DEFAULTS
+        if not (key == "tickets" and not args.tickets) and key not in (args.skip or [])
+    ]
+    if args.conversations:
+        categories.append("conversations")
+    try:
+        name, blob, manifest = transfer.export(categories)
+    except transfer.TransferError as error:
+        print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
+        return 1
+    target = Path(args.output or name)
+    if target.is_dir():
+        target = target / name
+    try:
+        with open(target, "wb", opener=disk.opener()) as handle:
+            handle.write(blob)
+    except OSError as error:
+        print(f"{RED}cannot write{RESET} {target}: {error}", file=sys.stderr)
+        return 1
+    counts = ", ".join(f"{key} {number}" for key, number in manifest["counts"].items())
+    print(f"exported to {target} — {counts}")
+    _print_secrets(manifest["secrets"])
+    return 0
+
+
+def _print_secrets(said: dict[str, list[Any]]) -> None:
+    """The secrets an archive does not carry, by name: what to type again after an import."""
+    configured = {str(entry.get("name")) for entry in said.get("config", [])}
+    names = [str(entry.get("name")) for entry in said.get("vault", []) if isinstance(entry, dict)]
+    names += [f"{entry.get('name')} ({entry.get('setting')})" for entry in said.get("config", [])]
+    names += [str(name) for name in said.get("own", []) if str(name) not in configured]
+    if names:
+        print(f"{DIM}not in the archive, to type again after an import:{RESET} {', '.join(names)}")
+
+
+def command_import(args: argparse.Namespace) -> int:
+    """Read an archive of `ponos export` into this Ponos — merged unless `--replace`."""
+    from . import transfer
+
+    try:
+        archive = transfer.read(Path(args.archive).read_bytes())
+    except OSError as error:
+        print(f"{RED}cannot read{RESET} {args.archive}: {error}", file=sys.stderr)
+        return 1
+    except transfer.TransferError as error:
+        print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
+        return 1
+    mode = transfer.REPLACE if args.replace else transfer.MERGE
+    apply = not args.dry_run
+    confirmed = bool(args.yes)
+    if apply and args.replace and not confirmed:
+        if not sys.stdin.isatty():
+            print(
+                f"{RED}refused:{RESET} --replace empties the chosen categories first — "
+                "add --yes to confirm it",
+                file=sys.stderr,
+            )
+            return 1
+        answer = input("Replace what this Ponos holds in those categories? Type yes: ")
+        confirmed = answer.strip().lower() == "yes"
+        if not confirmed:
+            print("nothing imported")
+            return 1
+    try:
+        said = transfer.run(archive, args.only or None, mode=mode, apply=apply, confirmed=confirmed)
+    except transfer.TransferError as error:
+        print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
+        return 1
+    print(
+        f"{'imported' if apply else 'would import'} ({mode}) from an export of Ponos "
+        f"{said['ponos']}, {said['created']}"
+    )
+    for category in said["categories"]:
+        if category["key"] not in said["chosen"]:
+            continue
+        line = (
+            f"  {category['key']}: {category['imported']} of {category['count']}"
+            f", {category['ignored']} already here"
+        )
+        if category["conflicts"]:
+            line += f", {len(category['conflicts'])} in conflict: {', '.join(category['conflicts'][:10])}"
+        print(line)
+    if said["backup"]:
+        print(f"the database as it was: {said['backup']}")
+    _print_secrets(said["secrets"])
+    return 0
+
+
 def command_extras(args: argparse.Namespace) -> int:
     """`ponos extras list|add|remove`: the optional extras of the environment in use.
 
@@ -2309,6 +2403,68 @@ def _add_setup_commands(subparsers: argparse._SubParsersAction[argparse.Argument
     extras.add_argument("action", choices=("list", "add", "remove"), help="what to do")
     extras.add_argument("extra", nargs="?", default="", help="voice, browser…")
     extras.set_defaults(function=command_extras)
+
+    exporting = subparsers.add_parser(
+        "export", help="write this Ponos to one archive — never the vault, never a secret"
+    )
+    exporting.add_argument(
+        "--tickets",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="with the tickets, their comments and history (the default), or without",
+    )
+    exporting.add_argument(
+        "--conversations", action="store_true", help="also the conversations with the assistant"
+    )
+    exporting.add_argument(
+        "--skip",
+        action="append",
+        choices=(
+            "settings",
+            "projects",
+            "context",
+            "memories",
+            "goals",
+            "schedules",
+            "ideas",
+            "skills",
+        ),
+        help="leave a category out; may be given more than once",
+    )
+    exporting.add_argument("-o", "--output", default="", help="the file, or the folder, to write")
+    exporting.set_defaults(function=command_export)
+
+    importing = subparsers.add_parser(
+        "import", help="read an archive of ponos export into this Ponos, merged by default"
+    )
+    importing.add_argument("archive", help="the .zip ponos export wrote")
+    importing.add_argument(
+        "--dry-run", action="store_true", help="say what would be imported, write nothing"
+    )
+    importing.add_argument(
+        "--replace",
+        action="store_true",
+        help="empty the chosen categories first (ponos.db is copied beside itself before)",
+    )
+    importing.add_argument("--yes", action="store_true", help="confirm --replace without asking")
+    importing.add_argument(
+        "--only",
+        action="append",
+        choices=(
+            "settings",
+            "projects",
+            "context",
+            "memories",
+            "goals",
+            "schedules",
+            "ideas",
+            "skills",
+            "tickets",
+            "conversations",
+        ),
+        help="import this category only; may be given more than once",
+    )
+    importing.set_defaults(function=command_import)
 
     updating = subparsers.add_parser("update", help="move the installation to the newest version")
     updating.add_argument(

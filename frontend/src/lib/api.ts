@@ -471,6 +471,41 @@ export const api = {
     }
     return data as ArrayBuffer
   },
+  /* This Ponos in one archive (transfer.py): the zip and the name the server
+   * gave it. Not JSON, so it does not go through `answer`. */
+  exportArchive: async (categories: string[]): Promise<{ blob: Blob; name: string }> => {
+    const { data, response, error } = await client.POST("/api/export", {
+      body: { categories },
+      parseAs: "blob",
+    })
+    if (response.status === 401) backToTheDoor()
+    if (!response.ok || !data) {
+      const said = refusal(error)
+      throw new ApiError(said.error || silent(response.status), response.status)
+    }
+    const named = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")
+    return { blob: data as Blob, name: named?.[1] ?? "ponos-export.zip" }
+  },
+  /* An archive read: its preview, or — `apply` — its import. The file is sent
+   * again for the import rather than kept on the server in between. */
+  importArchive: (
+    file: Blob,
+    options: { categories?: string[]; mode?: "merge" | "replace"; apply?: boolean; confirm?: boolean } = {}
+  ) =>
+    answer(
+      client.POST("/api/import", {
+        params: {
+          query: {
+            categories: (options.categories ?? []).join(","),
+            mode: options.mode ?? "merge",
+            apply: options.apply ?? false,
+            confirm: options.confirm ?? false,
+          },
+        },
+        headers: { "Content-Type": "application/zip" },
+        fetch: carrying(file),
+      })
+    ),
   /** A new conversation, on the model of `like` (the one the page leaves). */
   newChat: (like = "") => answer(client.POST("/api/chat/new", { body: { like } })),
   sessions: (query = "") => answer(client.GET("/api/chat/sessions", { params: { query: { q: query } } })),

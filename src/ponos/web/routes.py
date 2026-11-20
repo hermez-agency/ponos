@@ -56,6 +56,7 @@ from .. import (
     push,
     speech,
     store,
+    transfer,
     update,
     vault,
     vault_store,
@@ -1690,6 +1691,24 @@ def save_settings(request: Request, payload: Fields = Body(default_factory=dict)
 @router.post("/api/context", response_model=answers.ContextSaved)
 def save_context(request: Request, payload: Text = Body(default_factory=Text)) -> Response:
     return answer(_api(request).save_context(payload.text))
+
+
+# -- export and import — see transfer.py ------------------------------------------
+
+
+class ExportAsked(Payload):
+    categories: list[str] | None = None
+    """The categories to export; none said is every one ticked by default."""
+
+
+@router.post("/api/export", response_class=Response)
+def export(request: Request, payload: ExportAsked = Body(default_factory=ExportAsked)) -> Response:
+    name, blob, _ = transfer.export(payload.categories)
+    return Response(
+        blob,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 # -- what Ponos remembers ----------------------------------------------------------

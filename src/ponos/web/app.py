@@ -52,7 +52,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import ClientDisconnect
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .. import __version__, db, library, openrouter, tailscale, triggers, vault, voice
+from .. import __version__, db, library, openrouter, tailscale, transfer, triggers, vault, voice
 from .. import config as config_module
 from ..config import state_dir
 from . import (
@@ -525,6 +525,8 @@ ADMIN_WRITES = (
     "/api/vault",
     "/api/browser",
     "/api/memories/options",
+    "/api/export",
+    "/api/import",
 )
 ADMIN_READS = (
     "/api/accounts",
@@ -1275,6 +1277,49 @@ def library_upload(
         return fail(400, "the file was not sent whole")
     api.hub.publish("library", id=kept["id"])
     return answer({**api.library(), "kept": api.library_shown(kept)})
+
+
+@doors.post("/api/import", response_model=answers.Imported)
+def import_archive(
+    request: Request,
+    categories: str = "",
+    mode: str = transfer.MERGE,
+    apply: bool = False,
+    confirm: bool = False,
+) -> Response:
+    """An export, as the raw body: its preview, or — `apply` — its import.
+
+    The archive is sent again for the import rather than kept between the two:
+    nothing of it stays on this machine but what is imported. `categories` is a
+    comma list, every one the archive holds when empty.
+    """
+    try:
+        length = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        length = 0
+    if length > transfer.MAX_ARCHIVE:
+        return fail(413, "the archive is larger than Ponos reads")
+    body, chunks, size = _Body(request), [], 0
+    try:
+        while piece := body.read(1024 * 1024):
+            size += len(piece)
+            if size > transfer.MAX_ARCHIVE:
+                return fail(413, "the archive is larger than Ponos reads")
+            chunks.append(piece)
+    except ClientDisconnect:
+        return fail(400, "the archive was not sent whole")
+    asked = [part for part in categories.split(",") if part.strip()] or None
+    archive = transfer.read(b"".join(chunks))
+    said = transfer.run(archive, asked, mode=mode, apply=apply, confirmed=confirm)
+    if apply:
+        api = _console(request).api
+        api.resynchronise()
+        # What the open pages listen for, said the way their own writes say it.
+        api.hub.publish("projects", saved="")
+        api.hub.publish("goals")
+        api.hub.publish("schedules", read=True)
+        api.hub.publish("settings", saved=[])
+    return answer(said)
 
 
 @doors.get("/api/library/{identifier}/file", response_class=Response)

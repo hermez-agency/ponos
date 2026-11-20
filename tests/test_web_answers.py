@@ -49,7 +49,7 @@ def every_route_that_answers_json_names_its_shape() -> None:
     """No route left for the page to type by hand — but the five that answer bytes.
 
     A picture, a capture of a ticket, a file of the board (a redirect to it), a sound, a file of the
-    conversation and the spending export are not JSON, and their schema does not say so.
+    conversation, the spending export and a Ponos's export are not JSON, and their schema does not say so.
     """
     from ponos.web import app
 
@@ -69,6 +69,7 @@ def every_route_that_answers_json_names_its_shape() -> None:
         "get /api/spending.csv",
         "get /api/tickets/{ticket_id}/previews/{name}",
         "post /api/chat/speak",
+        "post /api/export",
     ], unnamed
 
 

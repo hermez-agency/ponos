@@ -204,6 +204,61 @@ association, the icons, the launcher and the installed versions.
 `TR_PURGE=1` also removes the configuration, the logs and the history (`ponos.db`
 included). Branches already pushed are never touched.
 
+## Export and import
+
+Everything Ponos holds can leave in one archive and come back elsewhere — another machine, a
+reinstallation, a drawer. **Settings → Export & import** in the console (an administrator's
+page), or the command line:
+
+```sh
+ponos export                       # ponos-export-<date>.zip, here
+ponos export --no-tickets -o ~/    # without the tickets, into that folder
+ponos import ponos-export-2026-11-20-0930.zip --dry-run   # what it would do
+ponos import ponos-export-2026-11-20-0930.zip             # merge it in
+```
+
+**What goes in.** One box per category, every one ticked but the conversations: the
+settings (`config.toml`), the projects and their own settings (validation, models, rights,
+the *names* of the vault keys they are given), the context and the agents, the memories (every
+scope), the goals, the recurrences, the ideas, the skills and their files, the tickets — their
+mission, result and its versions, journal, status, comments, the tickets they come after,
+their audit and their history — and, ticked by hand, the conversations with the assistant.
+The archive is a zip: a `manifest.json` (the format's version, Ponos's, the date, the
+categories and how many items each holds) and one JSON file per category.
+
+**What never goes in, and has no box.** The vault and every secret: no value of
+**Context → Vault**, no API key, no GitHub, Telegram or Slack token, no password, no session
+cookie, no `.env`. `config.toml` leaves without the keys a secret used to sit under, and every
+text of the archive is masked against Ponos's own secrets on its way out. What the archive
+carries instead is their **names** — the vault's entries, Ponos's own secrets, the settings
+they answer — listed at the end of the export and of the import: what to type again on the
+other side. The worktrees, the logs, the caches, the sessions' runs and the library's files
+are not exported either.
+
+**Importing.** Drop the archive on the page: Ponos reads its manifest and shows what it holds,
+how many items, and what conflicts with what is already here — that preview writes nothing.
+Untick the categories you do not want, then pick how:
+
+- **Merge** (the default) adds what is missing and replaces nothing. A row already here and
+  identical is ignored; one already here and different is a conflict, listed by its name and
+  left as it is. A setting already in `config.toml` with another value is one too.
+- **Replace** empties the chosen categories first, and writes the archive's. It asks for an
+  explicit confirmation (`--replace --yes` on the command line), and copies `ponos.db` beside
+  itself before it starts — `ponos.db.before-import-<date>.bak`; the settings it rewrites
+  leave `config.toml.bak`.
+
+**Nothing starts on its own.** A ticket arrives in its status, but a ready, running or
+validated one arrives as a **draft**: move it back yourself. Its « On » starts from the status
+it arrives in, so the import is not a change that runs it; every recurrence arrives
+**switched off**, to be switched on again by hand. Page and ticket identifiers are kept, so a
+ticket still points at its project, its goal, its agent and the tickets it comes after; the
+rows numbered by the database (memories, skills, ideas, comments) are numbered again, their
+files and versions following them.
+
+An archive written by a newer Ponos, in a format this one does not read yet, is refused with
+the versions of both: update, then import again. A project's path is the other machine's —
+check it in the project's settings if the repositories are somewhere else here.
+
 ## Optional extras (voice, browser)
 
 Two features need a package the base installation does not carry: `voice` (`piper-tts`,

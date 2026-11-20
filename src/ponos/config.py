@@ -1040,7 +1040,7 @@ _ESCAPES = (("\\", "\\\\"), ('"', '\\"'), ("\n", "\\n"), ("\r", "\\r"), ("\t", "
 
 
 def _literal(value: object) -> str:
-    """One TOML right-hand side, in the four shapes this file holds.
+    """One TOML right-hand side, in the shapes this file holds — a float among them.
 
     A string is escaped rather than interpolated: a token with a quote in it
     used to write a line that stopped the file from parsing, and the next thing
@@ -1048,8 +1048,8 @@ def _literal(value: object) -> str:
     """
     if isinstance(value, bool):  # before int: a bool *is* an int in Python
         return "true" if value else "false"
-    if isinstance(value, int):
-        return str(value)
+    if isinstance(value, (int, float)):
+        return repr(value)
     if isinstance(value, (list, tuple)):
         return "[" + ", ".join(_literal(str(item)) for item in value) + "]"
     text = str(value)

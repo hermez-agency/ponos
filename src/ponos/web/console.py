@@ -96,6 +96,8 @@ REFUSED = {
     "clean": "deletes worktrees a session may be standing in — do it from a terminal",
     "mcp": "draws and takes back the MCP server's keys — do it from a terminal",
     "vault": "keeps and removes the sessions' keys — Context → Vault, or a terminal",
+    "export": "writes an archive on the server — Settings → Export & import downloads it",
+    "import": "rewrites what this Ponos holds — Settings → Export & import, or a terminal",
 }
 
 # The Claude models the console offers, whatever else is configured: the ones

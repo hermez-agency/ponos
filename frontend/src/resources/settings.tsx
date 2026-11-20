@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Bell, Cpu, FolderGit2, GitPullRequest, Inbox, Play, Plug, Settings2, SlidersHorizontal, Users, Webhook } from "lucide-react"
+import { ArrowLeftRight, Bell, Cpu, FolderGit2, GitPullRequest, Inbox, Play, Plug, Settings2, SlidersHorizontal, Users, Webhook } from "lucide-react"
 import { ActionList } from "react-data-form"
 import {
   createViewResource,
@@ -58,6 +58,7 @@ const ICONS: Record<string, IconType> = {
   triggers: Webhook,
   "github-app": GitPullRequest,
   accounts: Users,
+  transfer: ArrowLeftRight,
 }
 
 /* The one page the file does not describe: the MCP tab is about the console
@@ -113,6 +114,19 @@ const LazyTriggersPage = React.lazy(() =>
 const TriggersPage = () => (
   <React.Suspense fallback={null}>
     <LazyTriggersPage />
+  </React.Suspense>
+)
+
+/* The Export & import tab: the whole Ponos in one archive, and back — see `transfer-page.tsx`. */
+const TRANSFER_TAB = "transfer"
+
+const LazyTransferPage = React.lazy(() =>
+  import("@/components/console/transfer-page").then((module) => ({ default: module.TransferPage }))
+)
+
+const TransferPage = () => (
+  <React.Suspense fallback={null}>
+    <LazyTransferPage />
   </React.Suspense>
 )
 
@@ -187,6 +201,14 @@ function tellTheTabs() {
       description: "Who the console is shared with, and what each of them may do.",
       icon: ICONS[ACCOUNTS_TAB],
       component: AccountsPage,
+    })
+  if (pages.length && isAdmin())
+    pages.push({
+      id: TRANSFER_TAB,
+      label: "Export & import",
+      description: "This Ponos in one archive, and an archive read back — never the vault, never a secret.",
+      icon: ICONS[TRANSFER_TAB],
+      component: TransferPage,
     })
   TABS.splice(0, TABS.length, ...pages)
 }
