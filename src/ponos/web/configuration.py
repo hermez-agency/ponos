@@ -17,7 +17,9 @@ from typing import Any
 from .. import (
     browser,
     diagnostic,
+    guards,
     idea_schedule,
+    journal,
     library,
     local_ci,
     memory,
@@ -118,6 +120,40 @@ class Configuration(Base):
             "diagnostic": self._project_diagnostic(bare),
             "path": self._project_path(bare),
             "vault": self._project_vault(bare),
+            "guards": self._project_guards(bare),
+        }
+
+    def _project_guards(self, bare: str) -> dict[str, Any]:
+        """The rules a project's sessions are held to, and what they blocked lately.
+
+        The file's, plus the `[guards]` of the `.ponos.toml` in the project's
+        repository — read here from its checkout, where the runner reads the
+        base: the two are the same file unless somebody is mid-change.
+        """
+        row: dict[str, Any] = next(
+            (
+                one
+                for one in self.all_projects()["projects"]
+                if project_settings.key(one["id"]) == bare
+            ),
+            {},
+        )
+        own = guards.Table()
+        folder = row.get("path") or row.get("configured")
+        if folder:
+            try:
+                own = guards.parse((Path(str(folder)) / guards.CONFIG).read_text(encoding="utf-8"))
+            except OSError:
+                pass
+        rules = guards.combine(guards.of_config(self.config.guards), own)
+        return {
+            "rules": {
+                key: value for key, value in rules.to_json().items() if key != "default_branch"
+            },
+            "own": bool(
+                own.read_only or own.forbidden or own.commands or own.allow_git is not None
+            ),
+            "blocks": journal.guard_blocks(str(row.get("name") or "")) if row else [],
         }
 
     @staticmethod

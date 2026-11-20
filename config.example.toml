@@ -84,6 +84,23 @@ ask = [
   "toute dépense",
 ]
 
+# Garde-fous : refusés AVANT l'outil par un hook de Claude Code, pas seulement demandés
+# dans le prompt. L'agent reçoit la raison du refus, et le journal du ticket la garde.
+# Un projet ajoute les siens dans le `.ponos.toml` de son dépôt, même table [guards] —
+# ses listes s'ajoutent à celles-ci, et un booléen qu'il écrit l'emporte.
+# Les chemins sont des globs depuis la racine du dépôt (`**` traverse les dossiers,
+# `docs/` couvre le dossier). `read_only` : lu, jamais écrit ; `forbidden` : ni lu ni écrit.
+# `commands` : des expressions régulières cherchées dans chaque commande Bash. Un `Bash`
+# se contourne de cent façons : c'est un filet, pas une prison.
+[guards]
+read_only = []              # ex. ["LICENSE", "**/package.json"]
+forbidden = []              # ex. [".env", "secrets/**"]
+commands = []               # ex. ["terraform destroy", "rm\\s+-rf\\s+/"]
+# Trois actions git sont interdites, sauf celles que cette liste nomme : "push_default" (un push
+# vers main, master ou la branche de base), "force_push" (--force, --force-with-lease, +ref),
+# "delete_branch" (git branch -d/-D, git push --delete ou :branche).
+allow_git = []
+
 [notify]
 desktop = true                          # a desktop notification when a ticket finishes
 events = ["blocked", "failed", "done"]  # the moments worth a message

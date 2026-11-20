@@ -19,6 +19,7 @@ somebody cuts a release; see CONTRIBUTING.md, « Cutting one ».
 ### Added
 
 - **Corriger un ticket pendant qu'il tourne.** Un message envoyé depuis la console (vue du ticket) ou depuis Telegram et Slack à un ticket dont la session tourne est donné à l'agent au lieu d'attendre le passage suivant : en **correction** (`steer`, par défaut), à la fin du tour en cours, sans arrêter le travail, ou **à la suite** (`follow`, `mode` de `POST /api/tickets/<id>/talk`), quand l'agent a fini ce qu'il faisait et avant la clôture. Le message apparaît dans le journal du run, à sa place. Sans session qui tourne, le commentaire est écrit comme avant. Voir `guide/tickets.md`, « Correcting a ticket while it runs ».
+- **Des garde-fous en code, avant l'outil.** Une table `[guards]` dans `config.toml` — et dans le `.ponos.toml` d'un projet, lu sur sa base — dit ce qu'une session ne peut pas faire : chemins en lecture seule (`read_only`) ou interdits (`forbidden`), commandes interdites (`commands`, des expressions régulières), et trois gestes git (push sur `main`/`master`/la branche de base, push forcé, suppression de branche) refusés sauf si `allow_git` les nomme. Un hook `PreToolUse` de Claude Code (`ponos hook pre-tool-use`) les applique : l'agent reçoit la raison et change de méthode, le refus devient une ligne « Guard » du journal du ticket, et les réglages du projet (`guards` dans `GET /api/projects/<id>/settings`) listent les règles et les derniers refus. Les règles d'un projet ne s'appliquent qu'à lui. `guide/safety.md`.
 
 ### Changed
 

@@ -6,7 +6,7 @@ What keeps a session away from what it should not touch.
 
 ## What protects your code
 
-An agent working with nobody there to stop it needs a frame. Seven guardrails, all of
+An agent working with nobody there to stop it needs a frame. Eight guardrails, all of
 them on the program's normal path:
 
 - **The main repository is never touched.** Every ticket gets a disposable `git worktree`
@@ -48,6 +48,26 @@ them on the program's normal path:
   itself, but under `reply_permission_mode` — `plan` by default, which Claude Code cannot
   write from. Asking it a question in a comment can cost you a minute of its time and
   nothing else.
+- **Rules the agent cannot ignore: the guards.** What a prompt asks, a session can forget;
+  what a `PreToolUse` hook of Claude Code refuses, it cannot. Before each tool, Ponos checks
+  the call against the `[guards]` of `config.toml` and of the project's own `.ponos.toml`
+  (read on the base branch, not the ticket's): `read_only` paths (read, never written),
+  `forbidden` paths (neither), `commands` (regular expressions looked for in each Bash
+  command), and three git actions — a push to `main`, `master` or the base branch, a force
+  push, a branch deletion — refused unless `allow_git` names them. A project's lists add to
+  the file's, and its own `allow_git` replaces it; one project's rules never reach another.
+  The agent is told the reason and changes its way; the refusal is a `Guard` line in the
+  ticket's journal, and the project's settings page lists the rules and the latest refusals.
+  ```toml
+  # .ponos.toml, at the root of the repository
+  [guards]
+  read_only = ["LICENSE", "**/package.json"]
+  forbidden = [".env", "secrets/**"]
+  commands = ["terraform\\s+destroy"]
+  ```
+  It is a net, not a prison: a Bash command can write a file in a hundred ways, and the hook
+  spots the usual ones (redirections, `sed -i`, `rm`, `mv`, `cp`, `tee`…). A hook that cannot
+  read its rules lets the session go on rather than stopping the ticket.
 - **One scheduler, never two.** The daemon holds a file lock for as long as it lives: a
   `ponos run` that finds it held asks the daemon to look rather than starting tickets
   beside it, so no ticket is claimed twice and no place counted twice.

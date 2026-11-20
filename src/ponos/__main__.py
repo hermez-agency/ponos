@@ -30,6 +30,7 @@ from . import (
     environment,
     git,
     github_checks,
+    guards,
     health,
     ids,
     journal,
@@ -1749,6 +1750,11 @@ def _vault_value(kind: str) -> dict[str, str]:
     return {"value": getpass.getpass("value (not shown): ")}
 
 
+def command_hook(args: argparse.Namespace) -> int:
+    """The hook Claude Code runs before each tool — see guards.py."""
+    return guards.main(["--rules", args.rules])
+
+
 def command_vault(args: argparse.Namespace) -> int:
     """Ponos's own vault, from a terminal: list, set, remove, rotate — see vault_store.py.
 
@@ -2307,6 +2313,13 @@ def _add_console_commands(subparsers: argparse._SubParsersAction[argparse.Argume
         "-n", "--number", type=int, default=20, help="how many writes to show (default: 20)"
     )
     serving_mcp.set_defaults(function=command_mcp, action="list", number=20)
+
+    hooking = subparsers.add_parser(
+        "hook", help="what Claude Code runs before each tool: `hook pre-tool-use --rules FILE`"
+    )
+    hooking.add_argument("event", choices=["pre-tool-use"], help="the hook's event")
+    hooking.add_argument("--rules", required=True, help="the session's rules file (guards.py)")
+    hooking.set_defaults(function=command_hook)
 
     keeping = subparsers.add_parser(
         "vault", help="Ponos's own vault: the keys sessions are given (default: list)"

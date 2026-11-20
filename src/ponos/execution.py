@@ -50,6 +50,7 @@ from . import (
     generated,
     git,
     github_token,
+    guards,
     journal,
     kinds,
     library,
@@ -587,12 +588,14 @@ class Execution(Base):
             else "Claude session"
         )
         self.say(f"    {opening} {job.session_id}{' · ' + model if model else ''} → {log}")
-        return self._paid(
+        guard = self._guard(job, log)
+        outcome = self._paid(
             job.ticket.id,
             text,
             cwd=job.workdir,
             log=log,
             model=model,
+            guard=guard,
             # A session that only plans cannot write, whatever the runner's mode.
             permission_mode=planning.PERMISSION_MODE
             if job.planning == "propose"
@@ -607,6 +610,33 @@ class Execution(Base):
             record=adoption.record(job) if job.adoptable else "",
             **self._browsing(job, log),
         )
+        self._blocked(guard, run)
+        return outcome
+
+    def _guard(self, job: Job, log: Path) -> Path | None:
+        """The rules file of this session's guards, or None when nothing is forbidden.
+
+        Rules that cannot be written leave the session unguarded and say so: a
+        ticket is not stopped by the net under it. See guards.py.
+        """
+        if not job.project.path:
+            return None
+        try:
+            rules = guards.for_job(self.config.guards, job.workdir, job.base)
+            return guards.write(log.with_suffix(".guards.json"), rules) if rules.active else None
+        except OSError as error:
+            self.say(f"    ! the guards of this ticket could not be written: {error}")
+            return None
+
+    def _blocked(self, guard: Path | None, run: journal.Run) -> None:
+        """What the guards refused, in the ticket's journal — read once the session is over."""
+        if guard is None:
+            return
+        for one in guards.blocks(guard):
+            self.say(f"    ⛔ guard: {one['tool']} {one['detail']} — {one['reason']}")
+            run.note(
+                progress.Step("Guard", f"{one['tool']} {one['detail']} — {one['reason']}".strip())
+            )
 
     def _github(self, job: Job) -> dict[str, str]:
         """The GitHub App's token for this job's repository, or the machine's own token.

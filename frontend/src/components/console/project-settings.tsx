@@ -290,6 +290,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       <NotesCard project={project} />
       {/* Prefixed: an empty path would otherwise share the key "" with an
        * empty setup command, and React keep a stale copy of either card. */}
+      <GuardsCard guards={settings.guards} />
       <PathCard key={`path:${settings.path.value}`} path={settings.path} saving={saving} onSave={savePath} />
       <VaultCard
         key={`vault:${JSON.stringify(settings.vault.entries)}`}
@@ -444,6 +445,80 @@ function PlanCard({
 /* Where the repository is on this machine, and the keys the project's
  * sessions are given from the vault: both live in ponos.db now, typed and
  * saved with their button like the setup below. */
+/* What this project's sessions may not do, checked before each tool, and what
+ * was refused lately. Read only: the rules are written in `config.toml`
+ * (`[guards]`) and in the repository's `.ponos.toml`, which a ticket reviews
+ * like any other file. */
+function GuardsCard({ guards }: { guards: ProjectSettings["guards"] }) {
+  const t = useT()
+  const { rules, blocks } = guards
+  const lists: [string, string[]][] = [
+    [t("Read only"), rules.read_only],
+    [t("Forbidden"), rules.forbidden],
+    [t("Forbidden commands"), rules.commands],
+  ]
+  const git: [string, boolean][] = [
+    [t("Push to the default branch"), rules.push_default],
+    [t("Force push"), rules.force_push],
+    [t("Branch deletion"), rules.delete_branch],
+  ]
+  return (
+    <Card data-card="project-guards" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Guards")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {guards.own
+            ? t(
+                "Refused before the tool runs, with the reason given to the agent. The file's rules and this repository's own (.ponos.toml)."
+              )
+            : t(
+                "Refused before the tool runs, with the reason given to the agent. The file's rules; add this repository's own in its .ponos.toml."
+              )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 px-5 pb-4 text-[13px] sm:px-6">
+        {lists.map(([label, values]) => (
+          <div key={label} data-guard-list={label}>
+            <div className="font-semibold">{label}</div>
+            {values.length ? (
+              <ul className="mt-1 font-mono text-[12px]">
+                {values.map((value) => (
+                  <li key={value}>{value}</li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-muted-foreground">{t("None.")}</div>
+            )}
+          </div>
+        ))}
+        <ul data-guard-git>
+          {git.map(([label, forbidden]) => (
+            <li key={label}>
+              {label} — {forbidden ? t("refused") : t("allowed")}
+            </li>
+          ))}
+        </ul>
+        <div data-guard-blocks>
+          <div className="font-semibold">{t("Latest refusals")}</div>
+          {blocks.length ? (
+            <ul className="mt-1 flex flex-col gap-1">
+              {blocks.map((block) => (
+                <li key={`${block.ticket}:${block.at}:${block.text}`}>
+                  <span className="font-medium">{block.title || block.ticket}</span>
+                  <span className="text-muted-foreground"> · {block.at.slice(0, 16).replace("T", " ")}</span>
+                  <div className="font-mono text-[12px] break-words">{block.text}</div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-muted-foreground">{t("Nothing refused yet.")}</div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function PathCard({
   path,
   saving,

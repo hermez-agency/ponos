@@ -711,6 +711,33 @@ class ProjectVault(Shape):
     """Where an item is read from when it names no other provider."""
 
 
+class GuardRules(Shape):
+    read_only: list[str]
+    forbidden: list[str]
+    commands: list[str]
+    push_default: bool
+    force_push: bool
+    delete_branch: bool
+
+
+class GuardBlock(Shape):
+    ticket: str
+    title: str
+    at: str
+    text: str
+
+
+class ProjectGuards(Shape):
+    """What a project's sessions may not do, and what was refused lately — see guards.py."""
+
+    rules: GuardRules
+    """The file's `[guards]` and the project's own, together."""
+    own: bool
+    """Whether the project's `.ponos.toml` adds rules of its own."""
+    blocks: list[GuardBlock]
+    """The latest refusals, newest first."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -727,6 +754,7 @@ class ProjectSettings(Shape):
     diagnostic: ProjectDiagnostic
     path: ProjectPath
     vault: ProjectVault
+    guards: ProjectGuards
 
 
 class ProjectNotes(Shape):

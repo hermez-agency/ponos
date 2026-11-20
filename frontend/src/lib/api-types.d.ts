@@ -3604,6 +3604,20 @@ export interface components {
             /** @description Whether the workspace has a goals database at all. */
             configured: boolean;
         };
+        GuardBlock: {
+            ticket: string;
+            title: string;
+            at: string;
+            text: string;
+        };
+        GuardRules: {
+            read_only: string[];
+            forbidden: string[];
+            commands: string[];
+            push_default: boolean;
+            force_push: boolean;
+            delete_branch: boolean;
+        };
         HTTPValidationError: {
             detail?: components["schemas"]["ValidationError"][];
         };
@@ -4391,6 +4405,15 @@ export interface components {
             /** @description The names of the vault's entries, to choose a host's from. */
             entries: string[];
         };
+        /** @description What a project's sessions may not do, and what was refused lately — see guards.py. */
+        ProjectGuards: {
+            /** @description The file's `[guards]` and the project's own, together. */
+            rules: components["schemas"]["GuardRules"];
+            /** @description Whether the project's `.ponos.toml` adds rules of its own. */
+            own: boolean;
+            /** @description The latest refusals, newest first. */
+            blocks: components["schemas"]["GuardBlock"][];
+        };
         /** @description Whether ideas are found for a project on a schedule — see idea_schedule.py. */
         ProjectIdeas: {
             /** @description What applies to it: its own word, or the file's. */
@@ -4484,6 +4507,7 @@ export interface components {
             diagnostic: components["schemas"]["ProjectDiagnostic"];
             path: components["schemas"]["ProjectPath"];
             vault: components["schemas"]["ProjectVault"];
+            guards: components["schemas"]["ProjectGuards"];
         };
         /** @description The keys a project's sessions are given — see vault.py. */
         ProjectVault: {

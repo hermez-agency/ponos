@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import IO, Any
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import config, credits, disk, leftovers, resources, steering, vault
+from . import config, credits, disk, guards, leftovers, resources, steering, vault
 from .question import Question, caveats, lesson, memories, parse
 
 logger = logging.getLogger(__name__)
@@ -263,6 +263,7 @@ def run(
     chrome: bool = True,
     mcp_config: Path | None = None,
     attribution: bool = False,
+    guard: Path | None = None,
     adopted: Handle | None = None,
     track: Callable[[Handle], None] | None = None,
     steerable: bool = False,
@@ -298,6 +299,7 @@ def run(
             mcp_config=mcp_config,
             attribution=attribution,
             steerable=steerable,
+            guard=guard,
         )
         skip = 0
         if track is not None:
@@ -324,6 +326,7 @@ def launch(
     mcp_config: Path | None = None,
     attribution: bool = False,
     steerable: bool = False,
+    guard: Path | None = None,
 ) -> Handle:
     """Start a session detached from this process, and say where to follow it."""
     binary = available()
@@ -345,6 +348,7 @@ def launch(
         mcp_config=mcp_config,
         attribution=attribution,
         steered=steered,
+        guard=guard,
     )
 
     # What the caller adds comes last: an OpenRouter key configured for the
@@ -623,13 +627,17 @@ UNSIGNED = json.dumps(
 )
 
 
-def _settings(attribution: bool, steered: Path | None) -> list[str]:
-    """The `--settings` of a session: unsigned, and listening to its queue when it has one."""
-    if steered is None:
-        return [] if attribution else ["--settings", UNSIGNED]
-    given: dict[str, Any] = {} if attribution else json.loads(UNSIGNED)
-    given["hooks"] = steering.hooks(steered)
-    return ["--settings", json.dumps(given, separators=(",", ":"))]
+def _settings(attribution: bool, steered: Path | None, guard: Path | None) -> list[str]:
+    """The one `--settings` a session is given: its signature off, its queue and its guards on."""
+    settings: dict[str, Any] = {} if attribution else json.loads(UNSIGNED)
+    hooks: dict[str, Any] = steering.hooks(steered) if steered is not None else {}
+    if guard is not None:
+        hooks["PreToolUse"] = [
+            {"matcher": "*", "hooks": [{"type": "command", "command": guards.command(guard)}]}
+        ]
+    if hooks:
+        settings["hooks"] = hooks
+    return ["--settings", json.dumps(settings, separators=(",", ":"))] if settings else []
 
 
 def _command(
@@ -644,6 +652,7 @@ def _command(
     mcp_config: Path | None = None,
     attribution: bool = False,
     steered: Path | None = None,
+    guard: Path | None = None,
 ) -> list[str]:
     """The CLI's command line for one session.
 
@@ -653,6 +662,7 @@ def _command(
     `attribution` false is `[claude] attribution` off: see `UNSIGNED`.
     `steered` is the queue a ticket's messages are left in while the session
     runs: the hooks that read it ride on the same `--settings` — see steering.py.
+    `guard` is the rules file of guards.py: its hook runs before every tool.
     """
     command = [
         binary,
@@ -676,7 +686,7 @@ def _command(
         "--verbose",
         "--permission-mode",
         permission_mode,
-        *_settings(attribution, steered),
+        *_settings(attribution, steered, guard),
     ]
     if model:
         command += ["--model", model]

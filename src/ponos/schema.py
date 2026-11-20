@@ -57,6 +57,7 @@ from .config import (
     Budget,
     Claude,
     ConfigError,
+    Guards,
     Permissions,
     Runner,
     Web,
@@ -323,6 +324,13 @@ class PermissionsTable(Table):
     ask: Sentences = Permissions.ask
 
 
+class GuardsTable(Table):
+    read_only: Sentences = Guards.read_only
+    forbidden: Sentences = Guards.forbidden
+    commands: Sentences = Guards.commands
+    allow_git: Sentences = Guards.allow_git
+
+
 class VaultTable(Table):
     """`[vault]`: where a project's keys are read. Which ones it is given is its own (ponos.db)."""
 
@@ -364,6 +372,7 @@ class File(Table):
     claude: ClaudeTable = Field(default_factory=ClaudeTable)
     budget: BudgetTable = Field(default_factory=BudgetTable)
     permissions: PermissionsTable = Field(default_factory=PermissionsTable)
+    guards: GuardsTable = Field(default_factory=GuardsTable)
     vault: VaultTable = Field(default_factory=VaultTable)
     install: InstallTable = Field(default_factory=InstallTable)
     github: Annotated[dict[str, str], AfterValidator(_owners)] = Field(default_factory=dict)
