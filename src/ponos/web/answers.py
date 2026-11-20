@@ -470,6 +470,12 @@ class TicketValidation(Shape):
     """The ticket's own Force validated: "" to inherit, "forced" or "free"."""
 
 
+class TicketScheduled(Shape):
+    id: str
+    scheduled: str
+    """The moment it is held back until, ISO 8601 with its offset; empty for « now »."""
+
+
 class Moved(Shape):
     """A move queued for the board: the status it goes to."""
 
@@ -2633,6 +2639,7 @@ class AuditEntry(Shape):
         "told",
         "decided",
         "priority",
+        "scheduled",
         "model",
         "on",
         "goal",
@@ -2642,7 +2649,7 @@ class AuditEntry(Shape):
         "forked",
     ]
     detail: str
-    """The column moved to, the choice made, the priority set."""
+    """The column moved to, the choice made, the priority set, the date set ("now" when removed)."""
 
 
 class Audit(Shape):

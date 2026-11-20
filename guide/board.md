@@ -141,6 +141,31 @@ Precision is to the minute: the console writes `14:48`, not `14:48:27`. A ticket
 starts within a few seconds of the minute you named, which is as close as the board
 expresses it.
 
+You set it, move it or take it away wherever a ticket is written:
+
+- **in the console** — *New ticket* has a *Scheduled for* field, with shortcuts (*in 1 h*,
+  *tonight*, *tomorrow morning*, *the day after tomorrow*, *next Monday*) and a date and hour
+  picker, both in **your browser's timezone**; a ticket's view has the same setting among its
+  facts until the ticket is done or cancelled. A dated card says when (*waiting: scheduled
+  for …* on a ready one), and the view of a ready or validated ticket held back by its date
+  has **Launch now**, which removes the date — the ticket then takes its turn like any other
+  (*Run now*, on the card, starts it in a free place at once). The *Other › Scheduled* filter
+  of the board keeps the tickets whose date is still to come;
+- **through the API** — `scheduled` in `POST /api/tickets`, and
+  `POST /api/tickets/<id>/scheduled` with `{"scheduled": "<ISO 8601>"}` to set or move it, or
+  `{"scheduled": ""}` to remove it;
+- **from Claude**, with `scheduled` in the `create_task` tool;
+- **from a terminal** — `ponos schedule <ticket> <when>` (`now` removes the date, the status is
+  left alone) and `ponos move <ticket> ready --at <when>`, which dates the ticket before it
+  reaches the column, so the daemon never sees it undated.
+
+A moment is ISO 8601 (`2026-11-21T09:00+01:00`, or `2026-11-21 09:00` in the runner's
+timezone), or one of a few spoken forms read in the runner's timezone: `demain 9h`,
+`tomorrow 14:30`, `après-demain`, `lundi 9h` (the next Monday, never today), `18h` (today, or
+tomorrow once it has passed), `+2h`, `+30m`, `+2d`. A day without an hour is 09:00. A moment
+already past is **refused**, not written: on a ready ticket it would mean *now*, which the
+empty date says plainly, and a date typed a day wrong would start the work unnoticed.
+
 The optional ones are optional in the strict sense: left empty, a ticket behaves exactly
 as one without them. Fill them in and you get a queue you can steer — a cheap model for a documentation ticket, an expensive one
 for a refactor — and a board that shows what each ticket cost.

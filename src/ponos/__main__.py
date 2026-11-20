@@ -903,9 +903,15 @@ def command_move(args: argparse.Namespace) -> int:
         return 1
     api = Api.alone(configuration)
     try:
+        # The date first: a ticket made ready must not be seen by the daemon before it.
+        when = getattr(args, "at", "") or ""
+        dated = api.set_scheduled(record.id, when)["scheduled"] if when else ""
         page = api.runner.client.page(record.id)
         current = str(store.read(page, configuration.board.prop("status")) or "")
         if current.casefold() == configuration.board.state(key).casefold() and seen is None:
+            if dated:
+                print(f"{record.title} stays in “{current}”, scheduled for {dated}")
+                return 0
             print(f"{record.title} is already in “{current}”")
             return 0
         if seen is not None and current != seen:
@@ -924,7 +930,36 @@ def command_move(args: argparse.Namespace) -> int:
     except (ValueError, store.StoreError) as error:
         print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
         return 1
-    print(f"{record.title} #{short_id(record.id)}: {current or 'no status'} → {moved['status']}")
+    later_on = f", scheduled for {dated}" if dated else ""
+    print(
+        f"{record.title} #{short_id(record.id)}: {current or 'no status'} → {moved['status']}{later_on}"
+    )
+    return 0
+
+
+def command_schedule(args: argparse.Namespace) -> int:
+    """Hold a ticket back until a moment, move that moment, or remove it with `now`.
+
+    The console's own path (`Api.set_scheduled`), as `move` takes `set_status`:
+    the status is left as it is — a draft stays a draft, dated.
+    """
+    from .web.api import Api
+
+    record = _find_ticket(args.ticket)
+    if record is None:
+        return 1
+    said = " ".join(args.when).strip()
+    wanted = "" if said.casefold() in ("now", "maintenant", "none", "") else said
+    api = Api.alone(load_config())
+    try:
+        dated = api.set_scheduled(record.id, wanted)["scheduled"]
+    except (ValueError, LookupError, store.StoreError) as error:
+        print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
+        return 1
+    if dated:
+        print(f"{record.title} #{short_id(record.id)}: scheduled for {dated}")
+    else:
+        print(f"{record.title} #{short_id(record.id)}: no date — it runs as soon as it may")
     return 0
 
 
@@ -2210,7 +2245,25 @@ def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.Argume
         metavar="STATUS",
         help="refuse unless the ticket is still in this status",
     )
+    moving.add_argument(
+        "--at",
+        metavar="WHEN",
+        default="",
+        help='hold it back until then: "2026-11-21 09:00", "demain 9h", "+2d"',
+    )
     moving.set_defaults(function=command_move)
+
+    scheduling_one = subparsers.add_parser(
+        "schedule",
+        help="hold a ticket back until a moment (`now` removes the date)",
+    )
+    scheduling_one.add_argument("ticket", help="the ticket's ID, in any form")
+    scheduling_one.add_argument(
+        "when",
+        nargs="+",
+        help='"2026-11-21 09:00", "demain 9h", "lundi 9h", "+2h", "+2d", or now',
+    )
+    scheduling_one.set_defaults(function=command_schedule)
 
     commenting = subparsers.add_parser(
         "comment", help="comment on a ticket, as a reply from the console does"

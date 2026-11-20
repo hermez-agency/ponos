@@ -16,7 +16,7 @@
  */
 
 /** The switches that are not a property of their own. */
-export type Flag = "pr" | "credits" | "sync"
+export type Flag = "pr" | "credits" | "sync" | "scheduled"
 
 /** How recently a ticket was created or touched. */
 export type Period = "" | "today" | "7d" | "30d"
@@ -59,7 +59,7 @@ export const EMPTY: TicketQuery = {
   since: "",
 }
 
-export const FLAGS: Flag[] = ["pr", "credits", "sync"]
+export const FLAGS: Flag[] = ["pr", "credits", "sync", "scheduled"]
 export const PERIODS: Exclude<Period, "">[] = ["today", "7d", "30d"]
 /** The thresholds offered for what a ticket cost. */
 export const COSTS = [1, 5, 20]
@@ -93,6 +93,8 @@ export interface Searchable {
   subtype?: string
   /** The goal it serves, by its id: "" for none. */
   goal_id?: string
+  /** The moment it is held back until, ISO; "" for none. */
+  scheduled?: string
 }
 
 /** One of the board's choices, the way `Board.choices` says it. */
@@ -186,9 +188,12 @@ export function periodStart(period: Period, now: number): number {
   return 0
 }
 
-/** Whether a switch holds for the ticket. */
-export function flagged(ticket: Searchable, flag: Flag): boolean {
+/** Whether a switch holds for the ticket, as of `now`. */
+export function flagged(ticket: Searchable, flag: Flag, now = Date.now()): boolean {
   if (flag === "pr") return Boolean(ticket.pull_request)
+  // Scheduled: a date still to come on a ticket not over — what the runner
+  // holds back. A date passed holds nothing, and a done ticket keeps it for the record.
+  if (flag === "scheduled") return Date.parse(ticket.scheduled ?? "") > now && !["done", "cancelled"].includes(ticket.column)
   if (flag === "sync") return Boolean(ticket.sync)
   // Ready, and kept from starting by money: out of credit, at the reserve, or
   // past the day's budget — see `held` in `web/board.py`.
@@ -217,7 +222,7 @@ export function matchesQuery(ticket: Searchable, query: TicketQuery, context: Co
   if (query.goal.length && !query.goal.includes(ticket.goal_id ?? "")) return false
   if (query.block.length && !query.block.includes(ticket.block?.code ?? "")) return false
   if (query.subtype.length && !query.subtype.includes(ticket.subtype ?? "")) return false
-  if (!query.only.every((flag) => flagged(ticket, flag))) return false
+  if (!query.only.every((flag) => flagged(ticket, flag, context.now))) return false
   if (query.cost > 0 && !((ticket.cost ?? 0) >= query.cost)) return false
   if (query.since) {
     const moved = Date.parse(ticket.edited || ticket.created) || 0

@@ -8,6 +8,8 @@ import {
 } from "react-data-form"
 
 import { EDITOR_SETTLES } from "@/components/console/new-ticket-lazy"
+import { SchedulePicker } from "@/components/console/schedule-picker"
+import { when } from "@/components/console/ticket-bits"
 import { TicketEstimate } from "@/components/console/ticket-estimate"
 import { ComboboxInputController } from "@/components/console/combobox"
 import { Kbd } from "@/components/console/confirm-dialog"
@@ -268,6 +270,28 @@ export const OnInputController: InputControllerComponentInterface = ({ formInput
   )
 }
 
+/* « Scheduled for »: empty, the ticket goes as soon as a place is free; a
+ * moment, and it waits for it — a draft dated keeps its date for when it is
+ * launched. */
+export const ScheduledInputController: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const problem = formInput.violations?.[0]?.message
+  return (
+    <div className="flex flex-col gap-1">
+      <SchedulePicker
+        id={formInput.id ?? "field-scheduled"}
+        value={String(formInput.value ?? "")}
+        onChange={(next) => onChange({ ...formInput, value: next, violations: [] })}
+      />
+      {/* Drawn here: the package draws a refusal under its own fields, not under this one. */}
+      {problem ? (
+        <span role="alert" className="text-destructive text-xs">
+          {problem}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 /* -- the dialog's two columns ------------------------------------------------ */
 
 /* What the buttons under the brief add to it: the two things a brief most
@@ -377,6 +401,7 @@ export function NewTicketFields() {
           {field("type")}
           {code ? field("subtype") : null}
           {field("priority")}
+          {field("scheduled")}
           {/* A code ticket's, like the sub-type: an empty type may turn out to be code. */}
           {code || !type ? field("plan") : null}
           {field("model")}
@@ -408,6 +433,7 @@ export function NewTicketFoot() {
   const mac = typeof navigator !== "undefined" && isMac(navigator.platform || navigator.userAgent)
   const [asked, setAsked] = React.useState<boolean | null>(null)
   const ready = context.form.data?.ready !== false
+  const scheduled = String(context.form.data?.scheduled ?? "")
 
   React.useEffect(() => {
     if (asked === null || asked !== ready) return
@@ -416,6 +442,14 @@ export function NewTicketFoot() {
   }, [asked, ready, context])
 
   const ask = (launch: boolean) => {
+    // A moment already past, said under its field before anything is sent: the
+    // server would refuse it, after the dialog is gone.
+    const date = getFormInputsFromForm(context.form).find((candidate) => candidate.name === "scheduled")
+    if (date && scheduled && !(Date.parse(scheduled) > Date.now())) {
+      const message = t("This moment has already passed: choose a later one, or none.")
+      context.onChange({ ...date, violations: [{ propertyPath: "scheduled", message }] })
+      return
+    }
     const input = getFormInputsFromForm(context.form).find((candidate) => candidate.name === "ready")
     if (input) context.onChange({ ...input, value: launch })
     setAsked(launch)
@@ -425,9 +459,11 @@ export function NewTicketFoot() {
   return (
     <div className="bg-popover sticky bottom-0 z-10 mt-5 flex flex-col-reverse gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-muted-foreground text-xs">
-        {on
-          ? t("Launched, the ticket starts as soon as a place is free.")
-          : t("Launched, the ticket starts once the daemon runs.")}
+        {scheduled
+          ? t("Launched, the ticket waits until {{at}}.", { at: when(scheduled) })
+          : on
+            ? t("Launched, the ticket starts as soon as a place is free.")
+            : t("Launched, the ticket starts once the daemon runs.")}
       </p>
       <div className="flex shrink-0 justify-end gap-2">
         <Button type="button" variant="secondary" disabled={busy} onClick={() => ask(false)}>

@@ -7,15 +7,17 @@ import { money } from "@/lib/numbers"
 import { reading } from "@/lib/phase"
 import { canAct } from "@/lib/role"
 import type { Board, TicketDetail } from "@/lib/types"
+import { upcoming } from "@/lib/later"
 import { cn } from "@/lib/utils"
 
 import { PriorityBadge } from "./priority"
 import { TicketEstimate } from "./ticket-estimate"
 import { TicketProjectChoice } from "./ticket-project"
-import { ModelField, PriorityField, ProjectField } from "./ticket-settings"
+import { LaunchNow, ModelField, PriorityField, ProjectField, ScheduledField } from "./ticket-settings"
 import { TicketTime } from "./ticket-time"
 import { TicketValidation } from "./ticket-validation"
 import {
+  Chip,
   FAMILY_ICON,
   LABEL,
   NO_COMMIT,
@@ -116,6 +118,7 @@ function useAwaited(ticket: TicketDetail): string {
 }
 
 export function TicketStatus({ ticket }: { ticket: TicketDetail }) {
+  const t = useT()
   const status = useStatusWord(ticket.column)
   const awaited = useAwaited(ticket)
   // Not a session that committed nothing, which is no fault when there was
@@ -163,6 +166,16 @@ export function TicketStatus({ ticket }: { ticket: TicketDetail }) {
       {block ? <TicketProjectChoice ticket={ticket} /> : null}
       {/* Why a ready ticket is still waiting, when the wait is out of the ordinary. */}
       <TicketHeld ticket={ticket} />
+      {/* A date still to come: when, unless the line above says it already, and « Launch now »
+          where the date is all that holds the ticket back — ready, or validated. */}
+      {upcoming(ticket.scheduled, Date.now()) && !["done", "cancelled"].includes(ticket.column) ? (
+        <div className="flex flex-wrap items-center gap-1.5" data-slot="ticket-scheduled-line">
+          {ticket.column === "ready" && ticket.held?.reason === "date" ? null : (
+            <Chip>⏱ {t("Scheduled for {{at}}", { at: when(ticket.scheduled) })}</Chip>
+          )}
+          {canAct() && ["ready", "validated"].includes(ticket.column) ? <LaunchNow ticket={ticket} /> : null}
+        </div>
+      ) : null}
       {/* What the last pass said, that its card no longer draws: only while it
           waits in ready, the stream moving it on before the page is read again. */}
       {ticket.earlier && (ticket.column === "ready" || ticket.column === "draft") ? (
@@ -337,9 +350,15 @@ export function TicketFacts({
             <span>{created}</span>
           </Fact>
         ) : null}
-        {ticket.scheduled ? (
+        {ticket.scheduled || (unfolded && canAct() && !["done", "cancelled"].includes(ticket.column)) ? (
           <Fact name={t("Scheduled")}>
-            <span>{when(ticket.scheduled)}</span>
+            {unfolded ? (
+              <ScheduledField ticket={ticket}>
+                <span>{when(ticket.scheduled)}</span>
+              </ScheduledField>
+            ) : (
+              <span>{when(ticket.scheduled)}</span>
+            )}
           </Fact>
         ) : null}
         {ticket.branch ? (

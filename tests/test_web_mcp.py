@@ -133,6 +133,16 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         quiet = api.create_ticket("Sans la main", model="fable")
         assert store.read(board.page(quiet["id"]), "Model") == "opus"
 
+        # Scheduled for later, in the words a person types, and said back as a date.
+        dated = _mcp_call(api, grant, "create_task", title="Plus tard", scheduled="+2d")
+        assert not dated["isError"], dated
+        moment = dated["structuredContent"]["scheduled"]
+        assert moment and store.read(board.page(dated["structuredContent"]["id"]), "Scheduled") == (
+            moment
+        )
+        past = _mcp_call(api, grant, "create_task", title="Trop tard", scheduled="2020-01-01")
+        assert past["isError"] and "already passed" in past["content"][0]["text"]
+
         unknown = _mcp_call(api, grant, "create_task", title="X", project="Nulle part")
         assert unknown["isError"] and "Usine" in unknown["content"][0]["text"]
 
@@ -153,11 +163,7 @@ def an_mcp_client_lists_what_waits_creates_a_task_and_answers_a_question(state_h
         assert [line["tool"] for line in journal_lines] == [
             "answer_question",
             "answer_question",
-            "create_task",
-            "create_task",
-            "create_task",
-            "create_task",
-            "create_task",
+            *["create_task"] * 7,
         ]
         assert journal_lines[0]["outcome"] == "ok" and journal_lines[0]["name"] == "claude.ai"
         assert journal_lines[1]["outcome"].startswith("refused")

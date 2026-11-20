@@ -97,6 +97,15 @@ test("the switches: credits, sync, cost and period", () => {
   assert.equal(keeps(waiting, { only: ["credits"] }), true)
   assert.equal(keeps(ticket({ held: { reason: "next", detail: "" } }), { only: ["credits"] }), false)
   assert.equal(keeps(ticket({ sync: "failed" }), { only: ["sync"] }), true)
+  // Scheduled: a date to come, on a ticket not over.
+  assert.equal(keeps(ticket({ scheduled: "2026-10-13T09:00+02:00" }), { only: ["scheduled"] }), true)
+  assert.equal(keeps(ticket({ scheduled: "2026-10-12T09:00+02:00" }), { only: ["scheduled"] }), false, "passed")
+  assert.equal(keeps(ticket({ scheduled: "" }), { only: ["scheduled"] }), false)
+  assert.equal(
+    keeps(ticket({ scheduled: "2026-10-13T09:00+02:00", column: "done" }), { only: ["scheduled"] }),
+    false,
+    "a done ticket keeps its date for the record"
+  )
   assert.equal(keeps(ticket({ cost: 7.5 }), { cost: 5 }), true)
   assert.equal(keeps(ticket({ cost: 2 }), { cost: 5 }), false)
   assert.equal(keeps(ticket({ cost: null }), { cost: 1 }), false)

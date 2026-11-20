@@ -35,6 +35,10 @@ function said(t: ReturnType<typeof useT>, entry: AuditEntry): string {
       return t(DECIDED[entry.detail] ?? "answered it")
     case "priority":
       return t("set its priority to {{priority}}", { priority: entry.detail || "50" })
+    case "scheduled":
+      return entry.detail && entry.detail !== "now"
+        ? t("scheduled it for {{at}}", { at: when(entry.detail) })
+        : t("launched it now, without its date")
     case "model":
       return entry.detail
         ? t("set its model to {{model}}", { model: entry.detail.replace(/^claude\//, "") })

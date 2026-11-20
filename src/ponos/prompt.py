@@ -340,7 +340,8 @@ writing on this one are yours to do.
 3. To act on another ticket of the board, use the commands of Ponos: \
 `ponos move <ticket> <status> [--from <status>]` changes its status (the ID is \
 the full one or the short one; `--from` refuses if it is no longer in that \
-status) and `ponos comment <ticket> "text"` writes on it. Check what they \
+status; `--at "2026-11-21 09:00"` holds it back until then) and \
+`ponos comment <ticket> "text"` writes on it. Check what they \
 answer: a refusal ends with a non-zero code. Never import Ponos's own code \
 (`ponos.web`, `ponos.board`…), never write into `ponos.db`, and never call the \
 console's API: its login expires, and these commands do not need it.

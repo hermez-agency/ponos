@@ -112,7 +112,10 @@ board offers it, *Blocked*, *Done* — under the board's own names. Nothing here
 is a second database: **drag a card into a column and the ticket moves**, and the ticket
 you write behind *New ticket* is a ticket like the others, with its brief in Markdown
 — and its *Priority*, *Type* and *Model* (an empty type is deduced by the runner, as for a
-ticket written from the MCP). *Ready to
+ticket written from the MCP), and *Scheduled for*: empty, it goes as soon as a place is
+free; a shortcut (*in 1 h*, *tonight*, *tomorrow morning*, *the day after tomorrow*, *next
+Monday*) or a date and hour in your browser's timezone, and it waits for that moment — see
+[`Scheduled`](board.md#the-tickets-database). *Ready to
 run* is ticked by default, and the form says what that means: a session, as soon as a
 place is free. **Ctrl+Enter** (⌘+Enter) creates the ticket from any of its fields. What the console adds is the part a database cannot do — the running session's
 steps, live, read straight from the session log on disk rather than from the `Progress`
@@ -167,7 +170,8 @@ characters, and a pasted branch, worktree or ticket address finds the one ticket
 Beside it, filters that combine with the words and with each other: *Type*, *Sub-type*, *Status*,
 *Priority*, *Model*, *Project* (not on a project's page), *Period* (created or changed
 today, in the last 7 or 30 days) and *Other* — with a pull request, waiting for credits,
-a move not yet synchronised, a cost above $1, $5 or $20. Each list offers only what the
+a move not yet synchronised, scheduled (a date still to come, `only=scheduled`), a
+cost above $1, $5 or $20. Each list offers only what the
 board's tickets carry, with how many carry it. A search hides cards, not columns: each
 column says how many it kept, `3 / 12`, the words found are marked on the cards, and a
 search that keeps nothing says so with a button to clear it. It is all in the address
@@ -192,8 +196,10 @@ one that matters as a filled button (**Decide**, **Unblock**). Under it, **what 
 what it cost**, each fact under its name — project, type, priority, cost, model, time worked,
 last session, estimate, creation, branch, session, machine —, and the settings among them
 changed in place: the **priority**, the **model** of its next session (one of the board's, or
-the runner's), the **project** of a ticket that has not run there yet (draft, ready, blocked)
-and ***Force validated***. Then its **pull request**, said once: where it stands, its checks
+the runner's), the **project** of a ticket that has not run there yet (draft, ready, blocked),
+the **date** it is scheduled for (shortcuts or a date and hour, until it is done or cancelled)
+and ***Force validated***. A ticket its date holds back says *Scheduled for …* under its
+status, with **Launch now** on a ready or validated one: the date removed, it takes its turn. Then its **pull request**, said once: where it stands, its checks
 one by one, the way to its diff. With less room — a phone, a narrower window — the same
 blocks are one column above the tabs, the facts on one line with a *Details* that unfolds the
 list and its settings. Then its tabs: **Result** — once the
@@ -1317,7 +1323,7 @@ back is a task, a project, an idea, an amount — never a page or a property.
 | `runner_status` | Runner et dépenses | read | the daemon, its places and its queue with why each task waits, the sessions in flight, the tasks running, what was spent today, over the period and project by project |
 | `list_ideas` | Idées | read | the ideas of a project, or of the workspace, by state, each with its score and why |
 | `list_goals` | Objectifs | read | the goals: status, due date, criterion, projects and progress — tasks done out of all but the cancelled ones |
-| `create_task` | Créer une tâche | write | a *draft* task, with its description, project, type, priority, model, `on` prompt and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other; it is launched from the console, or by `launch_task` once you said yes |
+| `create_task` | Créer une tâche | write | a *draft* task, with its description, project, type, priority, model, `on` prompt, date it is scheduled for (`scheduled`: ISO 8601, or `demain 9h`, `+2d`…) and goal (by name, whatever the case, or id) — through the console's *New ticket*, so the same rules as any other; it is launched from the console, or by `launch_task` once you said yes |
 | `list_schedules` | Récurrences | read | the schedules: name, id, project, goal served, cadence, day and hour, next and last occurrence, active or not, mission, type, model, priority, whether its tickets are born draft or ready (always *ready*, the engine's rule), and whether it is *to review* |
 | `create_goal` | Créer un objectif | write | a goal, through the console's own `create_goal` (same rules): name (required), description, criterion, due date (`YYYY-MM-DD`), priority (0 to 100), projects (by name) and whether it is active. It answers its id. A bad name, priority, project or date is refused and nothing is written |
 | `update_goal` | Modifier un objectif | write | the same fields of an existing goal (by id or name): only the fields given change. A goal can be turned off (`active: false`); **no tool deletes one** — that stays in the console |
