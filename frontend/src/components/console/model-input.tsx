@@ -1,6 +1,6 @@
 import * as React from "react"
 import { ChevronsUpDown } from "lucide-react"
-import type { InputControllerComponentInterface } from "react-data-form"
+import type { InputControllerComponentInterface, ValueOptionInterface } from "react-data-form"
 
 import { ModelList, modelName, useModels, warnToolless } from "@/components/console/model-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -104,7 +104,7 @@ export const ModelInputController: InputControllerComponentInterface = ({ formIn
     id={formInput.id}
     name={formInput.name}
     value={String(formInput.value ?? "")}
-    extra={(formInput.valueOptions ?? []).map((option) => String(option.value ?? ""))}
+    extra={(formInput.valueOptions ?? []).map((option: ValueOptionInterface) => String(option.value ?? ""))}
     empty={t(formInput.placeholder ?? "The runner's model")}
     // The height of the other selects of a form (`ComboboxInputController`).
     className="h-9"

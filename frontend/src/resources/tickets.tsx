@@ -5,8 +5,10 @@ import {
   useFormContext,
   type FormInterface,
   type InputControllerComponentInterface,
+  type ViolationInterface,
 } from "react-data-form"
 import {
+  FieldsMenu,
   Link,
   ListTable,
   RowWrapperColumnComponent,
@@ -92,6 +94,7 @@ import {
 import { counted, currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
 import { DEFAULT_SCORE, readScore } from "@/lib/priority"
+import { agendaIcon, type Recurrence } from "@/lib/agenda-marks"
 import { layoutOf, useLayoutInTheAddress, useRememberedLayout } from "@/lib/resource-view"
 import { columnState } from "@/lib/bulk"
 import {
@@ -284,7 +287,7 @@ const TitleInputController: InputControllerComponentInterface = ({ formInput, on
       />
       {invalid ? (
         <span id={`${id}-problem`} className="sr-only">
-          {formInput.violations?.map((violation) => violation.message).join(" ")}
+          {formInput.violations?.map((violation: ViolationInterface) => violation.message).join(" ")}
         </span>
       ) : null}
     </>
@@ -489,8 +492,10 @@ const createForm: FormInterface = {
       defaultValue: "",
       controller: ValidationInputController,
     },
-    // Said by the button that sends the form: "Save as draft" or "Launch the ticket".
-    ready: { defaultValue: true, hidden: () => true },
+    // Said by the button that sends the form: "Save as draft" or "Launch the
+    // ticket". Sent although drawn nowhere — a hidden field is left out of what
+    // react-data-form 0.4 submits unless it is kept.
+    ready: { defaultValue: true, hidden: () => true, keepHiddenValue: true },
   },
 }
 
@@ -1429,13 +1434,21 @@ const LazyBulkBar = React.lazy(() =>
 )
 
 /* The table, under the same search bar as the board: the package's own table,
- * handed the rows the search keeps. */
+ * handed the rows the search keeps.
+ *
+ * Over it, the package's "Shown fields" menu: the columns hidden and shown,
+ * kept in this browser. The package draws it over every layout of the list,
+ * where the board's cards and the agenda's events would not follow it; it is
+ * drawn here instead, and the package's own is not (see `index.css`). */
 function TicketTable({ rows: all = [] }: ListComponentPropsInterface) {
   const { kept, filtering } = useTicketFilter(all)
   const everyTicket = React.useMemo(() => all.map((row) => row.data as Ticket), [all])
   const { resource } = useCurrentViewResourceContext()
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      <div data-slot="ticket-fields" className="flex justify-end">
+        <FieldsMenu />
+      </div>
       <TicketSearch
         tickets={everyTicket}
         shown={kept.length}
@@ -1576,6 +1589,20 @@ const LazyTicketHead = React.lazy(() =>
   import("@/components/console/ticket-page").then((module) => ({ default: module.TicketHead }))
 )
 
+/* Where the package draws a narrow month (`ListCalendar`), read as the views are declared. */
+const PHONE = window.matchMedia("(max-width: 639px)")
+
+/* The Agenda, fetched the first time it is drawn: the board is the first page. */
+const LazyTicketAgenda = React.lazy(() =>
+  import("@/components/console/ticket-agenda").then((module) => ({ default: module.TicketAgenda }))
+)
+
+const TicketAgenda = (props: ListComponentPropsInterface) => (
+  <React.Suspense fallback={null}>
+    <LazyTicketAgenda {...(props as React.ComponentProps<typeof LazyTicketAgenda>)} />
+  </React.Suspense>
+)
+
 const TicketPage = () => (
   <React.Suspense fallback={null}>
     <LazyTicketPage />
@@ -1597,9 +1624,9 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
     // is, without naming where it is kept.
     description: "Your board, live. Drop a card in another column and the runner is told.",
     form,
-    /* The two tabs over the list. Their labels go through the dictionary as
+    /* The three tabs over the list. Their labels go through the dictionary as
      * the tabs are drawn, and their address is their type: `board`, `table`,
-     * in every language. */
+     * `calendar`, in every language. */
     layouts: [
       layout.board({
         label: "Board",
@@ -1619,7 +1646,36 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
         components: { list: BoardColumns, row: TicketCard },
       }),
       layout.table({ label: "List", fullWidth: true, components: { list: TicketTable } }),
+      // The tickets on the days they are programmed for, and the moments the
+      // recurring ones come back (see `ticket-agenda.tsx`). The week first:
+      // what is coming is mostly this week's — but the month on a phone, where
+      // the package's week is three days wide and its month is a grid of dots
+      // with the day's tickets under it. The whole day, as on the schedules'
+      // calendar: a ticket held until 03:00 is not one to leave off.
+      // Typed against a recurrence's moment, the one row of the agenda with a
+      // colour of its own — hence the cast into the rows' list of layouts.
+      layout.calendar<Recurrence>({
+        label: "Agenda",
+        fullWidth: true,
+        dateField: "scheduled",
+        titleField: "title",
+        colorField: "color",
+        // Named for react-resource-view 2.0, which looks for the fields a
+        // layout lays out by among a form's inputs: `TicketAgenda` reads
+        // nothing of this form.
+        form: { inputs: { scheduled: {}, title: {}, color: {} } },
+        mode: PHONE.matches ? "month" : "week",
+        hourStart: 0,
+        hourEnd: 23,
+        getIcon: agendaIcon,
+        components: { list: TicketAgenda as never },
+      }) as never,
     ],
+    // The "Shown fields" menu of react-resource-view, kept in this browser:
+    // it hides and shows the List's columns. The board and the agenda draw
+    // their own cards, which no field of this form is, so it is drawn with
+    // the List alone (see `index.css`).
+    fields: { toggle: true, persist: "local" },
     // A row of the table opens the ticket by its title, as a card does, in
     // the window over the list (see `TitleCell`). The package's own read
     // button would have been a second way in.

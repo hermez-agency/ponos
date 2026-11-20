@@ -450,8 +450,10 @@ const createForm: FormInterface = {
       controller: ChipsInputController,
       valueOptions: CATEGORIES.map((value) => ({ value, label: CATEGORY_WORDS[value] })),
     },
-    project: { label: "Project", hidden: () => true },
-    kind: { label: "Type", hidden: () => true, defaultValue: "ticket" },
+    // Drawn nowhere and sent all the same: react-data-form 0.4 leaves a hidden
+    // field out of what it submits unless it says to keep it.
+    project: { label: "Project", hidden: () => true, keepHiddenValue: true },
+    kind: { label: "Type", hidden: () => true, keepHiddenValue: true, defaultValue: "ticket" },
   },
 }
 

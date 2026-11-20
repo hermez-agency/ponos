@@ -5,6 +5,7 @@ import {
   getFormInputsFromForm,
   useFormContext,
   type InputControllerComponentInterface,
+  type ValueOptionInterface,
 } from "react-data-form"
 
 import { EDITOR_SETTLES } from "@/components/console/new-ticket-lazy"
@@ -95,7 +96,7 @@ export const SegmentedInputController: InputControllerComponentInterface = ({ fo
       data-slot="segmented"
       className="bg-field flex flex-wrap gap-0.5 rounded-lg border p-0.5"
     >
-      {(formInput.valueOptions ?? []).map((option) => {
+      {(formInput.valueOptions ?? []).map((option: ValueOptionInterface) => {
         const key = String(option.value ?? "")
         const chosen = key === value
         return (
@@ -125,8 +126,8 @@ export const PillsInputController: InputControllerComponentInterface = ({ formIn
   return (
     <div role="group" aria-label={t(String(formInput.label ?? ""))} className="flex flex-wrap gap-1.5">
       {(formInput.valueOptions ?? [])
-        .filter((option) => option.value)
-        .map((option) => {
+        .filter((option: ValueOptionInterface) => option.value)
+        .map((option: ValueOptionInterface) => {
           const key = String(option.value)
           const chosen = key === value
           return (

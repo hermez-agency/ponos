@@ -5,6 +5,7 @@ import {
   getFormInputsFromForm,
   useFormContext,
   type InputControllerComponentInterface,
+  type ValueOptionInterface,
 } from "react-data-form"
 import { useChildViewRoute } from "react-resource-view"
 
@@ -51,7 +52,7 @@ export const SegmentsInputController: InputControllerComponentInterface = ({ for
       data-slot="segmented"
       className="bg-field flex gap-0.5 rounded-lg border p-0.5"
     >
-      {(formInput.valueOptions ?? []).map((option) => {
+      {(formInput.valueOptions ?? []).map((option: ValueOptionInterface) => {
         const key = String(option.value ?? "")
         const chosen = key === value
         return (

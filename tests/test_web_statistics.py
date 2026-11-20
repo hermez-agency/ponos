@@ -1138,7 +1138,7 @@ def the_pages_of_a_list_are_said_in_the_console_s_language() -> None:
     assert '"Affichage de {{from}} à {{to}} sur {{total}} résultats"' in french
     # Given once, under every resource, rather than list by list.
     views = (FRONTEND / "src/lib/resource-view.ts").read_text(encoding="utf-8")
-    assert "defaults: { components: { pagination: Pagination } }" in views, (
+    assert re.search(r"defaults: \{\s*components: \{ pagination: Pagination \}", views), (
         "the lists say their pages in English"
     )
     for resource in ("tickets", "projects", "schedules", "pairs"):

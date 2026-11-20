@@ -265,6 +265,16 @@
     text-transform: uppercase;
   }
 
+  /* The "Shown fields" menu where react-resource-view puts it: over every
+     layout of a list, alone on its line when the list has no filters of the
+     package's. The board's is the one list that offers it, and it hides the
+     List's columns only — the board's cards and the agenda's events are the
+     console's own, and follow none of it. So the List draws it over its
+     table (`TicketTable`), and the package's line is left out. */
+  [data-slot="list-toolbar"]:has(> [data-slot="fields-menu-trigger"]:only-child) {
+    display: none;
+  }
+
   /* Every control on the page is a filled box, and every one of them is filled
      from here.
 
