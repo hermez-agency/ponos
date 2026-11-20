@@ -10,6 +10,7 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
 
 - [Installation](installation.md#installation)
 - [Uninstall](installation.md#uninstall)
+- [Export and import](installation.md#export-and-import)
 
 ## [Configuring Ponos](configuration.md)
 

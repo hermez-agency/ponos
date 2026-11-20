@@ -407,7 +407,7 @@ def the_help_presents_the_product() -> None:
     parser = build_parser()
     assert parser.description == "Runs your tickets with Claude Code, on its own board."
     verbs = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
-    assert not {"init", "import"} & {c.dest for c in verbs._choices_actions}
+    assert "init" not in {c.dest for c in verbs._choices_actions}
 
 
 @case

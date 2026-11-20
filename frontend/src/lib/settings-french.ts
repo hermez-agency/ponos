@@ -1266,4 +1266,56 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "allowed": "autorisé",
   "Latest refusals": "Derniers refus",
   "Nothing refused yet.": "Rien de refusé pour l'instant.",
+  // The Export & import page — transfer-page.tsx.
+  "config.toml, without its secrets": "config.toml, sans ses secrets",
+  "and their own settings: validation, models, rights": "et leurs réglages : validation, modèles, droits",
+  "the standing context and the agents": "le contexte permanent et les agents",
+  "Memories": "Mémoires",
+  "every scope": "toutes portées",
+  "Goals": "Objectifs",
+  "Recurrences": "Récurrences",
+  "imported switched off": "importées désactivées",
+  "Ideas": "Idées",
+  "Skills": "Skills",
+  "and their files": "et leurs fichiers",
+  "Tickets": "Tickets",
+  "mission, result, journal, status, comments and history": "mission, résultat, journal, statut, commentaires et historique",
+  "Conversations": "Conversations",
+  "with the assistant": "avec l'assistant",
+  "Settings": "Réglages",
+  "Projects": "Projets",
+  "Context": "Contexte",
+  "{{name}} downloaded.": "{{name}} téléchargé.",
+  "Export": "Exporter",
+  "This Ponos in one archive, to import on another machine, after a reinstallation, or to keep.":
+    "Ce Ponos dans une archive, à importer sur une autre machine, après une réinstallation, ou à garder.",
+  "Never exported, whatever is ticked: the vault and every secret — API keys, tokens, passwords, session cookies. The archive lists their names only, to know what to type again.":
+    "Jamais exportés, quoi qu'on coche : le coffre-fort et tous les secrets — clés d'API, jetons, mots de passe, cookies de session. L'archive n'en liste que les noms, pour savoir quoi ressaisir.",
+  "Exporting…": "Export…",
+  "{{imported}} imported, {{ignored}} already here": "{{imported}} importés, {{ignored}} déjà là",
+  "{{count}} in the archive — {{imported}} to import, {{ignored}} already here":
+    "{{count}} dans l'archive — {{imported}} à importer, {{ignored}} déjà là",
+  "{{count}} conflict, left as it is here:": "{{count}} conflit, laissé tel qu'il est ici :",
+  "{{count}} conflicts, left as they are here:": "{{count}} conflits, laissés tels qu'ils sont ici :",
+  "To type again, in Context → Vault or the settings:": "À ressaisir, dans Contexte → Coffre-fort ou les réglages :",
+  "Importing…": "Import…",
+  "Replace and import": "Remplacer et importer",
+  "Import": "Importer",
+  "An archive of Ponos's Export. Nothing starts on its own: ready and running tickets arrive as drafts, recurrences switched off.":
+    "Une archive de l'Export de Ponos. Rien ne se lance tout seul : les tickets prêts et en cours arrivent en brouillon, les récurrences désactivées.",
+  "Drop a ponos-export-….zip here": "Déposez ici un ponos-export-….zip",
+  "Choose a file": "Choisir un fichier",
+  "Exported by Ponos {{version}} on {{date}}.": "Exporté par Ponos {{version}} le {{date}}.",
+  "How": "Comment",
+  "Merge": "Fusionner",
+  "add what is missing, replace nothing; conflicts are left as they are":
+    "ajouter ce qui manque, ne rien remplacer ; les conflits restent tels quels",
+  "empty the ticked categories first; the database is copied beside itself before":
+    "vider d'abord les catégories cochées ; la base est copiée à côté d'elle avant",
+  "Replace what this Ponos holds?": "Remplacer ce que contient ce Ponos ?",
+  "The ticked categories are emptied, then filled with the archive's. A copy of the database is taken first.":
+    "Les catégories cochées sont vidées, puis remplies avec celles de l'archive. Une copie de la base est prise avant.",
+  "Imported. Nothing was started: move the tickets and switch the recurrences back on yourself.":
+    "Importé. Rien n'a été lancé : déplacez vous-même les tickets et réactivez les récurrences.",
+  "The database as it was:": "La base telle qu'elle était :",
 }

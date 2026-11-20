@@ -2577,6 +2577,77 @@ class Ok(Shape):
     ok: bool
 
 
+# -- export and import — see transfer.py --------------------------------------------
+
+
+class TransferCategory(Shape):
+    """What one category of an archive holds, and what the import made of it."""
+
+    key: Literal[
+        "settings",
+        "projects",
+        "context",
+        "memories",
+        "goals",
+        "schedules",
+        "ideas",
+        "skills",
+        "tickets",
+        "conversations",
+    ]
+    count: int
+    """Items of it in the archive."""
+    imported: int
+    """Written — or, in a preview, that would be."""
+    ignored: int
+    """Already here, identical."""
+    conflicts: list[str]
+    """Already here and different: left as they are when merging, by name."""
+
+
+class VaultName(Shape):
+    """An entry of the vault, by name — its value never leaves the machine."""
+
+    name: str
+    kind: str
+    variables: list[str]
+    projects: list[str]
+
+
+class SecretName(Shape):
+    setting: str
+    """The key of `config.toml` it answers, `table.key`."""
+    name: str
+    """The name it is kept under, in the vault or the environment."""
+
+
+class SecretsToType(Shape):
+    """What has to be typed again after an import: names, never values."""
+
+    vault: list[VaultName]
+    own: list[str]
+    config: list[SecretName]
+
+
+class Imported(Shape):
+    """An archive read: the preview of an import, or what the import did."""
+
+    applied: bool
+    mode: Literal["merge", "replace"]
+    format: int
+    ponos: str
+    """The version that wrote the archive."""
+    created: str
+    available: list[str]
+    """The categories the archive holds."""
+    chosen: list[str]
+    """The ones imported — or, in a preview, that would be."""
+    categories: list[TransferCategory]
+    backup: str
+    """The copy of `ponos.db` taken before replacing, or empty."""
+    secrets: SecretsToType
+
+
 # -- the people a console is shared with -----------------------------------------
 
 Role = Literal["reader", "member", "admin"]

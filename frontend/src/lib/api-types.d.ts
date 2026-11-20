@@ -1926,6 +1926,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export */
+        post: operations["export_api_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/memories": {
         parameters: {
             query?: never;
@@ -2659,6 +2676,30 @@ export interface paths {
          *     `tags` and `projects` are comma lists; no project is every project.
          */
         post: operations["library_upload_api_library_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Archive
+         * @description An export, as the raw body: its preview, or — `apply` — its import.
+         *
+         *     The archive is sent again for the import rather than kept between the two:
+         *     nothing of it stays on this machine but what is imported. `categories` is a
+         *     comma list, every one the archive holds when empty.
+         */
+        post: operations["import_archive_api_import_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3477,6 +3518,11 @@ export interface components {
             /** @description Null without enough tickets to compare with. */
             estimate: components["schemas"]["Estimate"] | null;
         };
+        ExportAsked: {
+            categories?: string[] | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description A folder of the runner's machine, for a path field to pick from. */
         Folder: {
             folder: string;
@@ -3871,6 +3917,24 @@ export interface components {
         IdeasSkipped: {
             name: string;
             reason: string;
+        };
+        /** @description An archive read: the preview of an import, or what the import did. */
+        Imported: {
+            applied: boolean;
+            /** @enum {string} */
+            mode: "merge" | "replace";
+            format: number;
+            /** @description The version that wrote the archive. */
+            ponos: string;
+            created: string;
+            /** @description The categories the archive holds. */
+            available: string[];
+            /** @description The ones imported — or, in a preview, that would be. */
+            chosen: string[];
+            categories: components["schemas"]["TransferCategory"][];
+            /** @description The copy of `ponos.db` taken before replacing, or empty. */
+            backup: string;
+            secrets: components["schemas"]["SecretsToType"];
         };
         /** @description An invitation nobody has taken yet — never its link, which is seen once. */
         Invitation: {
@@ -4968,6 +5032,18 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        SecretName: {
+            /** @description The key of `config.toml` it answers, `table.key`. */
+            setting: string;
+            /** @description The name it is kept under, in the vault or the environment. */
+            name: string;
+        };
+        /** @description What has to be typed again after an import: names, never values. */
+        SecretsToType: {
+            vault: components["schemas"]["VaultName"][];
+            own: string[];
+            config: components["schemas"]["SecretName"][];
+        };
         Sent: {
             /** @default  */
             text: string;
@@ -5694,6 +5770,19 @@ export interface components {
             text: string;
             language: string;
         };
+        /** @description What one category of an archive holds, and what the import made of it. */
+        TransferCategory: {
+            /** @enum {string} */
+            key: "settings" | "projects" | "context" | "memories" | "goals" | "schedules" | "ideas" | "skills" | "tickets" | "conversations";
+            /** @description Items of it in the archive. */
+            count: number;
+            /** @description Written — or, in a preview, that would be. */
+            imported: number;
+            /** @description Already here, identical. */
+            ignored: number;
+            /** @description Already here and different: left as they are when merging, by name. */
+            conflicts: string[];
+        };
         /**
          * @description One change of status met on a ticket that carries an « On » prompt, and what running it
          *     did.
@@ -5914,6 +6003,13 @@ export interface components {
             /** @description Ce que l'adresse est devenue, pour `url` — vide si elle a été retirée. */
             detail: string;
             at: string;
+        };
+        /** @description An entry of the vault, by name — its value never leaves the machine. */
+        VaultName: {
+            name: string;
+            kind: string;
+            variables: string[];
+            projects: string[];
         };
         VaultNew: {
             value?: string | null;
@@ -9892,6 +9988,37 @@ export interface operations {
             };
         };
     };
+    export_api_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExportAsked"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     memories_api_memories_get: {
         parameters: {
             query?: {
@@ -11340,6 +11467,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryKept"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_archive_api_import_post: {
+        parameters: {
+            query?: {
+                categories?: string;
+                mode?: string;
+                apply?: boolean;
+                confirm?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Imported"];
                 };
             };
             /** @description Validation Error */

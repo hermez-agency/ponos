@@ -43,6 +43,12 @@ ponos update --environment   # make the .venv of the version in use again
 ponos extras list            # the optional extras (voice, browser): installed and declared?
 ponos extras add voice       # install one in the environment in use, and keep it through updates
 ponos extras remove voice    # stop keeping it, and uninstall it
+ponos export       # this Ponos in one archive, ponos-export-<date>.zip — never the vault, never a secret (installation.md#export-and-import)
+ponos export --no-tickets -o <file>  # without the tickets (--tickets: with them, the default), to that file or folder (--output)
+ponos export --conversations  # also the conversations with the assistant (--skip <category>: leave one out)
+ponos import <archive>       # merge an export in: what is missing is added, nothing here is replaced, conflicts listed
+ponos import <archive> --dry-run  # the preview: what would be imported, ignored, in conflict — writes nothing
+ponos import <archive> --replace --yes  # empty the chosen categories first, ponos.db copied beside itself before (--only <category>: that one only)
 ponos service on   # write the units, (re)start the daemon and the console — the sessions in flight carry on
 ponos service off  # stop the daemon, the console and the Tailscale doors
 ponos service status         # the state of ponos.service, ponos-web.service and ponos-tailscale.service

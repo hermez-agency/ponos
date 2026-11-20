@@ -1,1 +1,0 @@
-export{P as ItemTable}from"./views-DUFOcKrR.js";
