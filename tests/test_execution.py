@@ -753,6 +753,36 @@ def a_resumed_session_claude_no_longer_has_starts_afresh_on_a_log_of_its_own(
 
 
 @case
+def a_session_started_from_a_step_is_a_copy_cut_there_told_the_message(state_home: Path) -> None:
+    from ponos import db, forks, journal
+
+    runner, page, said = _runner()
+    job = _job(page=page)
+    job.workdir.mkdir(parents=True)
+    (job.workdir / "ANSWER.md").write_text("La réponse.")
+    job.log = job.workdir.parent / "run.jsonl"
+    earlier = journal.Run.start(ticket=job.ticket.id, session="s-old")
+    assert earlier.id is not None
+    job.fork = forks.Fork(job.ticket.id, earlier.id, 12, "s-old", "u-12", "Plutôt par l'API.")
+    with db.transaction() as connection:
+        connection.execute(
+            "INSERT INTO forks (ticket, run, position, session, anchor, message, at)"
+            " VALUES (?, ?, 12, 's-old', 'u-12', '', 'now')",
+            (job.ticket.id, earlier.id),
+        )
+    asked = _sessions(runner, _outcome(session_id=job.session_id))
+    runner._run_session(job, "{title}")
+    assert asked[0]["fork"] == ("s-old", "u-12") and asked[0]["session_id"] != "s-old"
+    assert "Plutôt par l'API." in asked[0]["prompt"], "the message, not the frame again"
+    assert "The files were not taken back" in asked[0]["prompt"]
+    newest = journal.runs(job.ticket.id)[0]
+    assert (newest["parent"], newest["parent_position"]) == (earlier.id, 12)
+    assert forks.pending(job.ticket.id) is None, "taken by the session it asked for"
+    assert job.fork is None, "a relaunch after it carries on the session it made"
+    assert any("branching session s-old at step 12" in line for line in said)
+
+
+@case
 def a_session_that_forgot_its_answer_is_picked_up_once_to_write_it(state_home: Path) -> None:
     runner, page, _ = _runner()
     job = _job(page=page)

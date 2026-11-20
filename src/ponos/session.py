@@ -267,13 +267,16 @@ def run(
     adopted: Handle | None = None,
     track: Callable[[Handle], None] | None = None,
     steerable: bool = False,
+    fork: tuple[str, str] | None = None,
 ) -> Outcome:
     """One session, from its start to what it came to.
 
     Started detached (see tether.py) and followed through its log; `track` is
     told its handle the moment it exists, which is how the runner writes it down
     for whoever comes after. `adopted` is a session a runner before this one
-    started: nothing is launched, it is followed from where it is.
+    started: nothing is launched, it is followed from where it is. `fork` is
+    (session, message uuid): the new session starts as a copy of that one, cut
+    after that message — see forks.py.
     """
     if adopted is not None:
         handle = adopted
@@ -300,6 +303,7 @@ def run(
             attribution=attribution,
             steerable=steerable,
             guard=guard,
+            fork=fork,
         )
         skip = 0
         if track is not None:
@@ -327,6 +331,7 @@ def launch(
     attribution: bool = False,
     steerable: bool = False,
     guard: Path | None = None,
+    fork: tuple[str, str] | None = None,
 ) -> Handle:
     """Start a session detached from this process, and say where to follow it."""
     binary = available()
@@ -349,6 +354,7 @@ def launch(
         attribution=attribution,
         steered=steered,
         guard=guard,
+        fork=fork,
     )
 
     # What the caller adds comes last: an OpenRouter key configured for the
@@ -653,6 +659,7 @@ def _command(
     attribution: bool = False,
     steered: Path | None = None,
     guard: Path | None = None,
+    fork: tuple[str, str] | None = None,
 ) -> list[str]:
     """The CLI's command line for one session.
 
@@ -663,6 +670,8 @@ def _command(
     `steered` is the queue a ticket's messages are left in while the session
     runs: the hooks that read it ride on the same `--settings` — see steering.py.
     `guard` is the rules file of guards.py: its hook runs before every tool.
+    `fork` opens `session_id` as a copy of another session, cut after one of
+    its messages: the other is left as it was — see forks.py.
     """
     command = [
         binary,
@@ -680,7 +689,21 @@ def _command(
         # to be given an identifier to create: the console's chat is one long
         # session, drawn once and carried on turn after turn, which is what
         # makes it a conversation rather than a series of strangers.
-        *(["--resume", session_id] if resume else ["--session-id", session_id]),
+        *(
+            [
+                "--resume",
+                fork[0],
+                "--fork-session",
+                "--session-id",
+                session_id,
+                "--resume-session-at",
+                fork[1],
+            ]
+            if fork
+            else ["--resume", session_id]
+            if resume
+            else ["--session-id", session_id]
+        ),
         "--output-format",
         "stream-json",
         "--verbose",

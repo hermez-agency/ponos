@@ -29,7 +29,13 @@ A run's `status` is what the ticket came to — done, blocked, failed, waiting �
 not only what its session did: a session that ended well and committed nothing
 is a blocked ticket, and that is what its run says. `reason` is the sentence
 beside it, or the pull request it opened; `code` is the cause of a run that
-stopped, from blocks.py. A run the runner never got to close — killed
+stopped, from blocks.py. **A step knows the message it ended on** — `anchor`, the uuid Claude Code
+gives every message of a session, the one `--resume-session-at` cuts at. A tool
+call ends on its result, not on the call: cut there, a new session keeps what
+the call answered (see forks.py). A subagent's step has none — its messages
+are not the session's own — nor has a step written before there was one.
+
+A run the runner never got to close — killed
 mid-session, by a reboot as often as not — is closed by the next pass, under
 the run lock (see `interrupted`): left open, it was a run « in progress » for
 good, and every count, duration and rate of success read it as one.
@@ -91,6 +97,9 @@ class Run:
         self.answer = ""
         self.summary = ""
         self.caveats: list[str] = []
+        # {tool_use id: the message that made the call}, until its result
+        # comes back and the steps of the call are anchored on it.
+        self._calls: dict[str, str] = {}
 
     @classmethod
     def start(
@@ -107,13 +116,16 @@ class Run:
         model: str = "",
         chosen: bool = False,
         escalated: bool = False,
+        parent: int | None = None,
+        parent_position: int | None = None,
         say: Callable[[str], None] = lambda message: None,
     ) -> Run:
         try:
             with db.transaction() as connection:
                 identifier = connection.execute(
                     "INSERT INTO runs (ticket, title, kind, subtype, project, agent, session, log,"
-                    " started_at, model, chosen, escalated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " started_at, model, chosen, escalated, parent, parent_position)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         ticket.replace("-", ""),
                         title,
@@ -127,6 +139,8 @@ class Run:
                         model,
                         int(chosen),
                         int(escalated),
+                        parent,
+                        parent_position,
                     ),
                 ).lastrowid
         except _FAILURES as error:
@@ -182,6 +196,7 @@ class Run:
                 self.cost = (self.cost or 0.0) + float(spent)
                 self._write("UPDATE runs SET cost_usd = ? WHERE id = ?", (self.cost, self.id))
             return
+        anchor = self._anchor(payload)
         steps = progress.describe(payload)
         if not steps:
             return
@@ -189,10 +204,10 @@ class Run:
         rows = []
         for step in steps:
             self.position += 1
-            rows.append((self.id, self.position, at, *_row(step), self.cost))
+            rows.append((self.id, self.position, at, *_row(step), self.cost, anchor))
         self._write(
-            "INSERT INTO steps (run, position, at, kind, tool, text, cost_usd)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO steps (run, position, at, kind, tool, text, cost_usd, anchor)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
             many=True,
         )
@@ -208,6 +223,33 @@ class Run:
             [(self.id, self.position, _now(), *_row(step), self.cost)],
             many=True,
         )
+
+    def _anchor(self, payload: dict[str, Any]) -> str:
+        """The message of the session this event is, and the calls it answers anchored on it.
+
+        "" for a subagent's event, or one the CLI gave no uuid: its steps
+        cannot be branched from.
+        """
+        uuid = payload.get("uuid")
+        if payload.get("parent_tool_use_id") or not isinstance(uuid, str):
+            return ""
+        message = payload.get("message")
+        blocks = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(blocks, list):
+            return uuid
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use" and isinstance(block.get("id"), str):
+                self._calls[block["id"]] = uuid
+            elif block.get("type") == "tool_result":
+                called = self._calls.pop(str(block.get("tool_use_id") or ""), "")
+                if called:
+                    self._write(
+                        "UPDATE steps SET anchor = ? WHERE run = ? AND anchor = ?",
+                        (uuid, self.id, called),
+                    )
+        return uuid
 
     def again(self, session: str, log: Path | str) -> None:
         """The session was started over: same run, a new session and its own log."""
@@ -322,7 +364,7 @@ def _run(row: sqlite3.Row | tuple[Any, ...], names: list[str]) -> dict[str, Any]
 _RUN = (
     "SELECT runs.id, runs.ticket, runs.title, runs.kind, runs.project, runs.agent, runs.session,"
     " runs.log, runs.started_at, runs.ended_at, runs.status, runs.reason, runs.code, runs.cost_usd,"
-    " runs.model, runs.reported,"
+    " runs.model, runs.reported, runs.parent, runs.parent_position,"
     " (SELECT count(*) FROM steps WHERE steps.run = runs.id) AS steps FROM runs"
 )
 
@@ -437,13 +479,13 @@ def steps(identifier: int, *, before: int = 0, after: int = 0, limit: int = PAGE
     with db.transaction(immediate=False) as connection:
         if after:
             rows = connection.execute(
-                "SELECT position, at, kind, tool, text, cost_usd FROM steps"
+                "SELECT position, at, kind, tool, text, cost_usd, anchor FROM steps"
                 " WHERE run = ? AND position > ? ORDER BY position LIMIT ?",
                 (identifier, after, limit),
             ).fetchall()
         else:
             rows = connection.execute(
-                "SELECT position, at, kind, tool, text, cost_usd FROM steps"
+                "SELECT position, at, kind, tool, text, cost_usd, anchor FROM steps"
                 " WHERE run = ? AND (? = 0 OR position < ?) ORDER BY position DESC LIMIT ?",
                 (identifier, before, before, limit),
             ).fetchall()[::-1]
@@ -463,8 +505,10 @@ def steps(identifier: int, *, before: int = 0, after: int = 0, limit: int = PAGE
             "detail": "" if kind == "said" else text,
             "said": kind == "said",
             **({"cost_usd": cost} if cost is not None else {}),
+            # Whether a new session can start from here — see forks.py.
+            "forkable": bool(anchor),
         }
-        for position, at, kind, tool, text, cost in rows
+        for position, at, kind, tool, text, cost, anchor in rows
     ]
     return {
         "run": identifier,
@@ -472,6 +516,15 @@ def steps(identifier: int, *, before: int = 0, after: int = 0, limit: int = PAGE
         "steps": found,
         "more": bool(found) and first is not None and found[0]["position"] > first,
     }
+
+
+def anchor(identifier: int, position: int) -> str:
+    """The message of its session a run's step ended on, "" when it has none."""
+    with db.transaction(immediate=False) as connection:
+        row = connection.execute(
+            "SELECT anchor FROM steps WHERE run = ? AND position = ?", (identifier, position)
+        ).fetchone()
+    return str(row[0]) if row else ""
 
 
 def models() -> dict[str, str]:

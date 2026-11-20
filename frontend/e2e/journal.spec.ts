@@ -66,3 +66,35 @@ test("an earlier run of the ticket is a choice away", async ({ page }) => {
   await page.getByRole("button", { name: "Fold everything" }).click()
   await expect(log.getByText("make test")).not.toBeAttached()
 })
+
+test("a step of an earlier run starts the ticket again from there, with a message", async ({ page }) => {
+  await open(page)
+  await page.getByRole("combobox", { name: "Run" }).click()
+  await page.getByRole("option", { name: /^#1 / }).click()
+  const log = page.getByRole("log")
+  await expect(log.getByText("I read the brief first.")).toBeVisible()
+  // The newest run is the one the ticket goes on from; this one is not live,
+  // so each of its steps offers a new session from it.
+  await page.getByRole("button", { name: "Unfold everything" }).click()
+  await expect(log.getByRole("button", { name: "Start again from here" })).toHaveCount(3)
+
+  // Asked, not sent: the request is answered here, so the shared board keeps
+  // its blocked ticket for the other cases.
+  let sent: unknown = null
+  await page.route(/\/api\/runs\/\d+\/fork$/, async (route) => {
+    sent = route.request().postDataJSON()
+    await route.fulfill({
+      json: { ticket: "00000000000000000000000000000a5c", run: 1, position: 2, status: "Ready" },
+    })
+  })
+  await log.getByText("make test").hover()
+  await log.getByRole("button", { name: "Start again from here" }).nth(1).click()
+  const dialog = page.getByRole("dialog", { name: "Start again from step 2" })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText(/The files are not taken back/)).toBeVisible()
+  await dialog.getByRole("textbox", { name: "What the new session is told" }).fill("Use the Makefile's check target.")
+  await dialog.getByRole("button", { name: "Start again" }).click()
+  await expect(page.getByText("The ticket starts again from step 2")).toBeVisible()
+  await expect(dialog).not.toBeAttached()
+  expect(sent).toEqual({ position: 2, text: "Use the Makefile's check target." })
+})

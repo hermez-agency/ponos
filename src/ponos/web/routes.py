@@ -281,6 +281,11 @@ class Text(Payload):
     text: str = ""
 
 
+class Branch(Text):
+    position: int = 0
+    """The step of the run the new session starts from, as the journal numbers it."""
+
+
 class Spoken(Text):
     mode: str = ""
     """To a session that runs: `steer` (a correction, the default) or `follow` (when it has finished)."""
@@ -783,6 +788,21 @@ def run_steps(
             limit=pages["limit"] or journal.PAGE,
         )
     )
+
+
+@router.post("/api/runs/{run:int}/fork", response_model=answers.Forked)
+def fork_run(
+    request: Request, run: int, payload: Branch = Body(default_factory=Branch)
+) -> Response:
+    """« Start again from here »: a new session of the run's ticket, from one of its steps."""
+    try:
+        forked = _api(request).fork(run, payload.position, payload.text)
+    except LookupError as error:
+        return fail(404, str(error))
+    except ValueError as error:
+        return fail(409, str(error))
+    _done(request, forked["ticket"], "forked", f"#{run} @ {payload.position}")
+    return answer(forked)
 
 
 @router.get("/api/logs", response_model=answers.Logs)

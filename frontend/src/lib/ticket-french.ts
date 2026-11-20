@@ -41,4 +41,23 @@ export const TICKET_FRENCH: Record<string, string> = {
   "Loading…": "Chargement…",
   "set its model to {{model}}": "a mis son modèle à {{model}}",
   "gave it back the runner's model": "lui a rendu le modèle du runner",
+  // « Relancer depuis ici » — session-log.tsx, fork-dialog.tsx, ticket-audit.tsx.
+  "Start again from here": "Relancer depuis ici",
+  "Started again from here": "Relancé depuis ici",
+  "current branch": "branche courante",
+  "Started again from step {{step}} of session #{{run}}":
+    "Relancée depuis l'étape {{step}} de la session #{{run}}",
+  "Started again from step {{step}} of an earlier session":
+    "Relancée depuis l'étape {{step}} d'une session précédente",
+  "Start again from step {{step}}": "Relancer depuis l'étape {{step}}",
+  "A new session starts from the conversation up to this step, without what came after it. This session stays readable in the journal.":
+    "Une nouvelle session part de la conversation jusqu'à cette étape, sans ce qui a suivi. Cette session-ci reste lisible dans le journal.",
+  "The files are not taken back: the worktree and the branch stay as this session left them, with what it changed after this step. The new session is told so, and looks at them first.":
+    "Les fichiers ne sont pas remis en arrière : le worktree et la branche restent tels que cette session les a laissés, avec ce qu'elle a changé après cette étape. La nouvelle session en est prévenue et les regarde d'abord.",
+  "What the new session is told": "Ce que la nouvelle session reçoit",
+  "This time, do it this way… (optional)": "Cette fois, fais plutôt… (facultatif)",
+  "Start again": "Relancer",
+  "The ticket starts again from step {{step}}": "Le ticket repart de l'étape {{step}}",
+  "The ticket could not start again from this step": "Le ticket n'a pas pu repartir de cette étape",
+  "started it again from one of its steps": "l'a relancé depuis une de ses étapes",
 }

@@ -89,10 +89,8 @@ vi.mock("./ticket-bits", async (original) => {
   }
 })
 
-vi.mock("./session-log", () => ({
-  Pulse: () => null,
-  TicketLive: () => <p>the session's journal</p>,
-}))
+vi.mock("./session-log", () => ({ Pulse: () => null }))
+vi.mock("./ticket-live", () => ({ TicketLive: () => <p>the session's journal</p> }))
 
 vi.mock("./ticket-talk", () => ({ TicketTalk: () => <p>the discussion</p> }))
 
