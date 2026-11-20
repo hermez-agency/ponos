@@ -182,14 +182,30 @@ title, a button to its full page and a cross (Escape closes it too), and the boa
 where you left it underneath. The full page has an address of its own, the one a shared
 link, the palette and a notification open. Either way it is the brief you wrote, the
 report a run appended, the notes in between — the page under the card, as the runner
-reads it — with its links out (the pull request, the session) and the gestures it
-offers where it stands. Under the column it stands in, its tabs: **Result** — once the
+reads it. Where the screen has room — a page from 1280 px, the window from 1024 px, which then
+widens itself to 1024 px rather than give a third of its width away — it is drawn in two
+columns, like an issue: the tabs on the left, under the title and the goal, and on the right a
+**rail** that stays in sight while they scroll. The rail opens on **where the ticket stands**: its column, in
+the board's colour, one sentence on what it waits for — *Your decision is awaited*, the cause
+of a stop and what to do about it, the phase of a run — and the gestures it offers there, the
+one that matters as a filled button (**Decide**, **Unblock**). Under it, **what it is and
+what it cost**, each fact under its name — project, type, priority, cost, model, time worked,
+last session, estimate, creation, branch, session, machine —, and the settings among them
+changed in place: the **priority**, the **model** of its next session (one of the board's, or
+the runner's), the **project** of a ticket that has not run there yet (draft, ready, blocked)
+and ***Force validated***. Then its **pull request**, said once: where it stands, its checks
+one by one, the way to its diff. With less room — a phone, a narrower window — the same
+blocks are one column above the tabs, the facts on one line with a *Details* that unfolds the
+list and its settings. Then its tabs: **Result** — once the
 work is over (review, validated, done) —, **Mission** — the page you wrote —,
-**Discussion**, **Live** and **Journal**. A ticket in progress opens on *Live*, one waiting
+**Discussion** and **Activity** — the session, then the journal Ponos writes at the end of
+each one, with who did what on the ticket; the journal first once nothing runs. (They were
+two tabs, *Live* and *Journal*: `&tab=live` still opens Activity, and so does an old
+`&tab=journal`.) A ticket in progress opens on *Activity*, one waiting
 on you on *Discussion*, a finished one on *Result*, any other on *Mission* (see [A ticket's
 page](tickets.md#a-tickets-page-the-mission-the-result-and-the-journal)); the tab you pick goes into the address (`&tab=live`),
-so a reload or a shared link comes back to it. *Live* wears a green dot while a session
-runs, *Discussion* a question mark while a question waits for you. *Live* is the session's
+so a reload or a shared link comes back to it. *Activity* wears a green dot while a session
+runs, *Discussion* a question mark while a question waits for you. Its *Session* part is the session's
 journal in its broad lines, growing as it is written and following its end until you
 scroll up to read something: what the agent says is one line each, drawn as prose, and the
 tool calls that followed it — up to the next thing it said — are folded under it, the
@@ -249,8 +265,9 @@ apps only. There are no quiet hours of Ponos's own — the phone's *Do Not Distu
 **Unblock and Decide.** A *Blocked* card carries one button, **Unblock** — no *answer* or
 *make ready* beside it — and a card *In review* a **Decide** one. Unblock opens the ticket's
 window on its *Discussion*, marked with a question mark and scrolled to the end; Decide on a
-tab of that name, beside *Brief*, *Discussion* and *Live*, there only while the ticket is in
-review. The same button on the ticket itself switches to it, and on its page the tab is in the
+tab of that name, the first one, there only while the ticket is in
+review. The same button on the ticket itself — filled, beside its status — switches to it (on
+a phone the tab is drawn only once it is open, so the others fit the width), and on its page the tab is in the
 address (`&tab=discussion`, `&tab=decide` — an old `&tab=unblock` link opens the discussion).
 In the discussion, the report the session stopped on is drawn once, as Ponos speaking: what is
 done, why it stops, and the question in bold. Under it, quick replies, each a click that
@@ -261,7 +278,7 @@ it again as it is*. One field under them takes an answer or an instruction alike
 Ctrl+Enter sends), with the model to run it on next beside it on a board with a *Model*
 column; *Run it again as it is*, *Abandon* — confirmed first — and *See the session* are behind
 the ⋯ of the discussion. Once something is sent, Ponos is shown at work under it — the robot
-of the *Live* tab, *Ponos is working…* — until it says something back, or the session fails,
+of the *Activity* tab, *Ponos is working…* — until it says something back, or the session fails,
 which is said in its place; the quick replies wait meanwhile. The run's lines in passing —
 *Model chosen automatically*, a session that committed nothing — are one small grey line
 across the discussion, not a bubble nor a red badge. Decide shows the session's sentence,

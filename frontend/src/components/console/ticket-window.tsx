@@ -1,5 +1,6 @@
 import { titleOf, useBoard } from "@/lib/board-store"
 import { recordWindow } from "./record-window"
+import { TICKET_RAIL_WINDOW } from "./ticket-rail"
 import { TicketGoal } from "./ticket-goal"
 
 /* A ticket opened from the board, in a window over it.
@@ -26,6 +27,10 @@ export const ticketWindow = recordWindow({
   // Anchored by its top edge, not centred on its own height: the title and the
   // tabs stay under the cursor when a tab is a shorter page than the other.
   className: "sm:top-[6dvh] sm:translate-y-0 sm:max-h-[calc(100dvh-6dvh-1rem)]",
+  // Wider where the screen has room, for the rail beside the tabs: the tabs keep
+  // about the width the window had without it, rather than giving it a third
+  // of theirs. Under that, one column, as on a phone. See `TicketPage`.
+  roomy: { media: TICKET_RAIL_WINDOW, width: "64rem" },
   useHead: function useTicketHead(id) {
     const ticket = useBoard().tickets.find((item) => item.id === id)
     return {

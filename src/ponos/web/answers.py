@@ -457,6 +457,13 @@ class TicketPriority(Shape):
     """The score it now has, from 0 to 100."""
 
 
+class TicketModel(Shape):
+    id: str
+    model: str
+    """Empty when the runner's model is the one it runs on."""
+    model_label: str
+
+
 class TicketValidation(Shape):
     id: str
     validation: str
@@ -2583,6 +2590,7 @@ class AuditEntry(Shape):
         "told",
         "decided",
         "priority",
+        "model",
         "on",
         "goal",
         "launched",

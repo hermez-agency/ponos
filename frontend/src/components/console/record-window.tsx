@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useT } from "@/lib/i18n"
+import { useMedia } from "@/lib/phone"
 import { cn } from "@/lib/utils"
 
 /* The window a record is opened in over its list: the ticket's over the board,
@@ -60,6 +61,7 @@ export function recordWindow({
   fallbackTitle,
   useHead,
   className,
+  roomy,
 }: {
   type: string
   /** What the title says while the record is not known (yet), as a key of the dictionary. */
@@ -67,6 +69,8 @@ export function recordWindow({
   useHead: (id: string) => RecordWindowHead
   /** The window's own size, where the record's form wants another. */
   className?: string
+  /** A wider window where the screen has room for one (`media`): a ticket's, for its rail. */
+  roomy?: { media: string; width: string }
 }): OpenFrame {
   function Frame({ close, expandHref, children }: OpenFrameProps) {
     const t = useT()
@@ -80,6 +84,7 @@ export function recordWindow({
         description={head.description}
         fallbackTitle={t(fallbackTitle)}
         className={className}
+        roomy={roomy}
         href={expandHref}
         actions={head.actions}
       >
@@ -130,11 +135,13 @@ function RecordWindow({
   href,
   actions,
   className,
+  roomy,
   children,
 }: RecordWindowHead & {
   onClose: () => void
   fallbackTitle: string
   className?: string
+  roomy?: { media: string; width: string }
   /** The record's full page; no button without one. */
   href?: string
   children: React.ReactNode
@@ -146,6 +153,8 @@ function RecordWindow({
   // same commit took the click past 50 ms. Deferred, React draws the page in a
   // transition, a few milliseconds at a time, while the window fades in.
   const drawn = React.useDeferredValue(true, false)
+  // Asked whatever the window, so that the hooks are the same: a window without one never matches.
+  const wide = useMedia(roomy?.media ?? "not all")
   return (
     <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent
@@ -154,9 +163,18 @@ function RecordWindow({
         // Said out loud, though the page behind is already hidden from a screen
         // reader while it is open: some read the attribute and nothing else.
         aria-modal="true"
+        // The window itself takes the focus, not the first thing in it that
+        // can: that was the goal's choice, under the title, ringed as if it
+        // were what the window is for. Tab goes on from the top all the same.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          ;(event.currentTarget as HTMLElement | null)?.focus()
+        }}
         // Described by its line under the title when it has one.
         {...(description ? {} : { "aria-describedby": undefined })}
-        className={cn("gap-0 p-0 sm:max-w-3xl", className)}
+        className={cn("gap-0 p-0 outline-none sm:max-w-3xl", className)}
+        // An inline width rather than a breakpoint class: the first load's stylesheet is held to a budget.
+        style={wide && roomy ? { maxWidth: roomy.width } : undefined}
       >
         <DialogHeader className="flex-row items-start gap-2 border-b px-5 py-3 text-left sm:text-left">
           <div className="min-w-0 flex-1">

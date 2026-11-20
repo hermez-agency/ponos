@@ -1315,6 +1315,16 @@ def set_ticket_priority(
     return answer(done)
 
 
+@router.post("/api/tickets/{ticket_id:page}/model", response_model=answers.TicketModel)
+def set_ticket_model(
+    request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
+) -> Response:
+    """The model the ticket's next session runs on: empty is the runner's."""
+    done = _api(request).set_model(ticket_id, str(payload.get("model", "")))
+    _done(request, ticket_id, "model", done["model"])
+    return answer(done)
+
+
 @router.post("/api/tickets/{ticket_id:page}/validation", response_model=answers.TicketValidation)
 def set_ticket_validation(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)

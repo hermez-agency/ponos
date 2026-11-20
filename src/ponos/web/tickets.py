@@ -821,6 +821,28 @@ class Tickets(Base):
         self.watch.nudge()
         return {"id": page_id.replace("-", ""), "priority": score}
 
+    def set_model(self, page_id: str, model: str) -> dict[str, Any]:
+        """Give a ticket another model, chosen by hand in its view; empty is the runner's.
+
+        Written as it was chosen, as `create_ticket` does with `by_hand`: the
+        console is a person picking, the only way a Model of Fable is written as
+        such. It counts from the next session — the one running keeps its own.
+        Straight to the board, as `set_priority`, and the page read back held.
+        """
+        name = self.config.board.prop("model")
+        client = self.runner.client
+        if name not in client.schema(self.runner.database):
+            raise ValueError(f"this board has no “{name}” column to write a model in")
+        chosen = model.strip()
+        client.update(self.runner.database, page_id, {name: chosen})
+        self.reader.hold(client.page(page_id))
+        self.watch.nudge()
+        return {
+            "id": page_id.replace("-", ""),
+            "model": chosen,
+            "model_label": models.label(chosen),
+        }
+
     def set_ticket_project(self, page_id: str, project: str, ready: bool = False) -> dict[str, Any]:
         """Point a ticket at another project — a name or an id — and run it again when asked.
 

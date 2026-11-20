@@ -35,6 +35,10 @@ function said(t: ReturnType<typeof useT>, entry: AuditEntry): string {
       return t(DECIDED[entry.detail] ?? "answered it")
     case "priority":
       return t("set its priority to {{priority}}", { priority: entry.detail || "50" })
+    case "model":
+      return entry.detail
+        ? t("set its model to {{model}}", { model: entry.detail.replace(/^claude\//, "") })
+        : t("gave it back the runner's model")
     case "on":
       return entry.detail ? t("changed its « On » prompt") : t("removed its « On » prompt")
     case "goal":

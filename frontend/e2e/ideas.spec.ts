@@ -218,10 +218,17 @@ test.describe("at 1440px", () => {
 
     // The toast of the next one leads to the ticket it announces.
     await filter("proposed").click()
-    const next = tab
+    // The filtered list is waited for, and the idea named by its title: under load the list read
+    // before the filter landed would hand its first title to one idea and the click to another.
+    await expect(tab.locator('[data-slot="ideas-item"]:not([data-status="proposed"])')).toHaveCount(0)
+    const title = (await tab
       .locator('[data-slot="ideas-item"]', { has: page.getByRole("button", { name: "Turn into a ticket" }) })
       .first()
-    const title = (await next.locator('[data-slot="ideas-title"]').textContent())!
+      .locator('[data-slot="ideas-title"]')
+      .textContent())!
+    const next = tab
+      .locator('[data-slot="ideas-item"]')
+      .filter({ has: page.locator('[data-slot="ideas-title"]').getByText(title, { exact: true }) })
     await next.getByRole("button", { name: "Turn into a ticket" }).click()
     await page.locator("[data-sonner-toast]", { hasText: title }).getByRole("button", { name: "Open the ticket" }).click()
     const made = (await board(page)).find((ticket) => ticket.title.endsWith(title))!

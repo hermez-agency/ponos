@@ -27,7 +27,7 @@ import { tickets } from "@/resources/tickets"
  * now, in the bubble Ponos asked it in and the quick replies under it — see
  * `ticket-talk.tsx`. The button on a card opens the window on the tab, or on
  * the discussion; the same button on the ticket itself, in its window or on
- * its page, only switches to it.
+ * its page, stands beside its status, filled, and only switches to it.
  *
  * The series that goes through a column's tickets one after another
  * (`ticket-series.tsx`) draws this panel for each, a blocked one too: its
@@ -73,19 +73,19 @@ export function DecideButton({
   if (!action || !tab) return null
   // Already on that tab: the button would only point at where you are.
   if (tabs?.shown === tab) return null
-  // On the ticket itself, Decide is a tab, with its mark: a button beside it
-  // said the same word a second time. Unblock has no tab, and stays.
-  if (tabs && tab === "decide") return null
   const blocked = ticket.column === "blocked"
   const Icon = blocked ? (icon ?? MessageCircleQuestion) : Scale
   return (
     <Button
       size="sm"
-      variant="outline"
+      // On the ticket itself it is what the ticket waits for, beside its
+      // status: the one filled button of the view. On a card, an outline in
+      // the column's colour, among the card's other gestures.
+      variant={tabs ? "default" : "outline"}
       data-decide={ticket.id}
       title={title}
       className={cn(
-        blocked ? "text-tr-amber hover:text-tr-amber" : "text-tr-pink hover:text-tr-pink",
+        tabs ? "" : blocked ? "text-tr-amber hover:text-tr-amber" : "text-tr-pink hover:text-tr-pink",
         className
       )}
       onClick={(event) => (tabs ? tabs.goTo(tab) : openOnTheTab(event))}

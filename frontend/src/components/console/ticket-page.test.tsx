@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import { ApiError } from "@/lib/api"
+import { publishBoard } from "@/lib/board-store"
 import type { TicketDetail } from "@/lib/types"
 
 import { TicketHead, TicketPage } from "./ticket-page"
@@ -70,11 +71,23 @@ vi.mock("@/resources/tickets", () => ({
 
 vi.mock("@/resources/projects", () => ({ projectHref: (id: string) => `/projects/${id}` }))
 
-vi.mock("./ticket-bits", async (original) => ({
-  ...(await original<typeof import("./ticket-bits")>()),
-  TicketActions: () => null,
-  TicketLinks: () => null,
-}))
+// The ticket's gestures, as one button that asks for the Decide tab the way
+// `DecideButton` does: through the context the whole view is wrapped in.
+vi.mock("./ticket-bits", async (original) => {
+  const { use } = await import("react")
+  const { TicketTabContext } = await import("./ticket-decision")
+  return {
+    ...(await original<typeof import("./ticket-bits")>()),
+    TicketActions: () => {
+      const tabs = use(TicketTabContext)
+      return tabs && tabs.shown !== "decide" ? (
+        <button type="button" onClick={() => tabs.goTo("decide")}>
+          the gestures
+        </button>
+      ) : null
+    },
+  }
+})
 
 vi.mock("./session-log", () => ({
   Pulse: () => null,
@@ -90,7 +103,7 @@ vi.mock("./ticket-decision", async () => {
   const { createContext } = await import("react")
   return {
     WINDOW_TAB: "ticket-tab",
-    TicketTabContext: createContext(null),
+    TicketTabContext: createContext<{ goTo: (tab: "decide") => void; shown?: string } | null>(null),
     DecideButton: () => null,
   }
 })
@@ -225,7 +238,7 @@ describe("the summary", () => {
     expect(within(summary).queryByTitle(/session|taken by/)).toBeNull()
   })
 
-  test("one that ran says its pull request, its cost, its model and its session", async () => {
+  test("one that ran says its cost, its model, its branch and its session, each under its name", async () => {
     const user = userEvent.setup()
     drawn(
       ticket({
@@ -240,20 +253,29 @@ describe("the summary", () => {
       })
     )
     const summary = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
-    expect(within(summary).getByRole("link", { name: "PR #385" }).getAttribute("href")).toBe(
+    // The pull request is said once on the view, in its own block — not among the facts.
+    expect(within(summary).queryByRole("link", { name: "PR #385" })).toBeNull()
+    const delivery = document.querySelector<HTMLElement>('[data-slot="ticket-delivery"]')!
+    expect(within(delivery).getByRole("link", { name: "PR #385" }).getAttribute("href")).toBe(
       "https://github.com/hermez/ponos/pull/385"
     )
-    expect(within(summary).getByText("$1.50")).toBeTruthy()
+    expect(screen.getAllByRole("link", { name: "PR #385" })).toHaveLength(1)
+    expect(within(summary).getByText("$1.50").closest("div")?.querySelector("dt")?.textContent).toBe("Cost")
     expect(within(summary).getByTitle("claude-opus-4-1-20250805").textContent).toBe("opus")
-    // The branch is in the strip, a link on the pull request's repository.
+    expect(within(summary).getByText("$1.50").closest("div")?.querySelector("dt")?.className).toContain("sr-only")
+    // The rarer details are said in the page, one "Details" away — not in a tooltip.
+    expect(within(summary).queryByText("workstation")).toBeNull()
+    expect(within(summary).queryByText("ponos/une-branche-3f2a9c1e")).toBeNull()
+    const more = within(summary).getByRole("button", { name: "Details" })
+    await user.click(more)
+    expect(more.getAttribute("aria-expanded")).toBe("true")
+    expect(within(summary).getByText("workstation").closest("div")?.querySelector("dt")?.textContent).toBe("Taken by")
+    expect(within(summary).getByText("$1.50").closest("div")?.querySelector("dt")?.className).not.toContain("sr-only")
+    // The branch is among the facts, a link on the pull request's repository.
     const branch = within(summary).getByRole("link", { name: "ponos/une-branche-3f2a9c1e" })
     expect(branch.getAttribute("href")).toBe("https://github.com/hermez/ponos/tree/ponos/une-branche-3f2a9c1e")
-    // The rarer details are said in the page, one "…" away — not in a tooltip.
-    expect(within(summary).queryByText("workstation")).toBeNull()
-    await user.click(within(summary).getByRole("button", { name: "More details" }))
-    expect(within(summary).getByText("workstation")).toBeTruthy()
     await user.click(within(summary).getByRole("button", { name: "3f2a9c1e" }))
-    expect(selected()).toBe("Live")
+    expect(selected()).toBe("Activity")
   })
 })
 
@@ -261,18 +283,20 @@ describe("the tabs", () => {
   test("a ticket neither running nor waiting opens on its brief, and the tab picked is written in the address", async () => {
     const user = userEvent.setup()
     drawn(ticket())
-    expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Journal"])
+    expect(tabs()).toEqual(["Mission", "Discussion", "Activity"])
     expect(selected()).toBe("Mission")
 
-    await user.click(screen.getByRole("tab", { name: "Live" }))
-    expect(selected()).toBe("Live")
-    expect(screen.getByRole("tabpanel").textContent).toBe("the session's journal")
+    await user.click(screen.getByRole("tab", { name: "Activity" }))
+    expect(selected()).toBe("Activity")
+    // The session and the journal, in one tab: the journal first once nothing runs.
+    expect(screen.getByRole("tabpanel").textContent).toContain("the session's journal")
+    expect(screen.getByRole("tabpanel").querySelector('[data-slot="ticket-journal"]')).not.toBeNull()
     expect(world.replace).toHaveBeenLastCalledWith("/?tab=live")
   })
 
   test("a running ticket opens on its session", () => {
     drawn(ticket({ column: "running" }))
-    expect(screen.getByRole("tab", { name: /^Live/ }).getAttribute("aria-selected")).toBe("true")
+    expect(screen.getByRole("tab", { name: /^Activity/ }).getAttribute("aria-selected")).toBe("true")
     expect(screen.getByText("writing now")).toBeTruthy()
   })
 
@@ -281,7 +305,7 @@ describe("the tabs", () => {
     expect(selected()).toBe("Discussion")
     expect(screen.getByLabelText("a question is waiting for you")).toBeTruthy()
     // No tab of its own to unblock it: the question is answered in the discussion.
-    expect(tabs()).toEqual(["Mission", "Discussion", "Live", "Journal"])
+    expect(tabs()).toEqual(["Mission", "Discussion", "Activity"])
   })
 
   test("the discussion's tab counts what was said, not the lines saying it could not be read", () => {
@@ -302,7 +326,7 @@ describe("the tabs", () => {
       world.searchStr = "?tab=result"
       world.replace = vi.fn()
       drawn(ticket({ column }))
-      expect(names()).toEqual(["Mission", "Discussion", "Live", "Journal"])
+      expect(names()).toEqual(["Mission", "Discussion", "Activity"])
       expect(selected()).toBe("Mission")
       expect(world.replace).toHaveBeenLastCalledWith("/?tab=mission")
       cleanup()
@@ -321,13 +345,13 @@ describe("the tabs", () => {
     world.read = read
     world.open = ticket({ column: "running" })
     const { rerender } = render(<TicketPage />)
-    expect(names()).toEqual(["Mission", "Discussion", "Live", "Journal"])
-    expect(selected()).toMatch(/^Live/)
+    expect(names()).toEqual(["Mission", "Discussion", "Activity"])
+    expect(selected()).toMatch(/^Activity/)
 
     world.open = ticket({ column: "review" })
     rerender(<TicketPage />)
-    expect(names()).toEqual(["Result", "Mission", "Discussion", "Live", "Decide", "Journal"])
-    expect(selected()).toBe("Live")
+    expect(names()).toEqual(["Decide", "Result", "Mission", "Discussion", "Activity"])
+    expect(selected()).toBe("Activity")
     // Its page is read again: the result it just wrote is what the tab shows.
     expect(read).toHaveBeenCalledTimes(2)
   })
@@ -335,25 +359,57 @@ describe("the tabs", () => {
   test("a ticket in review has a Decide tab, which goes once the decision is sent", async () => {
     const user = userEvent.setup()
     drawn(ticket({ column: "review" }))
-    expect(tabs()).toEqual(["Result", "Mission", "Discussion", "Live", "Decide", "Journal"])
+    expect(tabs()).toEqual(["Decide", "Result", "Mission", "Discussion", "Activity"])
     expect(screen.getByLabelText("your decision is awaited")).toBeTruthy()
 
     await user.click(screen.getByRole("tab", { name: /Decide/ }))
     await user.click(screen.getByRole("button", { name: "the decision, sent" }))
-    await waitFor(() => expect(tabs()).toEqual(["Result", "Mission", "Discussion", "Live", "Journal"]))
+    await waitFor(() => expect(names()).toEqual(["Result", "Mission", "Discussion", "Activity"]))
     expect(selected()).toBe("Discussion")
   })
 
-  test("the first line of a ticket in review points at the Decide tab, in its own words, until it is on show", async () => {
+  test("a ticket in review says first that it waits for a decision, and its gestures lead to the Decide tab", async () => {
     const user = userEvent.setup()
     drawn(ticket({ column: "review" }))
-    const cue = screen.getByRole("button", { name: "Your decision is awaited" })
-    expect(cue.textContent).not.toContain("Decide")
+    const status = document.querySelector<HTMLElement>('[data-slot="ticket-status"]')!
+    expect(within(status).getByText("In review")).toBeTruthy()
+    expect(within(status).getByText("Your decision is awaited.")).toBeTruthy()
+    // First on the view: before the facts, and before the tabs.
+    const summary = document.querySelector('[data-slot="ticket-summary"]')!
+    expect(status.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(status.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
-    await user.click(cue)
+    await user.click(within(status).getByRole("button", { name: "the gestures" }))
     expect(selected()).toMatch(/^Decide/)
     expect(world.replace).toHaveBeenLastCalledWith("/?tab=decide")
-    expect(screen.queryByRole("button", { name: "Your decision is awaited" })).toBeNull()
+    expect(within(status).queryByRole("button", { name: "the gestures" })).toBeNull()
+  })
+
+  test("the status says what each column waits for, and a blocked ticket its cause", () => {
+    drawn(ticket({ column: "running" }))
+    expect(screen.getByText("A session is working on it.")).toBeTruthy()
+    cleanup()
+    drawn(
+      ticket({
+        column: "blocked",
+        block: {
+          code: "session.question",
+          family: "question",
+          label: { en: "Question for you", fr: "Une question pour vous" },
+          help: { en: "The session stopped to ask you something.", fr: "" },
+        },
+      } as Partial<TicketDetail>)
+    )
+    const block = document.querySelector<HTMLElement>('[data-slot="ticket-status"] [data-slot="ticket-block"]')!
+    expect(block.getAttribute("data-code")).toBe("session.question")
+    expect(within(block).getByText("Question for you")).toBeTruthy()
+    expect(within(block).getByText("The session stopped to ask you something.")).toBeTruthy()
+  })
+
+  test("an old address naming the journal opens Activity, where it is read", () => {
+    world.searchStr = "?tab=journal"
+    drawn(ticket({ column: "done" }))
+    expect(selected()).toBe("Activity")
   })
 })
 
@@ -377,7 +433,7 @@ describe("the result", () => {
     drawn(ticket({ column: "done", type: "Writing" }), Promise.resolve(done()))
     const result = await screen.findByText("Ponos")
     expect(selected()).toBe("Result")
-    expect(tabs()).toEqual(["Result", "Mission", "Discussion", "Live", "Journal"])
+    expect(tabs()).toEqual(["Result", "Mission", "Discussion", "Activity"])
     const body = result.closest<HTMLElement>('[data-slot="ticket-result-body"]')!
     expect(body.textContent).toContain("Trois choses apprises")
     // Neither the session's account nor the mission is mixed into the post.
@@ -389,7 +445,7 @@ describe("the result", () => {
     expect(screen.getByRole("tabpanel").textContent).not.toContain("Trois choses apprises")
     expect(world.replace).toHaveBeenLastCalledWith("/?tab=mission")
 
-    await user.click(screen.getByRole("tab", { name: "Journal" }))
+    await user.click(screen.getByRole("tab", { name: "Activity" }))
     expect(screen.getByRole("tabpanel").textContent).toContain("J'ai relu deux fois.")
     // The facts are above the tabs, whichever is open.
     const summary = document.querySelector('[data-slot="ticket-summary"]')!
@@ -423,7 +479,7 @@ describe("the result", () => {
     expect(within(panel).queryByRole("button")).toBeNull()
   })
 
-  test("a code ticket that wrote no result shows its pull request and what changed in its place", async () => {
+  test("a code ticket that wrote no result points at its pull request and shows what changed in its place", async () => {
     drawn(
       ticket({ column: "review", type: "Code", pull_request: "https://github.com/hermez/ponos/pull/385" }),
       Promise.resolve(
@@ -435,27 +491,117 @@ describe("the result", () => {
         })
       )
     )
-    await waitFor(() => expect(document.querySelector('[data-slot="ticket-result-pr"]')).not.toBeNull())
-    const card = document.querySelector<HTMLElement>('[data-slot="ticket-result-pr"]')!
-    expect(within(card).getByRole("link", { name: "PR #385" })).toBeTruthy()
+    await waitFor(() => expect(document.querySelector('[data-slot="ticket-result-is-pr"]')).not.toBeNull())
+    // Said once, above the tabs: the result does not draw it a second time.
+    expect(screen.getAllByRole("link", { name: "PR #385" })).toHaveLength(1)
+    expect(screen.getByRole("tabpanel").querySelector("a[href*='/pull/385']")).toBeNull()
     const said = document.querySelector<HTMLElement>('[data-slot="ticket-result-changes"]')!
     expect(said.textContent).toContain("The mission and the result each have their tab.")
     expect(said.textContent).not.toContain("12 minutes")
     expect(screen.queryByText(/No result rendered/)).toBeNull()
   })
 
-  test("a code ticket's result shows its pull request and the way to its diff", async () => {
+  test("a code ticket's pull request is above its tabs, once, with where it stands and the way to its diff", async () => {
     drawn(
       ticket({ column: "review", type: "Code", pull_request: "https://github.com/hermez/ponos/pull/385" }),
       Promise.resolve(done())
     )
     const diff = await screen.findByRole("link", { name: /View the diff/ })
-    const card = diff.closest<HTMLElement>('[data-slot="ticket-result-pr"]')!
+    const card = diff.closest<HTMLElement>('[data-slot="ticket-delivery"]')!
+    expect(card.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByRole("link", { name: /View the diff/ })).toHaveLength(1)
     expect(within(card).getByRole("link", { name: "PR #385" })).toBeTruthy()
     expect(within(card).getByText("open, waiting for your review")).toBeTruthy()
     expect(within(card).getByRole("link", { name: /View the diff/ }).getAttribute("href")).toBe(
       "https://github.com/hermez/ponos/pull/385/files"
     )
+  })
+})
+
+describe("the rail", () => {
+  /** A screen wide enough for the rail: every media query asked holds. */
+  function wide() {
+    const before = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia
+    return () => {
+      window.matchMedia = before
+    }
+  }
+
+  test("on a wide screen, the status, the facts under their names and the pull request are a column beside the tabs", () => {
+    const narrow = wide()
+    try {
+      drawn(
+        ticket({
+          column: "review",
+          type: "Code",
+          cost: 1.5,
+          runner: "workstation",
+          pull_request: "https://github.com/hermez/ponos/pull/385",
+        })
+      )
+      const view = document.querySelector<HTMLElement>('[data-slot="ticket-view"]')!
+      expect(view.getAttribute("data-layout")).toBe("rail")
+      const rail = screen.getByRole("complementary", { name: "Status and details" })
+      const status = rail.querySelector('[data-slot="ticket-status"]')!
+      const summary = rail.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+      const delivery = rail.querySelector('[data-slot="ticket-delivery"]')!
+      // The status first, then the facts, then the pull request: the rail's order, and the reading order.
+      expect(status.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(summary.compareDocumentPosition(delivery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(rail.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(within(rail).queryByRole("tablist")).toBeNull()
+      // Every fact under its name, the rare ones too, and no « Details » to press.
+      expect(within(summary).getByText("workstation").closest("div")?.querySelector("dt")?.textContent).toBe("Taken by")
+      expect(within(summary).getByText("$1.50").closest("div")?.querySelector("dt")?.className).not.toContain("sr-only")
+      expect(within(summary).queryByRole("button", { name: "Details" })).toBeNull()
+    } finally {
+      narrow()
+    }
+  })
+
+  test("its settings are changed in place: the priority, the model, the project of a ticket not yet run", () => {
+    const narrow = wide()
+    publishBoard({
+      tickets: [],
+      columns: [],
+      priority: true,
+      choices: { model: [{ value: "opus", label: "claude/opus" }] },
+    })
+    try {
+      drawn(ticket({ column: "ready", project: "Opoil", project_id: "p1", priority: 70 }))
+      const summary = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+      expect((within(summary).getByRole("spinbutton", { name: "Priority, from 0 to 100" }) as HTMLInputElement).value).toBe("70")
+      expect(within(summary).getByRole("combobox", { name: "Change the model" })).toBeTruthy()
+      expect(within(summary).getByRole("combobox", { name: "Change the project" }).textContent).toContain("Opoil")
+      cleanup()
+      // Over: said, and no longer changed.
+      drawn(ticket({ column: "done", project: "Opoil", project_id: "p1", priority: 70 }))
+      const over = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+      expect(within(over).queryByRole("spinbutton")).toBeNull()
+      expect(within(over).queryByRole("combobox")).toBeNull()
+      expect(within(over).getByText("Opoil")).toBeTruthy()
+    } finally {
+      publishBoard({ tickets: [], columns: [] })
+      narrow()
+    }
+  })
+
+  test("on a narrow screen, the same blocks are above the tabs, the facts folded", () => {
+    drawn(ticket({ column: "review" }))
+    expect(document.querySelector('[data-slot="ticket-view"]')?.getAttribute("data-layout")).toBe("column")
+    expect(screen.queryByRole("complementary")).toBeNull()
+    const summary = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+    expect(within(summary).getByRole("button", { name: "Details" })).toBeTruthy()
   })
 })
 

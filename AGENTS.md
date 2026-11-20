@@ -226,7 +226,8 @@ le lundi — CONTRIBUTING.md, « Dependencies ».
   vérifications de `health/`, dans `frontend/src/lib/health-french.ts`, que la
   bande de santé charge quand elle s'affiche (budget du premier chargement), et
   celles que seules les pages des réglages ou la première connexion disent,
-  dans `settings-french.ts` et `setup-french.ts`, chargées de même.
+  dans `settings-french.ts` et `setup-french.ts`, chargées de même — comme
+  celles que seule la vue d'un ticket ouvert dit, dans `ticket-french.ts`.
 
 ## Pièges connus
 
