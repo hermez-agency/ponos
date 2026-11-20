@@ -1,1 +1,0 @@
-export{M as ItemTable}from"./views-D411bW5C.js";
