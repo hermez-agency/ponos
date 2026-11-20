@@ -5144,6 +5144,14 @@ export interface components {
             sentences: string[];
             language: string;
         };
+        Spoken: {
+            /** @default  */
+            text: string;
+            /** @default  */
+            mode: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description The statistics of one period — `web/statistics.py`. */
         Statistics: {
             from: string;
@@ -7804,7 +7812,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["Text"];
+                "application/json": components["schemas"]["Spoken"];
             };
         };
         responses: {

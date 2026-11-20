@@ -213,6 +213,28 @@ frees.
 Turn the whole thing off with `reply = false` under `[runner]`, and a comment goes back to
 being only what it was: the thing that wakes a blocked ticket.
 
+## Correcting a ticket while it runs
+
+A message sent to a ticket **whose session is running** is not written under it for
+the next pass: it is given to the agent. From the console's ticket view, and from
+Telegram or Slack when you answer on the ticket, there are two ways to say it: a box
+*Give it once it has finished what it is doing* above the console's message bar (`mode` in
+`POST /api/tickets/<id>/talk`), and, from a channel, a message that opens with `later`,
+`after` or `après` (with or without a slash, then an optional colon):
+
+- **`steer`** (the default), a correction — « non, pas ce fichier ». It is handed over
+  after the tool call under way, at the end of the turn, and the session is not stopped;
+- **`follow`**, a message for after — it is kept until the agent has finished what it was
+  doing and is about to close the session, which then goes on with it before the report.
+
+Both appear in the ticket's journal as a *Message* step, at their place among what the
+agent did. They work through two hooks (`PostToolUse`, `Stop`) that Ponos adds to the
+session's settings, reading a queue kept under the state directory (`steering/`): only the
+ticket's own work session has one, so a conversation, an adopted session started by an
+older version, or a ticket with no session running gets the comment it always got. A
+message the session ended without reading is written as that comment, and the next pass
+reads it.
+
 ## What a project learns from its blocked tickets
 
 A ticket that was blocked, answered and then ends `RESULT: ok` may say what it

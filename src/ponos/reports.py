@@ -40,10 +40,12 @@ from . import (
     priority,
     provider,
     push,
+    redaction,
     resources,
     results,
     session,
     state,
+    steering,
     store,
     ticket_page,
     tickets,
@@ -509,9 +511,19 @@ class Reports(Base):
                         channel.acknowledge(reply, self.voice.say("nothing-waiting"))
                     continue
                 try:
-                    self.client.comment(
-                        reply.ticket, channels.answer(reply, self.voice, self.asked(reply.ticket))
-                    )
+                    said = channels.answer(reply, self.voice, self.asked(reply.ticket))
+                    # A session going on the ticket is spoken to, not written
+                    # under — see steering.py. Nothing runs: the comment it was.
+                    given, how = channels.afterwards(redaction.masked(reply.text))
+                    if steering.route(reply.ticket, given, said, how):
+                        self.say(
+                            f"  ↩ {reply.title or reply.ticket} — given to the running session"
+                        )
+                        channel.acknowledge(
+                            reply, self.voice.say("noted", title=reply.title or reply.ticket)
+                        )
+                        continue
+                    self.client.comment(reply.ticket, said)
                 except store.StoreError as error:
                     self.say(f"    ! the answer could not be written to the board: {error}")
                     channel.acknowledge(reply, self.voice.say("answer-refused", error=error))

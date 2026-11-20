@@ -39,6 +39,7 @@ from . import (
     resources,
     session,
     state,
+    steering,
     stopping,
     store,
 )
@@ -455,6 +456,8 @@ class Base(Chapters):
                 state.track_session(handle.session_id, ticket, handle.to_json(), record)
 
         options["track"] = track
+        # The ticket's own work is the session one corrects while it runs.
+        options.setdefault("steerable", bool(record))
         # While it is followed, the ticket's work is a session somebody after
         # this process can carry on: the daemon may `exec` under it.
         following: set[str] = self.__dict__.setdefault("_following", set())
@@ -467,8 +470,22 @@ class Base(Chapters):
             following.discard(ticket)
             for one in started:
                 state.untrack_session(one)
+                self._unread(ticket, one)
         state.spend(outcome.cost_usd, ticket)
         return outcome
+
+    def _unread(self, ticket: str, session_id: str) -> None:
+        """What a session ended without reading goes where it always went: the page.
+
+        A message sent in the last moment, or to a session whose hooks never ran,
+        is written as the comment it would have been — the next pass reads it.
+        """
+        for message in steering.drain(session_id):
+            if message.get("comment") and not self.dry_run:
+                try:
+                    self.client.comment(ticket, str(message["comment"]))
+                except store.StoreError as error:
+                    logger.warning("%s: a message was not kept: %s", ticket, error)
 
     def say(self, message: str) -> None:
         if not self.quiet:

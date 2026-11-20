@@ -394,8 +394,9 @@ export const api = {
         body: { column, from },
       })
     ),
-  tell: (id: string, text: string) =>
-    answer(client.POST("/api/tickets/{ticket_id}/talk", { params: { path: { ticket_id: id } }, body: { text } })),
+  /** `mode` is for a running session: "steer" (the default) corrects it now, "follow" waits for it to finish what it does. */
+  tell: (id: string, text: string, mode: "steer" | "follow" = "steer") =>
+    answer(client.POST("/api/tickets/{ticket_id}/talk", { params: { path: { ticket_id: id } }, body: { text, mode } })),
   /** What a blocked card, or one in review, offers to do about it. */
   decision: (id: string) =>
     answer(client.GET("/api/tickets/{ticket_id}/decision", { params: { path: { ticket_id: id } } })),

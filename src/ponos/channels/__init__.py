@@ -38,7 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .. import disk, http, question, redaction, vault, voice
+from .. import disk, http, question, redaction, steering, vault, voice
 from ..config import Notify, state_dir
 
 # How many questions a channel remembers, so that a reply arriving tomorrow
@@ -143,6 +143,23 @@ def decide(text: str) -> str:
     reply.
     """
     return question.decide(text)
+
+
+# How a message to a session that runs says it is for *after* the work under way,
+# rather than a correction now: its first word, with or without a slash.
+_AFTER = re.compile(r"^\s*/?(?:later|after|suite|apres|après)\b\s*[:,—-]?\s*", re.IGNORECASE)
+
+
+def afterwards(text: str) -> tuple[str, str]:
+    """A message for a running session, and how to give it: `(text, mode)`.
+
+    « après : lance aussi les tests » is a follow-up — kept until the agent has
+    finished — and anything else is a correction. See steering.py.
+    """
+    found = _AFTER.match(text)
+    if found and text[found.end() :].strip():
+        return text[found.end() :].strip(), steering.FOLLOW
+    return text.strip(), steering.STEER
 
 
 def answer(

@@ -100,6 +100,8 @@ _TOOLS: dict[str, tuple[str, tuple[str, ...]]] = {
 # The plan a session keeps, and what survives of each task: a task is a sentence,
 # not a paragraph, and a list that long is not a plan any more.
 PLAN = "Plan"
+# A message a person sent to the session while it ran: see steering.py.
+MESSAGE = "Message"
 MAX_TASKS = 40
 TASK = 120
 
@@ -211,6 +213,12 @@ def describe(event: dict[str, Any]) -> list[Step]:
                         steps.append(Step(PLAN, json.dumps(tasks, ensure_ascii=False)))
                     continue
                 steps.append(Step(label, detail or _hint(payload)))
+    elif kind == "ponos" and event.get("subtype") == "message":
+        # What a person sent while the session ran, as the hooks handed it
+        # over — see steering.py. Not the CLI's own: the runner's, in its place.
+        said = _one_line(event.get("text") or "")
+        if said:
+            steps.append(Step(MESSAGE, said))
     elif kind == "user":
         for block in event.get("message", {}).get("content", []):
             if block.get("type") == "tool_result" and block.get("is_error"):

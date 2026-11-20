@@ -281,6 +281,11 @@ class Text(Payload):
     text: str = ""
 
 
+class Spoken(Text):
+    mode: str = ""
+    """To a session that runs: `steer` (a correction, the default) or `follow` (when it has finished)."""
+
+
 class Chosen(Payload):
     key: str = ""
     number: int | None = 0
@@ -1380,9 +1385,9 @@ def set_ticket_status(
 
 @router.post("/api/tickets/{ticket_id:page}/talk", response_model=answers.Message)
 def tell_ticket(
-    request: Request, ticket_id: str, payload: Text = Body(default_factory=Text)
+    request: Request, ticket_id: str, payload: Spoken = Body(default_factory=Spoken)
 ) -> Response:
-    told = _api(request).tell(ticket_id, payload.text, who=_signed(request))
+    told = _api(request).tell(ticket_id, payload.text, who=_signed(request), mode=payload.mode)
     _done(request, ticket_id, "told")
     return answer(told)
 
