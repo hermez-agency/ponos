@@ -855,7 +855,8 @@ names the projects that have their own, and so does `ponos doctor`.
 
 **Ticket by ticket.** A ticket inherits by default: its project's switches when the project
 has its own, the global ones otherwise. In the ticket itself — the *Force validated* field of
-the *New ticket* dialog, the same section on the ticket's page under *Mission*, the
+the *New ticket* dialog, the same row among the ticket's facts (in the rail of its view, or
+under *Details*), the
 `validation` field of `POST /api/tickets` (and `POST /api/tickets/<id>/validation` to change
 it), the `validation` argument of the MCP's `create_task` — it can be set to **Forced**
 (validated as soon as the session succeeds) or **Not forced** (waits in *In review* even where

@@ -182,15 +182,21 @@ title, a button to its full page and a cross (Escape closes it too), and the boa
 where you left it underneath. The full page has an address of its own, the one a shared
 link, the palette and a notification open. Either way it is the brief you wrote, the
 report a run appended, the notes in between — the page under the card, as the runner
-reads it. It opens, in the window as on the page, on **where the ticket stands**: its column, in
+reads it. Where the screen has room — a page from 1280 px, the window from 1024 px, which then
+widens itself to 1024 px rather than give a third of its width away — it is drawn in two
+columns, like an issue: the tabs on the left, under the title and the goal, and on the right a
+**rail** that stays in sight while they scroll. The rail opens on **where the ticket stands**: its column, in
 the board's colour, one sentence on what it waits for — *Your decision is awaited*, the cause
 of a stop and what to do about it, the phase of a run — and the gestures it offers there, the
 one that matters as a filled button (**Decide**, **Unblock**). Under it, **what it is and
-what it cost** — project, type, priority, cost, model, time worked —, one line with a
-*Details* for the rest (last session, estimate, creation, branch, session, machine) in the
-window and on a phone, and the whole list as a column beside the tabs on a wide page; then
-its **pull request**, said once: where it stands, its checks one by one, the way to its
-diff. Then its tabs: **Result** — once the
+what it cost**, each fact under its name — project, type, priority, cost, model, time worked,
+last session, estimate, creation, branch, session, machine —, and the settings among them
+changed in place: the **priority**, the **model** of its next session (one of the board's, or
+the runner's), the **project** of a ticket that has not run there yet (draft, ready, blocked)
+and ***Force validated***. Then its **pull request**, said once: where it stands, its checks
+one by one, the way to its diff. With less room — a phone, a narrower window — the same
+blocks are one column above the tabs, the facts on one line with a *Details* that unfolds the
+list and its settings. Then its tabs: **Result** — once the
 work is over (review, validated, done) —, **Mission** — the page you wrote —,
 **Discussion** and **Activity** — the session, then the journal Ponos writes at the end of
 each one, with who did what on the ticket; the journal first once nothing runs. (They were

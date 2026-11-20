@@ -22,6 +22,7 @@ import { useFrench, useT } from "@/lib/i18n"
 import { isFinished } from "@/lib/result"
 import type { TicketDetail } from "@/lib/types"
 import { useRoute } from "@/lib/router"
+import { useMedia } from "@/lib/phone"
 import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
 import {
@@ -39,10 +40,10 @@ import { TicketTabContext, WINDOW_TAB } from "./ticket-decision"
 import { TicketDecision } from "./ticket-decision-panel"
 import { TicketAudit } from "./ticket-audit"
 import { TicketOn } from "./ticket-on"
-import { TicketValidation } from "./ticket-validation"
 import { TicketGoal } from "./ticket-goal"
 import { TicketMission, TicketResult } from "./ticket-result"
 import { TicketDelivery, TicketFacts, TicketStatus } from "./ticket-status"
+import { TICKET_RAIL_PAGE, TICKET_RAIL_WINDOW } from "./ticket-rail"
 import { useCloseWindow } from "./record-window"
 import { Eyebrow } from "./frame"
 
@@ -60,9 +61,21 @@ const TicketTalk = React.lazy(() => import("./ticket-talk").then((module) => ({ 
  * notes between, is read here from `/api/tickets/<id>`, once per opening (see
  * `readTicket`). Opening this page is also what loads the ticket's discussion.
  *
- * It opens on where the ticket stands and what it is waiting for, then what it
- * is and its pull request — the three blocks of `ticket-status.tsx`, the same
- * in the window over the board and on the page.
+ * Two columns, the way an issue is drawn on GitHub or Linear: the content on
+ * the left — the tabs, under the title and the goal the header says —, and on
+ * the right a rail that stays in sight while they scroll: where the ticket
+ * stands and what it waits for, its gesture as a filled button, then what it
+ * is, each fact under its name and each setting changed in place, then its
+ * pull request once — the three blocks of `ticket-status.tsx`. The rail opens
+ * with the status, in its column's colour, and not with a list of properties:
+ * where the ticket stands is still the first thing said, in the reading order
+ * too, the rail coming before the tabs.
+ *
+ * The window over the board and the page draw the same, where each has room
+ * for it (`ticket-rail.ts`): the window widens itself on a large screen rather
+ * than give a third of its width to the rail. With no room — a phone, a narrow
+ * window — the same blocks are one column above the tabs, the facts folded
+ * under « Details ».
  *
  * Under them, the tabs: the brief;
  * the discussion; and what happened — the session and the journal. They were sections folded one under the
@@ -75,20 +88,6 @@ const TicketTalk = React.lazy(() => import("./ticket-talk").then((module) => ({ 
  * of the console; the page drew its own under it, and said both twice. The
  * header is this file's too — see `TicketHead`.
  */
-
-/** A page with room for a column beside the ticket's tabs. */
-const WIDE = "(width >= 80rem)"
-
-function useWide(): boolean {
-  return React.useSyncExternalStore(
-    (listener) => {
-      const query = window.matchMedia(WIDE)
-      query.addEventListener("change", listener)
-      return () => query.removeEventListener("change", listener)
-    },
-    () => window.matchMedia(WIDE).matches
-  )
-}
 
 export function TicketPage() {
   const context = useCurrentViewResourceContext()
@@ -114,9 +113,9 @@ export function TicketPage() {
     if (page) openTicket(page)
   }, [page, openTicket])
 
-  // On the ticket's own page, wide enough, the facts are a column beside the
-  // tabs; in the window over a list, or narrower, a line above them.
-  const rail = useWide() && inWindow === null
+  // The rail beside the tabs, where there is room for it; above them where there is not.
+  const rail = useMedia(inWindow === null ? TICKET_RAIL_PAGE : TICKET_RAIL_WINDOW)
+  const Rail = rail ? "aside" : "div"
 
   // The board, in the layout it was left in: coming back onto the cards, when
   // the table is what you were reading the board in, is losing your place.
@@ -128,25 +127,53 @@ export function TicketPage() {
         <>
           {/* Where it stands and what it waits for, with its gestures: first,
               and on every tab — what one opens a ticket to find out. Then what
-              it is and what it cost, the pull request once, and the tabs. On a
-              page wide enough, the facts are a column beside them. */}
+              it is, each fact under its name, and the pull request once: the
+              rail, beside the tabs where there is room, above them where not.
+              One tree either way, so that the tabs are not drawn again — their
+              place lost — when the screen crosses the width. */}
           <TicketTabContext.Provider value={tabs}>
           <div
             data-slot="ticket-view"
-            className={cn("min-w-0 gap-3", rail ? "grid items-start gap-x-8" : "flex flex-col")}
-            // Said here rather than as two classes: the first load's stylesheet has no room to spare.
-            style={rail ? { gridTemplateColumns: "minmax(0, 1fr) 18rem", gridTemplateRows: "auto 1fr" } : undefined}
+            data-layout={rail ? "rail" : "column"}
+            className={cn("min-w-0 gap-3", rail ? "grid items-start" : "flex flex-col")}
+            // Said here rather than as classes: the first load's stylesheet has no room to spare.
+            style={rail ? { gridTemplateColumns: "minmax(0, 1fr) 17rem", columnGap: "1.5rem" } : undefined}
           >
-            <TicketStatus ticket={ticket} />
-            <div className={cn(rail && "sticky top-4 col-start-2 row-span-2 row-start-1")}>
+            {/* A landmark only as a rail: above the tabs it is no aside, only their head. */}
+            <Rail
+              data-slot="ticket-rail"
+              aria-label={rail ? t("Status and details") : undefined}
+              className={rail ? "flex min-w-0 flex-col gap-3 overflow-y-auto" : "contents"}
+              // In sight while the tabs scroll: under the window's header, or the page's top.
+              style={
+                rail
+                  ? {
+                      gridColumn: 2,
+                      gridRow: 1,
+                      position: "sticky",
+                      top: inWindow === null ? "1rem" : 0,
+                      maxHeight: inWindow === null ? "calc(100dvh - 2rem)" : "calc(94dvh - 11rem)",
+                    }
+                  : undefined
+              }
+            >
+              <TicketStatus ticket={ticket} />
               <TicketFacts
                 ticket={{ ...ticket, model_in_use: brief.model }}
                 rail={rail}
+                validation={
+                  brief.content === undefined
+                    ? undefined
+                    : {
+                        validation: brief.validation ?? "",
+                        validation_inherited: brief.validation_inherited ?? "",
+                      }
+                }
                 onSession={() => setAsked({ tab: "live", at: Date.now() })}
               />
-            </div>
-            <div className={cn("flex min-w-0 flex-col gap-3", rail && "col-start-1")}>
               <TicketDelivery ticket={ticket} />
+            </Rail>
+            <div className="min-w-0" style={rail ? { gridColumn: 1, gridRow: 1 } : undefined}>
               {/* Chosen once per ticket, not every time the column moves: a
                   tab that switched itself under the reader would lose them. */}
               <TicketTabs
@@ -574,13 +601,7 @@ function TicketTabs({
         ) : (
           <div className="flex flex-col gap-6">
             <TicketMission mission={brief.mission ?? brief.content} />
-            <TicketValidation
-              ticket={{
-                ...ticket,
-                validation: brief.validation ?? "",
-                validation_inherited: brief.validation_inherited ?? "",
-              }}
-            />
+            {/* Force validated is a setting, with the others among the facts. */}
             <TicketOn ticket={{ ...ticket, on: brief.on ?? "" }} />
           </div>
         )}

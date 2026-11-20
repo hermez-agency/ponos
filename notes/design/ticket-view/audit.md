@@ -176,3 +176,105 @@ attente en *Ready*, note du passage précédent.
   avec le reste. Un bandeau réduit qui reste en haut de la fenêtre se discute.
 - Le pourcentage d'avancement d'un run (le plan de l'agent) est sur la carte et
   dans l'onglet Activité, pas dans le bandeau.
+
+## 6. Direction B implémentée
+
+Une autre branche (ticket « Console — Vue d'un ticket en deux colonnes »),
+partie de celle de la direction A (PR #695) pour que les deux se comparent sur
+les mêmes captures : même démo, mêmes trois tickets, mêmes tailles. Captures
+dans `two-columns/`.
+
+### Ce qui change par rapport à A
+
+- **Deux colonnes, comme une issue.** À gauche, le titre et l'objectif (l'en-tête)
+  puis les cinq onglets de A, inchangés. À droite, un **rail** de 17rem qui reste
+  en vue pendant qu'on fait défiler les onglets (`position: sticky`, défilement
+  propre s'il est plus haut que l'écran) : le bandeau d'état de A et son geste
+  principal en premier, puis tous les faits chacun sous son nom, puis la pull
+  request et ses checks.
+- **Le statut reste en tête.** Le rail ne commence pas par une liste de
+  propriétés : il commence par le bandeau, dans la couleur de la colonne, avec ce
+  que le ticket attend et la cause d'un blocage (H1, M5 tiennent). Dans le DOM, le
+  rail vient avant les onglets : un lecteur d'écran lit le statut d'abord.
+- **Les réglages se modifient en place**, dans la liste des faits :
+  priorité (un champ de 0 à 100), modèle de la prochaine session (ceux du board,
+  ou celui du runner ; Fable seulement ainsi, choisi à la main — une nouvelle route
+  `POST /api/tickets/<id>/model`, notée dans l'historique), projet d'un ticket qui
+  n'a pas encore tourné (brouillon, prêt, bloqué — sauf l'arrêt « projet
+  introuvable », dont le choix qui relance reste dans le bandeau), et *Force
+  validated*, qui quitte l'onglet Mission pour une ligne du rail. L'objectif se
+  change sous le titre, là où il est dit, pour ne pas le dire deux fois.
+- **La fenêtre s'élargit plutôt que de céder un tiers.** La critique de
+  l'audit — « en fenêtre 768 px, le rail prend un tiers au résultat » — est
+  réelle : forcé dans la fenêtre de 48rem, le rail laisse 26rem aux onglets et
+  coupe « Activité » au bord (`rejected-rail-in-a-48rem-window.png`). Trois
+  réponses pesées : un rail étroit (moins de 14rem ne tient ni le bandeau avec
+  ses deux boutons ni la liste des checks), un rail repliable (un clic de plus
+  pour le statut, exactement ce que H1 reprochait), **une fenêtre plus large
+  quand l'écran le permet** — retenue. Dès 64rem d'écran (1024 px), la fenêtre
+  fait 64rem et les onglets gardent ~44rem, à peu près ce qu'ils avaient dans
+  la fenêtre de A (`review-window-laptop.png`). En dessous, la fenêtre reste à
+  48rem et passe en une colonne, celle de A (`review-window-tablet.png`). La
+  page a la barre latérale à côté d'elle : le rail y vient à 80rem.
+- **Téléphone : une seule colonne**, celle de A — le statut et l'action en
+  haut, les faits sur une ligne et « Détails », la PR, les onglets ; Décider
+  n'est jamais coupé (H3). « Détails » déplie aussi les réglages
+  (`review-page-mobile-details.png`).
+- **Fenêtre et page disent la même chose (M3)** : un seul arbre, deux
+  dispositions décidées par une media query lue en JavaScript (`ticket-rail.ts`),
+  comme A — pas de règle ajoutée à la feuille de style du premier chargement,
+  tenue à un budget. La largeur de la fenêtre est un style en ligne pour la même
+  raison. Le travail de #b352df29 (page différée d'un rendu, animations) n'est pas
+  touché.
+
+### Mieux et moins bien que A, constat par constat
+
+| # | A — bandeau d'état | B — deux colonnes |
+|---|---|---|
+| H1 statut | En tête, toute la largeur. | En tête du rail, même bandeau ; un peu moins large, mais en vue tout le temps : il ne sort plus de l'écran sur une longue discussion (ce que A laissait dans « Ce qui reste »). **Mieux.** |
+| H2 action | Bouton plein dans le bandeau. | Le même, et toujours visible. **Égal, un peu mieux.** |
+| H3 téléphone | Onglets à ~430 px, Décider jamais coupé. | Identique. **Égal.** |
+| H4 PR une fois | Un bloc au-dessus des onglets. | Un bloc dans le rail. Plus loin du résultat qui y renvoie, mais toujours visible ; il ne pousse plus les onglets vers le bas. **Mieux** pour lire le résultat, **moins bien** pour les checks d'une PR longue (rail plus étroit, liste plus haute). |
+| M1 faits nommés | Une ligne sans noms et « Détails » en fenêtre ; noms sur page large. | Chaque fait sous son nom, sans clic, en fenêtre comme en page dès 1024 px. **Mieux.** |
+| M2 onglets | Cinq. | Les mêmes cinq. **Égal.** |
+| M3 fenêtre / page | Même vue, mais la colonne de faits sur page large seulement. | Même disposition en fenêtre et en page. **Mieux.** |
+| M5 cause d'un blocage | Dans le bandeau. | Dans le bandeau du rail, en lignes plus courtes : un texte d'aide long y prend 4–5 lignes au lieu de 2. **Un peu moins bien.** |
+| M6 page large à moitié vide | Comblé par la colonne de faits. | Comblé par le rail entier ; les onglets gardent toute la largeur restante. **Mieux.** |
+| Réglages | Priorité et modèle ne se changent pas depuis la vue ; *Force validated* au bas de Mission. | Tous en place, dans le rail. **Mieux** (et une route de plus côté serveur). |
+| Fenêtre | 48rem. | 64rem dès 1024 px d'écran : la fenêtre couvre presque tout le tableau, qu'on voit moins en dessous. **Moins bien** pour qui ouvre un ticket pour jeter un œil et revenir au tableau. |
+| Densité | Tout tient au-dessus du pli. | Le rail d'un ticket en revue avec PR dépasse 900 px de haut et défile en lui-même (`review-window-laptop.png`). **Moins bien.** |
+| Entre 768 et 1024 px | Une colonne. | Une colonne aussi : B n'y apporte rien. **Égal.** |
+
+En bref : B gagne sur ce qu'on lit souvent sans agir (les faits, la PR, le
+statut toujours en vue) et sur les réglages ; A reste plus compact, garde la
+fenêtre légère au-dessus du tableau, et lit mieux la cause d'un blocage.
+
+### Côte à côte
+
+| | |
+|---|---|
+| Fenêtre en revue | ![](two-columns/side-by-side-review-window-desktop.png) |
+| Page en revue | ![](two-columns/side-by-side-review-page-desktop.png) |
+| Fenêtre bloquée | ![](two-columns/side-by-side-blocked-window-desktop.png) |
+
+### Fenêtre
+
+| | Bureau | Téléphone |
+|---|---|---|
+| En cours | ![](two-columns/running-window-desktop.png) | ![](two-columns/running-window-mobile.png) |
+| En revue, avec PR | ![](two-columns/review-window-desktop.png) | ![](two-columns/review-window-mobile.png) |
+| Bloqué | ![](two-columns/blocked-window-desktop.png) | ![](two-columns/blocked-window-mobile.png) |
+
+### Page
+
+| | Bureau | Téléphone |
+|---|---|---|
+| En cours | ![](two-columns/running-page-desktop.png) | ![](two-columns/running-page-mobile.png) |
+| En revue, avec PR | ![](two-columns/review-page-desktop.png) | ![](two-columns/review-page-mobile.png) |
+| Bloqué | ![](two-columns/blocked-page-desktop.png) | ![](two-columns/blocked-page-mobile.png) |
+
+### La largeur de la fenêtre
+
+| Écran de 1100 px : fenêtre de 64rem, rail | Écran de 900 px : fenêtre de 48rem, une colonne | Écarté : le rail dans la fenêtre de 48rem |
+|---|---|---|
+| ![](two-columns/review-window-laptop.png) | ![](two-columns/review-window-tablet.png) | ![](two-columns/rejected-rail-in-a-48rem-window.png) |

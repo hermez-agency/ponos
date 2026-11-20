@@ -69,16 +69,17 @@ test("a ticket's page says its type, model and cost under its mission, and the o
   // Always there, even before anything ran: what it is, on what, for how much.
   const summary = page.locator('[data-slot="ticket-summary"]')
   await expect(summary).toBeVisible()
-  // Where it stands comes first, with what it waits for; the facts are a
-  // column beside the tabs on a page this wide, level with the status.
+  // On a page this wide, a rail beside the tabs: where it stands first, with
+  // what it waits for, then the facts under it.
   const status = page.locator('[data-slot="ticket-status"]')
   await expect(status.locator('[data-slot="ticket-status-word"]')).toHaveText("Ready")
+  await expect(page.locator('[data-slot="ticket-view"]')).toHaveAttribute("data-layout", "rail")
   const tabsBox = await page.getByRole("tablist").boundingBox()
   const statusBox = await status.boundingBox()
   const summaryBox = await summary.boundingBox()
-  expect(statusBox!.y).toBeLessThan(tabsBox!.y)
-  expect(summaryBox!.y).toBeLessThan(tabsBox!.y)
-  expect(summaryBox!.x).toBeGreaterThan(statusBox!.x + statusBox!.width)
+  expect(statusBox!.y).toBeLessThan(summaryBox!.y)
+  expect(statusBox!.x).toBeGreaterThan(tabsBox!.x + tabsBox!.width)
+  expect(summaryBox!.x).toBeGreaterThan(tabsBox!.x + tabsBox!.width)
   // Each fact under its name.
   await expect(summary.locator("dt").first()).toBeVisible()
 

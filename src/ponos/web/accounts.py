@@ -347,6 +347,7 @@ ACTIONS = (
     "told",
     "decided",
     "priority",
+    "model",
     "on",
     "goal",
     "launched",

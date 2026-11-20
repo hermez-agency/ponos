@@ -292,7 +292,7 @@ export function TicketResult({
           // the session said it changed.
           <>
             <p className="text-muted-foreground text-sm" data-slot="ticket-result-is-pr">
-              {t("This ticket wrote no result of its own: its pull request, above, is the result.")}
+              {t("This ticket wrote no result of its own: its pull request is the result.")}
             </p>
             {changes(journal) ? (
               <div data-slot="ticket-result-changes" className="bg-card rounded-xl border px-4 py-3">

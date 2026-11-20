@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import { ApiError } from "@/lib/api"
+import { publishBoard } from "@/lib/board-store"
 import type { TicketDetail } from "@/lib/types"
 
 import { TicketHead, TicketPage } from "./ticket-page"
@@ -514,6 +515,93 @@ describe("the result", () => {
     expect(within(card).getByRole("link", { name: /View the diff/ }).getAttribute("href")).toBe(
       "https://github.com/hermez/ponos/pull/385/files"
     )
+  })
+})
+
+describe("the rail", () => {
+  /** A screen wide enough for the rail: every media query asked holds. */
+  function wide() {
+    const before = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia
+    return () => {
+      window.matchMedia = before
+    }
+  }
+
+  test("on a wide screen, the status, the facts under their names and the pull request are a column beside the tabs", () => {
+    const narrow = wide()
+    try {
+      drawn(
+        ticket({
+          column: "review",
+          type: "Code",
+          cost: 1.5,
+          runner: "workstation",
+          pull_request: "https://github.com/hermez/ponos/pull/385",
+        })
+      )
+      const view = document.querySelector<HTMLElement>('[data-slot="ticket-view"]')!
+      expect(view.getAttribute("data-layout")).toBe("rail")
+      const rail = screen.getByRole("complementary", { name: "Status and details" })
+      const status = rail.querySelector('[data-slot="ticket-status"]')!
+      const summary = rail.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+      const delivery = rail.querySelector('[data-slot="ticket-delivery"]')!
+      // The status first, then the facts, then the pull request: the rail's order, and the reading order.
+      expect(status.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(summary.compareDocumentPosition(delivery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(rail.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(within(rail).queryByRole("tablist")).toBeNull()
+      // Every fact under its name, the rare ones too, and no « Details » to press.
+      expect(within(summary).getByText("workstation").closest("div")?.querySelector("dt")?.textContent).toBe("Taken by")
+      expect(within(summary).getByText("$1.50").closest("div")?.querySelector("dt")?.className).not.toContain("sr-only")
+      expect(within(summary).queryByRole("button", { name: "Details" })).toBeNull()
+    } finally {
+      narrow()
+    }
+  })
+
+  test("its settings are changed in place: the priority, the model, the project of a ticket not yet run", () => {
+    const narrow = wide()
+    publishBoard({
+      tickets: [],
+      columns: [],
+      priority: true,
+      choices: { model: [{ value: "opus", label: "claude/opus" }] },
+    })
+    try {
+      drawn(ticket({ column: "ready", project: "Opoil", project_id: "p1", priority: 70 }))
+      const summary = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+      expect((within(summary).getByRole("spinbutton", { name: "Priority, from 0 to 100" }) as HTMLInputElement).value).toBe("70")
+      expect(within(summary).getByRole("combobox", { name: "Change the model" })).toBeTruthy()
+      expect(within(summary).getByRole("combobox", { name: "Change the project" }).textContent).toContain("Opoil")
+      cleanup()
+      // Over: said, and no longer changed.
+      drawn(ticket({ column: "done", project: "Opoil", project_id: "p1", priority: 70 }))
+      const over = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+      expect(within(over).queryByRole("spinbutton")).toBeNull()
+      expect(within(over).queryByRole("combobox")).toBeNull()
+      expect(within(over).getByText("Opoil")).toBeTruthy()
+    } finally {
+      publishBoard({ tickets: [], columns: [] })
+      narrow()
+    }
+  })
+
+  test("on a narrow screen, the same blocks are above the tabs, the facts folded", () => {
+    drawn(ticket({ column: "review" }))
+    expect(document.querySelector('[data-slot="ticket-view"]')?.getAttribute("data-layout")).toBe("column")
+    expect(screen.queryByRole("complementary")).toBeNull()
+    const summary = document.querySelector<HTMLElement>('[data-slot="ticket-summary"]')!
+    expect(within(summary).getByRole("button", { name: "Details" })).toBeTruthy()
   })
 })
 

@@ -1460,6 +1460,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Ticket Model
+         * @description The model the ticket's next session runs on: empty is the runner's.
+         */
+        post: operations["set_ticket_model_api_tickets__ticket_id__model_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/validation": {
         parameters: {
             query?: never;
@@ -2719,7 +2739,7 @@ export interface components {
             who: string;
             email: string;
             /** @enum {string} */
-            action: "created" | "moved" | "told" | "decided" | "priority" | "on" | "goal" | "launched" | "result" | "revise";
+            action: "created" | "moved" | "told" | "decided" | "priority" | "model" | "on" | "goal" | "launched" | "result" | "revise";
             /** @description The column moved to, the choice made, the priority set. */
             detail: string;
         };
@@ -5510,6 +5530,12 @@ export interface components {
             id: string;
             /** @description Empty when the ticket now serves none. */
             goal_id: string;
+        };
+        TicketModel: {
+            id: string;
+            /** @description Empty when the runner's model is the one it runs on. */
+            model: string;
+            model_label: string;
         };
         TicketOn: {
             id: string;
@@ -8865,6 +8891,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketPriority"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_model_api_tickets__ticket_id__model_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketModel"];
                 };
             };
             /** @description Validation Error */

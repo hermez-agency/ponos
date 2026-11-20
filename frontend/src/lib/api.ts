@@ -177,6 +177,14 @@ export const api = {
         body: { priority },
       })
     ),
+  /** The model the ticket's next session runs on, chosen by hand: empty is the runner's. */
+  setModel: (ticket: string, model: string) =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/model", {
+        params: { path: { ticket_id: ticket } },
+        body: { model },
+      })
+    ),
   /** The ticket's own Force validated: empty to inherit, `forced`, or `free`. */
   setValidation: (ticket: string, validation: string) =>
     answer(

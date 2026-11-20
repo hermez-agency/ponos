@@ -768,3 +768,28 @@ def a_ticket_is_given_another_priority_from_the_board() -> None:
     api.runner._workspace = type("W", (), {"goals": "", "projects": "", "tickets": "db"})()
     api._schema_at = time.time()
     assert api.board()["choices"] == {}
+
+
+@case
+def a_ticket_is_given_another_model_from_its_view() -> None:
+    """The rail of a ticket's view writes the model its next session runs on.
+
+    As chosen, Fable included — a person picked it — and empty is the runner's.
+    """
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        nudged = _Nudged()
+        api.watch = nudged  # type: ignore[assignment]  # a fake: only counts its nudges
+        made = api.create_ticket("Trier les brouillons", ready=False)["id"]
+        settings = api.config.board
+
+        done = api.set_model(made, " claude/fable ")
+        assert done["id"] == made and done["model"] == "claude/fable", done
+        assert store.read(board.page(made), settings.prop("model")) == "claude/fable"
+        assert api.reader.get(made) is not None, "the page written is held for the next board"
+        assert nudged.count, "the watcher is asked to look again"
+        assert api.set_model(made, "")["model"] == "", "empty is the runner's"
+        assert not store.read(board.page(made), settings.prop("model"))

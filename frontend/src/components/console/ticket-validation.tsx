@@ -25,7 +25,14 @@ const CHOICES = [
   { value: "free", label: "Not forced" },
 ]
 
-export function TicketValidation({ ticket }: { ticket: TicketDetail }) {
+export function TicketValidation({
+  ticket,
+  compact = false,
+}: {
+  ticket: TicketDetail
+  /** A row among the ticket's facts, under its name: no heading of its own, no rule above. */
+  compact?: boolean
+}) {
   const t = useT()
   const saved = ticket.validation ?? ""
   const inherited = ticket.validation_inherited ?? ""
@@ -61,8 +68,12 @@ export function TicketValidation({ ticket }: { ticket: TicketDetail }) {
             : t("Waits for the review.")
 
   return (
-    <section data-slot="ticket-validation" className="flex flex-col gap-2 border-t pt-4">
-      <Eyebrow>{t("Force validated")}</Eyebrow>
+    <section
+      data-slot="ticket-validation"
+      aria-label={compact ? t("Force validated") : undefined}
+      className={cn("flex flex-col", compact ? "gap-1" : "gap-2 border-t pt-4")}
+    >
+      {compact ? null : <Eyebrow>{t("Force validated")}</Eyebrow>}
       <div
         role="group"
         aria-label={t("Force validated")}
@@ -84,7 +95,7 @@ export function TicketValidation({ ticket }: { ticket: TicketDetail }) {
           </button>
         ))}
       </div>
-      <p className="text-muted-foreground text-sm">{effective}</p>
+      <p className={cn("text-muted-foreground", compact ? "text-xs" : "text-sm")}>{effective}</p>
     </section>
   )
 }

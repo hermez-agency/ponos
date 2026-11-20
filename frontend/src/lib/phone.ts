@@ -11,12 +11,18 @@ export const isPhone = (): boolean => typeof window !== "undefined" && window.ma
 
 /** Whether the screen is a phone's, drawn again when it turns or is resized past the breakpoint. */
 export function usePhone(): boolean {
+  return useMedia(PHONE)
+}
+
+/** Whether a media query holds, drawn again when it turns: a layout decided by a
+ * component, where a breakpoint in the first load's stylesheet would cost it rules. */
+export function useMedia(media: string): boolean {
   return React.useSyncExternalStore(
     (listener) => {
-      const query = window.matchMedia(PHONE)
+      const query = window.matchMedia(media)
       query.addEventListener("change", listener)
       return () => query.removeEventListener("change", listener)
     },
-    isPhone
+    () => window.matchMedia(media).matches
   )
 }

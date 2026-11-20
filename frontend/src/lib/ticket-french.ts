@@ -31,6 +31,14 @@ export const TICKET_FRENCH: Record<string, string> = {
   Branch: "Branche",
   "Taken by": "Pris par",
   "Open the session": "Ouvrir la session",
-  "This ticket wrote no result of its own: its pull request, above, is the result.":
-    "Ce ticket n'a pas écrit de résultat à lui : sa pull request, ci-dessus, est le résultat.",
+  "This ticket wrote no result of its own: its pull request is the result.":
+    "Ce ticket n'a pas écrit de résultat à lui : sa pull request est le résultat.",
+  "Status and details": "Statut et détails",
+  "Priority, from 0 to 100": "Priorité, de 0 à 100",
+  "Change the model": "Changer le modèle",
+  "Change the project": "Changer le projet",
+  "The model could not be changed": "Le modèle n'a pas pu être changé",
+  "Loading…": "Chargement…",
+  "set its model to {{model}}": "a mis son modèle à {{model}}",
+  "gave it back the runner's model": "lui a rendu le modèle du runner",
 }

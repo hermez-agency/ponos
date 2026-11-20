@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils"
 import { PriorityBadge } from "./priority"
 import { TicketEstimate } from "./ticket-estimate"
 import { TicketProjectChoice } from "./ticket-project"
+import { ModelField, PriorityField, ProjectField } from "./ticket-settings"
 import { TicketTime } from "./ticket-time"
+import { TicketValidation } from "./ticket-validation"
 import {
   FAMILY_ICON,
   LABEL,
@@ -49,9 +51,9 @@ import {
  *   on what it is waiting for, and the ticket's gestures — the one that
  *   matters as a filled button.
  * - `TicketFacts` is what the ticket is and what running it came to, each
- *   said once and under its name. One line and a « Details » in the window
- *   and on a phone; the whole list, as a column beside the tabs, on a page
- *   wide enough for one.
+ *   said once and under its name, the settings among them changed in place
+ *   (`ticket-settings.tsx`). The whole list in the rail beside the tabs, where
+ *   the view has room for one; one line and a « Details » where it has not.
  * - `TicketDelivery` is the pull request, once: where it stands, its checks,
  *   the way to its diff.
  *
@@ -70,6 +72,7 @@ const BAND: Record<string, string> = {
 }
 
 const boardColumns = (board: Board) => board.columns
+const boardScored = (board: Board) => Boolean(board.priority)
 
 /** The column a ticket is in, in the console's word for it where it has one. */
 function useStatusWord(column: string): string {
@@ -173,17 +176,36 @@ export function TicketStatus({ ticket }: { ticket: TicketDetail }) {
  *
  * One list, drawn two ways. Folded, it is a line: the names are kept for a
  * screen reader only, and the rows few look for (`rare`) are not drawn.
- * Unfolded — by its « Details » button, or by itself beside the tabs of a wide
- * page (`rail`) — it is a column, every row under its name. Which of the two
+ * Unfolded — by its « Details » button, or by itself in the rail beside the
+ * tabs (`rail`) — it is a column, every row under its name, and its settings
+ * are fields. Which of the two
  * is decided here, by the page, and not by a breakpoint in the stylesheet:
  * the first load's stylesheet is held to a budget (tests/test_release.py) and
  * two dozen rules for one list of a ticket's page had no room in it.
  */
 const Unfolded = React.createContext(false)
 
-function Fact({ name, rare = false, children }: { name: string; rare?: boolean; children: React.ReactNode }) {
+function Fact({
+  name,
+  rare = false,
+  stacked = false,
+  children,
+}: {
+  name: string
+  rare?: boolean
+  /** Its name above it, the whole width under: a setting with more to say than a word. */
+  stacked?: boolean
+  children: React.ReactNode
+}) {
   const unfolded = React.use(Unfolded)
-  if (rare && !unfolded) return null
+  if ((rare || stacked) && !unfolded) return null
+  if (stacked)
+    return (
+      <div className="flex min-w-0 flex-col gap-1">
+        <dt className="text-muted-foreground text-xs">{name}</dt>
+        <dd className="min-w-0">{children}</dd>
+      </div>
+    )
   return (
     <div className={cn("flex min-w-0 items-baseline gap-x-3", unfolded && "justify-between")}>
       <dt className={cn("text-muted-foreground shrink-0 text-xs", !unfolded && "sr-only")}>{name}</dt>
@@ -197,16 +219,20 @@ function Fact({ name, rare = false, children }: { name: string; rare?: boolean; 
 export function TicketFacts({
   ticket,
   rail = false,
+  validation,
   onSession,
 }: {
   ticket: TicketDetail
-  /** On the ticket's own page, wide enough: the whole list, as a column beside the tabs. */
+  /** In the rail beside the tabs: the whole list, every fact under its name, the settings changed in place. */
   rail?: boolean
+  /** Force validated, once the page is read: a setting of its own, among the facts. */
+  validation?: { validation: string; validation_inherited: string }
   /** The session's log, on the ticket's Activity tab. */
   onSession: () => void
 }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
+  const scored = useBoardWith(boardScored)
   const unfolded = open || rail
   // Until the page's own read has said, a model written on the ticket is the one it has.
   const used =
@@ -244,7 +270,13 @@ export function TicketFacts({
         )}
       >
         <Fact name={t("Project")}>
-          <span className="font-semibold">{ticket.project || t("no project — a document")}</span>
+          {unfolded ? (
+            <ProjectField ticket={ticket}>
+              <span className="font-semibold">{ticket.project || t("no project — a document")}</span>
+            </ProjectField>
+          ) : (
+            <span className="font-semibold">{ticket.project || t("no project — a document")}</span>
+          )}
         </Fact>
         {ticket.type ? (
           <Fact name={t("Type")}>
@@ -252,9 +284,15 @@ export function TicketFacts({
             {ticket.subtype ? <TicketSubtype subtype={ticket.subtype} /> : null}
           </Fact>
         ) : null}
-        {typeof ticket.priority === "number" ? (
+        {typeof ticket.priority === "number" || (unfolded && scored) ? (
           <Fact name={t("Priority")}>
-            <PriorityBadge score={ticket.priority} />
+            {unfolded ? (
+              <PriorityField ticket={ticket}>
+                {typeof ticket.priority === "number" ? <PriorityBadge score={ticket.priority} /> : null}
+              </PriorityField>
+            ) : typeof ticket.priority === "number" ? (
+              <PriorityBadge score={ticket.priority} />
+            ) : null}
           </Fact>
         ) : null}
         {cost ? (
@@ -265,12 +303,15 @@ export function TicketFacts({
         {/* The column empty is not "no model": it is the one the session
             announced, or the runner's, or Claude Code's own. The server says
             which, as provider/model; the full identifier is the tooltip. */}
-        {used?.label ? (
+        {used?.label || unfolded ? (
           <Fact name={t("Model")}>
-            <span title={used.full}>
-              {used.label.replace(/^claude\//, "")}
-              {used.default ? <span className="text-muted-foreground font-normal"> · {t("default")}</span> : null}
-            </span>
+            {unfolded ? (
+              <ModelField ticket={ticket} used={used}>
+                {used?.label ? <ModelSaid used={used} /> : <span className="text-muted-foreground">—</span>}
+              </ModelField>
+            ) : used?.label ? (
+              <ModelSaid used={used} />
+            ) : null}
           </Fact>
         ) : null}
         {/* The runs' time with the clock stopped while it waited — not the
@@ -354,6 +395,11 @@ export function TicketFacts({
             <span className="font-mono text-xs break-all">{ticket.runner}</span>
           </Fact>
         ) : null}
+        {validation ? (
+          <Fact name={t("Force validated")} stacked>
+            <TicketValidation ticket={{ ...ticket, ...validation }} compact />
+          </Fact>
+        ) : null}
       </dl>
       </Unfolded>
       {/* Said in the page, not in a tooltip: a finger has no hover. The rail has them all already. */}
@@ -370,6 +416,17 @@ export function TicketFacts({
       </button>
       )}
     </section>
+  )
+}
+
+/** The model, as `provider/model` without the provider when it is Claude's; the full identifier is the tooltip. */
+function ModelSaid({ used }: { used: { label: string; full: string; default?: boolean } }) {
+  const t = useT()
+  return (
+    <span title={used.full}>
+      {used.label.replace(/^claude\//, "")}
+      {used.default ? <span className="text-muted-foreground font-normal"> · {t("default")}</span> : null}
+    </span>
   )
 }
 
