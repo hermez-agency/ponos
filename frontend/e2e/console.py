@@ -381,15 +381,29 @@ def journal_of(ticket: str) -> None:
 
     first = journal.Run.start(ticket=ticket, title="A ticket that asked", session="first")
     first.event({"type": "system", "subtype": "init", "model": "claude-sonnet-4-5-20250929"})
-    first.event(workbench.said("I read the brief first."))
-    first.event(workbench.tool("Bash", {"command": "make test"}))
+    # Its messages carry the uuids a session gives them, as a run written
+    # today does: each step can be started again from (forks.py).
+    first.event({**workbench.said("I read the brief first."), "uuid": "first-1"})
+    first.event(
+        {
+            "type": "assistant",
+            "uuid": "first-2",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "call-1", "name": "Bash", "input": {"command": "make test"}}
+                ]
+            },
+        }
+    )
     first.event(
         {
             "type": "user",
+            "uuid": "first-3",
             "message": {
                 "content": [
                     {
                         "type": "tool_result",
+                        "tool_use_id": "call-1",
                         "is_error": True,
                         "content": "make: *** No rule to make target",
                     }

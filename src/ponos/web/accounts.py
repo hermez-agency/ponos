@@ -353,6 +353,7 @@ ACTIONS = (
     "launched",
     "result",
     "revise",
+    "forked",
 )
 
 # What a ticket's journal shows, at most: the latest.

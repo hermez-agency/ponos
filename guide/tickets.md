@@ -235,6 +235,41 @@ older version, or a ticket with no session running gets the comment it always go
 message the session ended without reading is written as that comment, and the next pass
 reads it.
 
+## Starting again from one step of a session
+
+When a ticket went wrong at its twelfth step of thirty, there is a third way between
+picking its session up where it stopped and running the whole ticket again: start a new
+session **from that step**. In the ticket's journal (view of the ticket, tab *Journal*),
+point at a step — a sentence of the agent or a tool call — and click the branch icon,
+*Start again from here*. A window asks for an optional message (« this time, do it this
+way… ») and *Start again* sends the ticket back to *Ready*; its next session:
+
+- **knows the conversation up to that step and nothing after it**. A tool call is cut
+  after its result, so the new session knows what it answered. The steps a subagent took
+  inside a call have no such button: their messages are not the session's own;
+- **opens on your message**, or, without one, on « take another road than the one that
+  was taken back »;
+- is a **new run** of the ticket. The run it came from is kept as it was, readable in the
+  journal. The new run says *Started again from step 12 of session #2* (a click opens it),
+  the step it branched from is marked with the run's number (`#3`), and the list of runs
+  shows `↳ #2·12` on it and *current branch* on the newest, the one the ticket goes on from.
+
+**The files are not taken back.** Only the conversation is rewound: the worktree and the
+ticket's branch stay as the earlier session left them, with what it changed after that
+step. Nothing records the files step by step. The window says so before you confirm, and
+the new session is told so too: it reads `git status`, `git log` and the diff before
+writing anything, and undoes what does not fit. To start from clean files, run the
+ticket again from the start instead.
+
+It works through Claude Code itself: `claude --resume <session> --fork-session
+--resume-session-at <message>`, under a new session identifier. The earlier session's
+transcript is not touched. Each step of the journal records the message of the session
+it ended on, so only runs written by this version or later offer the button. A run still
+going does not offer it (stop the ticket first), and neither does a session that is no
+longer on this machine. The request waits in `ponos.db` until the ticket's next session
+starts. Asked twice, the second request replaces the first. From the API, it is `POST
+/api/runs/<run>/fork` with `{"position": 12, "text": "…"}`.
+
 ## What a project learns from its blocked tickets
 
 A ticket that was blocked, answered and then ends `RESULT: ok` may say what it

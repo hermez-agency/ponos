@@ -39,8 +39,9 @@ from .ticket import Job, Ticket
 logger = logging.getLogger(__name__)
 
 # What a job holds that is never written down: the secrets are read again from
-# the vault, and the rest is what adopting it is about.
-_UNWRITTEN = {"secrets", "adopted", "adoptable", "ticket"}
+# the vault, the step a session was branched from is behind it once it has
+# started (forks.py), and the rest is what adopting it is about.
+_UNWRITTEN = {"secrets", "adopted", "adoptable", "ticket", "fork"}
 _PATHS = {"workdir", "log", "session_home", "reference"}
 
 

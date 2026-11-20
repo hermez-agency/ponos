@@ -343,6 +343,9 @@ export const api = {
   /** Write the prompt run at every change of the ticket's status; empty removes it. */
   setOn: (id: string, on: string) =>
     answer(client.POST("/api/tickets/{ticket_id}/on", { params: { path: { ticket_id: id } }, body: { on } })),
+  /** « Start again from here »: the run's ticket back to ready, its next session cut after this step. */
+  forkRun: (run: number, position: number, text: string) =>
+    answer(client.POST("/api/runs/{run}/fork", { params: { path: { run } }, body: { position, text } })),
   /** A run's last steps; `before`, those older than a position; `after`, those newer. */
   runSteps: (run: number, page: { before?: number; after?: number } = {}) =>
     answer(

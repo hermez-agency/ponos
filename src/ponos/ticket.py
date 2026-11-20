@@ -17,9 +17,13 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import agents, goals, store
 from .projects import Project
+
+if TYPE_CHECKING:
+    from .forks import Fork
 
 
 @dataclass
@@ -81,6 +85,10 @@ class Job:
     # carried on rather than opened. Only ever true for a ticket that came back
     # ticked as waiting for credit — see `prepare`.
     resume: bool = False
+    # The step of an earlier run this job's session starts from, asked from the
+    # console (« Relancer depuis ici »): a copy of that session cut there, told
+    # what the person added — see forks.py. None for every other session.
+    fork: Fork | None = None
     # The project's secrets, read from `[vault]` once per session and handed to
     # it as environment variables — see vault.py. Never written anywhere.
     secrets: dict[str, str] = field(default_factory=dict)

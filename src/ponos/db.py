@@ -737,6 +737,30 @@ def _tickets_have_a_validation(connection: sqlite3.Connection) -> None:
     connection.execute("ALTER TABLE tickets ADD COLUMN validation TEXT NOT NULL DEFAULT ''")
 
 
+def _runs_branch_off(connection: sqlite3.Connection) -> None:
+    # « Relancer depuis ici » — see forks.py. A step says which message of its
+    # session it ended on (`anchor`, the CLI's own uuid; empty for a step a
+    # subagent took, or one written before), which is what a new session is
+    # cut at. A run started that way names the run and the step it branched
+    # from; `forks` holds the one a ticket is waiting to start, until it does.
+    connection.execute("ALTER TABLE steps ADD COLUMN anchor TEXT NOT NULL DEFAULT ''")
+    connection.execute("ALTER TABLE runs ADD COLUMN parent INTEGER")
+    connection.execute("ALTER TABLE runs ADD COLUMN parent_position INTEGER")
+    connection.execute(
+        """
+        CREATE TABLE forks (
+            ticket    TEXT PRIMARY KEY,
+            run       INTEGER NOT NULL,
+            position  INTEGER NOT NULL,
+            session   TEXT NOT NULL,
+            anchor    TEXT NOT NULL,
+            message   TEXT NOT NULL DEFAULT '',
+            at        TEXT NOT NULL
+        )
+        """
+    )
+
+
 def _tickets_have_attempts(connection: sqlite3.Connection) -> None:
     # « Tentatives » — see attempts.py. `attempts` is how many tries the author
     # asked for (1 or 2); `twin` is the other ticket of a pair, whichever of the
@@ -1389,6 +1413,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _one_ticket_per_due_moment,
     _network_retries,
     _tickets_have_a_validation,
+    _runs_branch_off,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

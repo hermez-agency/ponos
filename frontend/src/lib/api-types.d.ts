@@ -987,6 +987,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run}/fork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fork Run
+         * @description « Start again from here »: a new session of the run's ticket, from one of its steps.
+         */
+        post: operations["fork_run_api_runs__run__fork_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/logs": {
         parameters: {
             query?: never;
@@ -2739,7 +2759,7 @@ export interface components {
             who: string;
             email: string;
             /** @enum {string} */
-            action: "created" | "moved" | "told" | "decided" | "priority" | "model" | "on" | "goal" | "launched" | "result" | "revise";
+            action: "created" | "moved" | "told" | "decided" | "priority" | "model" | "on" | "goal" | "launched" | "result" | "revise" | "forked";
             /** @description The column moved to, the choice made, the priority set. */
             detail: string;
         };
@@ -2846,6 +2866,14 @@ export interface components {
             /** @description Changed or new, each with the ticket it now follows (`""`: the first). */
             changed: components["schemas"]["Changed"][];
             removed: string[];
+        };
+        Branch: {
+            /** @default  */
+            text: string;
+            /** @default 0 */
+            position: number;
+        } & {
+            [key: string]: unknown;
         };
         /** @description Ponos's browser: whether it is installed, its profiles, and the browsers running. */
         Browser: {
@@ -3112,6 +3140,8 @@ export interface components {
             /** @description Where the step stands in its run, and when — only on a step read from the journal. */
             position?: number;
             at?: string;
+            /** @description Whether a new session can start from this step — see `forks.py`. */
+            forkable?: boolean;
             /** @constant */
             stage: "step";
         };
@@ -3435,6 +3465,14 @@ export interface components {
             entries: components["schemas"]["Entry"][];
             /** @description How many more there were than the list holds. */
             more: number;
+        };
+        /** @description A new session asked for, from one step of a run: the ticket goes back to ready. */
+        Forked: {
+            ticket: string;
+            run: number;
+            position: number;
+            /** @description The status the ticket goes to, as the board spells it. */
+            status: string;
         };
         /** @description What asking for a batch brought back. */
         Found: {
@@ -4630,6 +4668,9 @@ export interface components {
             reported?: string;
             /** @description Whichever of the two is known, as `provider/model`. */
             model_label?: string;
+            /** @description The run this one started again from, at its step `parent_position` — see `forks.py`. */
+            parent?: number | null;
+            parent_position?: number | null;
         };
         /** @description What an AG-UI client posts to start a run: see `run_chat`. */
         RunAgentInput: {
@@ -5236,6 +5277,8 @@ export interface components {
             /** @description Where the step stands in its run, and when — only on a step read from the journal. */
             position?: number;
             at?: string;
+            /** @description Whether a new session can start from this step — see `forks.py`. */
+            forkable?: boolean;
         };
         StepEvent: {
             label: string;
@@ -5244,6 +5287,8 @@ export interface components {
             /** @description Where the step stands in its run, and when — only on a step read from the journal. */
             position?: number;
             at?: string;
+            /** @description Whether a new session can start from this step — see `forks.py`. */
+            forkable?: boolean;
             source: string;
             log: string;
         };
@@ -8010,6 +8055,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunSteps"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fork_run_api_runs__run__fork_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Branch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Forked"];
                 };
             };
             /** @description Validation Error */

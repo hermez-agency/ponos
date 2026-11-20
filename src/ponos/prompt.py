@@ -570,6 +570,28 @@ Then finish the ticket and end on the RESULT line the first message asked for.
 {language}"""
 
 
+# What a session started from one step of an earlier one is told — see
+# forks.py. The conversation was cut there; the files were not, and that is
+# the part a session would otherwise get wrong: it remembers a worktree as it
+# was at that step, and meets one where the rest was done.
+FORK = """\
+The person following this ticket took the conversation back to this point: \
+what you did after it is gone from it, and you start again from here. Same \
+ticket, same rules, same working directory.
+
+{message}
+
+The files were not taken back with the conversation: the worktree and the \
+ticket's branch are as the earlier attempt left them, and may hold changes it \
+made after this point. Read `git status`, `git log` and the diff before writing \
+anything, and undo what does not fit. Then finish the ticket and end on the \
+RESULT line the first message asked for.
+{language}"""
+
+FORK_MESSAGE = "What they ask you to do this time:\n\n{message}"
+FORK_SILENT = "They added nothing: take another road than the one that was taken back."
+
+
 # What a session is told when it stopped without its report — no ANSWER.md, no
 # RESULT line — and is picked up once to write it. Not the ticket again, and not
 # “finish it”: the work was done or it was not, and only the session knows which.
@@ -1116,6 +1138,12 @@ def message_of(prompt_text: str) -> str:
 def carry_on(language: str = "") -> str:
     """The message that restarts a ticket's own session, quota permitting."""
     return CARRY_ON.format(language=_language(language))
+
+
+def fork(message: str = "", language: str = "") -> str:
+    """The message a session started from one step of an earlier one opens on."""
+    said = FORK_MESSAGE.format(message=message.strip()) if message.strip() else FORK_SILENT
+    return FORK.format(message=said, language=_language(language))
 
 
 def write_up(answer_in: Path | str = "", language: str = "") -> str:

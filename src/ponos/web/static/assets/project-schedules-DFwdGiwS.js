@@ -1,1 +1,5 @@
+<<<<<<<< HEAD:src/ponos/web/static/assets/project-schedules-DFwdGiwS.js
 import{r as e}from"./react-CFebUx29.js";import{X as t,sn as n}from"./views-BNajXxAm.js";import{m as r}from"./console-CouQq53d.js";var i=e();function a({project:e}){return(0,i.jsx)(t,{resource:r,resourceAction:n.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
+========
+import{r as e}from"./react-CFebUx29.js";import{X as t,sn as n}from"./views-DRaeW6_e.js";import{m as r}from"./console-ClbVOOXN.js";var i=e();function a({project:e}){return(0,i.jsx)(t,{resource:r,resourceAction:n.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};
+>>>>>>>> 5896d6d4 (feat: relancer un ticket depuis une étape de sa session — la nouvelle session est une copie de l'ancienne coupée à cette étape (--fork-session --resume-session-at), le run d'origine reste lisible, le journal montre les branches ; les fichiers ne sont pas remis en arrière):src/ponos/web/static/assets/project-schedules-Dz3c0npu.js

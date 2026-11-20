@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .. import journal, log, models, rotation, state
+from .. import forks, journal, log, models, rotation, state
 from . import live
 from .base import Base
 
@@ -78,6 +78,31 @@ class Journals(Base):
                 {**run, "model_label": models.label(run.get("reported") or run.get("model") or "")}
                 for run in journal.runs(page_id)
             ]
+        }
+
+    def fork(self, identifier: int, position: int, message: str = "") -> dict[str, Any]:
+        """« Start again from here »: the ticket of this run back to ready, to branch at this step.
+
+        Its next session is a copy of this run's, cut after the step, told
+        `message` — see forks.py. Refused for a ticket in progress: its
+        session is the one to stop first, and a branch asked under it would
+        be taken by nobody until it ends.
+        """
+        found = journal.run(identifier)
+        if found is None:
+            raise LookupError(f"no such run: {identifier}")
+        ticket = str(found["ticket"])
+        if self._status_of(ticket) == self.config.board.state("running"):
+            raise forks.Refused(
+                "this ticket is in progress: stop it before starting again from one of its steps"
+            )
+        fork = forks.ask(identifier, position, message)
+        moved = self.set_status(ticket, "ready")
+        return {
+            "ticket": fork.ticket,
+            "run": identifier,
+            "position": position,
+            "status": str(moved["status"]),
         }
 
     def run_steps(

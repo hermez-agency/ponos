@@ -51,6 +51,8 @@ function said(t: ReturnType<typeof useT>, entry: AuditEntry): string {
       return t("retouched its result")
     case "revise":
       return t("asked for a change to its result")
+    case "forked":
+      return t("started it again from one of its steps")
   }
 }
 

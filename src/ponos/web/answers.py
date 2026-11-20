@@ -1469,6 +1469,8 @@ class Step(Shape):
     position: int = omitted()
     """Where the step stands in its run, and when — only on a step read from the journal."""
     at: str = omitted()
+    forkable: bool = omitted()
+    """Whether a new session can start from this step — see `forks.py`."""
 
 
 class Run(Shape):
@@ -1495,10 +1497,23 @@ class Run(Shape):
     reported: str = omitted()
     model_label: str = omitted()
     """Whichever of the two is known, as `provider/model`."""
+    parent: int | None = omitted()
+    """The run this one started again from, at its step `parent_position` — see `forks.py`."""
+    parent_position: int | None = omitted()
 
 
 class Runs(Shape):
     runs: list[Run]
+
+
+class Forked(Shape):
+    """A new session asked for, from one step of a run: the ticket goes back to ready."""
+
+    ticket: str
+    run: int
+    position: int
+    status: str
+    """The status the ticket goes to, as the board spells it."""
 
 
 class RunSteps(Shape):
@@ -2624,6 +2639,7 @@ class AuditEntry(Shape):
         "launched",
         "result",
         "revise",
+        "forked",
     ]
     detail: str
     """The column moved to, the choice made, the priority set."""

@@ -47,6 +47,7 @@ from . import (
     browser,
     db,
     diagnostic,
+    forks,
     generated,
     git,
     github_token,
@@ -432,8 +433,9 @@ class Execution(Base):
     ) -> session.Outcome:
         """The session itself, picked up again or relaunched when it has to be."""
         try:
+            forked = job.fork is not None
             outcome = self._session(job, text, log, chosen, live, run)
-            if job.resume and session.lost(outcome):
+            if (job.resume or forked) and session.lost(outcome):
                 # A session Claude Code no longer has — pruned, filed on another
                 # machine, or a worktree it cannot be resumed from. The ticket
                 # and its branch are still here, so a fresh session starts from
@@ -577,12 +579,19 @@ class Execution(Base):
         ticket, the brief and the context already, and resending them would cost
         on every resumption what they cost once. See `prompt.CARRY_ON`.
         """
-        if job.resume:
+        # Started once from the step chosen: a relaunch after that carries on
+        # the session it made, as any other — see `_relaunch`.
+        fork, job.fork = job.fork, None
+        if fork is not None:
+            text = prompt_module.fork(fork.message, self.voice.instruction())
+        elif job.resume:
             text = prompt_module.carry_on(self.voice.instruction())
         adopted, job.adopted = job.adopted, None
         opening = (
             "following session"
             if adopted is not None
+            else f"branching session {fork.session} at step {fork.position} into"
+            if fork is not None
             else "picking session"
             if job.resume
             else "Claude session"
@@ -603,6 +612,7 @@ class Execution(Base):
             timeout_minutes=self.config.runner.timeout_minutes,
             session_id=job.session_id,
             resume=job.resume,
+            fork=(fork.session, fork.anchor) if fork is not None else None,
             environment={**job.secrets, **self.environment_for(model), **self._github(job)},
             on_event=_both(run.event, live.event if live else None),
             max_budget_usd=self.config.budget.per_ticket_usd,
@@ -800,8 +810,13 @@ class Execution(Base):
             model=model,
             chosen=job.chosen,
             escalated=job.escalated,
+            parent=job.fork.run if job.fork else None,
+            parent_position=job.fork.position if job.fork else None,
             say=self.say,
         )
+        if job.fork is not None and not self.dry_run:
+            # Taken: the session about to start is the one it asked for.
+            forks.forget(job.ticket.id)
         self._journals[job.ticket.id] = run
         return run
 

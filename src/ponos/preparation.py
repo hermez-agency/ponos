@@ -28,6 +28,7 @@ from . import (
     attempts,
     blocks,
     conversation,
+    forks,
     git,
     goals,
     journal,
@@ -199,6 +200,11 @@ class Preparation(Base):
         # — and the session is what remembers the half of the work that is not
         # in a commit yet. Anything else gets a fresh identifier, as ever.
         carried = self._carried_session(ticket)
+        # A step of an earlier run chosen on the console to start again from:
+        # its session is a copy of that run's, cut there — see forks.py. Not
+        # for a session carried on: a window that closed mid-sentence comes
+        # first, and the branch waits for the run after it.
+        fork = None if carried else forks.pending(ticket.id)
         discussion = self.discussion(ticket)
         # What the reviewers of the pull request wrote, with the diff it is
         # about: kept apart from the discussion, whose budget it would blow.
@@ -213,6 +219,7 @@ class Preparation(Base):
             body,
             session_id=carried or session.new_id(),
             resume=bool(carried),
+            fork=fork,
             log=state.log_file(short),
             model=self._written_model(ticket),
             agent=agent,
