@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code — Ponos</title>
+<meta name="description" content="Un exemple suivi sur un board de démonstration — comment écrire un ticket que Claude Code peut finir seul, ce que Ponos fait pendant la session, ce que la relecture automatique attrape, et le seul geste qui livre.">
+<link rel="canonical" href="https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/">
+<link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/">
+<link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/">
+<link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/">
+<link rel="alternate" type="application/atom+xml" title="Flux Atom" href="https://the-ponos.app/fr/blog/feed.xml">
+<link rel="icon" type="image/svg+xml" href="/mascot/favicon.svg?v=ecran">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Ponos">
+<meta property="og:title" content="Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code — Ponos">
+<meta property="og:description" content="Un exemple suivi sur un board de démonstration — comment écrire un ticket que Claude Code peut finir seul, ce que Ponos fait pendant la session, ce que la relecture automatique attrape, et le seul geste qui livre.">
+<meta property="og:url" content="https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/">
+<meta property="og:locale" content="fr">
+<meta property="og:image" content="https://the-ponos.app/mascot/og.png">
+<meta property="og:image:alt" content="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code — Ponos">
+<meta name="twitter:description" content="Un exemple suivi sur un board de démonstration — comment écrire un ticket que Claude Code peut finir seul, ce que Ponos fait pendant la session, ce que la relecture automatique attrape, et le seul geste qui livre.">
+<meta name="twitter:image" content="https://the-ponos.app/mascot/og.png">
+<meta name="twitter:image:alt" content="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »">
+<meta property="article:published_time" content="2026-11-23">
+<meta property="article:tag" content="Ponos">
+<meta property="article:tag" content="Claude Code">
+<meta property="article:tag" content="pull request">
+<meta property="article:tag" content="relecture">
+<meta property="article:tag" content="git worktree">
+<meta property="article:tag" content="cas d&#x27;usage">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/"
+  },
+  "headline": "Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code",
+  "description": "Un exemple suivi sur un board de démonstration — comment écrire un ticket que Claude Code peut finir seul, ce que Ponos fait pendant la session, ce que la relecture automatique attrape, et le seul geste qui livre.",
+  "image": [
+    "https://the-ponos.app/mascot/og.png"
+  ],
+  "datePublished": "2026-11-23",
+  "dateModified": "2026-11-23",
+  "inLanguage": "fr",
+  "author": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://the-ponos.app/apple-touch-icon.png"
+    }
+  },
+  "keywords": "Ponos, Claude Code, pull request, relecture, git worktree, cas d'usage",
+  "url": "https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Ponos",
+      "item": "https://the-ponos.app/fr/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://the-ponos.app/fr/blog/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code",
+      "item": "https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/"
+    }
+  ]
+}
+</script>
+<script>
+  /* Avant le premier rendu, comme la page d'accueil : le choix du visiteur, sinon le système. */
+  try { var kept = localStorage.getItem("ponos-theme");
+    var dark = kept ? kept === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark); } catch (error) {}
+</script>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<script src="https://umami.cardona.digital/nx.js" defer data-website-id="a3af4ed4-63b2-4732-93a2-a43d156910ec" data-domains="the-ponos.app"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/fr/" aria-label="Ponos, accueil">
+      <img src="/mascot/favicon.svg?v=ecran" alt="" width="28" height="28">
+      Ponos
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a class="btn btn-ghost btn-sm" href="/fr/blog/" aria-current="page">Blog</a>
+      <a class="btn btn-outline btn-sm" href="https://github.com/hermez-agency/ponos#readme">Docs</a>
+      <a class="btn btn-ghost btn-sm lang-switch" href="/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/" hreflang="en" lang="en" aria-label="Read this page in English">EN</a>
+      <button class="btn btn-ghost btn-icon theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre clair et sombre"><svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg><svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="crumbs wrap"><a href="/fr/blog/">← Blog</a></div>
+<article class="prose">
+<header>
+  <p class="product"><img src="/mascot/favicon.svg?v=ecran" alt="" width="20" height="20"><span>Ponos</span><span aria-hidden="true">·</span><span>Cas d&#x27;usage</span></p>
+  <h1>Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code</h1>
+  <p class="lead">Un exemple suivi sur un board de démonstration — comment écrire un ticket que Claude Code peut finir seul, ce que Ponos fait pendant la session, ce que la relecture automatique attrape, et le seul geste qui livre.</p>
+  <p class="byline"><span class="by">Hermez</span><span aria-hidden="true">·</span><time datetime="2026-11-23">23 novembre 2026</time><span aria-hidden="true">·</span><span>6 min de lecture</span></p>
+</header>
+<figure class="wide"><div><img src="/mascot/og.png" alt="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »" width="1200" height="630"></div></figure>
+<p>La plupart des articles sur Claude Code appliqué à un backlog restent abstraits. Celui-ci suit un seul ticket, de la première ligne que tu tapes à la pull request que tu fusionnes, sur un board de démonstration aux données inventées : aucun vrai projet, aucun vrai client. Le ticket est petit et ordinaire — <em>Rate limit the search endpoint</em> — précisément le genre de travail dont un backlog est plein.</p>
+<h2 id="1-ecris-un-brief-qu-un-agent-peut-finir-seul">1. Écris un brief qu&#x27;un agent peut finir seul</h2>
+<p>Une session travaille sans personne à qui demander, donc le ticket doit porter ce que tu dirais à voix haute. Celui de l&#x27;exemple a un court contexte, puis deux listes :</p>
+<ul><li><strong>À faire</strong> : signaler dans le rapport tout ce que la session n&#x27;a pas pu vérifier ; ne pas toucher aux noms publics, que d&#x27;autres projets importent ; traiter le cas vide et le cas d&#x27;une valeur très longue ; garder le changement dans le module, sans ménage au passage.</li><li><strong>Critère de fin</strong> : le nouveau comportement est couvert par un test qui était rouge avant ; rien en dehors du périmètre du ticket n&#x27;est modifié ; la suite existante est verte et le linter n&#x27;a rien à dire.</li></ul>
+<figure class="wide"><div><img src="/console/ticket-light.webp" alt="Un ticket en relecture dans la console de Ponos : son brief avec les listes « What to do » et « Done when », sa pull request, son coût et ses checks." loading="lazy"></div><figcaption>La page du ticket sur le board de démonstration : le brief, en bas, est la seule partie de la page que la session reçoit.</figcaption></figure>
+<p>Pourquoi la seconde liste compte : un critère de fin se vérifie contre le diff. Ponos le lit en premier au moment de relire le travail (on y vient plus bas) : un ticket flou reçoit une relecture floue, un ticket précis une relecture précise.</p>
+<p>Tu choisis un type, ici <em>Code</em> avec le sous-type <em>Security</em>, un score de priorité (40) et, si tu veux, un modèle. Puis tu fais passer le ticket de <em>Draft</em> à <strong>Ready</strong>. Ce geste-là déclenche le travail.</p>
+<h2 id="2-la-session-tourne-dans-son-propre-worktree">2. La session tourne dans son propre worktree</h2>
+<p>Au prochain passage du démon, le runner réclame le ticket : il passe en <em>In progress</em>, et Ponos crée un <code>git worktree</code> jetable sur une branche à lui. Ta copie de travail, tes fichiers non commités et ta branche courante restent exactement comme tu les as laissés, et deux tickets du même dépôt peuvent avancer en même temps.</p>
+<p>Sur le board, la carte d&#x27;un ticket en cours montre ce que l&#x27;agent est en train d&#x27;éditer, son coût jusque-là et deux boutons, <em>Pause</em> et <em>Abandon</em>. Dans la vue du ticket, l&#x27;onglet <em>Live</em> diffuse la session pas à pas.</p>
+<figure class="wide"><div><img src="/console/board-light.webp" alt="Le board : brouillons, tickets prêts et tickets en cours, chaque carte avec sa priorité, son modèle et son projet." loading="lazy"></div><figcaption>Le board de démonstration. Déposer une carte dans une autre colonne prévient le runner.</figcaption></figure>
+<p>Tu n&#x27;as pas à regarder, mais tu peux corriger. Un message envoyé à un ticket dont la session tourne est remis à l&#x27;agent après l&#x27;appel d&#x27;outil en cours : « non, pas ce fichier » marche, et la session n&#x27;est pas arrêtée. Écrit comme message pour plus tard, il attend que l&#x27;agent ait fini ce qu&#x27;il faisait. Si une session a pris un mauvais virage à sa douzième étape sur trente, tu peux aussi relancer une nouvelle session depuis cette étape, avec un message de ton cru : la conversation est rembobinée, pas les fichiers, et la nouvelle session en est prévenue.</p>
+<h2 id="3-des-regles-que-l-agent-ne-peut-pas-oublier">3. Des règles que l&#x27;agent ne peut pas oublier</h2>
+<p>Un prompt s&#x27;oublie ; un refus, non. Avant chaque appel d&#x27;outil, un hook de Claude Code confronte l&#x27;appel aux garde-fous du projet : chemins en lecture seule ou interdits, motifs de commandes, et trois gestes git (un push sur la branche principale, un push forcé, la suppression d&#x27;une branche) refusés tant que tu ne les as pas autorisés. L&#x27;agent en connaît la raison et change de voie ; le refus est écrit dans le journal du ticket.</p>
+<p>Et l&#x27;agent commit, mais il ne publie pas. Pousser une branche et ouvrir une pull request sont des gestes qui sortent de la machine : le runner les fait ensuite, une fois établi qu&#x27;il y a bien des commits.</p>
+<h2 id="4-une-seconde-lecture-avant-celle-de-quelqu-un-d-autre">4. Une seconde lecture avant celle de quelqu&#x27;un d&#x27;autre</h2>
+<p>Quand la session a commité, et avant tout push, une seconde session, courte, lit la branche en mode plan, où elle ne peut rien écrire. Elle reçoit le ticket, le <code>AGENTS.md</code> ou le <code>CLAUDE.md</code> du projet et le diff, et cherche ce qu&#x27;une lecture contre le ticket trouve en une minute : un test demandé et pas écrit, un fichier généré non régénéré, un critère de fin rempli en paroles seulement. Le style n&#x27;est pas son affaire.</p>
+<p>Si elle soulève des points, la session du ticket est reprise une fois pour corriger ce dont elle convient et dire, point par point, ce qu&#x27;elle a corrigé et ce qu&#x27;elle a laissé. La pull request s&#x27;ouvre quoi qu&#x27;il arrive, avec une section <strong>Review</strong> qui liste tout cela. Ta propre relecture, qui vient après, part de là.</p>
+<h2 id="5-en-relecture-ce-que-tu-vois">5. En relecture : ce que tu vois</h2>
+<p>Le ticket arrive en <em>In review</em>. Sa page s&#x27;ouvre maintenant sur le <strong>Résultat</strong> : ce qui a changé et pourquoi, en mots simples, puis la pull request, l&#x27;état de sa CI et les fichiers touchés. L&#x27;état de la CI se tient à jour sans passer par GitHub, et un check rouge l&#x27;emporte sur un check en cours.</p>
+<p>Sous le résultat, le journal que Ponos écrit à la fin de chaque session dit ce qui a été fait, les choix que tu devrais confirmer, ce qui a été vérifié et ce qui ne l&#x27;a pas été. Le coût et la durée de chaque session y sont aussi. Sur le ticket de démonstration, c&#x27;est une seule session d&#x27;environ cinquante minutes sur <code>opus</code>.</p>
+<p>Si le résultat est presque bon, tu ne recommences pas. <em>Request a change</em> écrit une consigne sur le ticket et le remet en <em>Ready</em> ; la session suivante lit le résultat tel qu&#x27;il est et rend une nouvelle version, la précédente étant conservée.</p>
+<h2 id="6-fusionner-est-le-seul-geste">6. Fusionner est le seul geste</h2>
+<p>Lis le diff, puis fusionne la pull request, ou passe le ticket en <strong>Validated</strong> et laisse le runner le faire. Dans les deux cas, le board se met à jour tout seul : un ticket dont la pull request est fusionnée passe en <em>Done</em> avec un commentaire qui le dit, et rien n&#x27;est jamais fusionné dans ton dos. Un ticket <em>Validated</em> peut aussi en déclencher un autre, par exemple un prompt sur le changement de statut qui crée le ticket de déploiement, comme sur la page du ticket de démonstration.</p>
+<h2 id="ce-qu-il-faut-en-retenir">Ce qu&#x27;il faut en retenir</h2>
+<p>Trois habitudes ont fait marcher ce ticket, et aucune n&#x27;est propre à Ponos :</p>
+<ol><li><strong>Écris les critères de fin.</strong> C&#x27;est ce que l&#x27;agent vise et ce que la relecture vérifie.</li><li><strong>Garde le périmètre dans le brief.</strong> « Garde le changement dans le module » est une phrase qui économise un tour de relecture.</li><li><strong>Garde la fusion pour toi.</strong> L&#x27;agent propose, le runner publie, tu décides.</li></ol>
+<h2 id="essaie-sur-ton-propre-backlog">Essaie sur ton propre backlog</h2>
+<p>Le <a href="https://github.com/hermez-agency/ponos/blob/main/guide/installation.md" rel="noopener">guide d&#x27;installation</a> prend quelques minutes sous Linux ou macOS. Écris ensuite un petit ticket sur ce modèle, passe-le en <em>Ready</em> et regarde tourner la première session. Le <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md" rel="noopener">guide des tickets</a> décrit chaque statut et chaque geste utilisés ici.</p>
+<p><em>Un produit Hermez.</em></p>
+<footer class="article-foot"><span>Ponos</span><span>Claude Code</span><span>pull request</span><span>relecture</span><span>git worktree</span><span>cas d&#x27;usage</span><span class="signature">Un produit Hermez</span></footer>
+</article>
+<section class="wrap more" aria-labelledby="more"><h2 id="more">À lire aussi</h2><div class="cards"><a class="card" href="/fr/blog/une-console-plus-rapide/">
+  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">Une console plus rapide : des fenêtres qui s&#x27;ouvrent tout de suite, un tableau qui ne dessine que ce que tu vois</p>
+    <p class="card-meta"><time datetime="2026-11-19">19 novembre 2026</time> · 4 min</p>
+  </div>
+</a><a class="card" href="/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/">
+  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">Pilotez votre backlog depuis Claude : le MCP de Ponos gère maintenant projets, objectifs et récurrences</p>
+    <p class="card-meta"><time datetime="2026-11-16">16 novembre 2026</time> · 5 min</p>
+  </div>
+</a><a class="card" href="/fr/blog/ecris-le-ticket-il-revient-fait/">
+  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog</p>
+    <p class="card-meta"><time datetime="2026-11-13">13 novembre 2026</time> · 3 min</p>
+  </div>
+</a></div></section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>Ponos — licence MIT · © 2026 <a href="https://hermez.dev" target="_blank" rel="noopener">Un produit Hermez</a></div>
+    <nav aria-label="Elsewhere">
+      <a href="/fr/blog/">Blog</a>
+      <a href="https://github.com/hermez-agency/ponos#readme">Documentation</a>
+      <a href="https://github.com/hermez-agency/ponos">Dépôt</a>
+      <a href="https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="/fr/blog/feed.xml">Flux Atom</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="/" hreflang="en" lang="en">English</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var dark = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('ponos-theme', dark ? 'dark' : 'light'); } catch (error) {}
+  });
+</script>
+</body>

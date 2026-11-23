@@ -5,8 +5,23 @@
   <link href="https://the-ponos.app/blog/feed.xml" rel="self"/>
   <link href="https://the-ponos.app/blog/"/>
   <id>https://the-ponos.app/blog/</id>
-  <updated>2026-11-19T00:00:00Z</updated>
+  <updated>2026-11-23T00:00:00Z</updated>
   <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+  <entry>
+    <title>One ticket, step by step: from a written brief to a reviewed pull request with Claude Code</title>
+    <link href="https://the-ponos.app/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/"/>
+    <id>https://the-ponos.app/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/</id>
+    <published>2026-11-23T00:00:00Z</published>
+    <updated>2026-11-23T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>A worked example on a demo board — how to write a ticket Claude Code can finish alone, what Ponos does while the session runs, what the self-review catches, and the single gesture that ships it.</summary>
+    <category term="Ponos"/>
+    <category term="Claude Code"/>
+    <category term="pull request"/>
+    <category term="code review"/>
+    <category term="git worktree"/>
+    <category term="use case"/>
+  </entry>
   <entry>
     <title>A faster console: windows that open at once, a table that draws only what you see</title>
     <link href="https://the-ponos.app/blog/a-faster-console/"/>
