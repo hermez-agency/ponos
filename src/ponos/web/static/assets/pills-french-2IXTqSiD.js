@@ -1,0 +1,1 @@
+var e={"Filters on":`Filtres actifs`,"Remove the filter {{name}}":`Retirer le filtre {{name}}`,"Clear all":`Tout effacer`};export{e as PILLS_FRENCH};

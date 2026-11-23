@@ -191,8 +191,11 @@ board's tickets carry, with how many carry it. A search hides cards, not columns
 column says how many it kept, `3 / 12`, the words found are marked on the cards, and a
 search that keeps nothing says so with a button to clear it. It is all in the address
 (`&q=…&type=code,writing&status=ready`), so a filtered board is a link to send and survives
-a reload and the switch to the table. **/** goes to the field, **Escape** empties it. On a
-narrow screen the filters fold behind one *Filters* button. It searches what the board
+a reload and the switch to the table. **/** goes to the field, **Escape** empties it. Beside
+the field stay *Project*, *Status* and *Priority*; the others are behind one *Filters* button,
+which counts the filters on and opens them on a line under the field — all of them, on a
+narrow screen. Each filter on is a pill under the bar, with a cross to take it off, and
+*Clear all* takes them all off once there are two, leaving the words. It searches what the board
 already holds, so it is instant; the brief, which the board does not carry, is not searched.
 
 **A card is a way in.** Click one — or a ticket's title in the table — and the ticket opens
