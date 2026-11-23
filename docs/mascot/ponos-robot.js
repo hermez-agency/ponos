@@ -15,10 +15,11 @@
  * icon is not the robot: it is the logo, `ponos-logo.js` beside this file.
  * Nothing here touches the DOM at import time, so Node can import it.
  *
- * The robot is flat, the same family as the logo: three shapes — a flame, a
- * head with its screen, a body — in two oranges, and a face drawn in one
- * colour on the screen. No gradient, no gloss, no dress: at the size a card
- * draws it, a detail is a smudge, and a face is all a state needs.
+ * The robot is its head and nothing else — the very head of the logo: two
+ * ears, a flame with its heart, an orange shell and its screen, in two
+ * oranges, and a face drawn in one colour on the screen. No body, no
+ * gradient, no gloss: at the size a card draws it, a detail is a smudge, and
+ * a face is all a state needs.
  *
  * Two tables make the robot, and extending it means adding a row to one of
  * them, never copying the drawing:
@@ -43,10 +44,10 @@
  * robots on one board is a hundred shadow roots, so they share one stylesheet
  * and clone one parsed drawing instead of each parsing their own.
  *
- * Most of those robots are drawn at 18 to 32 pixels — a card, a toast, the
- * bar — where arms and feet are a smudge. Under SMALL pixels wide the robot is
- * only its head and its flame, drawn larger in the same box: the state still
- * reads from the face. It is a CSS query, not an attribute, so nobody has to
+ * Most of those robots are drawn at 16 to 32 pixels — a card, a toast, the
+ * bar. Under SMALL pixels wide ears, the flame's heart and a thin mouth are a
+ * smudge: the robot is the logo's simple head, with bigger eyes that still
+ * say the state. It is a CSS query, not an attribute, so nobody has to
  * remember to ask for it.
  */
 
@@ -60,6 +61,7 @@ const COLOURS = {
   '--robot-eye': '#FFE1CC',
   '--robot-flame': '#E8611A',
   '--robot-ash': '#a8a29e',
+  '--robot-ash-core': '#e7e5e4',
 };
 
 export const PALETTES = {
@@ -67,13 +69,16 @@ export const PALETTES = {
   dark: { ...COLOURS },
 };
 
-/* Below this width, in CSS pixels, only the head is drawn. */
-const SMALL = 40;
+/* Below this width, in CSS pixels, the simple head is drawn — the logo's
+   threshold, `SMALL` in ponos-logo.js. */
+const SMALL = 24;
 
 /*
  * The reactions. Each is a label, what it means on the board, its `face` (SVG
  * on the screen, in the drawing's units, inked with the classes `ink` and
- * `line`), an optional `fx` drawn around the head, and a map of layer → CSS
+ * `line`), its `tiny` face (the same, on the simple head under SMALL: bigger
+ * eyes, thicker strokes, the mouth left out where the eyes say enough), an
+ * optional `fx` drawn around the head, and a map of layer → CSS
  * declarations. The plain declarations are the pose (what stays when
  * prefers-reduced-motion switches every animation off); `animation` names
  * keyframes from KEYFRAMES without their prefix. `blink` lets the component
@@ -84,8 +89,9 @@ export const STATES = {
     label: 'Idle',
     means: 'waiting for a ticket',
     blink: true,
-    face: `<g class="eyes"><circle class="ink" cx="48" cy="58" r="6"/><circle class="ink" cx="72" cy="58" r="6"/></g>
-      <path class="line" d="M54 70Q60 75 66 70"/>`,
+    face: `<g class="eyes"><ellipse class="ink" cx="46" cy="66" rx="7.5" ry="9"/><ellipse class="ink" cx="74" cy="66" rx="7.5" ry="9"/></g>
+      <path class="line" d="M53 82Q60 87 67 82"/>`,
+    tiny: '<g class="eyes"><circle class="ink" cx="44" cy="72" r="11"/><circle class="ink" cx="76" cy="72" r="11"/></g>',
     layers: {
       rig: { animation: 'breathe 3.2s ease-in-out infinite' },
       flame: { animation: 'waver 1.6s ease-in-out infinite' },
@@ -95,8 +101,9 @@ export const STATES = {
     label: 'Thinking',
     means: 'a ticket is in progress',
     blink: true,
-    face: `<g class="eyes"><circle class="ink" cx="52" cy="54" r="6"/><circle class="ink" cx="76" cy="54" r="6"/></g>
-      <path class="line" d="M56 71H64"/>`,
+    face: `<g class="eyes"><ellipse class="ink" cx="50" cy="62" rx="7.5" ry="9"/><ellipse class="ink" cx="78" cy="62" rx="7.5" ry="9"/></g>
+      <path class="line" d="M56 83H64"/>`,
+    tiny: '<g class="eyes"><circle class="ink" cx="50" cy="66" r="10"/><circle class="ink" cx="81" cy="66" r="10"/></g>',
     layers: {
       rig: { animation: 'breathe 3.2s ease-in-out infinite' },
       flame: { animation: 'waver 1.1s ease-in-out infinite' },
@@ -106,8 +113,9 @@ export const STATES = {
     label: 'Working',
     means: 'Claude Code is at it',
     blink: true,
-    face: `<g class="eyes"><rect class="ink" x="41" y="55" width="14" height="6" rx="3"/><rect class="ink" x="65" y="55" width="14" height="6" rx="3"/></g>
-      <path class="line" d="M55 71H65"/>`,
+    face: `<g class="eyes"><rect class="ink" x="37" y="63" width="18" height="7" rx="3.5"/><rect class="ink" x="65" y="63" width="18" height="7" rx="3.5"/></g>
+      <path class="line" d="M54 83H66"/>`,
+    tiny: '<g class="eyes"><rect class="ink" x="28" y="65" width="30" height="13" rx="6.5"/><rect class="ink" x="62" y="65" width="30" height="13" rx="6.5"/></g>',
     layers: {
       rig: { animation: 'breathe 1.6s ease-in-out infinite' },
       flame: { animation: 'waver .7s ease-in-out infinite' },
@@ -116,8 +124,9 @@ export const STATES = {
   success: {
     label: 'Success',
     means: 'the pull request is open',
-    face: `<path class="line" d="M42 61Q48 52 54 61M66 61Q72 52 78 61"/>
-      <path class="line" d="M51 68Q60 77 69 68"/>`,
+    face: `<path class="line" d="M38 70Q46 59 54 70M66 70Q74 59 82 70"/>
+      <path class="line" d="M51 79Q60 89 69 79"/>`,
+    tiny: '<path class="line" d="M31 79Q44 59 57 79M63 79Q76 59 89 79"/>',
     fx: '<path data-layer="spark" class="spark" d="M104 5Q105.4 12.6 113 14Q105.4 15.4 104 23Q102.6 15.4 95 14Q102.6 12.6 104 5Z"/>',
     layers: {
       rig: { animation: 'breathe 3.2s ease-in-out infinite' },
@@ -128,24 +137,27 @@ export const STATES = {
   error: {
     label: 'Error',
     means: 'the ticket is blocked',
-    face: `<g class="eyes"><circle class="ink" cx="48" cy="60" r="5"/><circle class="ink" cx="72" cy="60" r="5"/></g>
-      <path class="line" d="M54 73Q60 67 66 73"/>`,
+    face: `<g class="eyes"><circle class="ink" cx="46" cy="68" r="6.5"/><circle class="ink" cx="74" cy="68" r="6.5"/></g>
+      <path class="line" d="M53 86Q60 79 67 86"/>`,
+    tiny: '<g class="eyes"><circle class="ink" cx="44" cy="66" r="8"/><circle class="ink" cx="76" cy="66" r="8"/></g><path class="line" d="M48 93Q60 83 72 93"/>',
     layers: {
       rig: { animation: 'breathe 4.8s ease-in-out infinite' },
-      // A fire gone out: grey, and still.
+      // A fire gone out: grey, its heart paler, and still.
       '.flame': { fill: 'var(--robot-ash)' },
+      '.core': { fill: 'var(--robot-ash-core)' },
     },
   },
   sleep: {
     label: 'Sleep',
     means: 'the queue is empty',
-    face: `<path class="line" d="M42 59Q48 64 54 59M66 59Q72 64 78 59"/>
-      <circle class="ink" cx="60" cy="71" r="2.5"/>`,
+    face: `<path class="line" d="M38 66Q46 72 54 66M66 66Q74 72 82 66"/>
+      <circle class="ink" cx="60" cy="82" r="3"/>`,
+    tiny: '<path class="line" d="M31 70Q44 82 57 70M63 70Q76 82 89 70"/>',
     fx: `<path data-layer="z1" class="z" d="M84 15h8l-8 9h8"/>
       <path data-layer="z2" class="z" d="M97 4h6l-6 7h6"/>`,
     layers: {
       rig: { animation: 'breathe 4.8s ease-in-out infinite' },
-      flame: { transform: 'scale(.55)' },
+      flame: { transform: 'scale(.58)' },
       z1: { animation: 'drift 3.2s ease-in-out infinite' },
       z2: { animation: 'drift 3.2s ease-in-out 1.6s infinite' },
     },
@@ -153,9 +165,12 @@ export const STATES = {
   waiting: {
     label: 'Waiting',
     means: 'waiting on a person',
-    face: `<circle data-layer="dot1" class="ink" cx="46" cy="62" r="4"/>
-      <circle data-layer="dot2" class="ink" cx="60" cy="62" r="4"/>
-      <circle data-layer="dot3" class="ink" cx="74" cy="62" r="4"/>`,
+    face: `<circle data-layer="dot1" class="ink" cx="44" cy="69" r="5"/>
+      <circle data-layer="dot2" class="ink" cx="60" cy="69" r="5"/>
+      <circle data-layer="dot3" class="ink" cx="76" cy="69" r="5"/>`,
+    tiny: `<circle data-layer="dot1" class="ink" cx="35" cy="72" r="9"/>
+      <circle data-layer="dot2" class="ink" cx="60" cy="72" r="9"/>
+      <circle data-layer="dot3" class="ink" cx="85" cy="72" r="9"/>`,
     layers: {
       rig: { animation: 'breathe 4.8s ease-in-out infinite' },
       flame: { animation: 'waver 1.6s ease-in-out infinite' },
@@ -167,48 +182,57 @@ export const STATES = {
 };
 
 /*
- * The drawing, on a 120 × 140 grid. Every group carries a `data-layer`: `rig`
- * is everything that breathes, `head` the flame, the head and its screen, and
+ * The drawing, on the logo's 120 × 120 grid: the head of `ponos-logo.js`,
+ * nothing under it. Every group carries a `data-layer`: `rig` is everything
+ * that breathes, `head` the ears, the flame, the shell and its screen, and
  * every state's face on it — only the one of the state is shown; `fx` what a
- * state draws around the head; `frame` holds it all, and is what the small
- * head zooms.
+ * state draws around the head. The head is drawn twice: `.full`, and `.simple`,
+ * the logo's simple head with a big-eyed `tiny` face per state — one of the
+ * two is shown, by SMALL.
  */
 const faces = (key) => Object.entries(STATES)
   .map(([name, state]) => (state[key] ? `<g class="${key}" data-face="${name}">${state[key]}</g>` : '')).join('');
 
 const DRAWING = `
-  <g data-layer="frame">
   <g data-layer="rig">
-    <g data-layer="body">
-      <rect class="limb" x="28" y="100" width="10" height="18" rx="5"/>
-      <rect class="limb" x="82" y="100" width="10" height="18" rx="5"/>
-      <rect class="limb" x="42" y="124" width="14" height="10" rx="5"/>
-      <rect class="limb" x="64" y="124" width="14" height="10" rx="5"/>
-      <rect class="limb" x="40" y="98" width="40" height="28" rx="12"/>
-    </g>
     <g data-layer="head">
-      <g data-layer="flame"><path class="flame" d="M60 4C68 12 70 18 67 23C65 26 55 26 53 23C50 18 52 12 60 4Z"/></g>
-      <rect class="shell" x="16" y="28" width="88" height="66" rx="24"/>
-      <rect class="screen" x="26" y="38" width="68" height="46" rx="15"/>
-      ${faces('face')}
+      <g class="full">
+        <rect class="ear" x="3" y="60" width="9" height="24" rx="4.5"/>
+        <rect class="ear" x="108" y="60" width="9" height="24" rx="4.5"/>
+      </g>
+      <g data-layer="flame">
+        <g class="full">
+          <path class="flame" d="M60 4C70 14 72 22 68.5 28C66.5 31.5 53.5 31.5 51.5 28C48 22 50 14 60 4Z"/>
+          <path class="core" d="M60 14C64 18 65 21.5 63.2 24.2C62 26 58 26 56.8 24.2C55 21.5 56 18 60 14Z"/>
+        </g>
+        <path class="flame simple" d="M60 3C70 13 72 21 68.5 27C66.5 30.5 53.5 30.5 51.5 27C48 21 50 13 60 3Z"/>
+      </g>
+      <g class="full">
+        <rect class="shell" x="8" y="30" width="104" height="84" rx="32"/>
+        <rect class="screen" x="19" y="41" width="82" height="56" rx="20"/>
+        ${faces('face')}
+      </g>
+      <g class="simple">
+        <rect class="shell" x="6" y="30" width="108" height="86" rx="32"/>
+        <rect class="screen" x="18" y="42" width="84" height="60" rx="20"/>
+        ${faces('tiny')}
+      </g>
     </g>
   </g>
-  <g data-layer="fx">${faces('fx')}</g>
-  </g>`;
+  <g data-layer="fx">${faces('fx')}</g>`;
 
 /*
  * Where each layer turns. The origins are in the drawing's own units
  * (transform-box: view-box), so a state can scale the flame without knowing
- * how big the robot is drawn. The rig breathes from its feet, the flame from
- * where it meets the head.
+ * how big the robot is drawn. The rig breathes from the bottom of the head,
+ * the flame from where it meets it.
  */
 const PIVOTS = {
-  frame: '60px 49px',
-  rig: '60px 134px',
-  flame: '60px 25px',
+  rig: '60px 115px',
+  flame: '60px 30px',
   spark: '104px 14px',
   z1: '88px 19px', z2: '100px 7px',
-  dot1: '46px 62px', dot2: '60px 62px', dot3: '74px 62px',
+  dot1: '44px 69px', dot2: '60px 69px', dot3: '76px 69px',
 };
 
 const BASE_STYLE = `
@@ -216,26 +240,27 @@ const BASE_STYLE = `
   [data-layer] { transform-box: view-box; }
   ${Object.entries(PIVOTS).map(([layer, at]) => `[data-layer="${layer}"] { transform-origin: ${at}; }`).join('\n  ')}
   .shell { fill: var(--robot-body); }
-  .limb { fill: var(--robot-body-shade); }
+  .ear { fill: var(--robot-body-shade); }
   .screen { fill: var(--robot-screen); }
   .flame, .spark { fill: var(--robot-flame); }
-  .ink { fill: var(--robot-eye); }
+  .core, .ink { fill: var(--robot-eye); }
   .line { fill: none; stroke: var(--robot-eye); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
   .z { fill: none; stroke: var(--robot-flame); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-  .face, .fx { display: none; }
+  .face, .tiny, .fx, .simple { display: none; }
   .eyes { transform-box: fill-box; transform-origin: center; transition: transform .07s ease-in; }
   svg.blinking[data-state] .eyes { transform: scaleY(.1); }
 `;
 
 /*
- * The head alone, zoomed to fill the box, and the strokes thickened so that
- * they still are a pixel wide at 24. `at` is where it applies: a class, a
- * container query, a media query — the rules are the same.
+ * The logo's simple head — no ears, no heart in the flame — with the state's
+ * big-eyed face, and nothing around it: the strokes are thickened so that
+ * they still are more than a pixel wide at 16. `at` is where it applies: a
+ * class, a container query, a media query — the rules are the same.
  */
 const SMALL_RULES = `
-  [data-layer="frame"] { transform: translateY(21px) scale(1.3); }
-  [data-layer="body"], [data-layer="fx"] { display: none; }
-  .line { stroke-width: 5; }
+  .full, [data-layer="fx"] { display: none; }
+  .simple { display: inline; }
+  .line { stroke-width: 9; }
 `;
 
 function smallStyle(at) {
@@ -303,11 +328,11 @@ function paletteStyle(root, themed) {
 /**
  * A self-contained SVG file: the same layers and the same variables, with a
  * pose instead of an animation. `viewBox` crops it; `theme` pins a palette,
- * or leaves `auto` to follow the colour scheme; `small` draws the head alone
- * whatever the size. Without it, the head alone is still what an <img>
+ * or leaves `auto` to follow the colour scheme; `small` draws the simple head
+ * whatever the size. Without it, the simple head is still what an <img>
  * narrower than SMALL shows, or an SVG inline in a container that is.
  */
-export function standalone({ state = DEFAULT_STATE, theme = 'auto', viewBox = '0 0 120 140', title = 'Ponos', small = false } = {}) {
+export function standalone({ state = DEFAULT_STATE, theme = 'auto', viewBox = '0 0 120 120', title = 'Ponos', small = false } = {}) {
   const themed = (t) => (t === 'auto' ? 'svg:not([data-theme="light"])' : `svg[data-theme="${t}"]`);
   const style = paletteStyle('svg', themed) + BASE_STYLE + stateStyle(false)
     + smallStyle([[null, 'svg.small'], [`@media (max-width: ${SMALL}px)`, 'svg'], [`@container (max-width: ${SMALL}px)`, 'svg']]);
@@ -318,8 +343,8 @@ export function standalone({ state = DEFAULT_STATE, theme = 'auto', viewBox = '0
 `;
 }
 
-/* The element is a square, whatever the drawing's proportions: the pages that
-   embed it size it by its width, and the robot sits in the middle of it. */
+/* The element is a square, like the drawing: the pages that embed it size it
+   by its width, and the head fills it. */
 const SHADOW_STYLE = `
   :host { display: inline-block; width: 100%; aspect-ratio: 1; vertical-align: middle; container-type: inline-size; }
   :host([hidden]) { display: none; }
@@ -342,7 +367,7 @@ if (typeof customElements !== 'undefined' && !customElements.get('ponos-robot'))
     shared.replaceSync(SHADOW_STYLE);
   }
   const template = document.createElement('template');
-  template.innerHTML = `${shared ? '' : `<style>${SHADOW_STYLE}</style>`}<svg viewBox="0 0 120 140" role="img" aria-hidden="true">${DRAWING}</svg>`;
+  template.innerHTML = `${shared ? '' : `<style>${SHADOW_STYLE}</style>`}<svg viewBox="0 0 120 120" role="img" aria-hidden="true">${DRAWING}</svg>`;
 
   class PonosRobot extends HTMLElement {
     static observedAttributes = ['state', 'size', 'still'];

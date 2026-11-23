@@ -3,7 +3,7 @@
  * Writes every file of the mascot and of the logo from their two sources,
  * docs/mascot/ponos-robot.js (the robot) and docs/mascot/ponos-logo.js (the icon):
  *
- *   docs/mascot/robot.svg     the whole robot, layers and variables kept
+ *   docs/mascot/robot.svg     the robot, its head alone, layers and variables kept
  *   docs/mascot/logo.svg      the logo, the head alone (the simple one at 24 px and under)
  *   docs/mascot/favicon.svg   the simple head, the tab's
  *   docs/mascot/og.png        the Open Graph card, 1200 × 630
@@ -67,8 +67,8 @@ const og = `<!doctype html><html class="dark"><meta charset="utf-8">${fonts}
 
 const cells = (theme) => Object.entries(STATES).map(([name, s]) => `
   <figure><div class="bot">${standalone({ state: name, theme })}</div><figcaption><b>${name}</b>${s.means}</figcaption></figure>`).join('');
-const sizes = [24, 32, 48, 96, 160].map((px) => `<div class="box" style="width:${px}px">${standalone({ theme: 'dark' })}</div>`).join('');
-const faces = Object.keys(STATES).map((name) => `<div class="box" style="width:24px">${standalone({ state: name, theme: 'dark' })}</div>`).join('');
+const sizes = [18, 24, 32, 48, 96, 160].map((px) => `<div class="box" style="width:${px}px">${standalone({ theme: 'dark' })}</div>`).join('');
+const faces = Object.keys(STATES).map((name) => `<div class="box" style="width:20px">${standalone({ state: name, theme: 'dark' })}</div>`).join('');
 
 const sheet = `<!doctype html><meta charset="utf-8">${fonts}
 <style>
@@ -87,7 +87,7 @@ const sheet = `<!doctype html><meta charset="utf-8">${fonts}
 </style>
 <div class="row light">${cells('light')}</div>
 <div class="dark"><div class="row">${cells('dark')}</div>
-<div class="sizes">${sizes}<span>Ponos at 24 · 32 · 48 · 96 · 160 px, one SVG</span><div class="faces">${faces}</div><span>every state at 24 px</span></div></div>`;
+<div class="sizes">${sizes}<span>Ponos at 18 · 24 · 32 · 48 · 96 · 160 px, one SVG</span><div class="faces">${faces}</div><span>every state at 20 px</span></div></div>`;
 
 const chrome = process.env.CHROME || 'google-chrome';
 const scratch = mkdtempSync(join(tmpdir(), 'mascot-'));
@@ -149,7 +149,7 @@ const icon = (px, fill, { ground, small = false } = {}) => `<!doctype html><meta
 const desktop = join(root, 'src', 'ponos', 'icons');
 try {
   shoot(og, join(out, 'og.png'), 1200, 630);
-  shoot(sheet, join(out, 'states.png'), 1200, 760);
+  shoot(sheet, join(out, 'states.png'), 1200, 700);
   shoot(icon(512, 78, { ground: 'tile' }), join(pwa, 'icon-512.png'), 512, 512, { clear: true });
   shoot(icon(192, 78, { ground: 'tile' }), join(pwa, 'icon-192.png'), 192, 192, { clear: true });
   shoot(icon(180, 73, { ground: 'full' }), join(pwa, 'apple-touch-icon.png'), 180, 180);

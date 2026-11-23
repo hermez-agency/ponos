@@ -1,28 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" data-state="idle" data-theme="auto" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" data-state="idle" data-theme="auto" role="img">
 <title>Ponos</title>
 <style>
-svg { --robot-body: #E8611A; --robot-body-shade: #BF4A02; --robot-screen: #1c1917; --robot-eye: #FFE1CC; --robot-flame: #E8611A; --robot-ash: #a8a29e; }
-svg[data-theme="dark"] { --robot-body: #E8611A; --robot-body-shade: #BF4A02; --robot-screen: #1c1917; --robot-eye: #FFE1CC; --robot-flame: #E8611A; --robot-ash: #a8a29e; }
-@media (prefers-color-scheme: dark) { svg:not([data-theme="light"]) { --robot-body: #E8611A; --robot-body-shade: #BF4A02; --robot-screen: #1c1917; --robot-eye: #FFE1CC; --robot-flame: #E8611A; --robot-ash: #a8a29e; } }
+svg { --robot-body: #E8611A; --robot-body-shade: #BF4A02; --robot-screen: #1c1917; --robot-eye: #FFE1CC; --robot-flame: #E8611A; --robot-ash: #a8a29e; --robot-ash-core: #e7e5e4; }
+svg[data-theme="dark"] { --robot-body: #E8611A; --robot-body-shade: #BF4A02; --robot-screen: #1c1917; --robot-eye: #FFE1CC; --robot-flame: #E8611A; --robot-ash: #a8a29e; --robot-ash-core: #e7e5e4; }
+@media (prefers-color-scheme: dark) { svg:not([data-theme="light"]) { --robot-body: #E8611A; --robot-body-shade: #BF4A02; --robot-screen: #1c1917; --robot-eye: #FFE1CC; --robot-flame: #E8611A; --robot-ash: #a8a29e; --robot-ash-core: #e7e5e4; } }
 svg { display: block; width: 100%; height: auto; overflow: visible; }
 [data-layer] { transform-box: view-box; }
-[data-layer="frame"] { transform-origin: 60px 49px; }
-[data-layer="rig"] { transform-origin: 60px 134px; }
-[data-layer="flame"] { transform-origin: 60px 25px; }
+[data-layer="rig"] { transform-origin: 60px 115px; }
+[data-layer="flame"] { transform-origin: 60px 30px; }
 [data-layer="spark"] { transform-origin: 104px 14px; }
 [data-layer="z1"] { transform-origin: 88px 19px; }
 [data-layer="z2"] { transform-origin: 100px 7px; }
-[data-layer="dot1"] { transform-origin: 46px 62px; }
-[data-layer="dot2"] { transform-origin: 60px 62px; }
-[data-layer="dot3"] { transform-origin: 74px 62px; }
+[data-layer="dot1"] { transform-origin: 44px 69px; }
+[data-layer="dot2"] { transform-origin: 60px 69px; }
+[data-layer="dot3"] { transform-origin: 76px 69px; }
 .shell { fill: var(--robot-body); }
-.limb { fill: var(--robot-body-shade); }
+.ear { fill: var(--robot-body-shade); }
 .screen { fill: var(--robot-screen); }
 .flame, .spark { fill: var(--robot-flame); }
-.ink { fill: var(--robot-eye); }
+.core, .ink { fill: var(--robot-eye); }
 .line { fill: none; stroke: var(--robot-eye); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
 .z { fill: none; stroke: var(--robot-flame); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.face, .fx { display: none; }
+.face, .tiny, .fx, .simple { display: none; }
 .eyes { transform-box: fill-box; transform-origin: center; transition: transform .07s ease-in; }
 svg.blinking[data-state] .eyes { transform: scaleY(.1); }
 svg[data-state="idle"] [data-face="idle"] { display: inline; }
@@ -31,38 +30,49 @@ svg[data-state="working"] [data-face="working"] { display: inline; }
 svg[data-state="success"] [data-face="success"] { display: inline; }
 svg[data-state="error"] [data-face="error"] { display: inline; }
 svg[data-state="error"] .flame { fill: var(--robot-ash); }
+svg[data-state="error"] .core { fill: var(--robot-ash-core); }
 svg[data-state="sleep"] [data-face="sleep"] { display: inline; }
-svg[data-state="sleep"] [data-layer="flame"] { transform: scale(.55); }
-svg[data-state="waiting"] [data-face="waiting"] { display: inline; }svg.small [data-layer="frame"] { transform: translateY(21px) scale(1.3); }svg.small [data-layer="body"], svg.small [data-layer="fx"] { display: none; }svg.small .line { stroke-width: 5; }
-@media (max-width: 40px) { svg [data-layer="frame"] { transform: translateY(21px) scale(1.3); }svg [data-layer="body"], svg [data-layer="fx"] { display: none; }svg .line { stroke-width: 5; }
+svg[data-state="sleep"] [data-layer="flame"] { transform: scale(.58); }
+svg[data-state="waiting"] [data-face="waiting"] { display: inline; }svg.small .full, svg.small [data-layer="fx"] { display: none; }svg.small .simple { display: inline; }svg.small .line { stroke-width: 9; }
+@media (max-width: 24px) { svg .full, svg [data-layer="fx"] { display: none; }svg .simple { display: inline; }svg .line { stroke-width: 9; }
 }
-@container (max-width: 40px) { svg [data-layer="frame"] { transform: translateY(21px) scale(1.3); }svg [data-layer="body"], svg [data-layer="fx"] { display: none; }svg .line { stroke-width: 5; }
+@container (max-width: 24px) { svg .full, svg [data-layer="fx"] { display: none; }svg .simple { display: inline; }svg .line { stroke-width: 9; }
 }</style>
-  <g data-layer="frame">
   <g data-layer="rig">
-    <g data-layer="body">
-      <rect class="limb" x="28" y="100" width="10" height="18" rx="5"/>
-      <rect class="limb" x="82" y="100" width="10" height="18" rx="5"/>
-      <rect class="limb" x="42" y="124" width="14" height="10" rx="5"/>
-      <rect class="limb" x="64" y="124" width="14" height="10" rx="5"/>
-      <rect class="limb" x="40" y="98" width="40" height="28" rx="12"/>
-    </g>
     <g data-layer="head">
-      <g data-layer="flame"><path class="flame" d="M60 4C68 12 70 18 67 23C65 26 55 26 53 23C50 18 52 12 60 4Z"/></g>
-      <rect class="shell" x="16" y="28" width="88" height="66" rx="24"/>
-      <rect class="screen" x="26" y="38" width="68" height="46" rx="15"/>
-      <g class="face" data-face="idle"><g class="eyes"><circle class="ink" cx="48" cy="58" r="6"/><circle class="ink" cx="72" cy="58" r="6"/></g>
-      <path class="line" d="M54 70Q60 75 66 70"/></g><g class="face" data-face="thinking"><g class="eyes"><circle class="ink" cx="52" cy="54" r="6"/><circle class="ink" cx="76" cy="54" r="6"/></g>
-      <path class="line" d="M56 71H64"/></g><g class="face" data-face="working"><g class="eyes"><rect class="ink" x="41" y="55" width="14" height="6" rx="3"/><rect class="ink" x="65" y="55" width="14" height="6" rx="3"/></g>
-      <path class="line" d="M55 71H65"/></g><g class="face" data-face="success"><path class="line" d="M42 61Q48 52 54 61M66 61Q72 52 78 61"/>
-      <path class="line" d="M51 68Q60 77 69 68"/></g><g class="face" data-face="error"><g class="eyes"><circle class="ink" cx="48" cy="60" r="5"/><circle class="ink" cx="72" cy="60" r="5"/></g>
-      <path class="line" d="M54 73Q60 67 66 73"/></g><g class="face" data-face="sleep"><path class="line" d="M42 59Q48 64 54 59M66 59Q72 64 78 59"/>
-      <circle class="ink" cx="60" cy="71" r="2.5"/></g><g class="face" data-face="waiting"><circle data-layer="dot1" class="ink" cx="46" cy="62" r="4"/>
-      <circle data-layer="dot2" class="ink" cx="60" cy="62" r="4"/>
-      <circle data-layer="dot3" class="ink" cx="74" cy="62" r="4"/></g>
+      <g class="full">
+        <rect class="ear" x="3" y="60" width="9" height="24" rx="4.5"/>
+        <rect class="ear" x="108" y="60" width="9" height="24" rx="4.5"/>
+      </g>
+      <g data-layer="flame">
+        <g class="full">
+          <path class="flame" d="M60 4C70 14 72 22 68.5 28C66.5 31.5 53.5 31.5 51.5 28C48 22 50 14 60 4Z"/>
+          <path class="core" d="M60 14C64 18 65 21.5 63.2 24.2C62 26 58 26 56.8 24.2C55 21.5 56 18 60 14Z"/>
+        </g>
+        <path class="flame simple" d="M60 3C70 13 72 21 68.5 27C66.5 30.5 53.5 30.5 51.5 27C48 21 50 13 60 3Z"/>
+      </g>
+      <g class="full">
+        <rect class="shell" x="8" y="30" width="104" height="84" rx="32"/>
+        <rect class="screen" x="19" y="41" width="82" height="56" rx="20"/>
+        <g class="face" data-face="idle"><g class="eyes"><ellipse class="ink" cx="46" cy="66" rx="7.5" ry="9"/><ellipse class="ink" cx="74" cy="66" rx="7.5" ry="9"/></g>
+      <path class="line" d="M53 82Q60 87 67 82"/></g><g class="face" data-face="thinking"><g class="eyes"><ellipse class="ink" cx="50" cy="62" rx="7.5" ry="9"/><ellipse class="ink" cx="78" cy="62" rx="7.5" ry="9"/></g>
+      <path class="line" d="M56 83H64"/></g><g class="face" data-face="working"><g class="eyes"><rect class="ink" x="37" y="63" width="18" height="7" rx="3.5"/><rect class="ink" x="65" y="63" width="18" height="7" rx="3.5"/></g>
+      <path class="line" d="M54 83H66"/></g><g class="face" data-face="success"><path class="line" d="M38 70Q46 59 54 70M66 70Q74 59 82 70"/>
+      <path class="line" d="M51 79Q60 89 69 79"/></g><g class="face" data-face="error"><g class="eyes"><circle class="ink" cx="46" cy="68" r="6.5"/><circle class="ink" cx="74" cy="68" r="6.5"/></g>
+      <path class="line" d="M53 86Q60 79 67 86"/></g><g class="face" data-face="sleep"><path class="line" d="M38 66Q46 72 54 66M66 66Q74 72 82 66"/>
+      <circle class="ink" cx="60" cy="82" r="3"/></g><g class="face" data-face="waiting"><circle data-layer="dot1" class="ink" cx="44" cy="69" r="5"/>
+      <circle data-layer="dot2" class="ink" cx="60" cy="69" r="5"/>
+      <circle data-layer="dot3" class="ink" cx="76" cy="69" r="5"/></g>
+      </g>
+      <g class="simple">
+        <rect class="shell" x="6" y="30" width="108" height="86" rx="32"/>
+        <rect class="screen" x="18" y="42" width="84" height="60" rx="20"/>
+        <g class="tiny" data-face="idle"><g class="eyes"><circle class="ink" cx="44" cy="72" r="11"/><circle class="ink" cx="76" cy="72" r="11"/></g></g><g class="tiny" data-face="thinking"><g class="eyes"><circle class="ink" cx="50" cy="66" r="10"/><circle class="ink" cx="81" cy="66" r="10"/></g></g><g class="tiny" data-face="working"><g class="eyes"><rect class="ink" x="28" y="65" width="30" height="13" rx="6.5"/><rect class="ink" x="62" y="65" width="30" height="13" rx="6.5"/></g></g><g class="tiny" data-face="success"><path class="line" d="M31 79Q44 59 57 79M63 79Q76 59 89 79"/></g><g class="tiny" data-face="error"><g class="eyes"><circle class="ink" cx="44" cy="66" r="8"/><circle class="ink" cx="76" cy="66" r="8"/></g><path class="line" d="M48 93Q60 83 72 93"/></g><g class="tiny" data-face="sleep"><path class="line" d="M31 70Q44 82 57 70M63 70Q76 82 89 70"/></g><g class="tiny" data-face="waiting"><circle data-layer="dot1" class="ink" cx="35" cy="72" r="9"/>
+      <circle data-layer="dot2" class="ink" cx="60" cy="72" r="9"/>
+      <circle data-layer="dot3" class="ink" cx="85" cy="72" r="9"/></g>
+      </g>
     </g>
   </g>
   <g data-layer="fx"><g class="fx" data-face="success"><path data-layer="spark" class="spark" d="M104 5Q105.4 12.6 113 14Q105.4 15.4 104 23Q102.6 15.4 95 14Q102.6 12.6 104 5Z"/></g><g class="fx" data-face="sleep"><path data-layer="z1" class="z" d="M84 15h8l-8 9h8"/>
       <path data-layer="z2" class="z" d="M97 4h6l-6 7h6"/></g></g>
-  </g>
 </svg>

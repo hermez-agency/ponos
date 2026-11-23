@@ -839,14 +839,16 @@ def the_console_and_the_landing_page_draw_one_robot() -> None:
 
 @case
 def the_icon_is_the_logo_and_the_robot_is_flat() -> None:
-    """The app's icon is the logo, the robot's head alone; the robot is three flat shapes.
+    """The app's icon is the logo, and the robot is that very head, flat, with no body.
 
     The favicon used to be the robot's face, then a white tile with the robot's
     screen in an orange frame, beside a perforated ticket (`docs/icon.svg`) —
     three symbols, none of which held at 16 px. The logo is the head, drawn in
     `ponos-logo.js` and written out by `scripts/mascot.mjs`: one version for
     both themes, a simpler one at 24 px and under (the favicon), and the
-    Dokploy template's icon — and the robot keeps nothing of its old dress.
+    Dokploy template's icon. The robot lost its body too (23 November 2026):
+    it is the logo's head on the logo's grid, simple under the same 24 px,
+    and keeps nothing of its old dress.
     """
     mascot = ROOT / "docs/mascot"
     assert (mascot / "ponos-logo.js").is_file(), "the logo has no source of its own"
@@ -868,7 +870,24 @@ def the_icon_is_the_logo_and_the_robot_is_flat() -> None:
     script = (ROOT / "scripts/mascot.mjs").read_text(encoding="utf-8")
     assert "'ponos-logo.js'" in script and "'dokploy', 'ponos.svg'" in script
     source = (mascot / "ponos-robot.js").read_text(encoding="utf-8")
-    assert 'viewBox="0 0 120 140"' in source
+    assert 'viewBox="0 0 120 120"' in source and "120 140" not in source, (
+        "the robot is not drawn on the logo's square grid"
+    )
+    assert 'data-layer="body"' not in source and "limb" not in source, "the robot has a body again"
+    head = (mascot / "ponos-logo.js").read_text(encoding="utf-8")
+    for shape in (
+        'x="3" y="60" width="9" height="24" rx="4.5"',
+        'd="M60 4C70 14 72 22 68.5 28C66.5 31.5 53.5 31.5 51.5 28C48 22 50 14 60 4Z"',
+        'd="M60 14C64 18 65 21.5 63.2 24.2C62 26 58 26 56.8 24.2C55 21.5 56 18 60 14Z"',
+        'x="8" y="30" width="104" height="84" rx="32"',
+        'x="19" y="41" width="82" height="56" rx="20"',
+        'x="6" y="30" width="108" height="86" rx="32"',
+        'x="18" y="42" width="84" height="60" rx="20"',
+    ):
+        assert shape in head and shape in source, f"the robot's head is not the logo's: {shape}"
+    assert "const SMALL = 24;" in source and "export const SMALL = 24;" in head, (
+        "the robot and the logo do not turn simple at the same size"
+    )
     for gone in (
         "Gradient",
         "--robot-gold",
