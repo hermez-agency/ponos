@@ -193,14 +193,22 @@ export const reachable = (address: string): boolean => /^https?:\/\//.test(addre
  * them in its own journal (see `board.py`). */
 const ORDINARY = ["next", "places", "project"]
 
+/* The waits that are the machine's rather than the ticket's: no daemon running.
+ * On the board, every ready card said it, six times over six cards; one band
+ * over the columns says it once (`daemon-band.tsx`). A
+ * ticket's own page still says it: there it is said once. */
+const MACHINE = ["daemon"]
+
 /* Why a ready card is still in its column, in the server's words (`held` in
  * `web/board.py`) — only when the wait is out of the ordinary or something
  * can be done about it: credit, the day's limit, no daemon running, a date,
- * the tickets it comes after (« Après », see `dependencies.py`). */
-export function TicketHeld({ ticket }: { ticket: Ticket }) {
+ * the tickets it comes after (« Après », see `dependencies.py`). `card`: drawn
+ * on a card of the board, where the machine's state is the band's to say. */
+export function TicketHeld({ ticket, card = false }: { ticket: Ticket; card?: boolean }) {
   const t = useT()
   const held = ticket.column === "ready" ? ticket.held : undefined
   if (!held || ORDINARY.includes(held.reason)) return null
+  if (card && MACHINE.includes(held.reason)) return null
   const said: Record<string, string> = {
     date: t("waiting: scheduled for {{at}}", { at: when(held.detail) }),
     after: t("waiting for: {{tickets}}", { tickets: held.detail }),

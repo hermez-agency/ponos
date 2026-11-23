@@ -125,7 +125,12 @@ the columns, one strip carries the runner's figures: the sessions writing, the d
 places (taken over all, and how many tickets wait — clicked, which ticket holds each place,
 per project, and the queue with why each ticket waits: every place taken, its project at
 its limit, a ticket it comes after, a date, the credit), the tickets handled and what they
-cost. A ready card carries **Run now**: the daemon gives it a free place at once, or says
+cost. When no daemon is running, one band above it says so — *No daemon is running: ready
+tickets wait.* — with how many ready tickets it holds back and the command that starts it
+(`ponos service on`, or `ponos daemon` without systemd), to copy: the console does not start
+it itself. The ready cards do not repeat it, since it is the machine's state rather than
+theirs — they keep the waits of their own, a date or the tickets they come after — and the
+band goes as soon as a daemon runs, on a phone as on a desktop. A ready card carries **Run now**: the daemon gives it a free place at once, or says
 none is free and offers to run it past the limit, once. A card in review carries a
 **validate** button, where the board has that column: confirm it and the daemon merges its
 pull request at once, or publishes what it holds at the next free place; *run again* asks

@@ -247,7 +247,6 @@ export const FRENCH: Record<string, string> = {
   "All {{count}} places are taken": "Les {{count}} places sont prises",
   "{{project}} already holds its {{count}} places": "{{project}} occupe déjà ses {{count}} places",
   "waiting: --limit reached for this run": "en attente : --limit atteint pour ce lancement",
-  "waiting: no daemon is running — nothing takes it": "en attente : aucun démon ne tourne — rien ne le prendra",
   waiting: "en attente",
   "“{{title}}” did not reach the board":
     "« {{title}} » n’est pas arrivé sur le board",
