@@ -878,8 +878,8 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Not saved: {{why}}": "Non enregistré : {{why}}",
   "does that token reach your board?": "est-ce que ce jeton atteint votre tableau ?",
   "send yourself a test message": "envoyez-vous un message de test",
-  "Skip your review for some types of ticket: once the session succeeds, the runner validates it itself and says so. A failed or blocked ticket never is.":
-    "Sautez votre relecture pour certains types de ticket : une fois la session réussie, le runner le valide lui-même et le dit. Un ticket en échec ou bloqué ne l'est jamais.",
+  "Whether you review a ticket before it is validated. A type switched on never waits for you: once the session succeeds, the runner validates it itself and says so. A failed or blocked ticket is never validated.":
+    "Si vous relisez un ticket avant qu'il soit validé. Un type activé ne vous attend jamais : une fois la session réussie, le runner le valide lui-même et le dit. Un ticket en échec ou bloqué n'est jamais validé.",
   "{{free}} free of {{total}} on this disk": "{{free}} libres sur {{total}} sur ce disque",
   "Low disk space: under {{minimum}} free — no ticket is started until room is back.":
     "Disque presque plein : moins de {{minimum}} libres — aucun ticket ne démarre avant le retour de la place.",
@@ -914,7 +914,7 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "A code ticket starts at Code's level, moved by its sub-type — never past the lightest or the heaviest level, and never to Fable, which only a ticket's own Model brings in.":
     "Un ticket Code part du niveau de Code, déplacé par son sous-type — jamais au-delà du niveau le plus léger ni du plus lourd, et jamais jusqu'à Fable, que seul le Model d'un ticket fait entrer.",
   "Local CI before pull request": "CI locale avant pull request",
-  "Automatic validation": "Validation automatique",
+  Review: "Relecture",
   "Connect GitHub": "Connecter GitHub",
   "Connect another account": "Connecter un autre compte",
   "Organisation (optional)": "Organisation (facultatif)",
@@ -972,15 +972,15 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Hide the summary": "Masquer le récapitulatif",
   "Go through the first connection again": "Refaire la première connexion",
   "Change": "Modifier",
-  "Its own automatic validation": "Avoir sa propre validation automatique",
+  "Its own review setting": "Avoir son propre réglage de relecture",
   "This project's switches apply to its tickets, whatever the global settings say.":
     "Les interrupteurs de ce projet s'appliquent à ses tickets, quoi que disent les réglages globaux.",
   "Off: this project follows the global settings.": "Désactivé : ce projet suit les réglages globaux.",
   "The global settings that apply, read only.": "Les réglages globaux qui s'appliquent, en lecture seule.",
   "Change them in the global settings": "Les modifier dans les réglages globaux",
-  "A project can have its own automatic validation, in the Settings tab of its page.":
-    "Un projet peut avoir sa propre validation automatique, dans l'onglet Réglages de sa page.",
-  "Projects with their own, whatever these switches say:": "Projets qui ont la leur, quoi que disent ces interrupteurs :",
+  "A project can have its own review setting, in the Settings tab of its page.":
+    "Un projet peut avoir son propre réglage de relecture, dans l'onglet Réglages de sa page.",
+  "Projects with their own, whatever these switches say:": "Projets qui ont le leur, quoi que disent ces interrupteurs :",
   "None does today.": "Aucun n'en a pour l'instant.",
   "No public address is set, so there is nothing to reach from elsewhere.": "Aucune adresse publique n'est définie : il n'y a rien à joindre depuis l'extérieur.",
   "Fill in “Public address” in the General settings, then come back.": "Renseignez « Adresse publique » dans les réglages Général, puis revenez ici.",

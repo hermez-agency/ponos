@@ -229,8 +229,15 @@ export const PlanInputController: InputControllerComponentInterface = ({ formInp
   )
 }
 
-/* Force validated, ticket by ticket: inherited from the project or the global
- * setting unless the ticket says otherwise, in either direction. */
+/* Review (Force validated), ticket by ticket: as the project or the global
+ * setting says unless the ticket says otherwise, in either direction. The line
+ * under it is what the choice does, said for the one picked. */
+const REVIEW_CONSEQUENCES: Record<string, string> = {
+  "": "As the project: its setting, or the global one.",
+  forced: "Never: validated as soon as the session succeeds.",
+  free: "Always: waits for my review.",
+}
+
 export const ValidationInputController: InputControllerComponentInterface = (props) => (
   <div className="flex flex-col gap-1" data-slot="validation-input">
     <SegmentedInputController
@@ -238,14 +245,14 @@ export const ValidationInputController: InputControllerComponentInterface = (pro
       formInput={{
         ...props.formInput,
         valueOptions: [
-          { value: "", label: t("Inherited"), description: t("The project's setting, or the global one.") },
-          { value: "forced", label: t("Forced"), description: t("Validated as soon as the session succeeds.") },
-          { value: "free", label: t("Not forced"), description: t("Waits for the review, whatever the project or the global setting says.") },
+          { value: "", label: t("As the project") },
+          { value: "forced", label: t("Never") },
+          { value: "free", label: t("Always") },
         ],
       }}
     />
     <span className="text-muted-foreground text-xs">
-      {t("Whether the ticket is validated without waiting for you: inherited from the project, then the global setting.")}
+      {t(REVIEW_CONSEQUENCES[String(props.formInput.value ?? "")] ?? REVIEW_CONSEQUENCES[""])}
     </span>
   </div>
 )

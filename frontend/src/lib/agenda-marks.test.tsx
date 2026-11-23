@@ -32,7 +32,7 @@ describe("the agenda's marks", () => {
       layouts: { id: string; label?: string; options?: { dateField?: string } }[]
       fields?: { toggle?: boolean; persist?: string | false }
     }
-    expect(list.layouts.map((each) => each.label)).toEqual(["Board", "List", "Agenda"])
+    expect(list.layouts.map((each) => each.label)).toEqual(["Columns", "List", "Agenda"])
     expect(list.layouts.map((each) => each.id)).toEqual(["board", "table", "calendar"])
     expect(list.layouts[2].options?.dateField).toBe("scheduled")
     expect(list.fields).toMatchObject({ toggle: true, persist: "local" })

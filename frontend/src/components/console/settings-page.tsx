@@ -290,7 +290,7 @@ function OwnValidation() {
   const owning = currentSettings()?.own_validation ?? []
   return (
     <p className="text-muted-foreground pt-1 pb-2 text-[13px] leading-relaxed" data-slot="own-validation">
-      {t("A project can have its own automatic validation, in the Settings tab of its page.")}{" "}
+      {t("A project can have its own review setting, in the Settings tab of its page.")}{" "}
       {owning.length ? (
         <>
           {t("Projects with their own, whatever these switches say:")}{" "}

@@ -80,7 +80,10 @@ test("each label of the bottom bar is read whole, at 360 and at 390", async ({ p
 test("at 375px no label of the two bars is cut, in English or in French", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
-  for (const [language, second] of [["en", "Projects"], ["fr", "Projets"]]) {
+  for (const [language, first, second] of [
+    ["en", "Board", "Projects"],
+    ["fr", "Tableau", "Projets"],
+  ]) {
     await page.addInitScript((code) => localStorage.setItem("ponos-language", code), language)
     for (const path of [
       "/",
@@ -91,8 +94,8 @@ test("at 375px no label of the two bars is cut, in English or in French", async 
       await page.goto(path)
       // Read once the language's words are in: French is fetched after the page.
       await expect(bar(page).getByRole("button").nth(1)).toHaveText(second)
-      // The board is « Board » in every language, never « Tableau ».
-      await expect(bar(page).getByRole("button").first()).toHaveText("Board")
+      // The board has one name in each language, the menu's: « Tableau » fits.
+      await expect(bar(page).getByRole("button").first()).toHaveText(first)
       const labels = [
         ...(await bar(page).getByRole("button").locator("span").all()),
         ...(await page.locator("header").first().locator("a span, nav, nav li, nav li > *").all()),

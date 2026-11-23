@@ -389,7 +389,7 @@ test.describe("the page of a project", () => {
 
     // Nothing of another project, and the layout is the dashboard's next time.
     await expect(page.locator('[data-slot="table-row"]', { hasText: "Elsewhere" })).toHaveCount(0)
-    await page.getByRole("link", { name: /^Dashboard/ }).click()
+    await page.getByRole("link", { name: /^Board/ }).click()
     await expect(page).toHaveURL(/variant=table/)
   })
 
@@ -424,7 +424,7 @@ test.describe("the settings of a project", () => {
 
   // Website rather than Newsletter: another test renames Newsletter meanwhile.
   const WEBSITE = "/?view=console/projects/read/0000000000000000000000000000cafe"
-  const own = (page: Page) => page.getByRole("switch", { name: "Its own automatic validation" })
+  const own = (page: Page) => page.getByRole("switch", { name: "Its own review setting" })
   const code = (page: Page) => page.getByRole("switch", { name: "Code tickets" })
   // `open` waits for Website, which neither of these pages names.
   const go = async (page: Page, path: string) => {
@@ -464,7 +464,7 @@ test.describe("the settings of a project", () => {
     // The global card names it, and leads back to it.
     await go(page, "/?view=console/settings/read/config/execution")
     const line = page.locator('[data-slot="own-validation"]')
-    await expect(line).toContainText("A project can have its own automatic validation")
+    await expect(line).toContainText("A project can have its own review setting")
     await line.getByRole("link", { name: "Website" }).click()
     await onThePageOf(page, "Website")
     await expect(own(page)).toHaveAttribute("aria-checked", "true")

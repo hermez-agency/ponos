@@ -374,12 +374,12 @@ const CADENCES = (
     return t(words)
   },
 }))
-/* Their Force validated, as a ticket says it: inherited from the project, forced, or not. */
+/* Their Review (Force validated), as a ticket says it: as the project, never, or always. */
 const VALIDATIONS = (
   [
-    ["", "Inherited"],
-    ["forced", "Forced"],
-    ["free", "Not forced"],
+    ["", "As the project"],
+    ["forced", "Never"],
+    ["free", "Always"],
   ] as const
 ).map(([value, words]) => ({
   value,
@@ -464,11 +464,11 @@ const fields: FormInterface["inputs"] = {
     hidden: () => !choicesOf("subtype").length,
   },
   validation: {
-    label: "Force validated",
+    label: "Review",
     controller: SegmentsInputController,
     valueOptions: VALIDATIONS,
     get description() {
-      return t("Whether each ticket is validated as soon as its session succeeds. Inherited, it follows the project's setting.")
+      return t("Never: each ticket is validated as soon as its session succeeds; always: it waits for your review; as the project: its setting.")
     },
   },
   // The project its tickets are for, chosen as a new ticket's is: by its page,

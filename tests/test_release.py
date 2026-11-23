@@ -1532,7 +1532,7 @@ def the_console_menu_is_a_name_and_a_count() -> None:
     assert 'ticket.column === "blocked"' in shell, "the board's entry no longer counts what waits"
     assert "detail" not in shell, "an entry carries a sentence again"
     scope = (FRONTEND / "src/resources/scope.tsx").read_text(encoding="utf-8")
-    assert 'entry(tickets.icon, "Dashboard", boardHref, Board' in scope, (
+    assert 'entry(tickets.icon, "Board", boardHref, BoardCount' in scope, (
         "the menu is drawn without its count again"
     )
 

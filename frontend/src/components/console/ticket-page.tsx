@@ -701,7 +701,7 @@ export function TicketHead() {
             className="text-muted-foreground hover:text-foreground mb-1.5 inline-flex items-center gap-1 text-sm transition-colors"
           >
             <ArrowLeft className="size-4" />
-            {t("Dashboard")}
+            {t("Board")}
           </Link>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2

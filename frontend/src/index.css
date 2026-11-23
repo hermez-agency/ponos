@@ -636,7 +636,7 @@
 .milkdown .ProseMirror > :first-child { margin-top: 0; }
 
 /* The package's bottom bar at 360px: five entries share 344px, and its gap and
-   inset cut "Dashboard" (the widest label) at 56px of its 62. A phone's bar
+   inset cut the widest label at 56px of its 62. A phone's bar
    drops both, so each entry has its share and every label is read whole. Not
    in a layer: the package's own utilities are, and they would win over it. */
 @media (width < 48rem) {

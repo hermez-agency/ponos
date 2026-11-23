@@ -22,8 +22,8 @@ Open `http://127.0.0.1:8787` and you get one page, four things:
 ```
 ┌───────────────┬──────────────────────────────┬─────────────────────────────┐
 │ Ponos         │        ● live  v0.9.2  ⟳  ☀  │  you                        │
-│               │ + New ticket    Board · List │  Where is the SQLite ticket │
-│ ▸ Dashboard 4 │  Ready     1   In progress 1 │                             │
+│               │ + New ticket  Columns · List │  Where is the SQLite ticket │
+│ ▸ Board 4     │  Ready     1   In progress 1 │                             │
 │   Projects    │  ┌──────────┐  ┌──────────┐  │  workspace                  │
 │   Schedules   │  │ Retirer  │  │ Migrer   │  │  Six minutes in, on Trader  │
 │   Context     │  │ le       │  │ vers     │  │  IA. It has rewritten       │
@@ -96,7 +96,7 @@ conversations are doing, one command at a time. The API names the conversation:
 with none starts. The event stream says which conversation each `chat` and `agui` event is
 about.
 
-**The dashboard** opens on the period's [statistics](#statistics-on-the-dashboard), then
+**The Board page** opens on the period's [statistics](#statistics-on-the-dashboard), then
 the board. **On a phone** it opens on **To handle** instead: the blocked tickets and the
 ones in review, one card each — a blocked one first, then the pull requests to decide, then
 the stops Ponos is already retrying; the one waiting longest first in each. A card says
@@ -149,10 +149,10 @@ in French), with the drafts. A long column draws its first fifty cards — *Done
 there stays in sight, wherever the queue ranks it. Seven columns do not fit a laptop, so the board scrolls sideways, and each
 edge with more beyond it shows a fade and an arrow.
 
-**Three views of the same tickets: Board, List, Agenda.** The tabs over the board switch
-between them — *Board* in every language, as everywhere else in the console — and the one you
+**Three views of the same tickets: Columns, List, Agenda.** The tabs over the board switch
+between them — *Columns* (*Colonnes*), so the tab does not say the page's name again — and the one you
 picked is kept: in the address (`&variant=table`, `&variant=calendar`) and for the way back
-to the dashboard from another page. *List* shows the tickets as rows, one column per
+to the Board page from another page. *List* shows the tickets as rows, one column per
 property; **Shown fields**, over the table, hides and shows its columns, and the choice is
 kept by this browser (react-resource-view's menu, in `localStorage`; *Reset to default* puts
 them all back). *Agenda* lays the tickets out on the day and hour they are
@@ -221,7 +221,7 @@ last session, estimate, creation, branch, session, machine —, and the settings
 changed in place: the **priority**, the **model** of its next session (one of the board's, or
 the runner's), the **project** of a ticket that has not run there yet (draft, ready, blocked),
 the **date** it is scheduled for (shortcuts or a date and hour, until it is done or cancelled)
-and ***Force validated***. A ticket its date holds back says *Scheduled for …* under its
+and its ***Review***. A ticket its date holds back says *Scheduled for …* under its
 status, with **Launch now** on a ready or validated one: the date removed, it takes its turn. Then its **pull request**, said once: where it stands, its checks
 one by one, the way to its diff. With less room — a phone, a narrower window — the same
 blocks are one column above the tabs, the facts on one line with a *Details* that unfolds the
@@ -596,7 +596,7 @@ the settings on that switch, focused. The page asks the board when you open it
 rather than living on the event stream — a schedule moves four times a day at the very
 most, and a tab left open on the board has no business polling that database.
 
-<a id="statistics-on-the-dashboard"></a>**Statistics** sit at the top of the dashboard, over the board — a band you fold into
+<a id="statistics-on-the-dashboard"></a>**Statistics** sit at the top of the Board page, over the board — a band you fold into
 one line with the arrow beside its name, and that stays folded on that browser. It is what
 the runner got through over a period: the last seven days when you open it, or the last
 24 hours (yesterday and today: the figures count in days), thirty days, everything since the
@@ -609,7 +609,7 @@ day and the open stock as a line over them — on its own scale, on the right, w
 another size than the bars —, every figure of a day under the pointer. Beside it, the tickets
 **created, by type and sub-type**: bars a day (a week past a month) stacked by sub-type, written
 as the board writes them in English, a ticket with none as *Unclassified*; a type to pick (Code
-by default) and, on the dashboard, a project. Next to it, the **regression rate** — the bugs
+by default) and, on the Board page, a project. Next to it, the **regression rate** — the bugs
 over the bugs, features and improvements created —, with an arrow against the period of the
 same length just before; with every project, a small table says which one breaks the most, and
 a click on its row shows it alone. Last, the tickets created in the period, by project. A ticket is dated when it was created, never when its status changed, so a closing
@@ -623,11 +623,11 @@ old —, so changing the period or the project redraws the figures without readi
 **blocks, by cause and week**: one bar a week, stacked by family, and beside it every
 cause of the period with its count — see [Why a ticket stopped](tickets.md#why-a-ticket-stopped) —, and the
 **code tickets done, by sub-type and week**, with the average cost and duration of each sub-type —
-see [The sub-type of a code ticket](board.md#the-sub-type-of-a-code-ticket). Both are folded behind a *Show more* button, on the dashboard and on a project's page alike, and stays as you left it in this browser. The page they used to have is gone, and its old address,
-`/?view=console/statistics/list`, leads to the dashboard.
+see [The sub-type of a code ticket](board.md#the-sub-type-of-a-code-ticket). Both are folded behind a *Show more* button, on the Board page and on a project's page alike, and stays as you left it in this browser. The page they used to have is gone, and its old address,
+`/?view=console/statistics/list`, leads to the Board page.
 
 **Exporting the cost, to re-bill a project.** *Export (CSV)*, beside the period, downloads one row per
-session ended in that period — on the dashboard, every project's; on a project's page, that project's. The
+session ended in that period — on the Board page, every project's; on a project's page, that project's. The
 columns are `date`, `ticket`, `lien`, `type`, `sous-type`, `modèle`, `statut final`, `durée (s)`,
 `coût (USD)` and `PR`, and the `coût (USD)` column adds up to the cost the card shows for the same
 period. The same file is `GET /api/spending.csv?project=<id or name>&month=2026-10` (`from=` and `to=`
@@ -882,7 +882,7 @@ are and serve no goal.
 
 ### Ideas
 
-Ponos can also propose what to do next. From the dashboard the ideas are the workspace's —
+Ponos can also propose what to do next. From the Board page the ideas are the workspace's —
 new projects, or improvements that cut across them; from a project's page they are that
 project's. One short session writes ten at once on `runner.ideas_model` (`haiku` unless you
 say otherwise), given the project's brief, its README when the clone has one, its latest
@@ -928,7 +928,7 @@ Each idea says who wrote it: Ponos, with its mascot, or a person — ideas can b
 — by the name and picture of the GitHub account `gh` is signed in as (git's `user.name` when
 there is no `gh`). An idea reworded by hand also says who last changed it, and when.
 
-In the console the dashboard's *Ponos, find me ideas* and a project's *Find me ideas for this project*
+In the console the Board page's *Ponos, find me ideas* and a project's *Find me ideas for this project*
 open the same pile of cards, one idea each: swipe right (or drag, press ♥, or →) to keep, left
 (✕, ←) to throw away, *Undo* for the last card. Ponos waits while a batch is written, and at the
 end of the pile *Ten more* asks for another. Swiping right turns the idea into a ticket at once.
@@ -971,7 +971,7 @@ the idea a project-creation ticket), the title with the cursor in it, a few line
 and the category as chips. *Create the idea* — or Ctrl+Enter (⌘+Enter) — waits for a title;
 *Create another* leaves the window open and empty for the next one. The idea is stored as written by
 hand; *Find me ideas for this project* is there too. The deck's *All ideas* tab is the same list,
-the workspace's when opened from the dashboard. Cards or a table, whichever you pick.
+the workspace's when opened from the Board page. Cards or a table, whichever you pick.
 
 The *Ideas* entry of the menu is that same list for every scope at once: each card also says
 whom it is for — the project's icon and name, or *Workspace* — and a filter by project sits

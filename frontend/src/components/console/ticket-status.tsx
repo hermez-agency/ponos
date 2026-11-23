@@ -238,7 +238,7 @@ export function TicketFacts({
   ticket: TicketDetail
   /** In the rail beside the tabs: the whole list, every fact under its name, the settings changed in place. */
   rail?: boolean
-  /** Force validated, once the page is read: a setting of its own, among the facts. */
+  /** Review (Force validated), once the page is read: a setting of its own, among the facts. */
   validation?: { validation: string; validation_inherited: string }
   /** The session's log, on the ticket's Activity tab. */
   onSession: () => void
@@ -415,7 +415,7 @@ export function TicketFacts({
           </Fact>
         ) : null}
         {validation ? (
-          <Fact name={t("Force validated")} stacked>
+          <Fact name={t("Review")} stacked>
             <TicketValidation ticket={{ ...ticket, ...validation }} compact />
           </Fact>
         ) : null}

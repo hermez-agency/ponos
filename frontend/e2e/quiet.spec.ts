@@ -10,7 +10,7 @@ import { expect, test, type ConsoleMessage } from "@playwright/test"
  * warning it logged on the way fails the test.
  */
 
-/* A page and the heading it is drawn to: the Dashboard's is its board. */
+/* A page and the heading it is drawn to: the Board's is its board. */
 const PAGES: [string, string][] = [
   ["Board", "/?view=console/tickets/list"],
   ["Projects", "/?view=console/projects/list"],
