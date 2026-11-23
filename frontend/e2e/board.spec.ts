@@ -89,14 +89,19 @@ for (const viewport of [
   })
 }
 
-test("a card wears its priority as a badge, its score in the colour the score gives", async ({ page }) => {
+test("a card wears its priority as a thin bar on its edge, neutral to orange, never red", async ({ page }) => {
   await open(page)
-  const badge = page.locator('[data-slot="priority-badge"]').filter({ hasText: /^90$/, visible: true }).first()
-  await expect(badge).toBeVisible()
-  await expect(badge).toHaveAttribute("title", "Priority 90 out of 100")
-  // Towards red: an urgent score, not the grey-blue of one that can wait.
-  const colour = await badge.evaluate((element) => getComputedStyle(element).backgroundColor)
-  const [red, green, blue] = (colour.match(/\d+(\.\d+)?/g) ?? []).map(Number)
+  const mark = page.locator('[data-slot="priority-mark"][data-score="90"]').filter({ visible: true }).first()
+  await expect(mark).toBeVisible()
+  await expect(mark).toHaveAttribute("title", "Priority 90 out of 100")
+  await expect(page.locator('[data-ticket-card] [data-slot="priority-badge"]')).toHaveCount(0)
+  const colour = async (score: string) => {
+    const one = page.locator(`[data-slot="priority-mark"][data-score="${score}"]`).first()
+    const value = await one.evaluate((element) => getComputedStyle(element).backgroundColor)
+    return (value.match(/\d+(\.\d+)?/g) ?? []).map(Number)
+  }
+  // Orange: more red than green, more green than blue — not the red of a failed check.
+  const [red, green, blue] = await colour("90")
   expect(red).toBeGreaterThan(green)
-  expect(red).toBeGreaterThan(blue)
+  expect(green).toBeGreaterThan(blue + 30)
 })

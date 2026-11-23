@@ -13,7 +13,6 @@ import {
   MoreHorizontal,
   ServerCrash,
   SquareTerminal,
-  Target,
 } from "lucide-react"
 
 import { ProjectThumb } from "@/components/console/project-picture"
@@ -28,7 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { PriorityBadge } from "@/components/console/priority"
 import { DecideButton } from "@/components/console/ticket-decision"
 import { RunNow } from "@/components/console/ticket-launch"
 import { TicketEstimate } from "@/components/console/ticket-estimate"
@@ -276,6 +274,26 @@ export function TicketBlock({ block }: { block?: Block | null }) {
       </div>
       <p className="text-muted-foreground text-xs leading-relaxed break-words">{blockSaid(block.help)}</p>
     </div>
+  )
+}
+
+/* The cause on a blocked card of the board: its label on one line, the
+ * family's icon in front, and its line of help as the tooltip — the gesture
+ * that answers it is the card's Unblock button, under it. */
+export function CardCause({ block }: { block?: Block | null }) {
+  if (!block) return null
+  const Icon = FAMILY_ICON[block.family] ?? ServerCrash
+  const help = blockSaid(block.help)
+  return (
+    <p
+      className="flex min-w-0 items-center gap-1.5 text-xs font-medium"
+      data-slot="card-cause"
+      data-code={block.code}
+      title={help || undefined}
+    >
+      <Icon className="size-3.5 shrink-0" style={{ color: familyColor(block.family) }} />
+      <span className="min-w-0 truncate">{blockSaid(block.label)}</span>
+    </p>
   )
 }
 
@@ -539,37 +557,6 @@ export function TicketSync({ ticket }: { ticket: Ticket }) {
   )
 }
 
-/** What is said *about* a ticket rather than in it: how urgent, on which model, when. */
-export function TicketTags({ ticket, lead }: { ticket: Ticket; lead?: React.ReactNode }) {
-  const scored = typeof ticket.priority === "number"
-  if (!lead && !scored && !ticket.model && !ticket.scheduled && !subtypeOf(ticket.subtype) && !ticket.goal)
-    return null
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {lead}
-      {scored ? <PriorityBadge score={ticket.priority as number} /> : null}
-      <TicketSubtype subtype={ticket.subtype} />
-      {ticket.model ? (
-        <Chip className="min-w-0 max-w-full">
-          <span className="truncate" data-slot="ticket-model" title={ticket.model_label || ticket.model}>
-            {ticket.model_label || ticket.model}
-          </span>
-        </Chip>
-      ) : null}
-      {ticket.scheduled ? <Chip>⏱ {when(ticket.scheduled)}</Chip> : null}
-      {/* The goal it serves, last: a fact about where the work leads, not about the work. */}
-      {ticket.goal ? (
-        <Chip className="min-w-0 max-w-full">
-          <Target className="size-3 shrink-0" />
-          <span className="truncate" data-slot="ticket-card-goal" title={ticket.goal}>
-            {ticket.goal}
-          </span>
-        </Chip>
-      ) : null}
-    </div>
-  )
-}
-
 /* A review's checks, said in the line along the bottom of its card rather than
  * as a badge over its buttons: a fact like its age and its cost, read in the
  * same row. A red one keeps its colour on the words too — it is the one that
@@ -607,16 +594,33 @@ function stamp(at: string): string {
   return format.format(new Date(at))
 }
 
-/* The line along the bottom of a card: where the work goes and how long ago the
- * ticket was made, what it has cost, and the way out to the page it is written
- * on. All facts rather than prose, so all set in the mono face and read as a
- * single ruled row. The project gives way (it truncates) before the age, and
- * both before the cost: a long project name must not push the figure out. */
-export function TicketFoot({ ticket }: { ticket: Ticket }) {
+/* The line along the bottom of a card: what kind of change it is, where the
+ * work goes and how long ago the ticket was made, what it has cost. Said
+ * quietly — secondary text in the console's own face, no rule over it — since
+ * it is what a card is read for last. The project gives way (it truncates)
+ * before the age, and both before the cost: a long project name must not push
+ * the figure out. The sub-type is a dot and its name, without the border
+ * a badge would give it. */
+export function TicketFoot({ ticket, className }: { ticket: Ticket; className?: string }) {
   const t = useT()
+  const subtype = subtypeOf(ticket.subtype)
   const hasCost = typeof ticket.cost === "number" && ticket.cost
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2.5 font-mono text-[0.7rem]">
+    <div
+      data-slot="card-foot"
+      className={cn("text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs", className)}
+    >
+      {subtype ? (
+        <span
+          data-slot="ticket-subtype"
+          data-subtype={subtype.key}
+          className="flex shrink-0 items-center gap-1 whitespace-nowrap"
+          title={`${subtype.commit}:${subtype.changelog ? ` · CHANGELOG ${subtype.changelog}` : ""}`}
+        >
+          <SubtypeDot subtype={subtype.key} />
+          {subtype.label}
+        </span>
+      ) : null}
       {ticket.project && ticket.project_id ? (
         <Link
           to={projectHref(ticket.project_id)}
@@ -672,6 +676,7 @@ function Confirmed({
   className,
   open,
   onOpenChange,
+  filled = false,
 }: {
   label?: string
   title: string
@@ -681,6 +686,8 @@ function Confirmed({
   className?: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /** The one filled button of a card: what it waits for. */
+  filled?: boolean
 }) {
   return (
     <ConfirmDialog
@@ -692,7 +699,7 @@ function Confirmed({
       onConfirm={onConfirm}
       trigger={
         label ? (
-          <Button variant="outline" size="sm" className={className}>
+          <Button variant={filled ? "default" : "outline"} size="sm" className={className}>
             {label}
           </Button>
         ) : null
@@ -730,25 +737,28 @@ function useBoardRules(): Pick<Board, "columns" | "validate" | "cancel"> {
   return { columns, validate, cancel }
 }
 
-function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
+/** What retrying a refused merge asks first: no session, only the merge asked for again. */
+function retry(ticket: Ticket, columns: Board["columns"]) {
+  const column = columnTitle("validated", columns.find((one) => one.key === "validated")?.name)
+  return {
+    title: t("Retry the merge of “{{title}}”?", { title: titleOf(ticket) }),
+    body: t(
+      "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request as soon as its checks are green. A merge is not taken back from here.",
+      { column }
+    ),
+    confirm: t("Retry the merge"),
+    onConfirm: () => void move(ticket, "validated"),
+  }
+}
+
+function MergeGestures({ ticket, retry: retries }: { ticket: Ticket; retry: boolean }) {
   const board = useBoardRules()
   const t = useT()
   const named = (key: string) =>
     columnTitle(key, board.columns.find((column) => column.key === key)?.name)
   return (
     <>
-      {retry ? (
-        <Confirmed
-          label={t("Retry the merge")}
-          title={t("Retry the merge of “{{title}}”?", { title: titleOf(ticket) })}
-          body={t(
-            "No session is started: the ticket goes back to {{column}}, and the runner merges its pull request as soon as its checks are green. A merge is not taken back from here.",
-            { column: named("validated") }
-          )}
-          confirm={t("Retry the merge")}
-          onConfirm={() => void move(ticket, "validated")}
-        />
-      ) : null}
+      {retries ? <Confirmed label={t("Retry the merge")} {...retry(ticket, board.columns)} /> : null}
       <Button
         variant="outline"
         size="sm"
@@ -760,6 +770,128 @@ function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
         {t("Back to review")}
       </Button>
     </>
+  )
+}
+
+/** A dialog a gesture opens before it moves the ticket. */
+type Asking = { title: string; body: string; confirm: string; onConfirm: () => void }
+
+/** The "…" of a card: the gestures it is less often for. */
+function cardMenu(items: React.ReactNode) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          className="shrink-0"
+          aria-label={t("More actions")}
+          title={t("More actions")}
+        >
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">{items}</DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/* The gestures on a card of the board, where a column of them is read at a
+ * glance: one filled button, for what the ticket waits for — Make ready on a
+ * draft, Unblock, Decide, Pause — and every other gesture behind "…". Four
+ * outlined buttons in a row said nothing of which one was yours, and went to
+ * two lines on a narrow column. A ready card keeps Run now in an outline: it
+ * starts on its own at the next free place. A card waiting on nobody —
+ * validated, done, given up — has "…" alone. Each entry opens the
+ * dialog its button opens on the ticket's page, and moves it to the same column. */
+function CardGestures({
+  ticket,
+  className,
+  ready,
+  validate,
+  cancels,
+  filled = true,
+}: {
+  ticket: Ticket
+  className?: string
+  ready: Asking
+  validate: Asking | null
+  cancels: boolean
+  /** On a card, the one button is filled; on the ticket itself, Decide is, beside its status. */
+  filled?: boolean
+}) {
+  const t = useT()
+  const [asked, setAsked] = React.useState(false)
+  const [validating, setValidating] = React.useState(false)
+  const column = ticket.column
+  const giveUp =
+    cancels && column !== "cancelled" ? (
+      <DropdownMenuItem key="cancel" variant="destructive" onSelect={() => void move(ticket, "cancelled")}>
+        {t("Cancel the ticket")}
+      </DropdownMenuItem>
+    ) : null
+  let primary: React.ReactNode = null
+  let items: React.ReactNode[] = []
+  if (column === "draft") primary = <Confirmed label={t("Make ready")} filled={filled} {...ready} />
+  else if (column === "ready") {
+    primary = <RunNow ticket={ticket} labelled />
+    items = [
+      <DropdownMenuItem
+        key="aside"
+        title={t("The runner no longer touches it, until it is made ready again.")}
+        onSelect={() => void move(ticket, "blocked")}
+      >
+        {t("Set aside")}
+      </DropdownMenuItem>,
+    ]
+  } else if (column === "review") {
+    primary = <DecideButton ticket={ticket} filled={filled} />
+    items = [
+      validate ? (
+        <DropdownMenuItem key="validate" onSelect={() => setValidating(true)}>
+          {t("Validate and publish")}
+        </DropdownMenuItem>
+      ) : null,
+      <DropdownMenuItem key="again" onSelect={() => setAsked(true)}>
+        {t("Run the agent again")}
+      </DropdownMenuItem>,
+      <DropdownMenuItem key="done" onSelect={() => void move(ticket, "done")}>
+        {t("Mark done")}
+      </DropdownMenuItem>,
+    ]
+  } else if (column === "cancelled")
+    // Reopened as a draft: given up on is not ready, and a ready ticket's session is paid for.
+    items = [
+      <DropdownMenuItem
+        key="reopen"
+        title={t("Back to the drafts: the runner does not touch it until it is made ready.")}
+        onSelect={() => void move(ticket, "draft")}
+      >
+        {t("Reopen")}
+      </DropdownMenuItem>,
+    ]
+  else
+    items = [
+      // A validated pull request waits for its merge: taking the validation back costs no session.
+      column === "validated" && ticket.pull_request ? (
+        <DropdownMenuItem key="back" onSelect={() => void move(ticket, "review")}>
+          {t("Back to review")}
+        </DropdownMenuItem>
+      ) : null,
+      <DropdownMenuItem key="again" onSelect={() => setAsked(true)}>
+        {column === "done" ? t("Run again") : t("Make ready")}
+      </DropdownMenuItem>,
+    ]
+  items = items.filter(Boolean)
+  const menu = [...items, items.length && giveUp ? <DropdownMenuSeparator key="apart" /> : null, giveUp].filter(Boolean)
+  if (!primary && !menu.length) return null
+  return (
+    <div className={cn("flex items-center gap-1.5", className)} data-slot="card-gestures">
+      {primary}
+      {menu.length ? cardMenu(menu) : null}
+      <Confirmed open={asked} onOpenChange={setAsked} {...ready} />
+      {validate ? <Confirmed open={validating} onOpenChange={setValidating} {...validate} /> : null}
+    </div>
   )
 }
 
@@ -778,14 +910,16 @@ function MergeGestures({ ticket, retry }: { ticket: Ticket; retry: boolean }) {
 export function TicketActions({
   ticket,
   className,
+  card = false,
 }: {
   ticket: Ticket
   className?: string
+  /** Drawn on a card of the board: one filled button, the rest behind "…" — see `CardGestures`. */
+  card?: boolean
 }) {
   const board = useBoardRules()
   const t = useT()
-  const [asked, setAsked] = React.useState(false)
-  const [validating, setValidating] = React.useState(false)
+  const [retrying, setRetrying] = React.useState(false)
   // A reader is shown where the ticket stands, and offered nothing to change it.
   if (!canAct()) return null
   // A ticket the runner has in hand is not one you move: it is one you stop.
@@ -795,7 +929,7 @@ export function TicketActions({
   if (ticket.column === "running" || ticket.column === "paused")
     return (
       <React.Suspense fallback={null}>
-        <StopGestures ticket={ticket} className={className} />
+        <StopGestures ticket={ticket} className={className} filled={card} />
       </React.Suspense>
     )
   // A blocked card has one gesture, Unblock: it opens the ticket's discussion,
@@ -804,11 +938,15 @@ export function TicketActions({
   // back to work left you to guess which one was yours.
   // Except a merge GitHub refused: asking it again is the gesture, and it
   // needs neither an answer nor a session — see `MergeGestures`.
+  const refused = board.validate && ticket.pull_request && MERGE_REFUSED.has(ticket.block?.code ?? "")
+  // On a card, the cause is said above the button too, and a refused merge's
+  // gestures wait behind "…" beside it.
   if (ticket.column === "blocked")
     return (
       <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
         <DecideButton
           ticket={ticket}
+          filled={card}
           icon={ticket.block ? FAMILY_ICON[ticket.block.family] : undefined}
           title={
             ticket.block
@@ -816,7 +954,17 @@ export function TicketActions({
               : undefined
           }
         />
-        {board.validate && ticket.pull_request && MERGE_REFUSED.has(ticket.block?.code ?? "") ? (
+        {refused && card ? (
+          <>
+            {cardMenu(
+              <>
+                <DropdownMenuItem onSelect={() => setRetrying(true)}>{t("Retry the merge")}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void move(ticket, "review")}>{t("Back to review")}</DropdownMenuItem>
+              </>
+            )}
+            <Confirmed open={retrying} onOpenChange={setRetrying} {...retry(ticket, board.columns)} />
+          </>
+        ) : refused ? (
           <MergeGestures ticket={ticket} retry />
         ) : null}
       </div>
@@ -868,57 +1016,21 @@ export function TicketActions({
     confirm: t("Validate"),
     onConfirm: () => void move(ticket, "validated"),
   }
-  const menu = (items: React.ReactNode) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" aria-label={t("More actions")} title={t("More actions")}>
-          <MoreHorizontal />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">{items}</DropdownMenuContent>
-    </DropdownMenu>
-  )
-  // A card in review is there to be decided on, and says so with one small
-  // button, the same height as the others on the console; the plain gestures wait behind "…", in the order they are
-  // reached for, giving it up last and apart. Five buttons in three styles made
-  // Decide and validate fight for the eye. The menu only opens the same
-  // dialogs: what each gesture asks first, and where it moves the ticket, are
-  // those of the buttons it replaces.
-  if (ticket.column === "review")
+  // On a card, and on a ticket in review or done wherever it is drawn: one
+  // button for what it waits for — Decide, in review —, the plain gestures
+  // behind "…", in the order they are reached for, giving it up last and
+  // apart. Five buttons in three styles made Decide and validate fight for the
+  // eye. The menu only opens the same dialogs as the buttons it replaces.
+  if (card || ticket.column === "review" || ticket.column === "done")
     return (
-      <div className={cn("flex flex-wrap items-center justify-end gap-1.5", className)}>
-        <DecideButton ticket={ticket} />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className="shrink-0"
-              aria-label={t("More actions")}
-              title={t("More actions")}
-            >
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {board.validate ? (
-              <DropdownMenuItem onSelect={() => setValidating(true)}>{t("Validate and publish")}</DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem onSelect={() => setAsked(true)}>{t("Run the agent again")}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void move(ticket, "done")}>{t("Mark done")}</DropdownMenuItem>
-            {board.cancel ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => void move(ticket, "cancelled")}>
-                  {t("Cancel the ticket")}
-                </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Confirmed open={asked} onOpenChange={setAsked} {...ready} />
-        {board.validate ? <Confirmed open={validating} onOpenChange={setValidating} {...validate} /> : null}
-      </div>
+      <CardGestures
+        ticket={ticket}
+        className={cn(ticket.column === "review" && !card && "justify-end", className)}
+        ready={ready}
+        validate={board.validate ? validate : null}
+        cancels={Boolean(board.cancel)}
+        filled={card}
+      />
     )
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
@@ -937,17 +1049,7 @@ export function TicketActions({
           {t("Reopen")}
         </Button>
       ) : null}
-      {ticket.column === "done" ? (
-        <>
-          {menu(
-            <>
-              <DropdownMenuItem onSelect={() => setAsked(true)}>{t("Run again")}</DropdownMenuItem>
-              {cancel}
-            </>
-          )}
-          <Confirmed open={asked} onOpenChange={setAsked} {...ready} />
-        </>
-      ) : ticket.column !== "ready" ? (
+      {ticket.column !== "ready" ? (
         <>
           {/* A validated pull request waits for its merge, which the runner
               asks for again on each pass: what is left to you is to take the
@@ -969,7 +1071,7 @@ export function TicketActions({
           {t("Set aside")}
         </Button>
       ) : null}
-      {cancel && ticket.column !== "done" ? menu(cancel) : null}
+      {cancel ? cardMenu(cancel) : null}
     </div>
   )
 }

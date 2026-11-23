@@ -406,8 +406,8 @@ beside `Sécurité`, left by an older Ponos or typed by hand — is read as the 
 but a filter on one misses the tickets on the other. An option that spells no sub-type
 at all is left to you.
 
-On the console, a code ticket wears a small badge of its sub-type — its icon, in its colour
-—, the search bar filters by it, *New ticket* offers it, and the statistics count the code
+On the console, a code ticket wears its sub-type — a dot in its colour and its name, on the
+card's bottom line —, the search bar filters by it, *New ticket* offers it, and the statistics count the code
 tickets closed by sub-type and by week, with what one of each cost and lasted on average.
 
 ### The model of a ticket

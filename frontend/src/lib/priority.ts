@@ -51,3 +51,21 @@ export function readScore(value: unknown): number | null | undefined {
   const number = Math.round(Number(text.replace(",", ".")))
   return number >= LOWEST_SCORE && number <= HIGHEST_SCORE ? number : undefined
 }
+
+/* The mark a card of the board wears for its priority: a thin bar along its
+ * left edge rather than a badge, since a badge read as loud as the title, and
+ * the red end of the gradient was the red of a failed CI. A single hue — the
+ * console's orange — from no colour at all at 0 to its full strength at 100,
+ * the strength rising with the score: neutral for what can wait, orange for
+ * the urgent, and red left to the errors. The lightness is the theme's. */
+export const MARK_HUE = 28
+
+/** How strong the mark of a score is: its saturation (percent) and opacity (0 to 1). */
+export function scoreMark(score: number): { saturation: number; opacity: number } {
+  const at = Math.min(Math.max(Number.isFinite(score) ? score : DEFAULT_SCORE, LOWEST_SCORE), HIGHEST_SCORE)
+  const share = at / HIGHEST_SCORE
+  return {
+    saturation: Math.round(92 * share),
+    opacity: Math.round((0.35 + 0.65 * share) * 100) / 100,
+  }
+}

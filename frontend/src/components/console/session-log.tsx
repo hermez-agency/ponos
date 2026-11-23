@@ -360,12 +360,18 @@ export function Pulse({ className }: { className?: string }) {
   )
 }
 
-/* What a running card says, redrawn with every step: the dot, what the agent
- * is on, and how many steps it has taken. A card whose session this console
- * has not heard from yet says what the board last said, as it always did.
- * Between two sessions — a rebase, the CI here or on GitHub — it says that
- * phase and how long it has lasted instead: the steps of the session before
- * it are over (see `phase.ts`). « starting… » lasts as long as a start does. */
+/* What a running card says, redrawn with every step: one line, the robot at
+ * work and what the agent is on — « Ponos travaille… · Editing src/… ». A card
+ * whose session this console has not heard from yet says what the board last
+ * said, as it always did. Between two sessions — a rebase, the CI here or on
+ * GitHub — it says that phase and how long it has lasted instead: the steps
+ * of the session before it are over (see `phase.ts`). « starting… » lasts as
+ * long as a start does.
+ *
+ * The bar under it is drawn only when it measures something it can name: the
+ * agent's plan, its tooltip saying how many of its steps are done. A bar that
+ * only moved, for a session without a plan, said nothing it could be asked
+ * about, and the steps counted one by one are the session's page to say. */
 export function CardLive({ ticket }: { ticket: Ticket }) {
   const t = useT()
   const { sessions } = useSteps()
@@ -374,7 +380,7 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
   const quiet = Boolean(phase?.quiet)
   const session = quiet ? undefined : sessions.find((candidate) => candidate.source === ticket.short)
   const last = session ? lastWord(session.steps.filter((step) => step.label !== "Plan")) : undefined
-  const advanced = advance(session?.plan ?? [])
+  const advanced = quiet ? null : advance(session?.plan ?? [])
   // A session that has just started has nothing to say yet, and what the
   // board says is the session before it.
   const fresh = Boolean(phase && phase.young && !phase.said)
@@ -396,64 +402,37 @@ export function CardLive({ ticket }: { ticket: Ticket }) {
       : phase.young
         ? t("starting…")
         : `${t("no step from the session yet")} · ${lasted}`
-  const shown = line || fallback
-
-  // Without a step yet there is no counter to put on its own line: the dot
-  // goes in front of what the card says instead of standing alone above it.
-  const counter = session?.count ? (
-    <span className="tabular-nums">
-      {counted(session.count, "{{count}} step", "{{count}} steps")}
-    </span>
-  ) : null
-  const dot = (
-    <>
-      <Pulse />
-      <span className="sr-only">{t("writing now")}</span>
-    </>
-  )
+  const said = phase?.said ? `${t(phase.said.key, phase.said.params)} · ${lasted}` : ""
+  const shown = said || line || fallback
+  const steps = advanced
+    ? t("{{done}} of the plan's {{total}} steps done", { done: String(advanced.done), total: String(advanced.total) })
+    : ""
 
   return (
-    <div className="flex flex-col gap-1 text-xs" data-slot="card-live">
+    <div className="flex min-w-0 flex-col gap-1.5 text-xs" data-slot="card-live">
       {/* Said first, and on every running card: a ticket just unblocked shows it
           as soon as it runs again, and a reloaded board shows it still. */}
-      <div role="status" className="flex items-center gap-1.5 font-medium" data-slot="card-working">
-        <Robot state="thinking" size={28} className="shrink-0" />
-        {t("Ponos is working…")}
-      </div>
-      {counter ? (
-        <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-[0.7rem] whitespace-nowrap">
-          {dot}
-          {counter}
-        </div>
-      ) : null}
-      {phase?.said ? (
-        <p
-          className="text-muted-foreground flex items-center gap-1.5"
-          data-slot="card-phase"
-          title={ticket.phase?.detail || undefined}
-        >
-          {counter ? null : dot}
-          <span className="min-w-0 truncate">
-            {t(phase.said.key, phase.said.params)} · {lasted}
+      <p
+        role="status"
+        className="flex min-w-0 items-center gap-1.5"
+        data-slot="card-working"
+        title={[said && ticket.phase?.detail, line, shown].find(Boolean) || undefined}
+      >
+        <Robot state="thinking" size={20} className="shrink-0" />
+        <span className="shrink-0 font-medium">{t("Ponos is working…")}</span>
+        {shown ? (
+          <span
+            className="text-muted-foreground min-w-0 truncate"
+            data-slot={said ? "card-phase" : "card-doing"}
+          >
+            · {shown}
           </span>
-        </p>
-      ) : null}
-      {/* A plan gives a figure; without one the bar only moves, it never guesses. */}
-      {quiet ? null : (
-        <div data-slot="card-plan" className="flex flex-col gap-1">
-          <Progress value={advanced?.percent} />
-          {advanced ? (
-            <span className="text-muted-foreground font-mono text-[0.7rem] tabular-nums">
-              {advanced.done} / {advanced.total} · {advanced.percent} %
-            </span>
-          ) : null}
+        ) : null}
+      </p>
+      {advanced ? (
+        <div data-slot="card-plan" title={steps} className="flex items-center">
+          <Progress value={advanced.percent} aria-label={steps} className="h-1" />
         </div>
-      )}
-      {shown ? (
-        <p className="text-muted-foreground flex items-center gap-1.5" title={line || undefined}>
-          {counter || phase?.said ? null : dot}
-          <span className="min-w-0 truncate">{shown}</span>
-        </p>
       ) : null}
     </div>
   )

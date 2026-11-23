@@ -27,7 +27,16 @@ import { cn } from "@/lib/utils"
 const columnsOf = (board: Board) => board.columns
 const cancels = (board: Board) => board.cancel
 
-export default function StopGestures({ ticket, className }: { ticket: Ticket; className?: string }) {
+export default function StopGestures({
+  ticket,
+  className,
+  filled = false,
+}: {
+  ticket: Ticket
+  className?: string
+  /** On a card of the board, Pause or Resume is its one filled button. */
+  filled?: boolean
+}) {
   // What the gestures read of the board, which its moves leave as it was.
   const board = { columns: useBoardWith(columnsOf), cancel: useBoardWith(cancels) }
   useT()
@@ -39,7 +48,7 @@ export default function StopGestures({ ticket, className }: { ticket: Ticket; cl
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {running && pauses ? (
-        <Button variant="outline" size="sm" onClick={() => void move(ticket, "paused")}>
+        <Button variant={filled ? "default" : "outline"} size="sm" onClick={() => void move(ticket, "paused")}>
           {t("Pause")}
         </Button>
       ) : null}
@@ -53,7 +62,7 @@ export default function StopGestures({ ticket, className }: { ticket: Ticket; cl
           confirm={t("Make it ready")}
           onConfirm={() => void move(ticket, "ready")}
           trigger={
-            <Button variant="outline" size="sm">
+            <Button variant={filled ? "default" : "outline"} size="sm">
               {t("Resume")}
             </Button>
           }

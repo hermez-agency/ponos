@@ -28,14 +28,15 @@ test("a ticket waiting on you is marked on the board by its Unblock button alone
   const card = page.locator(`[data-ticket-card="${id}"]`)
   await expect(card).toHaveCount(1)
   await expect(card.locator('[data-slot="ticket-waiting"]')).toHaveCount(0)
-  // The cause is in the button's tooltip, label first.
+  // The cause is said on the card, on its own line, and in the button's tooltip, label first.
+  await expect(card.locator('[data-slot="card-cause"]')).toHaveText("Question for you")
   await expect(card.locator(`[data-decide="${id}"]`)).toHaveAttribute("title", /^Question for you\n/)
 })
 
 test("a stopped card says why, and Unblock opens on the question's answer", async ({ page }) => {
   await open(page, "/")
   const id = ASKING.split("/").pop()
-  // A blocked card keeps the cause's help in its Unblock button's tooltip only.
+  // A blocked card keeps the cause's help in tooltips: its cause's, and its Unblock button's.
   const card = page.locator(`[data-ticket-card="${id}"]`)
   await expect(card).toHaveCount(1)
   const unblock = page.locator(`[data-decide="${id}"]`)

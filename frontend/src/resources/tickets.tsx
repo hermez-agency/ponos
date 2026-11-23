@@ -35,7 +35,7 @@ import {
   TicketFoot,
   TicketHeld,
   TicketSync,
-  TicketTags,
+  CardCause,
   ago,
   capital,
   lasted,
@@ -59,7 +59,7 @@ import {
 import { EmptyState } from "@/components/console/empty-state"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { ModelInputController } from "@/components/console/model-input-lazy"
-import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
+import { PriorityBadge, PriorityInputController, PriorityMark } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
 import { RunnerStrip } from "@/components/console/runner-strip"
 import { HealthBand } from "@/components/console/health-band"
@@ -569,10 +569,17 @@ const rowForm: FormInterface = {
  * its title is the link; a click opens it in a
  * window over the board (see `ticketWindow`).
  *
- * Read top to bottom it answers, in order: what is it, what is said about it,
- * what is it doing, where does the work go, how long has it been sitting there
- * and what has it cost. "What is it doing" is live on a
- * running card: what its session last said, as it says it. The `-m-4` is the frame
+ * Read top to bottom, it says three things, each quieter than the one before:
+ * what it is — the title, alone on its line, two lines at most; where it
+ * stands and what it waits for — the robot's line on a running card, the
+ * cause on a blocked one, and the one filled button (`TicketActions`, `card`);
+ * then, on one line of secondary text, the kind of change, the project, its
+ * age and what it has cost. A card used to say everything at the same level —
+ * up to eight badges over six lines — and a column of 900 pixels held three.
+ *
+ * The priority is the thin bar along its left edge (`PriorityMark`), neutral
+ * to orange: the red badge of an urgent ticket read as a failed CI. The model
+ * and the goal are the title's tooltip, and the ticket's page. The `-m-4` is the frame
  * react-resource-view draws around every record being pushed back out of the
  * way: the coloured edge has to be the card's own edge, not a stripe inside a
  * second border.
@@ -650,7 +657,7 @@ const TicketCardBody = React.memo(function TicketCardBody({
       onClickCapture={onClickCapture}
       {...press.handlers}
       className={cn(
-        "group/card relative -m-4 flex min-w-0 flex-col gap-2 rounded-2xl p-3 [contain-intrinsic-size:auto_9rem] [content-visibility:auto] [-webkit-touch-callout:none] pointer-coarse:select-none",
+        "group/card relative -m-4 flex min-w-0 flex-col gap-2 rounded-2xl p-3 ps-4 [contain-intrinsic-size:auto_7rem] [content-visibility:auto] [-webkit-touch-callout:none] pointer-coarse:select-none",
         selected && "bg-primary/5 ring-primary ring-2 ring-inset"
       )}
     >
@@ -667,37 +674,48 @@ const TicketCardBody = React.memo(function TicketCardBody({
           )}
         />
       ) : null}
+      {typeof ticket.priority === "number" ? <PriorityMark score={ticket.priority} /> : null}
       {/* Given up on: still read, struck through, the way a list crosses out
-          what it no longer means to do. */}
-      <div className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-0.5", selecting && "pe-6")}>
+          what it no longer means to do. The id runs on after the title, inside
+          its two lines. */}
+      <p
+        data-slot="card-title"
+        className={cn("line-clamp-2 min-w-0 text-sm leading-snug break-words", selecting && "pe-6")}
+      >
         <Link
           to={href}
           onClick={open}
           // Picked up, the title carries the card, not its address.
           draggable={false}
+          title={hovered(ticket) || undefined}
           className={cn(
-            "min-w-0 text-[0.93rem] leading-snug font-semibold break-words hover:underline",
+            "font-semibold hover:underline",
             ticket.column === "cancelled" && "text-muted-foreground line-through"
           )}
         >
           <Marked text={ticket.title} words={words} />
-        </Link>
+        </Link>{" "}
         {/* Right after the title, and copied by a click. */}
         <TicketId id={ticket.public_id} />
-      </div>
+      </p>
 
-      <TicketTags ticket={ticket} />
       <TicketSync ticket={ticket} />
       <TicketHeld ticket={ticket} card />
-      {/* A blocked card says why in its Unblock button's tooltip. */}
-      {ticket.column !== "blocked" ? <TicketBlock block={ticket.block} /> : null}
+      {/* A blocked card says its cause on one line, its help in the tooltip. */}
+      {ticket.column === "blocked" ? <CardCause block={ticket.block} /> : <TicketBlock block={ticket.block} />}
       {/* In review, the checks are said in the line along the bottom. */}
       {ticket.column !== "review" ? <TicketCi ci={ticket.ci} /> : null}
+      {/* A ready card says its date in why it waits. */}
+      {ticket.scheduled && ticket.column !== "ready" ? (
+        <p className="text-muted-foreground text-xs" data-slot="card-scheduled">
+          ⏱ {when(ticket.scheduled)}
+        </p>
+      ) : null}
 
       {ticket.column === "running" ? (
         <CardLive ticket={ticket} />
       ) : ticket.progress ? (
-        <p className="text-muted-foreground line-clamp-3 text-xs leading-relaxed break-words">
+        <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed break-words">
           <Marked text={ticket.progress} words={words} />
         </p>
       ) : null}
@@ -705,17 +723,41 @@ const TicketCardBody = React.memo(function TicketCardBody({
       {ticket.excerpt && ["review", "validated", "done"].includes(ticket.column) ? (
         <p
           data-slot="card-excerpt"
-          className="border-border text-foreground/80 line-clamp-3 border-l-2 pl-2 text-xs leading-relaxed whitespace-pre-line break-words"
+          className="border-border text-foreground/80 line-clamp-2 border-l-2 pl-2 text-xs leading-relaxed whitespace-pre-line break-words"
         >
           {ticket.excerpt}
         </p>
       ) : null}
 
-      <TicketActions ticket={ticket} className="-mx-1" />
-      <TicketFoot ticket={ticket} />
+      {/* A card waiting on nobody has no filled button, only "…": at the end
+          of the quiet line rather than on a line of its own. */}
+      {WAITS_ON_NOBODY.has(ticket.column) ? (
+        <div className="flex items-center gap-2">
+          <TicketFoot ticket={ticket} className="min-w-0 flex-1" />
+          <TicketActions ticket={ticket} card />
+        </div>
+      ) : (
+        <>
+          <TicketActions ticket={ticket} card />
+          <TicketFoot ticket={ticket} />
+        </>
+      )}
     </div>
   )
 })
+
+/** The columns whose cards offer no filled button, only "…" — see `CardGestures`. */
+const WAITS_ON_NOBODY = new Set(["validated", "done", "cancelled"])
+
+/** What a card says on hover, and no longer on itself: the model it runs on and the goal it serves. */
+function hovered(ticket: TicketItem): string {
+  return [
+    ticket.model ? t("Model: {{model}}", { model: ticket.model_label || ticket.model }) : "",
+    ticket.goal ? t("Goal: {{goal}}", { goal: ticket.goal }) : "",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
 
 /** The ids of the cards drawn in the column this card is in, in their order: where a Shift-click runs. */
 function orderAround(card: Element): string[] {

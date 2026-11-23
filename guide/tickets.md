@@ -447,8 +447,8 @@ or GitHub), a label and a line of help in both languages, the gesture it
 proposes (run it again, answer, clean, look at the CI or at the pull request) and what the
 runner may do about it alone (`retry:n`, `wait-base`, `ask`). The code goes into the
 history and the run in `ponos.db`, into the `Blocage` select of the board — one option per
-code — and onto the card in the console: a badge with the family's icon, the help under
-it, and the gesture first among the buttons. The search over the board filters by it, and
+code — and onto the card in the console: the label with the family's icon, the help in
+its tooltip, and the gesture as the card's filled button. The search over the board filters by it, and
 the statistics count it week by week. The history written before codes existed was read
 back from its sentences, French and English, when `ponos.db` was migrated; a sentence that
 matched no cause is counted as `unknown`.

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test"
 
-/* A card in progress before its first step: the dot stands in front of
- * « starting… » on one line, and a long model name is cut with an ellipsis
- * inside its chip instead of at the card's edge. */
+/* A card in progress before its first step says « Ponos is working… ·
+ * starting… » on one line, cut inside the card rather than at its edge; its
+ * model, however long, is the title's tooltip, no longer a chip. */
 
 const STARTING = "000000000000000000000000000057a1"
 
@@ -14,19 +14,19 @@ async function open(page: Page) {
 async function check(page: Page) {
   const card = page.locator(`[data-ticket-card="${STARTING}"]`)
   await expect(card).toBeVisible()
-  const live = card.locator('[data-slot="card-live"]')
-  const dot = live.locator('span[class*="animate-pulse"]').locator("..")
-  const text = live.locator("p span.truncate")
-  const [d, x] = await Promise.all([dot.boundingBox(), text.boundingBox()])
-  expect(d && x && Math.abs(d.y + d.height / 2 - (x.y + x.height / 2)) < 6).toBe(true)
+  const working = card.locator('[data-slot="card-working"]')
+  const doing = working.locator('[data-slot="card-doing"]')
+  await expect(doing).toContainText("starting…")
+  const [w, x, box] = await Promise.all([working.boundingBox(), doing.boundingBox(), card.boundingBox()])
+  // One line: what it does sits beside the robot, not under it, and inside the card.
+  expect(w && x && Math.abs(w.y + w.height / 2 - (x.y + x.height / 2)) < 6).toBe(true)
+  expect(x && box && x.x + x.width <= box.x + box.width).toBe(true)
 
-  const chip = card.locator('[data-slot="ticket-model"]')
-  await expect(chip).toHaveAttribute("title", /qwen-2\.5-coder-32b-instruct/)
-  const [c, box] = await Promise.all([chip.locator("..").boundingBox(), card.boundingBox()])
-  expect(c && box && c.x + c.width <= box.x + box.width).toBe(true)
+  await expect(card.locator('[data-slot="card-title"] a')).toHaveAttribute("title", /qwen-2\.5-coder-32b-instruct/)
+  await expect(card.locator('[data-slot="ticket-model"]')).toHaveCount(0)
 }
 
-test("a card without a step puts the dot and « starting… » on one line", async ({ page }) => {
+test("a card without a step says « starting… » on the robot's line", async ({ page }) => {
   await open(page)
   await check(page)
 })
