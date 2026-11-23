@@ -342,7 +342,7 @@ const named = (selector, name, scope = 'document') =>
 const card = (title) =>
   `[...document.querySelectorAll('[draggable="true"]')].find((c) => c.innerText.includes(${JSON.stringify(title)}))`;
 // Which column a card stands in, told by what it offers: set aside in Ready,
-// validate in review, make ready once validated.
+// decide in review. A validated card offers nothing; its window says it.
 const offers = (title, name) => `!!${named('button', name, card(title))}`;
 
 async function type(text) {
@@ -436,7 +436,7 @@ async function film(theme) {
   await click(await where(named('button', 'Decide', card(TITLE)), 'Decide'));
   await sleep(1500);
   await click(await where(`[...document.querySelectorAll('[data-solution]')].find((e) => e.innerText.includes("Validate"))`, 'Validate'));
-  await until(() => evaluate(offers(TITLE, 'Make ready')), 'Validated');
+  await until(() => evaluate(`!!document.querySelector('[data-slot="ticket-status"][data-column="validated"]')`), 'Validated');
   // The decision said, the window closed: the card stands in Validated.
   await sleep(1600);
   await click(await where(`document.querySelector('[data-ticket-window] button[aria-label="Close"], [role="dialog"] button[aria-label="Close"]')`, 'the close button'));
