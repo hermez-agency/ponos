@@ -1,0 +1,1 @@
+export{n as GithubPage}from"./github-page-DY5573r5.js";

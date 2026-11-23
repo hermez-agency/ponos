@@ -24,7 +24,10 @@ import { cn } from "@/lib/utils"
  * button says so (hidden where there is no keyboard to press them on). The
  * focus opens on the main button rather than on Cancel, so that Enter is what
  * it looks like; while the main button cannot be pressed yet — a name still to
- * type — it goes to the first field instead. The primitive underneath is an
+ * type — it goes to the first field instead. Where the main thing loses work
+ * that nothing brings back (`focusCancel`), it opens on Cancel instead, and the
+ * main button drops its Enter badge: Enter then presses Cancel, and doing the
+ * thing is a gesture of its own. The primitive underneath is an
  * alert dialog: the focus stays inside, and goes back to where it was.
  *
  * Asking twice does nothing. The button turns into a spinner while `onConfirm`
@@ -56,6 +59,7 @@ export function ConfirmDialog({
   onConfirm,
   cancel,
   destructive,
+  focusCancel,
   disabled,
   multiline,
   children,
@@ -72,6 +76,8 @@ export function ConfirmDialog({
   /** The way out, when "Cancel" is not what it is. */
   cancel?: React.ReactNode
   destructive?: boolean
+  /** The focus opens on Cancel: what the main button does loses work for good. */
+  focusCancel?: boolean
   /** The main button cannot be pressed yet. */
   disabled?: boolean
   /** The window holds a field of several lines: Enter stays a new line there, ⌘/Ctrl+Enter confirms. */
@@ -89,6 +95,7 @@ export function ConfirmDialog({
   const [pending, setPending] = React.useState(false)
   const running = React.useRef(false)
   const main = React.useRef<HTMLButtonElement>(null)
+  const back = React.useRef<HTMLButtonElement>(null)
   const content = React.useRef<HTMLDivElement>(null)
   const shown = open ?? inner
   const mac = typeof navigator !== "undefined" && isMac(navigator.platform || navigator.userAgent)
@@ -124,6 +131,10 @@ export function ConfirmDialog({
         ref={content}
         onOpenAutoFocus={(event) => {
           event.preventDefault()
+          if (focusCancel && back.current) {
+            back.current.focus()
+            return
+          }
           const field = content.current?.querySelector<HTMLElement>("input:not([type=checkbox]), textarea")
           ;(main.current && !main.current.disabled ? main.current : (field ?? main.current))?.focus()
         }}
@@ -146,7 +157,7 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         {children}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>
+          <AlertDialogCancel ref={back} disabled={pending}>
             {cancel ?? t("Cancel")}
             <Kbd>{t("Esc")}</Kbd>
           </AlertDialogCancel>
@@ -156,12 +167,12 @@ export function ConfirmDialog({
             variant={destructive ? "destructive" : "default"}
             disabled={disabled || pending}
             aria-busy={pending || undefined}
-            aria-keyshortcuts={multiline ? (mac ? "Meta+Enter" : "Control+Enter") : "Enter"}
+            aria-keyshortcuts={focusCancel ? undefined : multiline ? (mac ? "Meta+Enter" : "Control+Enter") : "Enter"}
             onClick={() => void run()}
           >
             {pending ? <Loader2Icon className="animate-spin" /> : null}
             {confirm}
-            <Kbd>{multiline ? enterLabel(true, mac) : `↵ ${t("Enter")}`}</Kbd>
+            {focusCancel ? null : <Kbd>{multiline ? enterLabel(true, mac) : `↵ ${t("Enter")}`}</Kbd>}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

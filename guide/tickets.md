@@ -529,7 +529,10 @@ a session that is paid for. *Abandon* on a blocked ticket and *Reject* on one in
 file it there too, on a board that has the column.
 
 *Paused* and *Abandon* are the two gestures of a ticket in progress, on its card and on its
-page. Both go through the same move as any other: the console first asks the run that holds
+page — but not side by side: **Pause** is a button, **Abandon** waits behind the "…" beside
+it, in red (as it does on a paused ticket, beside **Resume**). Its window says what goes with
+it — the session in progress and the work not pushed — opens on *Cancel*, so that Enter
+takes nothing away, and is confirmed by **Abandon the ticket**. Both go through the same move as any other: the console first asks the run that holds
 the session to end it (a file under the state directory, `stops/` — the session is a child of
 another process, and a signal from outside would be read as a kill and retried), waits for it
 to say the session is gone, and only then touches the worktree. **Pause** commits what the
