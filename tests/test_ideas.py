@@ -753,6 +753,25 @@ def the_ideas_kept_before_their_author_was_known_became_tickets(state_home: Path
 
 
 @case
+def a_schedule_saves_its_validation_and_refuses_an_unknown_one() -> None:
+    with _board() as board:
+        api = _local_api(board)
+        page_id = api.create_schedule("Quotidienne", {"cadence": "Daily", "at": "09:00"})["id"]
+        assert api.schedule(page_id)["validation"] == ""
+        api.save_schedule(page_id, {"validation": "forced"})
+        assert schedules.read(board.page(page_id), board.settings).validation == "forced"
+        assert api.schedule(page_id)["validation"] == "forced"
+        api.save_schedule(page_id, {"validation": "inherit"})
+        assert api.schedule(page_id)["validation"] == ""
+        try:
+            api.save_schedule(page_id, {"validation": "maybe"})
+        except ValueError as error:
+            assert "unknown validation" in str(error)
+        else:
+            raise AssertionError("an unknown validation was accepted")
+
+
+@case
 def changing_the_hour_moves_the_next_occurrence_and_makes_no_ticket() -> None:
     from datetime import datetime
 

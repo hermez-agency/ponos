@@ -120,6 +120,8 @@ export interface ScheduleWrite {
   subtype?: string
   /** The prompt every ticket is born with, copied as written: empty, they have none. */
   on?: string
+  /** Their Force validated: empty inherits the project's, `forced` or `free` decides. */
+  validation?: string
   /** The page of the project its tickets are for, written as `project`: empty, they come back as documents. */
   project_id?: string
   /** The page of the goal its tickets serve, written as `goal`: empty, they serve none. */
@@ -372,6 +374,19 @@ const CADENCES = (
     return t(words)
   },
 }))
+/* Their Force validated, as a ticket says it: inherited from the project, forced, or not. */
+const VALIDATIONS = (
+  [
+    ["", "Inherited"],
+    ["forced", "Forced"],
+    ["free", "Not forced"],
+  ] as const
+).map(([value, words]) => ({
+  value,
+  get label() {
+    return t(words)
+  },
+}))
 /* The type and the sub-type its tickets are born with, as the server offers
  * them: only where the Schedules database has the column (`ponos init` adds
  * it), and in the board's words. Empty is an answer: the runner then guesses
@@ -447,6 +462,14 @@ const fields: FormInterface["inputs"] = {
     // Drawn only beside an empty type or code (see `RecurrenceFields`): it is
     // ignored on a ticket of another type, as on the board.
     hidden: () => !choicesOf("subtype").length,
+  },
+  validation: {
+    label: "Force validated",
+    controller: SegmentsInputController,
+    valueOptions: VALIDATIONS,
+    get description() {
+      return t("Whether each ticket is validated as soon as its session succeeds. Inherited, it follows the project's setting.")
+    },
   },
   // The project its tickets are for, chosen as a new ticket's is: by its page,
   // which is what the row holds beside the name the list says.
@@ -1018,6 +1041,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         type: patch.type ?? "",
         subtype: patch.subtype ?? "",
         ...(patch.on === undefined ? {} : { on: patch.on }),
+        ...(patch.validation === undefined ? {} : { validation: patch.validation }),
         ...(patch.project_id === undefined ? {} : { project: patch.project_id }),
         ...(patch.goal_id === undefined ? {} : { goal: patch.goal_id }),
         ...(patch.body === undefined ? {} : { body: patch.body }),
@@ -1039,6 +1063,7 @@ const options: ResourceDefinition<ScheduleItem, ScheduleWrite> = {
         type: fresh.type ?? "",
         subtype: fresh.subtype ?? "",
         ...(fresh.on ? { on: fresh.on } : {}),
+        ...(fresh.validation ? { validation: fresh.validation } : {}),
         project: fresh.project_id ?? "",
         ...(fresh.goal_id ? { goal: fresh.goal_id } : {}),
         ...(fresh.body ? { body: fresh.body } : {}),

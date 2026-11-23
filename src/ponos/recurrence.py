@@ -18,8 +18,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from . import goals, models, priority, state, store, ticket_page
+from . import goals, models, priority, project_settings, state, store, ticket_page
 from . import schedules as schedules_module
+from . import tickets as tickets_module
 from . import voice as voice_module
 from .base import Base
 
@@ -215,7 +216,8 @@ class Recurrence(Base):
         was actually asked for that day.
 
         The project, the model, the priority, the type, the sub-type and the
-        `On` prompt are copied too (the prompt as written: changing it on the
+        `On` prompt are copied too, and the « Force validated » when it says one
+        (the prompt as written: changing it on the
         schedule leaves the tickets already born alone). The type above all: a ticket born with one is never
         classified (see `Preparation._kind`), and a brief long and well written
         enough reads as « Rédaction » to a classifier — a code ticket that then
@@ -272,6 +274,11 @@ class Recurrence(Base):
                 f"  ! {schedule.name} — the ticket could not be created: {voice_module.line(error)}"
             )
             return None
+        # « Force validated » of its own, when the schedule says one: written on
+        # the ticket, as the console does for a ticket made by hand. Only the
+        # tickets born from now on — the ones already made keep what they have.
+        if schedule.validation in (project_settings.FORCED, project_settings.FREE):
+            tickets_module.update(page_id, validation=schedule.validation)
         # Linked first, so that a body the board refuses still leaves the schedule
         # knowing what it produced — otherwise the next occurrence makes a twin.
         self._mark(schedule, {settings.prop("last_ticket"): page_id})

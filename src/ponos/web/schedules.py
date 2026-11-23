@@ -17,8 +17,8 @@ from typing import Any
 
 from .. import kinds as kinds_module
 from .. import priority as priority_module
+from .. import project_settings, state, store, subtypes
 from .. import schedules as schedules_module
-from .. import state, store, subtypes
 from . import lineage
 from .base import Base
 
@@ -84,6 +84,12 @@ class Schedules(Base):
             if subtype and subtype not in subtypes.KEYS:
                 raise ValueError(f"unknown sub-type “{subtype}”")
             written[settings.prop("subtype")] = subtypes.option(subtype) if subtype else ""
+        if "validation" in values:
+            word = str(values["validation"] or "").strip().lower()
+            word = {"inherit": "", "inherited": "", "on": "forced", "off": "free"}.get(word, word)
+            if word not in project_settings.OVERRIDES:
+                raise ValueError(f"unknown validation “{word}”: inherit, forced or free")
+            written[settings.prop("validation")] = word
         if "project" in values:
             written[settings.prop("project")] = [values["project"]] if values["project"] else []
         # The goal its tickets serve, by its page: empty lets it go.
@@ -409,6 +415,8 @@ class Schedules(Base):
             "model": schedule.model,
             "priority": schedule.priority,
             "on": schedule.on,
+            # "" inherits the project's; "forced" or "free" is written on each ticket born.
+            "validation": schedule.validation,
             # By their keys, as the form sends them back: `code`, `bug`.
             "type": self.config.board.kind_of(schedule.kind),
             "subtype": subtypes.of(schedule.subtype),

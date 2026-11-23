@@ -971,6 +971,8 @@ class Schedule(Shape):
     subtype: str = omitted()
     on: str = omitted()
     """The `On` prompt each ticket is born with, empty for none."""
+    validation: str = omitted()
+    """Their Force validated: empty inherits the project's, `forced` or `free` decides."""
     goal: str = omitted()
     """The name of the goal its tickets serve, empty for none."""
     goal_id: str = omitted()

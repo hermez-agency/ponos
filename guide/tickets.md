@@ -1033,7 +1033,10 @@ ticket, so the ticket reads on its own and its history shows what was asked for 
 A ticket born with a `Type` is never classified: set it to *Code* on a schedule whose
 tickets are code, or a long, well-written brief may well read as *Writing*. A schedule
 with no `Type` whose project declares a repository makes *Code* tickets rather than leave
-them to the classifier. Three columns
+them to the classifier. A schedule also chooses the
+[*Force validated*](#force-validated-skipping-the-review) of its tickets — *Inherited* (the
+default: the project's setting), *Forced* or *Not forced*, in the `Validation` column and the
+schedule's form — written on each ticket as it is born; the tickets already born keep theirs. Three columns
 are the runner's to write: `Next`, `Last`, and `Last ticket`.
 
 ```

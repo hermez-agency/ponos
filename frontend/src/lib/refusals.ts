@@ -37,6 +37,7 @@ export const REFUSALS: readonly string[] = [
   "no schedule with id {{id}}",
   "unknown type “{{kind}}”",
   "unknown sub-type “{{subtype}}”",
+  "unknown validation “{{word}}”: inherit, forced or free",
   "this schedule is already being launched",
   // tickets.py: a ticket the board does not have.
   "no ticket with id {{id}}",
