@@ -120,6 +120,7 @@ function ticket(change: Partial<TicketDetail> = {}): TicketDetail {
   return {
     id: ID,
     short: "000abcde",
+    public_id: "PON-142",
     title: "A long ticket",
     url: "",
     status: "Ready",

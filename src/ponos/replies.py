@@ -168,7 +168,7 @@ class Replies(Base):
             title=ticket.title,
             body=self._body(ticket),
             where=where,
-            url=ticket.url,
+            url=ticket.address,
             message=message,
             thread=conversation.transcript(thread, me),
             brief=project.brief,

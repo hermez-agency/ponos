@@ -12,6 +12,7 @@ import { ActionList } from "react-data-form"
 import { Link, useCurrentViewResourceContext } from "react-resource-view"
 
 import { Button, buttonVariants } from "@/components/ui/button"
+import { TicketId } from "@/components/console/ticket-id"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConsole, useSteps } from "@/hooks/use-console"
@@ -702,12 +703,16 @@ export function TicketHead() {
             <ArrowLeft className="size-4" />
             {t("Dashboard")}
           </Link>
-          <h2
-            className="line-clamp-2 text-2xl font-semibold tracking-tight break-words"
-            title={ticket?.title}
-          >
-            {ticket ? ticket.title : t("Ticket")}
-          </h2>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2
+              className="line-clamp-2 min-w-0 text-2xl font-semibold tracking-tight break-words"
+              title={ticket?.title}
+            >
+              {ticket ? ticket.title : t("Ticket")}
+            </h2>
+            {/* Right after the title, and copied by a click. */}
+            <TicketId id={ticket?.public_id} className="text-base" />
+          </div>
           {ticket ? (
             <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <p className="flex items-center gap-1">

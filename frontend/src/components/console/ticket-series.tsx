@@ -5,6 +5,7 @@ import { useNavigate } from "react-resource-view"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { TicketId } from "@/components/console/ticket-id"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { Robot } from "@/components/console/robot"
 import { ProjectThumb } from "@/components/console/project-picture"
@@ -361,7 +362,10 @@ function Series({ column, onClose }: { column: SeriesColumn; onClose: () => void
             >
               <div className="flex flex-col gap-2">
                 <p className="text-muted-foreground font-mono text-xs">#{ticket.short}</p>
-                <h2 className="text-xl leading-snug font-semibold break-words">{titleOf(ticket)}</h2>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 className="text-xl leading-snug font-semibold break-words">{titleOf(ticket)}</h2>
+                  <TicketId id={ticket.public_id} className="text-sm" />
+                </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   {ticket.project ? (
                     <span className="text-muted-foreground flex min-w-0 items-center gap-1.5">

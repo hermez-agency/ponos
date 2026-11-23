@@ -4,6 +4,32 @@
 
 From the discussion on a ticket to *Done*: the statuses, the review, *Validated*, and the tickets that come back on their own.
 
+## The public id: `PON-142`
+
+A ticket's own id is thirty-two hexadecimal characters, which nobody says out loud. Each ticket
+also has a public id: its project's prefix and a number that follows — `PON-142`, `BA-37`. The
+tickets of « Sans projet » are `T-12`. It is shown right after the ticket's title everywhere the
+console draws one (the card, the page, the lists, the palette), and a click on it copies it.
+
+- **Numbered per project.** The prefix already says the project, so a global counter would only
+  give gaps (`BA-37`, then `BA-52`). The number is written when the ticket is created, in the
+  transaction that writes it: two tickets created at once — console, CLI, a schedule, an `On`
+  prompt, an import — never share one. Tickets that existed before were numbered once, project by
+  project, in the order of their creation.
+- **A ticket that changes project keeps its id.** The counter belongs to the prefix, so the
+  project it joins never gives out a number that was already given — nor does a prefix that was
+  changed and taken back.
+- **The prefix is a setting of the project** (the « Ticket id prefix » card of its settings tab, and `prefix` in the API).
+  Unless chosen — two to six capitals or digits, a letter first, not another project's — it is
+  drawn from the name the first time a ticket needs it (`Ponos` → `PON`, `Brand Assets` → `BA`) and
+  kept: renaming the project does not move it, and a new prefix only numbers the next tickets.
+- **Accepted wherever a ticket is named**, whatever the case: `ponos show|move|comment|logs|schedule
+  pon-142`, the console's API (`/api/tickets/pon-142`), the MCP, and the `On` prompts' `ponos move`.
+  The full id and the last eight characters still work. The session's prompt and the assistant's
+  tools carry it, so that they name the ticket by it rather than by its long id.
+- The internal id does not change: it stays the key of the database, the branches, the worktrees
+  and the working directories.
+
 ## A ticket's page: the mission, the result, and the journal
 
 Every ticket has three parts, the same for every ticket — in the console, in the MCP, in
@@ -350,8 +376,8 @@ ponos schedule <ticket> <when>
 
 - `ponos move` goes through the console's own path: the same checks (a ticket in progress that
   is paused or cancelled has its session stopped first), the same journal, the same sync of
-  the board. `<ticket>` is the full ID, the short one (the last eight characters) or the
-  ticket's URL. `<status>` is a column of the board — `draft`, `ready`, `running`, `blocked`,
+  the board. `<ticket>` is the public ID (`PON-142`, in any case), the full ID, the short one (the last
+  eight characters) or the ticket's URL — see [The public id](#the-public-id-pon-142). `<status>` is a column of the board — `draft`, `ready`, `running`, `blocked`,
   `paused`, `review`, `validated`, `done`, `cancelled` — or the word the board writes, in any
   case. `--from` refuses when the ticket is no longer in that status, like the `from` of the
   console: *« when this ticket is Done, move #next from Draft to Ready »* cannot fire twice, or

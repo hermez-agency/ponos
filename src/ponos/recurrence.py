@@ -303,7 +303,9 @@ class Recurrence(Base):
             )
         except store.StoreError as error:
             self.say(f"  ! {title} — created, but its body was refused: {voice_module.line(error)}")
-        self.say(f"  ✳ {title} — created by a schedule, ready")
+        born = tickets_module.get(page_id)
+        named = f"{title} ({born.public_id})" if born and born.public_id else title
+        self.say(f"  ✳ {named} — created by a schedule, ready")
         return {
             "ticket": title,
             "id": page_id.replace("-", ""),

@@ -270,14 +270,14 @@ def command_list(args: argparse.Namespace) -> int:
         ]
         tail = " · ".join([part for part in [project, kind, *badges] if part])
         print(
-            f"  {position}. {ticket.title}\n     {DIM}{tail}{RESET}\n     {DIM}{ticket.url}{RESET}"
+            f"  {position}. {ticket.title}{_tag(ticket)}\n     {DIM}{tail}{RESET}\n     {DIM}{ticket.url}{RESET}"
         )
 
     now = datetime.now().astimezone()
     if rows:
         title(f"\n{len(rows)} ticket(s) waiting for their date")
         for ticket, moment, note in rows:
-            print(f"  {ticket.title}\n     {DIM}{_when(moment, now)}{note}{RESET}")
+            print(f"  {ticket.title}{_tag(ticket)}\n     {DIM}{_when(moment, now)}{note}{RESET}")
 
     if births:
         title(f"\n{len(births)} ticket(s) not written yet")
@@ -484,7 +484,7 @@ def command_diagnose(args: argparse.Namespace) -> int:
         bad(f"the diagnostic could not be created: {error}")
         return 1
     where = "in the drafts" if args.draft else "ready: the runner starts it at its next place"
-    ok(f"diagnostic created ({short_id(page_id)}), {where} — {title_}")
+    ok(f"diagnostic created ({_public(page_id)}), {where} — {title_}")
     return 0
 
 
@@ -563,6 +563,13 @@ def command_history_csv(args: argparse.Namespace) -> int:
     return 0
 
 
+def _entry_name(entry: dict[str, Any]) -> str:
+    """A history line's ticket: its title, behind its public id when the line knows the ticket."""
+    title_ = str(entry.get("ticket", ""))
+    found = tickets.get(str(entry["id"])) if entry.get("id") else None
+    return f"{found.public_id} {title_}" if found and found.public_id else title_
+
+
 def command_history(args: argparse.Namespace) -> int:
     if args.csv:
         return command_history_csv(args)
@@ -579,7 +586,10 @@ def command_history(args: argparse.Namespace) -> int:
         )
         cost = entry.get("cost_usd")
         price = f" {DIM}(${float(cost):.2f}){RESET}" if isinstance(cost, (int, float)) else ""
-        line = f"  {colour}{status:<7}{RESET} {entry.get('at', '')}  {entry.get('ticket', '')}{timing}{price}"
+        line = (
+            f"  {colour}{status:<7}{RESET} {entry.get('at', '')}  "
+            f"{_entry_name(entry)}{timing}{price}"
+        )
         print(line)
         detail = entry.get("pull_request") or entry.get("reason") or ""
         if detail:
@@ -785,7 +795,7 @@ def _status_recent() -> int:
         timing = (
             f" {DIM}({seconds / 60:.0f} min){RESET}" if isinstance(seconds, (int, float)) else ""
         )
-        print(f"  {_colour(status)}{status:<7}{RESET} {entry.get('ticket', '')}{timing}")
+        print(f"  {_colour(status)}{status:<7}{RESET} {_entry_name(entry)}{timing}")
         detail = entry.get("pull_request") or entry.get("reason") or ""
         if detail:
             print(f"          {DIM}{str(detail)[:90]}{RESET}")
@@ -814,7 +824,7 @@ def _print_runs(runs: list[dict[str, Any]]) -> int:
         cost = f" · ${run['cost_usd']:.2f}" if run["cost_usd"] else ""
         print(
             f"  {_colour(status)}{status:<9}{RESET} {run['started_at'][:16].replace('T', ' ')}"
-            f"  {short_id(run['ticket'])}  {run['title']}  {DIM}{run['steps']} steps{cost}{RESET}"
+            f"  {_public(run['ticket'])}  {run['title']}  {DIM}{run['steps']} steps{cost}{RESET}"
         )
         detail = run["reason"]
         if detail:
@@ -932,7 +942,7 @@ def command_move(args: argparse.Namespace) -> int:
         return 1
     later_on = f", scheduled for {dated}" if dated else ""
     print(
-        f"{record.title} #{short_id(record.id)}: {current or 'no status'} → {moved['status']}{later_on}"
+        f"{record.title} #{_public(record.id)}: {current or 'no status'} → {moved['status']}{later_on}"
     )
     return 0
 
@@ -957,9 +967,9 @@ def command_schedule(args: argparse.Namespace) -> int:
         print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
         return 1
     if dated:
-        print(f"{record.title} #{short_id(record.id)}: scheduled for {dated}")
+        print(f"{record.title} #{_public(record.id)}: scheduled for {dated}")
     else:
-        print(f"{record.title} #{short_id(record.id)}: no date — it runs as soon as it may")
+        print(f"{record.title} #{_public(record.id)}: no date — it runs as soon as it may")
     return 0
 
 
@@ -991,7 +1001,7 @@ def command_comment(args: argparse.Namespace) -> int:
     except (ValueError, store.StoreError) as error:
         print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
         return 1
-    print(f"commented on {record.title} #{short_id(record.id)}")
+    print(f"commented on {record.title} #{_public(record.id)}")
     return 0
 
 
@@ -1006,6 +1016,9 @@ def command_logs(args: argparse.Namespace) -> int:
         return 0
     target = logs[-1]
     if args.ticket:
+        named = tickets.resolve(args.ticket)
+        if named is not None:
+            args.ticket = named.id
         # The journal knows a ticket's runs whatever their log is called — a
         # session started over writes to a second one. The file names are what
         # is left for runs older than the journal.
@@ -1047,18 +1060,23 @@ def command_logs(args: argparse.Namespace) -> int:
 
 
 def _find_ticket(wanted: str) -> Any:
-    """The one ticket an ID in any form names — full, short, or a ticket's URL — or None, said."""
-    probe = wanted.strip().rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0].replace("-", "")
-    found = [
-        record
-        for record in tickets.listing()
-        if probe and (record.id == probe or (len(probe) >= 8 and record.id.endswith(probe)))
-    ]
-    if len(found) != 1:
-        said = "No ticket" if not found else f"{len(found)} tickets"
-        print(f"{said} for {wanted}", file=sys.stderr)
-        return None
-    return found[0]
+    """The one ticket an ID in any form names — `PON-142`, full, short, or a ticket's URL — or None, said."""
+    found = tickets.resolve(wanted)
+    if found is None:
+        print(f"No ticket for {wanted}", file=sys.stderr)
+    return found
+
+
+def _tag(ticket: Any) -> str:
+    """` PON-142`, dimmed, for a ticket read from the board — nothing for a page that has none."""
+    public = str(ticket.page.raw.get("public_id") or "")
+    return f" {DIM}{public}{RESET}" if public else ""
+
+
+def _public(ticket: object) -> str:
+    """`PON-142` for a ticket's id, or the eight characters it used to be said with."""
+    found = tickets.get(str(ticket or "")) if ticket else None
+    return found.public_id if found and found.public_id else short_id(str(ticket or ""))
 
 
 def command_show(args: argparse.Namespace) -> int:
@@ -1076,7 +1094,7 @@ def command_show(args: argparse.Namespace) -> int:
             return 1
         print(record.result.strip())
         return 0
-    print(f"{BOLD}{record.title}{RESET}  {DIM}#{short_id(record.id)} · {record.status}{RESET}")
+    print(f"{BOLD}{record.title}{RESET}  {DIM}#{_public(record.id)} · {record.status}{RESET}")
     for heading, text in (
         ("Mission", record.mission),
         ("Result", record.result),

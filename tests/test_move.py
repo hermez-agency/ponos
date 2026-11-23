@@ -48,6 +48,20 @@ def ponos_move_changes_the_status_of_a_ticket_by_its_short_id(state_home: Path) 
 
 
 @case
+def ponos_move_and_show_take_the_public_id_in_any_case_and_say_it(state_home: Path) -> None:
+    made = tickets.create("Suivant", status="draft")
+    assert made.public_id == "T-1"
+    with _installed():
+        code, out, err = _run(cli.command_move, ticket="t-1", status="ready", source=None)
+        assert (code, err) == (0, "") and "#T-1" in out, (code, out, err)
+        assert _status(made.id) == "ready"
+        code, out, _ = _run(cli.command_show, ticket="T-1", result=False)
+        assert code == 0 and "Suivant" in out and "#T-1" in out, out
+        code, _, err = _run(cli.command_show, ticket="T-99", result=False)
+        assert code == 1 and "No ticket for T-99" in err
+
+
+@case
 def ponos_move_with_from_refuses_when_the_ticket_is_no_longer_there(state_home: Path) -> None:
     made = tickets.create("Suivant", status="paused")
     with _installed():

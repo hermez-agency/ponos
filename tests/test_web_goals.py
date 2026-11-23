@@ -6,7 +6,7 @@ from typing import Any
 
 from support import _board, _local_api, case
 
-from ponos import ledger, store
+from ponos import ledger, store, tickets
 from ponos.ticket import short_id
 from ponos.web import api as web_api
 
@@ -91,7 +91,13 @@ def tickets_are_tied_to_a_goal_from_the_goal_and_from_the_ticket() -> None:
         assert sum(row["tickets"].values()) == 2, row
         # The goal's page lists them by column, each a way into its window.
         first = next(ticket for ticket in row["linked"] if ticket["id"] == one)
-        assert first == {"id": one, "short": short_id(one), "title": "un", "column": "draft"}, first
+        assert first == {
+            "id": one,
+            "short": short_id(one),
+            "public_id": tickets.get(one).public_id,  # type: ignore[union-attr]  # it exists
+            "title": "un",
+            "column": "draft",
+        }, first
 
         # From the ticket: moved to the other goal, then released.
         api.set_ticket_goal(one, other)

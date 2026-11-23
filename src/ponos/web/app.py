@@ -52,7 +52,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import ClientDisconnect
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .. import __version__, db, library, openrouter, tailscale, transfer, triggers, vault, voice
+from .. import (
+    __version__,
+    db,
+    library,
+    openrouter,
+    tailscale,
+    tickets,
+    transfer,
+    triggers,
+    vault,
+    voice,
+)
 from .. import config as config_module
 from ..config import state_dir
 from . import (
@@ -901,14 +912,17 @@ READABLE = {
 # The address Ponos writes for a ticket — in a notification, a pull request,
 # `ponos list` — read back. A page id, dashes and all, is still a
 # ticket's id: the import kept them, so a link written before is not dead.
-_TICKET_ADDRESS = re.compile(r"/tickets/([0-9a-fA-F-]{8,36})/?")
+# Or its public id, `PON-142`, in any case — see public_ids.py.
+_TICKET_ADDRESS = re.compile(r"/tickets/([0-9a-fA-F-]{8,36}|[A-Za-z][A-Za-z0-9]*-[0-9]+)/?")
 
 
 def _ticket_address(path: str) -> str:
     found = _TICKET_ADDRESS.fullmatch(path)
     if not found:
         return ""
-    return f"/?view=console/tickets/read/{found[1].replace('-', '').lower()}"
+    # The id the console keys the ticket by; a reference nobody answers to is kept as written.
+    named = tickets.resolve(found[1])
+    return f"/?view=console/tickets/read/{named.id if named else found[1].replace('-', '').lower()}"
 
 
 def _navigation(request: Request) -> bool:

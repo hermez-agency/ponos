@@ -1066,6 +1066,14 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "Run in each fresh worktree before the session starts, so that it finds its dependencies installed. A command that fails blocks the ticket, without starting a session.":
     "Lancée dans chaque worktree neuf avant la session, pour qu'elle trouve ses dépendances installées. Une commande qui échoue bloque le ticket, sans lancer de session.",
   "Setup command": "Commande de préparation",
+  "Ticket id prefix": "Préfixe des ids de ticket",
+  "The public id of a ticket is this prefix and a number that follows, like PON-142. The tickets already numbered keep their ids; the next ones take the new prefix.":
+    "L’id public d’un ticket est ce préfixe et un numéro qui se suit, comme PON-142. Les tickets déjà numérotés gardent leur id ; les suivants prennent le nouveau préfixe.",
+  Prefix: "Préfixe",
+  "The tickets without a project share one prefix, which is not changed.":
+    "Les tickets sans projet partagent un même préfixe, qui ne se change pas.",
+  "Two to six capitals or digits, a letter first, and not another project's.":
+    "De deux à six majuscules ou chiffres, une lettre d’abord, et pas celui d’un autre projet.",
   "The tickets ticked « Plan d'abord » start with a session that only plans, and their code waits for your yes. Tick it here for this project's tickets on their first run, from a priority or for some sub-types.":
     "Les tickets cochés « Plan d'abord » commencent par une session qui ne fait que planifier, et leur code attend votre oui. Cochez-la ici pour les tickets de ce projet à leur premier passage, à partir d'une priorité ou pour certains sous-types.",
   "From a priority of": "À partir d'une priorité de",

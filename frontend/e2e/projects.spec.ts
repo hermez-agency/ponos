@@ -381,7 +381,8 @@ test.describe("the page of a project", () => {
 
     await layouts.getByRole("tab", { name: "List" }).click()
     const heads = page.getByRole("columnheader")
-    for (const name of ["Id", "Ticket", "Status", "Priority", "Type", "Cost", "Last modified"])
+    // The id is no column of its own: it follows the title, in its cell.
+    for (const name of ["Ticket", "Status", "Priority", "Type", "Cost", "Last modified"])
       await expect(heads.filter({ hasText: name }).first()).toBeVisible()
     // The address stays the project's: the layout is remembered, not navigated to.
     await expect(page).toHaveURL(/projects\/read/)

@@ -3732,6 +3732,7 @@ export interface components {
         GoalTicket: {
             id: string;
             short: string;
+            public_id?: string;
             title: string;
             /** @description The key of the board's column it stands in, as `Goal.tickets` counts it. */
             column: string;
@@ -4639,6 +4640,12 @@ export interface components {
             /** @description Whether the board has the checkbox to tick. */
             column: boolean;
         };
+        /** @description What the project's tickets are numbered under: `PON` for `PON-142`. */
+        ProjectPrefix: {
+            value: string;
+            /** @description True for « Sans projet », whose prefix is the same everywhere and is not chosen. */
+            fixed: boolean;
+        };
         /** @description What is started to photograph a project's pages — see preview.py; empty, nothing is. */
         ProjectPreview: {
             command: string;
@@ -4672,6 +4679,7 @@ export interface components {
             path: components["schemas"]["ProjectPath"];
             vault: components["schemas"]["ProjectVault"];
             guards: components["schemas"]["ProjectGuards"];
+            prefix: components["schemas"]["ProjectPrefix"];
         };
         /** @description The keys a project's sessions are given — see vault.py. */
         ProjectVault: {
@@ -5015,6 +5023,7 @@ export interface components {
         ScheduleTicket: {
             id: string;
             short: string;
+            public_id?: string;
             title: string;
             url: string;
             status: string;
@@ -5553,6 +5562,8 @@ export interface components {
         Ticket: {
             id: string;
             short: string;
+            /** @description The id said out loud, `PON-142` — empty for a ticket numbered by nobody. */
+            public_id: string;
             title: string;
             url: string;
             status: string;
@@ -5645,6 +5656,8 @@ export interface components {
         TicketDetail: {
             id: string;
             short: string;
+            /** @description The id said out loud, `PON-142` — empty for a ticket numbered by nobody. */
+            public_id: string;
             title: string;
             url: string;
             status: string;

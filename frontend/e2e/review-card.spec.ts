@@ -24,7 +24,9 @@ test.use({ viewport: { width: 1440, height: 900 } })
 
 test("a card in review draws Decide and a menu, and nothing else", async ({ page }) => {
   await open(page)
-  await expect(card(page).getByRole("button")).toHaveCount(2)
+  // Beside its public id, right after the title, which only copies itself.
+  await expect(card(page).getByRole("button")).toHaveCount(3)
+  await expect(card(page).getByRole("button").first()).toHaveText(/^T-\d+$/)
   const decide = card(page).locator(`[data-decide="${RED}"]`)
   await expect(decide).toHaveText("Decide")
   const more = card(page).getByRole("button", { name: "More actions" })

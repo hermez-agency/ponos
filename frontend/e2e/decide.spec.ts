@@ -58,7 +58,8 @@ test.describe("on a desktop", () => {
     const button = page.locator(`[data-decide="${READ}"]`)
     await expect(button).toHaveText("Unblock")
     const card = page.locator("div.rounded-2xl.p-3", { has: button }).last()
-    await expect(card.getByRole("button")).toHaveText(["Unblock"])
+    // Beside its public id, which only copies itself.
+    await expect(card.getByRole("button")).toHaveText([/^T-\d+$/, "Unblock"])
     await expect(card.locator('[data-slot="block-action"]')).toHaveCount(0)
     // The cause is no badge of its own any more: the button is the only mark.
     await expect(card.locator('[data-slot="ticket-waiting"]')).toHaveCount(0)

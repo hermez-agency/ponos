@@ -15,7 +15,7 @@ from typing import Any
 from support import case
 
 from ponos import config as config_module
-from ponos import db, memory, skills, transfer, transitions, vault, vault_store
+from ponos import db, memory, skills, tickets, transfer, transitions, vault, vault_store
 
 TICKET = "a" * 32
 OTHER = "b" * 32
@@ -172,6 +172,19 @@ def an_export_imported_into_an_empty_ponos_gives_back_the_same_data(vault_home: 
         again = transfer.run(transfer.read(blob), apply=True)
         for category in again["categories"]:
             assert category["imported"] == 0 and not category["conflicts"], category
+
+
+@case
+def imported_tickets_are_numbered_by_the_board_they_arrive_on(vault_home: Path) -> None:
+    """`PON-1` of the archive may be `PON-1` here already: the number is given again."""
+    _fill()
+    _, blob, _ = transfer.export(transfer.KEYS)
+    with another_ponos():
+        mine = tickets.create("already here", project=PROJECT)
+        transfer.run(transfer.read(blob), apply=True)
+        numbers = [record.public_id for record in tickets.listing() if record.id in (TICKET, OTHER)]
+        assert len(numbers) == 2 and mine.public_id not in numbers
+        assert len({*numbers, mine.public_id}) == 3
 
 
 @case

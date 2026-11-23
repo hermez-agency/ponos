@@ -577,6 +577,7 @@ export const api = {
       browser?: { value: "ponos" | "chrome" }
       diagnostic?: Pick<ProjectSettings["diagnostic"], "mcp" | "hosts" | "urls" | "ready">
       path?: { value: string }
+      prefix?: { value: string }
       vault?: { entries: Record<string, string> }
     }
   ) =>

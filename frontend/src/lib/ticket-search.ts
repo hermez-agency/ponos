@@ -72,6 +72,8 @@ export type Facet = (typeof FACETS)[number]
 export interface Searchable {
   id: string
   short: string
+  /** `PON-142`, the id said out loud: "" for a ticket that has none. */
+  public_id?: string
   title: string
   column: string
   project: string
@@ -143,6 +145,9 @@ export function saysText(ticket: Searchable, text: string): boolean {
   if (named.short) return ticket.short.toLowerCase() === named.short
   const words = terms(text)
   if (!words.length) return true
+  // `pon-142`, in any case, is that ticket — whole, never among the words: "ticket 1"
+  // would otherwise find T-12, whose number holds a 1.
+  if (ticket.public_id && ticket.public_id.toLowerCase() === text.trim().toLowerCase()) return true
   const said = fold(
     [ticket.title, ticket.progress, ticket.pull_request, ticket.project, ticket.runner].join(" ")
   )

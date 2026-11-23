@@ -28,6 +28,7 @@ from .. import (
     preview,
     project_settings,
     projectless,
+    public_ids,
     skills,
     store,
     subtypes,
@@ -121,6 +122,7 @@ class Configuration(Base):
             "path": self._project_path(bare),
             "vault": self._project_vault(bare),
             "guards": self._project_guards(bare),
+            "prefix": {"value": public_ids.prefix(bare), "fixed": projectless.is_it(bare)},
         }
 
     def _project_guards(self, bare: str) -> dict[str, Any]:
@@ -312,6 +314,7 @@ class Configuration(Base):
         browsing = payload.get("browser")
         located = payload.get("path")
         granting = payload.get("vault")
+        numbering = payload.get("prefix")
         investigating = payload.get("diagnostic")
         access = None
         if validation is None and isinstance(investigating, dict):
@@ -426,6 +429,9 @@ class Configuration(Base):
             project_settings.set_diagnostic(bare, name, access)
         if isinstance(located, dict):
             project_settings.set_path(bare, name, located["value"])
+        if isinstance(numbering, dict):
+            # The tickets already numbered keep their ids — see public_ids.py.
+            public_ids.choose(bare, str(numbering.get("value", "")))
         if isinstance(granting, dict):
             project_settings.set_vault(bare, name, granting["entries"])
         if isinstance(browsing, dict):

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { RouterProvider } from "@tanstack/react-router"
+import { RouterProvider, useRouter } from "@tanstack/react-router"
 import { ActionList } from "react-data-form"
 import {
   Navigate,
@@ -18,6 +18,7 @@ import { ConsoleProvider, useConsole } from "@/hooks/use-console"
 import { RunnerMoodProvider } from "@/hooks/use-mood"
 import { useBoardWith } from "@/lib/board-store"
 import { useLanguage } from "@/lib/i18n"
+import { ticketNamed } from "@/lib/ticket-reference"
 import { SCOPE } from "@/lib/resource-view"
 import { consoleRouter, useRoute } from "@/lib/router"
 import { canAct } from "@/lib/role"
@@ -25,7 +26,7 @@ import { scopes } from "@/resources/scope"
 import { CONTEXT, contextHref, VAULT_TAB } from "@/resources/context"
 import { SESSIONS, sessionsHref } from "@/resources/sessions"
 import { SETTINGS, settingsHref } from "@/resources/settings"
-import { TICKETS, boardHref } from "@/resources/tickets"
+import { TICKETS, boardHref, ticketHref } from "@/resources/tickets"
 
 /* The shape of the page.
  *
@@ -110,16 +111,19 @@ function OpenTicket({ params }: { params: ViewResourceContextParams }) {
   const ticketId = ticketOf(params) ?? ticketOf(params.childViewResource)
   // The open ticket alone, the same object until it changes: the other moves
   // of the board are nothing to this, which used to be drawn again at each.
-  const known = useBoardWith((board) =>
-    ticketId ? board.tickets.find((item) => item.id === ticketId) : undefined
-  )
+  // The address may name it by its public id (`PON-142`): then it is rewritten
+  // with the ticket's own id, which is what the rest of the console keys it by.
+  const known = useBoardWith((board) => (ticketId ? ticketNamed(board.tickets, ticketId) : undefined))
+  const router = useRouter()
   React.useEffect(() => {
     if (!ticketId) {
       closeTicket()
       return
     }
-    if (known) openTicket(known)
-  }, [ticketId, known, openTicket, closeTicket])
+    if (!known) return
+    if (known.id !== ticketId) router.history.replace(ticketHref(known.id))
+    else openTicket(known)
+  }, [ticketId, known, openTicket, closeTicket, router])
 
   return null
 }

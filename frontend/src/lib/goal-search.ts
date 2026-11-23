@@ -113,6 +113,7 @@ export function projectFirst<Item>(items: Item[], project: string, projectsOf: (
 export interface Offered {
   id: string
   short: string
+  public_id?: string
   title: string
   column: string
   project: string
@@ -147,7 +148,7 @@ export function ticketsFor(tickets: Offered[], query: TicketQuery = {}, limit = 
       if (projects.size && !projects.has(ticket.project_id ?? "")) return false
     }
     if (!words.length) return true
-    const said = fold(`${ticket.short} ${ticket.title} ${ticket.project}`)
+    const said = fold(`${ticket.short} ${ticket.public_id ?? ""} ${ticket.title} ${ticket.project}`)
     return words.every((word) => said.includes(word))
   })
   return { shown: kept.slice(0, limit), more: Math.max(0, kept.length - limit) }

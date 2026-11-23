@@ -202,6 +202,8 @@ class Estimated(Shape):
 class Ticket(Shape):
     id: str
     short: str
+    public_id: str
+    """The id said out loud, `PON-142` — empty for a ticket numbered by nobody."""
     title: str
     url: str
     status: str
@@ -744,6 +746,14 @@ class ProjectGuards(Shape):
     """The latest refusals, newest first."""
 
 
+class ProjectPrefix(Shape):
+    """What the project's tickets are numbered under: `PON` for `PON-142`."""
+
+    value: str
+    fixed: bool
+    """True for « Sans projet », whose prefix is the same everywhere and is not chosen."""
+
+
 class ProjectSettings(Shape):
     """What a project decides for itself — see project_settings.py."""
 
@@ -761,6 +771,7 @@ class ProjectSettings(Shape):
     path: ProjectPath
     vault: ProjectVault
     guards: ProjectGuards
+    prefix: ProjectPrefix
 
 
 class ProjectNotes(Shape):
@@ -1043,6 +1054,7 @@ class ScheduleTicket(Shape):
 
     id: str
     short: str
+    public_id: str = omitted()
     title: str
     url: str
     status: str
@@ -2200,6 +2212,7 @@ class Statistics(Shape):
 class GoalTicket(Shape):
     id: str
     short: str
+    public_id: str = omitted()
     title: str
     column: str
     """The key of the board's column it stands in, as `Goal.tickets` counts it."""
