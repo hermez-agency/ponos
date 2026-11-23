@@ -1,0 +1,13 @@
+#!/bin/sh
+# Install Ponos — the short address of the installer:
+#
+#   curl -LsSf https://the-ponos.app/install | sh
+#
+# The site is GitHub Pages, which serves files and redirects nothing: this one
+# fetches the real installer from the repository and hands it over, so the
+# installer itself is written once, in install.sh at the repository's root.
+# Its variables (TR_REF, TR_NO_SERVICE…) pass through the environment as they
+# are. Nothing runs if the download fails.
+set -eu
+installer=$(curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh)
+exec sh -c "$installer" sh "$@"
