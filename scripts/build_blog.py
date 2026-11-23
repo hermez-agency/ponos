@@ -486,7 +486,7 @@ def _head(
     tags += [
         f'<link rel="alternate" type="application/atom+xml" title="{_e(WORDS[lang]["feed"])}" '
         f'href="{SITE}/{_prefix(lang)}blog/feed.xml">',
-        '<link rel="icon" type="image/svg+xml" href="/mascot/favicon.svg?v=ecran">',
+        '<link rel="icon" type="image/svg+xml" href="/mascot/favicon.svg?v=tete">',
         '<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">',
         '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
         f'<meta property="og:type" content="{og_type}">',
@@ -541,7 +541,7 @@ def _chrome(lang: str, switch_href: str, content: str) -> str:
 <header class="nav">
   <div class="wrap nav-in">
     <a class="brand" href="{home}" aria-label="Ponos, {"home" if lang == "en" else "accueil"}">
-      <img src="/mascot/favicon.svg?v=ecran" alt="" width="28" height="28">
+      <img src="/mascot/favicon.svg?v=tete" alt="" width="28" height="28">
       Ponos
     </a>
     <nav class="nav-links" aria-label="Site">
@@ -692,7 +692,7 @@ def article_page(
     body = f"""<div class="crumbs wrap"><a href="/{_prefix(a.lang)}blog/">← {w["blog"]}</a></div>
 <article class="prose">
 <header>
-  <p class="product"><img src="/mascot/favicon.svg?v=ecran" alt="" width="20" height="20"><span>Ponos</span>{category}</p>
+  <p class="product"><img src="/mascot/favicon.svg?v=tete" alt="" width="20" height="20"><span>Ponos</span>{category}</p>
   <h1>{_e(a.title)}</h1>
   <p class="lead">{_e(a.description)}</p>
   <p class="byline"><span class="by">Hermez</span><span aria-hidden="true">·</span><time datetime="{a.published}">{format_date(a.published, a.lang)}</time>{updated}<span aria-hidden="true">·</span><span>{a.minutes} {w["minutes"]}</span></p>

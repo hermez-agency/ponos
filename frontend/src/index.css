@@ -106,6 +106,7 @@
   --color-series-2: var(--series-2);
 
   --color-field: var(--field);
+  --color-brand: var(--brand);
 
   /* The faces are the tokens' — see `tokens.css`. */
   --font-sans: var(--sans);

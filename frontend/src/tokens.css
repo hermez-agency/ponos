@@ -62,6 +62,10 @@
   --input: #d6d3d1;
   --ring: #e46212;
   --field: #f5f5f4;
+  /* The logo's orange, the robot's head: for headings, icons and the logo
+     only, never running text — it is 3.3:1 on a light ground. The same in
+     both themes, like the logo; text in orange is `--primary`. */
+  --brand: #e8611a;
 
   --sidebar: #f5f5f4;
   --sidebar-foreground: #1c1917;

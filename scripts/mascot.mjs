@@ -4,13 +4,13 @@
  * docs/mascot/ponos-robot.js (the robot) and docs/mascot/ponos-logo.js (the icon):
  *
  *   docs/mascot/robot.svg     the whole robot, layers and variables kept
- *   docs/mascot/logo.svg      the logo, light; logo-dark.svg, dark
- *   docs/mascot/favicon.svg   the logo, following the browser's colour scheme
+ *   docs/mascot/logo.svg      the logo, the head alone (the simple one at 24 px and under)
+ *   docs/mascot/favicon.svg   the simple head, the tab's
  *   docs/mascot/og.png        the Open Graph card, 1200 × 630
  *   docs/mascot/states.png    every state, light and dark, and the sizes
- *   frontend/public/pwa/*     the app icons: the logo cut out, but the maskable and iOS ones on a ground
- *   docs/apple-touch-icon.png the same, at the root where an iPhone looks for it
- *   docs/favicon.ico          the logo at 16, 32 and 48 px, for whoever asks /favicon.ico
+ *   frontend/public/pwa/*     the app icons: the head on a square of stone
+ *   docs/apple-touch-icon.png the iOS one, at the root where an iPhone looks for it
+ *   docs/favicon.ico          the logo at 16 (the simple head), 32 and 48 px, for whoever asks /favicon.ico
  *   src/ponos/icons/*         the desktop's icons: the logo cut out, for the dock
  *                             and the notifications
  *   docker/dokploy/ponos.svg  the logo, for the Dokploy template
@@ -38,10 +38,9 @@ const { STATES, standalone } = await load('ponos-robot.js');
 const { logo } = await load('ponos-logo.js');
 
 writeFileSync(join(out, 'robot.svg'), standalone({ title: 'Ponos' }));
-writeFileSync(join(out, 'logo.svg'), logo({ theme: 'light' }));
-writeFileSync(join(out, 'logo-dark.svg'), logo({ theme: 'dark' }));
-writeFileSync(join(out, 'favicon.svg'), logo({ theme: 'auto' }));
-writeFileSync(join(root, 'docker', 'dokploy', 'ponos.svg'), logo({ theme: 'light' }));
+writeFileSync(join(out, 'logo.svg'), logo());
+writeFileSync(join(out, 'favicon.svg'), logo({ small: true }));
+writeFileSync(join(root, 'docker', 'dokploy', 'ponos.svg'), logo());
 
 /* The cards are drawn in the product's own tokens — the file the console and
    the landing page share — rather than in colours written here a third time. */
@@ -123,45 +122,49 @@ function ico(pngs) {
   return Buffer.concat([header, ...pngs.map(([, data]) => data)]);
 }
 
-/* An icon the system draws as it is ("any": the install dialog, the launcher,
-   the taskbar) is the logo alone on a transparent square, with a margin so it
-   never touches an edge — an opaque one is drawn as a black square. The two
-   that the platform fills or crops keep a ground, chosen rather than inherited
-   from the console: the maskable one (a round or squircle mask, so the logo
-   stays inside the safe zone) and iOS's (which fills transparency with black).
-   The ground is the logo's own orange border, carried to the edge, so the mask
-   cuts orange and the white frame stays whole; the manifest's background_color
-   and theme_color say the same. */
+/* An app icon is a square: the head on a ground of stone, the console's
+   darkest, at about 73 % of the side and centred — no orange frame. Each
+   platform rounds it its own way. The "any" ones (the install dialog, the
+   launcher, the taskbar) are drawn as they are, so the square is cut out with
+   rounded corners and a thin margin; the two that the platform crops or
+   fills keep the ground to the edge: the maskable one (a round or squircle
+   mask, so the head stays inside the safe zone, the circle of 80 % of the
+   side) and iOS's (which rounds it itself). The manifest's background_color
+   and theme_color say the same stone. */
 const pwa = join(root, 'frontend', 'public', 'pwa');
-const GROUND = '#E8611A';
-const icon = (px, fill, ground) => `<!doctype html><meta charset="utf-8"><style>
-  html, body { margin: 0; width: ${px}px; height: ${px}px; overflow: hidden; background: ${ground ?? 'transparent'}; }
-  div { width: 100%; height: 100%; display: grid; place-items: center; }
+const GROUND = '#1c1917';
+/* `ground`: none (the head cut out), 'tile' (a rounded square with a margin,
+   cut out around it) or 'full' (the stone to every edge). */
+const icon = (px, fill, { ground, small = false } = {}) => `<!doctype html><meta charset="utf-8"><style>
+  html, body { margin: 0; width: ${px}px; height: ${px}px; overflow: hidden; display: grid; place-items: center;
+               background: ${ground === 'full' ? GROUND : 'transparent'}; }
+  div { width: ${ground === 'tile' ? 94 : 100}%; height: ${ground === 'tile' ? 94 : 100}%; display: grid; place-items: center;
+        ${ground === 'tile' ? `background: ${GROUND}; border-radius: 22%;` : ''} }
   svg { display: block; width: ${fill}%; height: auto; }
-</style><div>${logo({ theme: 'light' })}</div>`;
+</style><div>${logo({ small })}</div>`;
 
-/* A desktop icon has no ground either: the logo, on a transparent square that
-   a dock or a notification draws on its own colour. The tab's icon is the
-   logo at full size, its rounded corners cut out the same. */
+/* A desktop icon has no ground: the head, on a transparent square that a dock
+   or a notification draws on its own colour. The tab's icon is the head at
+   full size, the simple one at 16 px. */
 const desktop = join(root, 'src', 'ponos', 'icons');
 try {
   shoot(og, join(out, 'og.png'), 1200, 630);
   shoot(sheet, join(out, 'states.png'), 1200, 760);
-  shoot(icon(512, 84), join(pwa, 'icon-512.png'), 512, 512, { clear: true });
-  shoot(icon(192, 84), join(pwa, 'icon-192.png'), 192, 192, { clear: true });
-  shoot(icon(180, 100, GROUND), join(pwa, 'apple-touch-icon.png'), 180, 180);
-  shoot(icon(512, 62, GROUND), join(pwa, 'icon-maskable-512.png'), 512, 512);
+  shoot(icon(512, 78, { ground: 'tile' }), join(pwa, 'icon-512.png'), 512, 512, { clear: true });
+  shoot(icon(192, 78, { ground: 'tile' }), join(pwa, 'icon-192.png'), 192, 192, { clear: true });
+  shoot(icon(180, 73, { ground: 'full' }), join(pwa, 'apple-touch-icon.png'), 180, 180);
+  shoot(icon(512, 70, { ground: 'full' }), join(pwa, 'icon-maskable-512.png'), 512, 512);
   copyFileSync(join(pwa, 'apple-touch-icon.png'), join(root, 'docs', 'apple-touch-icon.png'));
   for (const px of [48, 64, 128, 256]) {
     shoot(icon(px, 92), join(desktop, `ponos-${px}.png`), px, px, { clear: true });
   }
   const tabs = [16, 32, 48].map((px) => {
     const target = join(scratch, `favicon-${px}.png`);
-    shoot(icon(px, 100), target, px, px, { clear: true });
+    shoot(icon(px, 100, { small: px <= 24 }), target, px, px, { clear: true });
     return [px, readFileSync(target)];
   });
   writeFileSync(join(root, 'docs', 'favicon.ico'), ico(tabs));
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
-console.log('docs/mascot: robot.svg, logo.svg, logo-dark.svg, favicon.svg, og.png, states.png; frontend/public/pwa: the app icons; docs: favicon.ico, apple-touch-icon.png; src/ponos/icons: the desktop icons; docker/dokploy: ponos.svg');
+console.log('docs/mascot: robot.svg, logo.svg, favicon.svg, og.png, states.png; frontend/public/pwa: the app icons; docs: favicon.ico, apple-touch-icon.png; src/ponos/icons: the desktop icons; docker/dokploy: ponos.svg');

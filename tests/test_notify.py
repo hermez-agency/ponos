@@ -1441,9 +1441,10 @@ def the_icon_of_a_notification_is_the_orange_logo_and_the_mascot_script_draws_it
 def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares() -> None:
     """Chrome drew the installed app on a black square: the "any" icons had a #141414 ground.
 
-    An "any" icon is drawn as it is, so it is RGBA with transparent corners and a
-    margin around the logo; the maskable one and the iOS one keep a ground (the
-    platform crops or fills them), the brand's, the same for both.
+    An "any" icon is drawn as it is, so it is RGBA: the head on a rounded square
+    of stone, with transparent corners and a margin around it; the maskable one
+    and the iOS one keep the stone to the edge (the platform crops or fills
+    them), the same for both and the manifest's.
     """
     pwa = ROOT / "frontend/public/pwa"
     manifest = json.loads(
@@ -1459,7 +1460,7 @@ def the_app_icons_that_may_be_drawn_on_any_ground_are_cut_out_not_black_squares(
             assert pixels[y * side + x][3] == 0, f"{name} has an opaque corner at {x},{y}"
         margin = side // 40
         edge = [pixels[y * side + x] for y in (margin,) for x in range(side)]
-        assert all(p[3] == 0 for p in edge), f"{name}: the logo touches the top edge"
+        assert all(p[3] == 0 for p in edge), f"{name}: the square touches the top edge"
     grounds = set()
     for name in ("icon-maskable-512.png", "apple-touch-icon.png"):
         pixels = _png_pixels((pwa / name).read_bytes())
