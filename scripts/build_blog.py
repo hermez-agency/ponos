@@ -635,7 +635,7 @@ def article_page(
             alternates[article.lang] = article.path
         alternates["x-default"] = (a if a.lang == "en" else twin).path
     ill = ills[f"{a.lang}/{a.slug}"]
-    image = _asset(ill.raster("share.jpg"))
+    image = _asset(ill.raster("share.jpg").lstrip("/"))
     image_alt = ill.alt
     home = f"{SITE}/{_prefix(a.lang)}"
     posting: dict[str, object] = {
