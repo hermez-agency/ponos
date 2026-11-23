@@ -1,6 +1,15 @@
+import * as React from "react"
+import { MoreHorizontal } from "lucide-react"
+
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
 import { columnTitle } from "@/components/console/ticket-bits"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { moveWithToast as move } from "@/hooks/use-console"
 import { titleOf, useBoardWith } from "@/lib/board-store"
 import { t, useT } from "@/lib/i18n"
@@ -10,9 +19,11 @@ import { cn } from "@/lib/utils"
 /** The gestures of a ticket in progress and of one put aside, where the board has the column.
  *
  * Pausing keeps what was done and is one click; abandoning loses it, and asks.
- * Both are a move: the console ends the session before it writes the status.
- * Resuming is the way back to ready, asked for like every other: the session
- * it starts is paid for. */
+ * The two used to sit side by side as twin buttons, one stray click apart:
+ * pausing stays a button, abandoning waits behind "…", in red, and its window
+ * says what goes with it and opens on Cancel. Both are a move: the console ends
+ * the session before it writes the status. Resuming is the way back to ready,
+ * asked for like every other: the session it starts is paid for. */
 const columnsOf = (board: Board) => board.columns
 const cancels = (board: Board) => board.cancel
 
@@ -20,6 +31,7 @@ export default function StopGestures({ ticket, className }: { ticket: Ticket; cl
   // What the gestures read of the board, which its moves leave as it was.
   const board = { columns: useBoardWith(columnsOf), cancel: useBoardWith(cancels) }
   useT()
+  const [abandoning, setAbandoning] = React.useState(false)
   const running = ticket.column === "running"
   const pauses = board.columns.some((column) => column.key === "paused")
   // Nothing to offer: nothing is drawn, rather than an empty row where the gestures would be.
@@ -48,17 +60,42 @@ export default function StopGestures({ ticket, className }: { ticket: Ticket; cl
         />
       )}
       {board.cancel ? (
-        <ConfirmDialog
-          title={t("Cancel the ticket")}
-          description={t("This cannot be undone.")}
-          confirm={t("Abandon")}
-          onConfirm={() => void move(ticket, "cancelled")}
-          trigger={
-            <Button variant="outline" size="sm">
-              {t("Abandon")}
-            </Button>
-          }
-        />
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={t("More actions")}
+                title={t("More actions")}
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem variant="destructive" onSelect={() => setAbandoning(true)}>
+                {t("Abandon")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ConfirmDialog
+            open={abandoning}
+            onOpenChange={setAbandoning}
+            destructive
+            focusCancel
+            title={t("Abandon “{{title}}”?", { title: titleOf(ticket) })}
+            description={
+              running
+                ? t(
+                    "The session in progress is stopped, and the work it has not pushed is lost. This cannot be undone."
+                  )
+                : t("The work that was not pushed is lost. This cannot be undone.")
+            }
+            confirm={t("Abandon the ticket")}
+            onConfirm={() => void move(ticket, "cancelled")}
+          />
+        </>
       ) : null}
     </div>
   )

@@ -428,6 +428,12 @@ export const FRENCH: Record<string, string> = {
   "Run the agent again": "Relancer l'agent",
   "Mark done": "Marquer terminé",
   "Cancel the ticket": "Abandonner le ticket",
+  "Abandon the ticket": "Abandonner le ticket",
+  "Abandon “{{title}}”?": "Abandonner « {{title}} » ?",
+  "The session in progress is stopped, and the work it has not pushed is lost. This cannot be undone.":
+    "La session en cours est arrêtée, et le travail qu'elle n'a pas poussé est perdu. C'est sans retour.",
+  "The work that was not pushed is lost. This cannot be undone.":
+    "Le travail qui n'a pas été poussé est perdu. C'est sans retour.",
   Reopen: "Rouvrir",
   "Back to the drafts: the runner does not touch it until it is made ready.":
     "Retour aux brouillons : le runner n'y touche pas tant qu'il n'est pas lancé.",
