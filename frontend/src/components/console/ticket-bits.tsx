@@ -36,6 +36,7 @@ import { currentBoard, titleOf, useBoardWith } from "@/lib/board-store"
 import { conflictOf } from "@/lib/conflicts"
 import { currentLanguage, t, useT } from "@/lib/i18n"
 import { money } from "@/lib/numbers"
+import { DEFAULT_SCORE } from "@/lib/priority"
 import type { Block, Board, BlockFamily, Ci, CiState, Earlier, Subtype, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { canAct } from "@/lib/role"
@@ -639,6 +640,12 @@ export function TicketFoot({ ticket, className }: { ticket: Ticket; className?: 
       ) : (
         <span className="text-muted-foreground max-w-full min-w-0 truncate">{ticket.project || t("no project")}</span>
       )}
+      {/* Only a priority away from the middle is said: the cards that all say 50 say nothing. */}
+      {typeof ticket.priority === "number" && ticket.priority !== DEFAULT_SCORE ? (
+        <span data-slot="ticket-priority" className="whitespace-nowrap tabular-nums">
+          {t("Priority {{score}}", { score: String(ticket.priority) })}
+        </span>
+      ) : null}
       <FootCi ci={ticket.column === "review" ? ticket.ci : null} />
       {ago(ticket.created) ? (
         <span

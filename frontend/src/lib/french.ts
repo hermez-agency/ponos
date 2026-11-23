@@ -361,6 +361,7 @@ export const FRENCH: Record<string, string> = {
   "What must change, where, and how you will know it is done.":
     "Ce qui doit changer, où, et à quoi vous verrez que c'est fait.",
   "Priority {{score}} out of 100": "Priorité {{score}} sur 100",
+  "Priority {{score}}": "Priorité {{score}}",
   // What a card of the board says on hover (tickets.tsx), and the bar of its plan (session-log.tsx).
   "Model: {{model}}": "Modèle : {{model}}",
   "Goal: {{goal}}": "Objectif : {{goal}}",

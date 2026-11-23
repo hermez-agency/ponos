@@ -3,7 +3,7 @@ import type { InputControllerComponentInterface } from "react-data-form"
 
 import { Input } from "@/components/ui/input"
 import { t, useT } from "@/lib/i18n"
-import { DEFAULT_SCORE, HIGHEST_SCORE, LOWEST_SCORE, MARK_HUE, readScore, scoreMark, scoreTone } from "@/lib/priority"
+import { DEFAULT_SCORE, HIGHEST_SCORE, LOWEST_SCORE, readScore, scoreTone } from "@/lib/priority"
 import { cn } from "@/lib/utils"
 
 /* A ticket's priority, as a badge with its score in it: in the gradient
@@ -29,36 +29,6 @@ export function PriorityBadge({ score, className }: { score: number; className?:
       )}
     >
       {score}
-    </span>
-  )
-}
-
-/* A priority on a card of the board: the thin bar along its left edge that
- * `scoreMark` gives, rather than the badge — see `lib/priority.ts`. The score
- * is its tooltip, and what a screen reader says. Drawn inside the card, which
- * places it: its parent is `relative`. */
-export function PriorityMark({ score }: { score: number }) {
-  const t = useT()
-  const { saturation, opacity } = scoreMark(score)
-  const said = t("Priority {{score}} out of 100", { score: String(score) })
-  return (
-    <span
-      data-slot="priority-mark"
-      data-score={score}
-      title={said}
-      style={
-        {
-          "--mark-hue": MARK_HUE,
-          "--mark-saturation": `${saturation}%`,
-          opacity,
-        } as React.CSSProperties
-      }
-      className={cn(
-        "absolute top-3 bottom-3 left-1 w-1 rounded-full",
-        "bg-[hsl(var(--mark-hue)_var(--mark-saturation)_52%)] dark:bg-[hsl(var(--mark-hue)_var(--mark-saturation)_56%)]"
-      )}
-    >
-      <span className="sr-only">{said}</span>
     </span>
   )
 }

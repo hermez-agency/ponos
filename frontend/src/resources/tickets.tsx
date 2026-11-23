@@ -59,7 +59,7 @@ import {
 import { EmptyState } from "@/components/console/empty-state"
 import { ProjectThumb } from "@/components/console/project-picture"
 import { ModelInputController } from "@/components/console/model-input-lazy"
-import { PriorityBadge, PriorityInputController, PriorityMark } from "@/components/console/priority"
+import { PriorityBadge, PriorityInputController } from "@/components/console/priority"
 import { Robot, TicketRobot } from "@/components/console/robot"
 import { RunnerStrip } from "@/components/console/runner-strip"
 import { HealthBand } from "@/components/console/health-band"
@@ -577,12 +577,11 @@ const rowForm: FormInterface = {
  * age and what it has cost. A card used to say everything at the same level —
  * up to eight badges over six lines — and a column of 900 pixels held three.
  *
- * The priority is the thin bar along its left edge (`PriorityMark`), neutral
- * to orange: the red badge of an urgent ticket read as a failed CI. The model
- * and the goal are the title's tooltip, and the ticket's page. The `-m-4` is the frame
+ * The priority is said on the quiet line, and only when it is not the middle
+ * score: a card that says nothing about it is one that waits its turn. The
+ * model and the goal are the title's tooltip, and the ticket's page. The `-m-4` is the frame
  * react-resource-view draws around every record being pushed back out of the
- * way: the coloured edge has to be the card's own edge, not a stripe inside a
- * second border.
+ * way: the card's edge has to be its own, not a stripe inside a second border.
  *
  * The age never wraps: "il y a 1 j" over two lines was a line of the card
  * spent on it. The title and the summary do, anywhere if they must: a path, a URL or a
@@ -657,7 +656,7 @@ const TicketCardBody = React.memo(function TicketCardBody({
       onClickCapture={onClickCapture}
       {...press.handlers}
       className={cn(
-        "group/card relative -m-4 flex min-w-0 flex-col gap-2 rounded-2xl p-3 ps-4 [contain-intrinsic-size:auto_7rem] [content-visibility:auto] [-webkit-touch-callout:none] pointer-coarse:select-none",
+        "group/card relative -m-4 flex min-w-0 flex-col gap-2 rounded-2xl p-3 [contain-intrinsic-size:auto_7rem] [content-visibility:auto] [-webkit-touch-callout:none] pointer-coarse:select-none",
         selected && "bg-primary/5 ring-primary ring-2 ring-inset"
       )}
     >
@@ -674,7 +673,6 @@ const TicketCardBody = React.memo(function TicketCardBody({
           )}
         />
       ) : null}
-      {typeof ticket.priority === "number" ? <PriorityMark score={ticket.priority} /> : null}
       {/* Given up on: still read, struck through, the way a list crosses out
           what it no longer means to do. The id runs on after the title, inside
           its two lines. */}
