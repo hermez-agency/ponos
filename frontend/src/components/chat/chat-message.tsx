@@ -56,6 +56,8 @@ function ChatMessage({
           />
         )
       case "tool-result":
+        // A result whose call is in the message is shown inside that call's step.
+        if (calls.has(part.toolCallId)) return null
         return (
           <ToolResultPartView
             key={`${part.toolCallId}-result`}
