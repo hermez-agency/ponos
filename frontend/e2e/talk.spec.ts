@@ -42,6 +42,8 @@ test("a stopped card says why, and Unblock opens on the question's answer", asyn
   await expect(unblock).toHaveText("Unblock")
   await expect(unblock).toHaveAttribute("title", /answer on the ticket and it carries on/)
   // The search offers the cause, and keeps the card by it.
+  // Behind "Filters", with every filter but the project, the status and the priority.
+  await page.locator('[data-slot="filters-button"]').click()
   await page.getByRole("button", { name: "Cause" }).click()
   await page.getByRole("menuitemcheckbox", { name: /Question for you/ }).click()
   await page.keyboard.press("Escape")

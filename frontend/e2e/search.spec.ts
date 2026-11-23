@@ -65,7 +65,9 @@ test("words and a status combine, the columns stay and count, and the address ke
   await expect(card(page, "Ticket 10")).toBeVisible()
   await expect(card(page, "Ticket 2")).toBeHidden()
 
-  await page.getByRole("button", { name: "Clear", exact: true }).click()
+  // The status is a pill under the bar, taken off by its cross; the words by the field's.
+  await page.getByRole("button", { name: "Remove the filter Status: Draft" }).click()
+  await page.getByRole("button", { name: "Clear the search" }).click()
   await expect(page).not.toHaveURL(/q=|status=/)
   await expect(card(page, "Ticket 2")).toBeVisible()
 })
@@ -98,4 +100,65 @@ test("a project's page searches its own tickets, with no project to pick", async
   await expect(card(page, `Newsletter issue ${stamp}`)).toBeVisible()
   await expect(card(page, `Newsletter archive ${stamp}`)).toBeHidden()
   await expect(page).toHaveURL(new RegExp(`projects/read/${NEWSLETTER}.*q=issue`))
+})
+
+/* The audit of November 2026 (B1) found ten menus of the same weight in a row,
+ * "Other" cut at 1440 px. The project, the status and the priority stay beside
+ * the field; the rest is behind "Filters", which counts the ones on, and those
+ * are pills under the bar. */
+test("the filters fold behind one button that counts them, and the ones on are pills", async ({ page }) => {
+  await open(page)
+  const filters = page.locator('[data-slot="filters-button"]')
+  await expect(page.getByRole("button", { name: /^Status/ })).toBeVisible()
+  await expect(page.getByRole("button", { name: /^Priority/ })).toBeVisible()
+  await expect(page.getByRole("button", { name: /^Period/ })).toBeHidden()
+  await filters.click()
+  await expect(filters).toHaveAttribute("aria-expanded", "true")
+  await expect(page.getByRole("button", { name: /^Period/ })).toBeVisible()
+  // One list: what is beside the field is not in it again.
+  await expect(page.getByRole("button", { name: /^Status/ })).toHaveCount(1)
+
+  // The same address as before, read the same way.
+  await open(page, "/?q=Ticket&status=draft&since=7d&only=pr")
+  await expect(filters).toContainText("3")
+  const pills = page.locator('[data-slot="filter-pill"]')
+  await expect(pills).toHaveText(["Status: Draft", "Period: Last 7 days", "With a pull request"])
+  await page.getByRole("button", { name: "Remove the filter Period: Last 7 days" }).click()
+  await expect(page).not.toHaveURL(/since=/)
+  await expect(page).toHaveURL(/status=draft/)
+  await expect(filters).toContainText("2")
+
+  // "Clear all" takes the filters off, and leaves the words to the field's cross.
+  await page.getByRole("button", { name: "Clear all", exact: true }).click()
+  await expect(page).not.toHaveURL(/status=|only=/)
+  await expect(page).toHaveURL(/q=Ticket/)
+  await expect(pills).toHaveCount(0)
+
+  // A single pill has its cross, and no "Clear all".
+  await open(page, "/?status=draft")
+  await expect(pills).toHaveCount(1)
+  await expect(page.getByRole("button", { name: "Clear all", exact: true })).toHaveCount(0)
+})
+
+test("the bar fits every width from 1024 to 1920 px, filters on or not", async ({ page }) => {
+  for (const width of [1024, 1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const path of ["/", "/?status=draft,ready&priority=90&since=30d&only=pr,credits&cost=5"]) {
+      await open(page, path)
+      const bar = page.locator('[data-slot="ticket-search"]')
+      await page.locator('[data-slot="filters-button"]').click()
+      const outside = await bar.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        return Array.from(element.querySelectorAll("button, input, li"))
+          .filter((child) => (child as HTMLElement).offsetParent !== null)
+          .filter((child) => {
+            const own = child.getBoundingClientRect()
+            return own.left < box.left - 0.5 || own.right > box.right + 0.5
+          })
+          .map((child) => child.textContent || child.getAttribute("aria-label") || child.tagName)
+      })
+      expect(outside, `out of the bar at ${width} px on ${path}`).toEqual([])
+      expect(await bar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+    }
+  }
 })

@@ -258,15 +258,28 @@ const FacetFilter = React.memo(function FacetFilter({
   )
 })
 
+type Say = ReturnType<typeof useT>
+
+/* What a period and a switch are called: in their menu, and on the pill that
+ * says they are on. */
+export const periodWords = (t: Say): Record<Period, string> => ({
+  "": t("Any time"),
+  today: t("Today"),
+  "7d": t("Last 7 days"),
+  "30d": t("Last 30 days"),
+})
+
+export const flagWords = (t: Say): Record<Flag, string> => ({
+  pr: t("With a pull request"),
+  credits: t("Waiting for credits"),
+  sync: t("Move not synced"),
+  scheduled: t("Scheduled"),
+})
+
 /** When a ticket last moved: one choice, or none. */
 function PeriodFilter({ value, onChange }: { value: Period; onChange: (next: Period) => void }) {
   const t = useT()
-  const words: Record<Period, string> = {
-    "": t("Any time"),
-    today: t("Today"),
-    "7d": t("Last 7 days"),
-    "30d": t("Last 30 days"),
-  }
+  const words = periodWords(t)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -303,12 +316,7 @@ function MoreFilter({
   onCost: (next: number) => void
 }) {
   const t = useT()
-  const words: Record<Flag, string> = {
-    pr: t("With a pull request"),
-    credits: t("Waiting for credits"),
-    sync: t("Move not synced"),
-    scheduled: t("Scheduled"),
-  }
+  const words = flagWords(t)
   const on = only.length + (cost > 0 ? 1 : 0)
   return (
     <DropdownMenu>
@@ -343,14 +351,26 @@ function MoreFilter({
   )
 }
 
+/* The pills of the filters on, fetched once one is: see `filter-pills.tsx`. */
+const FilterPills = React.lazy(() => import("@/components/console/filter-pills"))
+
+/* The filters in sight beside the field, where the bar is `@4xl` wide: the ones
+ * a board is most often narrowed by. Every other one — and these too, on a
+ * narrow bar, where the same list holds them and the line beside the field is
+ * hidden — is behind "Filters". */
+const DIRECT: Facet[] = ["project", "status", "priority"]
+
 /**
  * The bar over a list of tickets: the words, then the filters.
  *
- * One line: the field takes what the filters leave. Where the list is narrower
- * than they are — a phone, a project's page beside the conversation — the
- * filters fold behind one button that counts the ones on, and open on a line
- * of their own under the field. Measured on the bar's own width, not the
- * screen's, since the same bar sits on pages of different widths.
+ * Ten menus of the same weight in a row overflowed a 1440 px board ("Other" was
+ * cut), and said nothing of what they asked for unless one read each button.
+ * So the bar is the phone's at every width: the field, a "Filters" button that
+ * counts the ones on and opens the one list of them on a line of its own, and
+ * the filters that are on as pills under it, each with its cross. Where the bar
+ * is wide enough, the project, the status and the priority are beside the
+ * field, out of the list. Measured on the bar's own width, not the screen's,
+ * since the same bar sits on pages of different widths.
  */
 export function TicketSearch({
   tickets,
@@ -379,7 +399,7 @@ export function TicketSearch({
   const [draft, setDraft] = React.useState(query.text)
   const written = React.useRef(query.text)
   React.useEffect(() => {
-    // Changed from elsewhere — "Clear", the way back, a link — the field follows.
+    // Changed from elsewhere — "Clear the filters", the way back, a link — the field follows.
     if (query.text.trim() !== written.current.trim()) {
       written.current = query.text
       setDraft(query.text)
@@ -402,12 +422,6 @@ export function TicketSearch({
       field.current?.select()
     },
   })
-
-  const clear = () => {
-    written.current = ""
-    setDraft("")
-    update(() => EMPTY)
-  }
 
   const set = <K extends keyof TicketQuery>(key: K) => (value: TicketQuery[K]) =>
     update((current) => ({ ...current, [key]: value }))
@@ -484,9 +498,20 @@ export function TicketSearch({
   const filtering = on > 0 || Boolean(query.text.trim())
   const shortcut = hotkeyLabel("search")
 
+  const facetFilter = (facet: Facet) => (
+    <FacetFilter
+      key={facet}
+      facet={facet}
+      label={names[facet]}
+      options={facets[facet]}
+      selected={query[facet]}
+      update={update}
+    />
+  )
+
   return (
-    <div data-slot="ticket-search" className="@container">
-      <div className="flex flex-wrap items-center gap-2 @4xl:flex-nowrap">
+    <div data-slot="ticket-search" className="@container flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <div className="relative min-w-48 flex-1 @4xl:max-w-sm @4xl:min-w-56">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           <Input
@@ -532,10 +557,13 @@ export function TicketSearch({
           )}
         </div>
 
+        <div className="hidden items-center gap-1.5 @4xl:flex">{DIRECT.map(facetFilter)}</div>
+
         <Button
           variant="outline"
           size="sm"
-          className={cn("shrink-0 @4xl:hidden", on > 0 && "border-primary/50")}
+          data-slot="filters-button"
+          className={cn("shrink-0", on > 0 && "border-primary/50")}
           aria-expanded={unfolded}
           onClick={() => setUnfolded(!unfolded)}
         >
@@ -546,40 +574,38 @@ export function TicketSearch({
           ) : null}
         </Button>
 
+        {filtering ? (
+          <span
+            className="text-muted-foreground ms-auto shrink-0 font-mono text-xs whitespace-nowrap tabular-nums"
+            data-slot="search-count"
+          >
+            {shown} / {tickets.length}
+          </span>
+        ) : null}
+
         <div
           data-slot="ticket-filters"
-          className={cn(
-            "order-last basis-full flex-wrap items-center gap-1.5",
-            unfolded ? "flex" : "hidden",
-            "@4xl:order-none @4xl:flex @4xl:basis-auto @4xl:flex-nowrap"
-          )}
+          className={cn("basis-full flex-wrap items-center gap-1.5", unfolded ? "flex" : "hidden")}
         >
-          {(Object.keys(facets) as Facet[]).map((facet) => (
-            <FacetFilter
-              key={facet}
-              facet={facet}
-              label={names[facet]}
-              options={facets[facet]}
-              selected={query[facet]}
-              update={update}
-            />
-          ))}
+          {(Object.keys(facets) as Facet[]).map((facet) =>
+            DIRECT.includes(facet) ? (
+              <div key={facet} className="contents @4xl:hidden">
+                {facetFilter(facet)}
+              </div>
+            ) : (
+              facetFilter(facet)
+            )
+          )}
           <PeriodFilter value={query.since} onChange={set("since")} />
           <MoreFilter only={query.only} cost={query.cost} onOnly={set("only")} onCost={set("cost")} />
         </div>
-
-        {filtering ? (
-          <div className="ms-auto flex shrink-0 items-center gap-1">
-            <span className="text-muted-foreground font-mono text-xs whitespace-nowrap tabular-nums" data-slot="search-count">
-              {shown} / {tickets.length}
-            </span>
-            <Button variant="ghost" size="sm" onClick={clear}>
-              <X />
-              {t("Clear")}
-            </Button>
-          </div>
-        ) : null}
       </div>
+
+      {on ? (
+        <React.Suspense fallback={null}>
+          <FilterPills query={query} labels={facets} names={names} update={update} />
+        </React.Suspense>
+      ) : null}
     </div>
   )
 }
