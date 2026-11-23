@@ -44,6 +44,13 @@ DOCS = ROOT / "docs"
 SITE = "https://the-ponos.app"
 LANGS = ("en", "fr")
 DEFAULT_COVER = "mascot/og.png"
+ILLUSTRATIONS = ROOT / "blog" / "illustrations"
+ILLUSTRATIONS_OUT = DOCS / "blog" / "illustrations"
+ILLUSTRATION_DECLARED = ILLUSTRATIONS / "illustrations.json"
+ILLUSTRATION_RASTERS = (
+    "480.avif", "480.webp", "960.avif", "960.webp",
+    "dark-480.avif", "dark-480.webp", "dark-960.avif", "dark-960.webp", "share.jpg",
+)  # fmt: skip
 DOCS_URL = "https://github.com/hermez-agency/ponos#readme"
 LLMS_START = "<!-- blog:start — écrit par scripts/build_blog.py -->"
 LLMS_END = "<!-- blog:end -->"
@@ -108,8 +115,6 @@ class Article:
     description: str
     published: str
     updated: str
-    cover: str
-    cover_alt: str
     tags: list[str]
     translation: str
     category: str
@@ -183,8 +188,6 @@ def parse(source: Path, lang: str) -> Article:
         description=meta["description"],
         published=meta["date"],
         updated=meta.get("updated", ""),
-        cover=meta.get("cover", ""),
-        cover_alt=meta.get("cover_alt", ""),
         tags=tags,
         translation=meta.get("translation", ""),
         category=meta.get("category", ""),
@@ -208,6 +211,68 @@ def load() -> dict[str, list[Article]]:
                         f"{article.source}: `translation: {article.translation}` n'existe pas en {other}"
                     )
     return found
+
+
+@dataclass
+class Illustration:
+    """Le SVG d'un article (source, dans `blog/illustrations/`) et ses rasters (dans `docs/`)."""
+
+    file: str
+    alt: str
+
+    def raster(self, suffix: str) -> str:
+        return f"/blog/illustrations/{self.file}-{suffix}"
+
+    def inline(self) -> str:
+        """Le SVG sans son `@media` sombre : sur la page, seule la classe `.dark` choisit le thème.
+
+        Le script de l'en-tête pose `.dark` d'après le choix du visiteur, sinon d'après
+        `prefers-color-scheme` ; laisser le `@media` dans le SVG l'obligerait à contredire
+        un visiteur au thème clair sur un système sombre, ou l'inverse.
+        """
+        svg = (ILLUSTRATIONS / f"{self.file}.svg").read_text(encoding="utf-8")
+        svg = re.sub(r"@media \(prefers-color-scheme:dark\)\{.*\}\}\n", "", svg)
+        svg = re.sub(r'aria-label="[^"]*"', f'aria-label="{_e(self.alt)}"', svg, count=1)
+        return svg.strip()
+
+
+def load_illustrations(found: dict[str, list[Article]]) -> dict[str, Illustration]:
+    """Une illustration par article, et le build échoue si l'une manque.
+
+    `illustrations.json` dit, pour chaque article (son nom de fichier), le SVG et le texte
+    alternatif dans la langue de l'article ; une paire EN/FR partage le même SVG. Le build
+    n'a pas de Node : les rasters sont produits à la main avec l'outil de Brand Assets
+    (CONTRIBUTING.md), puis commités ; ici on vérifie seulement qu'ils sont tous là.
+    """
+    declared = json.loads(ILLUSTRATION_DECLARED.read_text(encoding="utf-8"))
+    problems: list[str] = []
+    result: dict[str, Illustration] = {}
+    for lang, articles in found.items():
+        for a in articles:
+            key = f"{lang}/{a.slug}"
+            entry = declared.get(key)
+            if not entry or not entry.get("file") or not entry.get("alt"):
+                problems.append(
+                    f"{key}: pas d'illustration dans blog/illustrations/illustrations.json"
+                )
+                continue
+            ill = Illustration(file=entry["file"], alt=entry["alt"])
+            if not (ILLUSTRATIONS / f"{ill.file}.svg").is_file():
+                problems.append(f"{key}: blog/illustrations/{ill.file}.svg manque")
+            problems += [
+                f"{key}: docs/blog/illustrations/{ill.file}-{suffix} manque"
+                for suffix in ILLUSTRATION_RASTERS
+                if not (ILLUSTRATIONS_OUT / f"{ill.file}-{suffix}").is_file()
+            ]
+            result[key] = ill
+    for key in declared:
+        if key not in result:
+            problems.append(
+                f"{key}: déclarée dans illustrations.json, mais aucun article ne porte ce nom"
+            )
+    if problems:
+        raise SystemExit("illustrations :\n  " + "\n  ".join(problems))
+    return result
 
 
 # -- Markdown -------------------------------------------------------------------------
@@ -520,12 +585,28 @@ def home_other(lang: str) -> str:
     return "/fr/" if lang == "en" else "/"
 
 
-def _card(a: Article) -> str:
+def _picture(ill: Illustration, theme: str) -> str:
+    """Une carte porte les deux thèmes ; le CSS n'affiche que celui de la page (`.dark`).
+
+    Un `<img>` en SVG suivrait `prefers-color-scheme` et non le sélecteur de thème du
+    site : les cartes servent donc le raster de chaque thème, paresseux (un `display:none`
+    ne charge rien).
+    """
+    stem = f"{ill.file}-dark" if theme == "dark" else ill.file
+    base = f"/blog/illustrations/{stem}"
+    return (
+        f'<picture class="ill-{theme}">'
+        f'<source type="image/avif" srcset="{base}-480.avif 480w, {base}-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw">'
+        f'<source type="image/webp" srcset="{base}-480.webp 480w, {base}-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw">'
+        f'<img src="{base}-960.webp" alt="" loading="lazy" width="960" height="540"></picture>'
+    )
+
+
+def _card(a: Article, ill: Illustration) -> str:
     w = WORDS[a.lang]
-    image = f"/{a.cover or DEFAULT_COVER}"
     return (
         f'<a class="card" href="/{a.path}">\n'
-        f'  <img src="{_e(image)}" alt="" loading="lazy" width="1200" height="630">\n'
+        f"  {_picture(ill, 'light')}{_picture(ill, 'dark')}\n"
         f'  <div class="card-body">\n'
         f'    <p class="card-product">Ponos</p>\n'
         f'    <p class="card-title">{_e(a.title)}</p>\n'
@@ -535,7 +616,9 @@ def _card(a: Article) -> str:
     )
 
 
-def article_page(a: Article, all_articles: dict[str, list[Article]]) -> str:
+def article_page(
+    a: Article, all_articles: dict[str, list[Article]], ills: dict[str, Illustration]
+) -> str:
     w = WORDS[a.lang]
     other_lang = "fr" if a.lang == "en" else "en"
     twin = (
@@ -551,8 +634,9 @@ def article_page(a: Article, all_articles: dict[str, list[Article]]) -> str:
         for article in (a, twin):
             alternates[article.lang] = article.path
         alternates["x-default"] = (a if a.lang == "en" else twin).path
-    image = _asset(a.cover or DEFAULT_COVER)
-    image_alt = a.cover_alt or a.title
+    ill = ills[f"{a.lang}/{a.slug}"]
+    image = _asset(ill.raster("share.jpg").lstrip("/"))
+    image_alt = ill.alt
     home = f"{SITE}/{_prefix(a.lang)}"
     posting: dict[str, object] = {
         "@type": "BlogPosting",
@@ -588,12 +672,8 @@ def article_page(a: Article, all_articles: dict[str, list[Article]]) -> str:
         alternates=alternates, og_type="article", image=image, image_alt=image_alt,
         json_ld=[posting, crumbs], extra=extra.strip(),
     )  # fmt: skip
-    cover = ""
-    if a.cover:
-        cover = (
-            f'<figure class="wide"><div><img src="/{_e(a.cover)}" alt="{_e(image_alt)}" width="1200" height="630">'
-            "</div></figure>\n"
-        )
+    # Le SVG en ligne : il suit le thème du site, ce qu'un `<img>` ne fait pas.
+    cover = f'<figure class="wide"><div class="ill">{ill.inline()}</div></figure>\n'
     tags = "".join(f"<span>{_e(t)}</span>" for t in a.tags)
     category = (
         f'<span aria-hidden="true">·</span><span>{_e(a.category)}</span>' if a.category else ""
@@ -607,7 +687,7 @@ def article_page(a: Article, all_articles: dict[str, list[Article]]) -> str:
     if more:
         cards = (
             f'<section class="wrap more" aria-labelledby="more"><h2 id="more">{w["read_also"]}</h2>'
-            f'<div class="cards">{"".join(_card(x) for x in more)}</div></section>'
+            f'<div class="cards">{"".join(_card(x, ills[f"{x.lang}/{x.slug}"]) for x in more)}</div></section>'
         )
     body = f"""<div class="crumbs wrap"><a href="/{_prefix(a.lang)}blog/">← {w["blog"]}</a></div>
 <article class="prose">
@@ -625,7 +705,9 @@ def article_page(a: Article, all_articles: dict[str, list[Article]]) -> str:
     return f'<!doctype html>\n<html lang="{a.lang}">\n<head>\n{head}\n</head>\n{_chrome(a.lang, switch, body)}\n'
 
 
-def index_page(lang: str, all_articles: dict[str, list[Article]]) -> str:
+def index_page(
+    lang: str, all_articles: dict[str, list[Article]], ills: dict[str, Illustration]
+) -> str:
     w = WORDS[lang]
     articles = all_articles[lang]
     path = f"{_prefix(lang)}blog/"
@@ -660,7 +742,7 @@ def index_page(lang: str, all_articles: dict[str, list[Article]]) -> str:
         alternates={"en": "blog/", "fr": "fr/blog/", "x-default": "blog/"}, og_type="website",
         image=image, image_alt="Ponos", json_ld=[blog, crumbs],
     )  # fmt: skip
-    cards = "".join(_card(a) for a in articles) or f"<p>{w['empty']}</p>"
+    cards = "".join(_card(a, ills[f"{lang}/{a.slug}"]) for a in articles) or f"<p>{w['empty']}</p>"
     body = f"""<div class="wrap blog-head">
   <h1>{w["blog"]}</h1>
   <p class="lead">{_e(w["tagline"])}</p>
@@ -764,13 +846,14 @@ def llms(all_articles: dict[str, list[Article]]) -> str:
 
 def outputs() -> dict[Path, str]:
     articles = load()
+    ills = load_illustrations(articles)
     files: dict[Path, str] = {}
     for lang in LANGS:
         folder = DOCS / _prefix(lang) / "blog"
-        files[folder / "index.html"] = index_page(lang, articles)
+        files[folder / "index.html"] = index_page(lang, articles, ills)
         files[folder / "feed.xml"] = feed(lang, articles[lang])
         for a in articles[lang]:
-            files[folder / a.slug / "index.html"] = article_page(a, articles)
+            files[folder / a.slug / "index.html"] = article_page(a, articles, ills)
     files[DOCS / "sitemap.xml"] = sitemap(articles)
     files[DOCS / "llms.txt"] = llms(articles)
     return files

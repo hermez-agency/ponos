@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Un tableau dont seules trois lignes sont dessinées, la suivante en pointillés, avec des traits de vitesse à gauche" data-brand="ponos" stroke-linecap="round" stroke-linejoin="round">
+<style>
+svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+@media (prefers-color-scheme:dark){svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}}
+.dark svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}
+.light svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+</style>
+<rect width="1600" height="900" fill="var(--ill-bg)"/>
+<rect x="400" y="170" width="900" height="560" rx="40" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<g fill="var(--ill-bg)" stroke="var(--ill-line)" stroke-width="4">
+<rect x="460" y="230" width="780" height="100" rx="24"/>
+<rect x="460" y="360" width="780" height="100" rx="24"/>
+<rect x="460" y="490" width="780" height="100" rx="24"/>
+</g>
+<rect x="460" y="620" width="780" height="70" rx="24" fill="none" stroke="var(--ill-mute)" stroke-width="4" stroke-dasharray="16 20"/>
+<rect x="510" y="396" width="200" height="28" rx="14" fill="var(--ill-accent)"/>
+<g stroke="var(--ill-line)" stroke-width="12">
+<line x1="130" y1="330" x2="310" y2="330"/>
+<line x1="190" y1="450" x2="310" y2="450"/>
+<line x1="150" y1="570" x2="310" y2="570"/>
+</g>
+<g stroke="var(--ill-mute)" stroke-width="8"><line x1="510" y1="280" x2="800" y2="280"/><line x1="510" y1="540" x2="740" y2="540"/></g>
+</svg>

@@ -68,6 +68,9 @@ footer.site, body > footer { margin-top: 6rem; border-top: 1px solid var(--borde
   transition: border-color .15s;
 }
 .card:hover { border-color: color-mix(in srgb, var(--foreground) 20%, transparent); }
+.card picture { display: block; }
+.card .ill-dark, .dark .card .ill-light { display: none; }
+.dark .card .ill-dark { display: block; }
 .card img { display: block; width: 100%; height: auto; aspect-ratio: 32 / 15; object-fit: cover; border-bottom: 1px solid var(--border); }
 .card-body { display: flex; flex: 1; flex-direction: column; gap: .5rem; padding: 1rem; }
 .card-body p { margin: 0; }
@@ -135,7 +138,7 @@ footer.site, body > footer { margin-top: 6rem; border-top: 1px solid var(--borde
 /* ArticleFigure */
 .prose figure { margin: 2.5rem 0 0; }
 .prose figure > div { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); }
-.prose figure img { display: block; width: 100%; height: auto; }
+.prose figure img, .prose figure .ill svg { display: block; width: 100%; height: auto; }
 .prose figcaption { margin-top: .75rem; font-size: .875rem; line-height: 1.5rem; color: var(--muted-foreground); }
 
 /* ArticleQuote : une phrase mise en avant, en police de titre, sans italique */

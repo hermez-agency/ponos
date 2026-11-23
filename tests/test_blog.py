@@ -87,3 +87,41 @@ def markdown_keeps_html_out_of_the_text_and_scripts_out_of_links() -> None:
     assert "<h2" in build_blog.markdown("# T\n")  # the page's h1 is the header's
     html = build_blog.markdown("a & b [x](javascript:alert(1)) `<i>`\n")
     assert "javascript:" not in html and "&lt;i&gt;" in html and "a &amp; b" in html
+
+
+@case
+def every_article_has_an_illustration_the_page_shows_and_shares() -> None:
+    """The build refuses a missing illustration; the page inlines the SVG and shares the JPEG."""
+    articles = build_blog.load()
+    ills = build_blog.load_illustrations(articles)
+    assert len(ills) == sum(len(items) for items in articles.values())
+    for lang, items in articles.items():
+        for a in items:
+            ill = ills[f"{lang}/{a.slug}"]
+            page = (
+                ROOT / "docs" / build_blog._prefix(lang) / "blog" / a.slug / "index.html"
+            ).read_text(encoding="utf-8")
+            assert "<svg" in page and 'data-brand="ponos"' in page
+            assert "@media (prefers-color-scheme:dark)" not in page, (
+                "the page's theme is the `.dark` class's"
+            )
+            assert f'aria-label="{build_blog._e(ill.alt)}"' in page
+            assert (
+                f'<meta property="og:image" content="{build_blog.SITE}{ill.raster("share.jpg")}">'
+                in page
+            )
+
+
+@case
+def a_declared_illustration_that_is_missing_fails_the_build() -> None:
+    articles = build_blog.load()
+    saved = build_blog.ILLUSTRATIONS_OUT
+    build_blog.ILLUSTRATIONS_OUT = ROOT / "nowhere"
+    try:
+        build_blog.load_illustrations(articles)
+    except SystemExit as error:
+        assert "-share.jpg manque" in str(error)
+    else:
+        raise AssertionError("a missing raster must fail the build")
+    finally:
+        build_blog.ILLUSTRATIONS_OUT = saved

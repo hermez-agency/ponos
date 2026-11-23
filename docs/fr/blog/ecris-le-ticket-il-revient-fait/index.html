@@ -19,13 +19,13 @@
 <meta property="og:description" content="Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.">
 <meta property="og:url" content="https://the-ponos.app/fr/blog/ecris-le-ticket-il-revient-fait/">
 <meta property="og:locale" content="fr">
-<meta property="og:image" content="https://the-ponos.app/mascot/og.png">
-<meta property="og:image:alt" content="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »">
+<meta property="og:image" content="https://the-ponos.app/blog/illustrations/write-the-ticket-share.jpg">
+<meta property="og:image:alt" content="Une fiche de ticket aux lignes rangées, reliée par un rail à un grand rond orange coché">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog — Ponos">
 <meta name="twitter:description" content="Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.">
-<meta name="twitter:image" content="https://the-ponos.app/mascot/og.png">
-<meta name="twitter:image:alt" content="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »">
+<meta name="twitter:image" content="https://the-ponos.app/blog/illustrations/write-the-ticket-share.jpg">
+<meta name="twitter:image:alt" content="Une fiche de ticket aux lignes rangées, reliée par un rail à un grand rond orange coché">
 <meta property="article:published_time" content="2026-11-13">
 <meta property="article:tag" content="Claude Code">
 <meta property="article:tag" content="backlog">
@@ -42,7 +42,7 @@
   "headline": "Écris le ticket, il revient fait : comment Ponos fait tourner Claude Code sur ton backlog",
   "description": "Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.",
   "image": [
-    "https://the-ponos.app/mascot/og.png"
+    "https://the-ponos.app/blog/illustrations/write-the-ticket-share.jpg"
   ],
   "datePublished": "2026-11-13",
   "dateModified": "2026-11-13",
@@ -129,7 +129,23 @@
   <p class="lead">Ponos transforme un ticket passé en Prêt en session Claude Code sur un git worktree jetable, et le ramène en pull request. Voici la boucle, geste par geste.</p>
   <p class="byline"><span class="by">Hermez</span><span aria-hidden="true">·</span><time datetime="2026-11-13">13 novembre 2026</time><span aria-hidden="true">·</span><span>3 min de lecture</span></p>
 </header>
-<figure class="wide"><div><img src="/mascot/og.png" alt="Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »" width="1200" height="630"></div></figure>
+<figure class="wide"><div class="ill"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Une fiche de ticket aux lignes rangées, reliée par un rail à un grand rond orange coché" data-brand="ponos" stroke-linecap="round" stroke-linejoin="round">
+<style>
+svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+.dark svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}
+.light svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+</style>
+<rect width="1600" height="900" fill="var(--ill-bg)"/>
+<rect x="200" y="250" width="380" height="400" rx="40" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<line x1="280" y1="350" x2="500" y2="350" stroke="var(--ill-line)" stroke-width="12"/>
+<line x1="280" y1="450" x2="440" y2="450" stroke="var(--ill-line)" stroke-width="12"/>
+<circle cx="300" cy="550" r="16" fill="var(--ill-mute)"/>
+<line x1="580" y1="450" x2="1050" y2="450" stroke="var(--ill-line)" stroke-width="8"/>
+<circle cx="760" cy="450" r="14" fill="var(--ill-mute)"/>
+<circle cx="1250" cy="450" r="190" fill="none" stroke="var(--ill-line)" stroke-width="4"/>
+<circle cx="1250" cy="450" r="120" fill="var(--ill-soft)" stroke="var(--ill-accent)" stroke-width="8"/>
+<path d="M1195 455 L1235 495 L1310 410" fill="none" stroke="var(--ill-accent)" stroke-width="12"/>
+</svg></div></figure>
 <p>L&#x27;essentiel d&#x27;un backlog, c&#x27;est du travail qu&#x27;on sait déjà décrire. Un bug avec une reproduction claire, une petite fonctionnalité, une dépendance à monter, un paragraphe à réécrire. Le décrire prend deux minutes ; le faire prend un après-midi de changements de contexte. <strong>Ponos</strong> est fait pour cet écart : tu écris le ticket, une session Claude Code le fait, et il revient pour que tu le relises.</p>
 <h2 id="la-boucle-tient-en-quatre-gestes">La boucle tient en quatre gestes</h2>
 <ol><li><strong>Écris un ticket</strong> sur le board de Ponos, la console, et passe-le en <em>Ready</em>.</li><li><strong>Ponos le fait.</strong> Une session Claude Code démarre sur un <code>git worktree</code> jetable qui lui est propre, ou dans un dossier de travail quand le ticket n&#x27;a pas de dépôt.</li><li><strong>Tu relis ce qui revient</strong>, et tu réponds en un mot s&#x27;il a posé une question, même depuis ton téléphone.</li><li><strong>Tu le passes en <em>Validated</em>.</strong> Ponos fusionne la pull request ou publie le texte, et seulement alors le déclare <em>Done</em>.</li></ol>
@@ -152,21 +168,21 @@
 <footer class="article-foot"><span>Claude Code</span><span>backlog</span><span>git worktree</span><span>automatisation</span><span class="signature">Un produit Hermez</span></footer>
 </article>
 <section class="wrap more" aria-labelledby="more"><h2 id="more">À lire aussi</h2><div class="cards"><a class="card" href="/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/">
-  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <picture class="ill-light"><source type="image/avif" srcset="/blog/illustrations/one-ticket-step-by-step-480.avif 480w, /blog/illustrations/one-ticket-step-by-step-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/one-ticket-step-by-step-480.webp 480w, /blog/illustrations/one-ticket-step-by-step-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/one-ticket-step-by-step-960.webp" alt="" loading="lazy" width="960" height="540"></picture><picture class="ill-dark"><source type="image/avif" srcset="/blog/illustrations/one-ticket-step-by-step-dark-480.avif 480w, /blog/illustrations/one-ticket-step-by-step-dark-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/one-ticket-step-by-step-dark-480.webp 480w, /blog/illustrations/one-ticket-step-by-step-dark-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/one-ticket-step-by-step-dark-960.webp" alt="" loading="lazy" width="960" height="540"></picture>
   <div class="card-body">
     <p class="card-product">Ponos</p>
     <p class="card-title">Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code</p>
     <p class="card-meta"><time datetime="2026-11-23">23 novembre 2026</time> · 6 min</p>
   </div>
 </a><a class="card" href="/fr/blog/une-console-plus-rapide/">
-  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <picture class="ill-light"><source type="image/avif" srcset="/blog/illustrations/a-faster-console-480.avif 480w, /blog/illustrations/a-faster-console-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/a-faster-console-480.webp 480w, /blog/illustrations/a-faster-console-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/a-faster-console-960.webp" alt="" loading="lazy" width="960" height="540"></picture><picture class="ill-dark"><source type="image/avif" srcset="/blog/illustrations/a-faster-console-dark-480.avif 480w, /blog/illustrations/a-faster-console-dark-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/a-faster-console-dark-480.webp 480w, /blog/illustrations/a-faster-console-dark-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/a-faster-console-dark-960.webp" alt="" loading="lazy" width="960" height="540"></picture>
   <div class="card-body">
     <p class="card-product">Ponos</p>
     <p class="card-title">Une console plus rapide : des fenêtres qui s&#x27;ouvrent tout de suite, un tableau qui ne dessine que ce que tu vois</p>
     <p class="card-meta"><time datetime="2026-11-19">19 novembre 2026</time> · 4 min</p>
   </div>
 </a><a class="card" href="/fr/blog/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences/">
-  <img src="/mascot/og.png" alt="" loading="lazy" width="1200" height="630">
+  <picture class="ill-light"><source type="image/avif" srcset="/blog/illustrations/drive-your-backlog-480.avif 480w, /blog/illustrations/drive-your-backlog-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/drive-your-backlog-480.webp 480w, /blog/illustrations/drive-your-backlog-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/drive-your-backlog-960.webp" alt="" loading="lazy" width="960" height="540"></picture><picture class="ill-dark"><source type="image/avif" srcset="/blog/illustrations/drive-your-backlog-dark-480.avif 480w, /blog/illustrations/drive-your-backlog-dark-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/drive-your-backlog-dark-480.webp 480w, /blog/illustrations/drive-your-backlog-dark-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/drive-your-backlog-dark-960.webp" alt="" loading="lazy" width="960" height="540"></picture>
   <div class="card-body">
     <p class="card-product">Ponos</p>
     <p class="card-title">Pilotez votre backlog depuis Claude : le MCP de Ponos gère maintenant projets, objectifs et récurrences</p>

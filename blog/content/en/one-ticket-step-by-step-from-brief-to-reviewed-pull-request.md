@@ -6,8 +6,6 @@ tags: [Ponos, Claude Code, pull request, code review, git worktree, use case]
 lang: en
 translation: un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue
 category: Use cases
-cover: mascot/og.png
-cover_alt: Ponos, the robot, jumping beside its name and the words "Write the ticket. It comes back done."
 ---
 
 Most posts about running Claude Code on a backlog stay abstract. This one

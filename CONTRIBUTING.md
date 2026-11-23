@@ -646,8 +646,6 @@ tags: [Claude Code, backlog]
 lang: en
 translation: slug-of-the-french-version   # optional; one side is enough
 category: Behind the scenes               # optional
-cover: mascot/og.png      # optional, a path from the site's root; that image is the default
-cover_alt: What the cover shows           # optional
 ---
 
 Body in Markdown: `##` and `###` headings (the page's `h1` is the title), lists,
@@ -655,6 +653,35 @@ code fences, tables, `> quotes` (end with `> — source` for a citation),
 `> [!NOTE] Title` for an aside, and an image alone on its line for a wide figure
 (its title is the caption).
 ```
+
+### An article's illustration
+
+Every article has an illustration — a flat SVG drawn by Claude to Brand Assets' grammar
+and Ponos' palette (no text, no logo, no character; the same grammar as the other Hermez
+blogs, only the palette changes). The method, the palettes and the tool live in
+[brand-assets](https://github.com/hermez-agency/brand-assets) — its
+`skills/illustrations-article/SKILL.md` — and are not copied here. With a clone of it and
+`pnpm install` run once in its `site/`:
+
+1. Draw the SVG from `pnpm illustrations template ponos`, check it
+   (`pnpm illustrations check`) and look at its rasters in both themes, as the skill says.
+   Keep the source in `blog/illustrations/<name>.svg`.
+2. Write the rasters next to the pages, with absolute paths:
+
+   ```sh
+   pnpm --dir <brand-assets>/site illustrations rasterize <ponos>/blog/illustrations/<name>.svg \
+     --out <ponos>/docs/blog/illustrations --themes light,dark
+   ```
+
+   That gives `<name>-480|960.avif|webp` (and `-dark-`) and `<name>-share.jpg`, 1200 × 630.
+3. Declare it in `blog/illustrations/illustrations.json`, under `<lang>/<slug>` — one entry
+   per article, the English and French versions sharing the file, each with its own `alt`.
+
+The page inlines the SVG, so it follows the site's light/dark switch (an `<img>` would
+follow only the system's setting); the index and the "read also" cards serve the rasters
+in a `<picture>` (AVIF, then WebP, 480 and 960 wide), one per theme, and `og:image` is the
+share JPEG. The build has no Node and does not rasterize: it fails, naming the file, when an
+article has no illustration, or when a declared one lacks its SVG or one of its nine rasters.
 
 Then `python3 scripts/build_blog.py` writes the article page, both blog indexes
 (newest first, as cards), one Atom feed per language, `docs/sitemap.xml` and the
