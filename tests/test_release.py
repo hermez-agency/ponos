@@ -885,8 +885,8 @@ def docs_holds_the_site_and_nothing_written_for_the_team() -> None:
     assert not markdown, f"docs/ is the public site, and these are not pages of it: {markdown}"
     site = {
         ".nojekyll", "404.html", "CNAME", "apple-touch-icon.png", "architecture.png",
-        "architecture.webp", "blog", "console", "favicon.ico", "fr", "icon.svg", "index.html", "llms.txt",
-        "mascot", "media", "robots.txt", "sitemap.xml", "tokens.css",
+        "architecture.webp", "blog", "console", "favicon.ico", "fr", "icon.svg", "index.html", "install",
+        "llms.txt", "mascot", "media", "robots.txt", "sitemap.xml", "tokens.css",
     }  # fmt: skip
     unknown = sorted({path.parts[1] for path in files if len(path.parts) > 1} - site)
     assert not unknown, f"docs/ is the public site — is this meant to be served? {unknown}"
@@ -945,9 +945,9 @@ def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections() -> No
     """Seven sections at most, the first one Ponos and the promise.
 
     Seventeen sections at the same level is a manual, and the manual is the
-    README: the site says the promise, the four kinds of task, the loop and
-    three proofs, the console, the integrations — not before them —, the
-    install and who made it, and links the rest.
+    README: the site says the promise, the loop, the proof that Ponos builds
+    itself, the four kinds of task, the console, the integrations — not before
+    them — and the install, and links the rest.
     """
     page = LANDING.read_text(encoding="utf-8")
     sections = re.findall(r"<section\b[^>]*>", page)
@@ -972,36 +972,38 @@ def the_landing_page_opens_on_ponos_and_tells_the_loop_in_seven_sections() -> No
 
 
 @case
-def the_heros_picture_is_the_loop_and_ends_on_your_decision() -> None:
-    """Three numbered steps, and the third a decision rather than a pull request.
+def the_heros_picture_is_ponos_going_round_and_the_loop_puts_your_decision_first() -> None:
+    """The robot in the hero, and the decision drawn apart in the loop.
 
-    The promise is *nothing ships until you say yes*: the picture shows the two
-    gestures the console really offers on a ticket in review — Validate, Run
-    again — and the way back to Ponos. Without script or motion it rests on
-    that decision, and the ticket of the first step stays Ready all along.
+    A schema of the loop in the hero told the four gestures right under it a
+    second time, and its last step — the decision, the whole promise — was its
+    palest. The hero shows Ponos himself going round idle, working, success,
+    resting on success without script or motion; the loop draws its third
+    gesture, yours, apart — the console's own two buttons named in it.
     """
-    page = LANDING.read_text(encoding="utf-8")
-    figure = page.split('<figure class="card flow" id="flow"', 1)[1].split("</figure>", 1)[0]
-    assert 'data-step="3"' in figure.split(">", 1)[0], (
-        "without script, the picture is not at the decision"
-    )
-    steps = re.findall(r'<span class="flow-num">(\d)</span><b>([^<]+)</b>', figure)
-    assert [n for n, _ in steps] == ["1", "2", "3"], (
-        f"the steps are not numbered one to three: {steps}"
-    )
-    assert "Ponos" in steps[1][1], "the second step is not Ponos's"
-    assert ">Validate<" in figure and ">Run again<" in figure, (
-        "the decision has lost one of its two buttons"
-    )
-    assert "flow-link to-you" in figure and "your note" in figure, "the way back to Ponos is gone"
-    assert "<ponos-robot" in figure
-    statuses = re.findall(r'<span class="status[^"]*">([^<]+)</span>', figure)
-    assert statuses == ["Ready"], f"the ticket of step one moves on: {statuses}"
-    label = _searched(r'role="img" aria-label="([^"]+)"', figure).group(1)
-    assert "Validate" in label and "Run again" in label, (
-        "the picture's description does not tell the decision"
-    )
-    # The console's own words, so the picture does not promise a button that is not there.
+    for file in (LANDING, ROOT / "docs/fr/index.html"):
+        page = file.read_text(encoding="utf-8")
+        hero = page.split('<section class="hero" id="top">', 1)[1].split("</section>", 1)[0]
+        assert 'class="flow' not in page, f"{file.name}: the hero's schema is back"
+        figure = _searched(r'<figure class="hero-bot" id="hero-figure" data-state="(\w+)"', hero)
+        assert figure.group(1) == "success", "without script, the hero is not at the result"
+        assert '<ponos-robot id="hero-bot" state="success"' in hero
+        states = re.findall(r'<li data-for="(\w+)">', hero)
+        assert states == ["idle", "working", "success"], f"the hero's round: {states}"
+        script = page.split("<script>\n(function", 1)[1]
+        assert "['idle', " in script and "['working', " in script and "['success', " in script, (
+            "the script no longer moves the hero's robot round"
+        )
+        loop = page.split('<section id="loop">', 1)[1].split("</section>", 1)[0]
+        steps = re.findall(r'<li class="step( key)?">', loop)
+        assert len(steps) == 4 and [bool(key) for key in steps] == [False, False, True, False], (
+            f"{file.name}: the third gesture, the decision, is not the one drawn apart"
+        )
+        decision = loop.split('<li class="step key">', 1)[1].split("</li>", 1)[0]
+        assert "<em>Validate</em>" in decision and "<em>Run again</em>" in decision, (
+            "the decision has lost one of the console's two buttons"
+        )
+    # The console's own words, so the page does not promise a button that is not there.
     bits = (FRONTEND / "src/components/console/ticket-bits.tsx").read_text(encoding="utf-8")
     assert 't("Validate and publish")' in bits and 't("Run again")' in bits
 
@@ -1016,11 +1018,11 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero() -> None:
     the second screen of a page, fetched only as the section comes near and
     started by the script — never by an `autoplay` the browser would honour
     before the page could ask whether motion is welcome. The four gestures stay
-    under it as its legend, lit from the film's clock.
+    beside it as its legend, lit from the film's clock.
     """
     page = LANDING.read_text(encoding="utf-8")
     order = re.findall(r'<section\b[^>]*\bid="([^"]+)"', page)
-    assert order[:3] == ["top", "loop", "tasks"], f"the loop no longer follows the hero: {order}"
+    assert order[:2] == ["top", "loop"], f"the loop no longer follows the hero: {order}"
     assert "board-demo" not in page and 'id="board"' not in page, "the schematic board is back"
     loop = page.split('<section id="loop">', 1)[1].split("</section>", 1)[0]
     video = _searched(r"<video\b[^>]*>", loop, re.S).group(0)
@@ -1048,15 +1050,83 @@ def the_landing_page_shows_the_console_filmed_right_after_its_hero() -> None:
         assert len(cues) == 4 and cues[0] == 0 and cues == sorted(cues), (
             f"one cue per gesture, in order: {cues}"
         )
-    assert loop.count('class="card step"') == 4, "the four gestures are no longer the legend"
-    assert loop.index("<video") < loop.index('class="grid g4 gestures"'), (
-        "the legend comes before the film"
+    assert len(re.findall(r'<li class="step[ "]', loop)) == 4, (
+        "the four gestures are no longer the legend"
     )
+    assert loop.index("<video") < loop.index('class="gestures"'), "the legend comes before the film"
     script = (ROOT / "scripts/film-console.mjs").read_text(encoding="utf-8")
     assert "data-cues" in script, "the film's script no longer writes the cues into the page"
     assert "node scripts/film-console.mjs" in (ROOT / "CONTRIBUTING.md").read_text(
         encoding="utf-8"
     ), "the command that films the console is not documented"
+
+
+@case
+def the_proof_that_ponos_builds_ponos_comes_right_after_the_loop() -> None:
+    """Made by Ponos himself, with a number, under the loop rather than after the FAQ.
+
+    The claim at the bottom of the page, in words only, was read by nobody. It
+    comes third, the same count in both languages, and says when it was counted:
+    a number on a public page is one somebody may check.
+    """
+    counts = []
+    for file in (LANDING, ROOT / "docs/fr/index.html"):
+        page = file.read_text(encoding="utf-8")
+        order = re.findall(r'<section\b[^>]*\bid="([^"]+)"', page)
+        assert order[:3] == ["top", "loop", "handmade"], f"{file.name}: the proof moved: {order}"
+        proof = page.split('<section id="handmade"', 1)[1].split("</section>", 1)[0]
+        figure = int(_searched(r"<div class=\"proof-figure\">\s*<b>(\d+)</b>", proof).group(1))
+        assert re.search(rf"\b{figure}\b", proof.split("</div>", 1)[1]), (
+            "the figure is not the one the paragraph says"
+        )
+        assert re.search(r"(?:Counted on|Compté le) \d{1,2} \w+ 20\d\d", proof), (
+            f"{file.name}: the count does not say when it was made"
+        )
+        counts.append(figure)
+    assert counts[0] == counts[1], f"the two pages give two counts: {counts}"
+
+
+@case
+def the_landing_page_keeps_one_grid_of_cards_and_one_bold_fragment_a_paragraph() -> None:
+    """A rhythm rather than five grids of the same cards one after the other.
+
+    Two grids of cards at most — the rest is a film, a band, a screenshot,
+    lists without frames — and one bold fragment per paragraph or card: bold in
+    every one of them, nothing stands out.
+    """
+    for file in (LANDING, ROOT / "docs/fr/index.html"):
+        page = file.read_text(encoding="utf-8")
+        body = page.split("<main>", 1)[1].split("</main>", 1)[0]
+        grids = re.findall(r'class="grid\b', body)
+        assert len(grids) <= 2, f"{file.name}: {len(grids)} grids of cards"
+        for block in re.findall(r"<(p|article|li)\b[^>]*>(.*?)</\1>", body, re.S):
+            if block[0] == "li" and "<li" in block[1]:
+                continue
+            bold = re.findall(r"<(?:b|strong)>", block[1])
+            assert len(bold) <= 1, f"{file.name}: bold {len(bold)} times in {block[1][:80]!r}"
+
+
+@case
+def the_site_serves_the_installer_at_a_short_address() -> None:
+    """`curl -LsSf https://the-ponos.app/install | sh`, one line on a phone.
+
+    The raw GitHub address broke over four lines on a phone. GitHub Pages
+    redirects nothing, so `docs/install` is a script of three lines that fetches
+    the real installer — written once, `install.sh` — and runs it, or nothing
+    when the download fails.
+    """
+    short = (ROOT / "docs/install").read_text(encoding="utf-8")
+    assert short.startswith("#!/bin/sh\n") and "set -eu" in short
+    assert (
+        "installer=$(curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh)"
+        in short
+    ), "the short address does not fetch the repository's installer"
+    assert 'exec sh -c "$installer"' in short
+    for file in (LANDING, ROOT / "docs/fr/index.html"):
+        page = file.read_text(encoding="utf-8")
+        assert "raw.githubusercontent.com" not in page, f"{file.name} still shows the long address"
+        assert page.count("<code>curl -LsSf https://the-ponos.app/install | sh</code>") == 1
+        assert '<code id="install-cmd">curl -LsSf https://the-ponos.app/install | sh</code>' in page
 
 
 @case

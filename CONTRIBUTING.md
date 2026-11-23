@@ -583,7 +583,7 @@ headless Chrome through one ticket — *New ticket*, *In progress* with its live
 Claude Code session runs: a stand-in holds the scheduler's place, writes the session log and moves
 the ticket with the runner's own pieces, so the console shows what it shows of a real run.
 The script also writes, into `docs/index.html` and its French twin `docs/fr/index.html`, the second at which each of the four
-gestures begins, for the legend under the film to follow it.
+gestures begins, for the legend beside the film to follow it.
 
 `.github/workflows/ci.yml` runs both suites on every pull request and on every push to
 `main`, on Python 3.11 — the oldest the runner promises — after installing

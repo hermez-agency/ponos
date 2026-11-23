@@ -100,7 +100,12 @@
 <style>
   /* The landing page is the console's design system written without a build:
      the same tokens, and the same shapes as its shadcn components — button,
-     badge, card, tabs — recopied as plain classes. */
+     badge, card, tabs — recopied as plain classes.
+
+     A rhythm rather than a pile: one grid of cards (the four kinds of task),
+     and around it a film, a band, a screenshot, lists without frames. Five
+     grids of the same cards one after the other read as one long grey wall —
+     and one bold fragment per paragraph, or nothing stands out. */
   :root { color-scheme: light; --wrap: 1120px; --radius-md: calc(var(--radius) * 0.8); --radius-xl: calc(var(--radius) * 1.4);
     --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / .05); --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1); }
   .dark { color-scheme: dark; }
@@ -146,8 +151,6 @@
     border: 1px solid var(--border); border-radius: var(--radius-md); padding: .125rem .5rem;
     font-size: .75rem; font-weight: 500; line-height: 1.33; white-space: nowrap;
   }
-  .badge-primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
-  .badge-secondary { background: var(--secondary); color: var(--secondary-foreground); border-color: transparent; }
   .dot { width: .5rem; height: .5rem; border-radius: 999px; display: inline-block; flex: none; background: var(--muted-foreground); }
 
   /* -- card -- */
@@ -159,8 +162,6 @@
   .card > * { padding-inline: 1.5rem; }
   .card-header { display: grid; gap: .375rem; }
   .card-title { font-weight: 600; line-height: 1.25; margin: 0; font-size: 1.0625rem; }
-  .card-description { color: var(--muted-foreground); font-size: .875rem; margin: 0; }
-  .card-footer { margin-top: auto; display: flex; align-items: center; font-size: .875rem; }
 
   /* -- tabs -- */
   .tabs-list {
@@ -178,7 +179,7 @@
   /* -- code -- */
   pre {
     position: relative; margin: 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: .875rem 1rem; overflow-x: auto; font-size: .8125rem; line-height: 1.7; color: var(--foreground);
+    padding: .875rem 4.5rem .875rem 1rem; overflow-x: auto; font-size: .8125rem; line-height: 1.7; color: var(--foreground);
   }
   pre .p { color: var(--primary); user-select: none; }
   pre .c { color: var(--muted-foreground); }
@@ -205,18 +206,37 @@
   .dark .theme-toggle .sun { display: none; }
 
   /* -- sections -- */
-  section { padding: 5.5rem 0 0; }
-  .sec-head { max-width: 680px; margin-bottom: 2.25rem; }
+  section { padding: 4.5rem 0 0; }
+  .sec-head { max-width: 680px; margin-bottom: 2rem; }
+  /* A head on two columns — the title, and what it means beside it — where
+     the section under it is as wide as the page. */
+  .sec-head.split { max-width: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 3rem; align-items: end; }
+  .sec-head.split p { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+  @media (max-width: 860px) { .sec-head.split { grid-template-columns: minmax(0, 1fr); } .sec-head.split p { grid-column: auto; grid-row: auto; margin-top: .75rem; } }
   h1, h2, h3 { font-family: var(--heading); letter-spacing: var(--heading-tracking); font-weight: var(--heading-weight); }
   h2 { font-size: clamp(1.875rem, 4vw, 2.5rem); line-height: 1.1; margin: .5rem 0 0; }
-  .sec-head p { color: var(--muted-foreground); font-size: 1.0625rem; margin: .875rem 0 0; }
+  .sec-head p { color: var(--muted-foreground); font-size: 1.0625rem; margin: .75rem 0 0; }
   .grid { display: grid; gap: 1rem; }
   .g4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
-  .g3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+  .sub-head { max-width: 680px; margin: 3.5rem 0 1.5rem; scroll-margin-top: 76px; }
+  .sub-head h3 { font-size: clamp(1.375rem, 2.6vw, 1.625rem); line-height: 1.2; margin: .375rem 0 0; }
+
+  /* -- a list in two columns, without frames: a title, a sentence, a link -- */
+  .list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.75rem 3rem; }
+  @media (max-width: 760px) { .list { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; } }
+  .list li { padding-top: 1rem; border-top: 1px solid var(--border); min-width: 0; }
+  .list h3, .list h4 { margin: 0; font: 600 1.0625rem/1.3 var(--sans); letter-spacing: -.01em; display: flex; align-items: center; gap: .5rem; }
+  .list .badge { color: var(--muted-foreground); font-family: var(--sans); }
+  .list p { margin: .375rem 0 0; color: var(--muted-foreground); font-size: .9375rem; }
+  .list p b, .list p q { color: var(--foreground); font-weight: 600; }
+  .list q { font-weight: 500; }
+  .list .more { display: inline-block; margin-top: .375rem; font-size: .875rem; font-weight: 500; color: var(--primary); text-decoration: none; }
+  .list .more:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .list pre { margin-top: .625rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 
   /* -- 1. hero -- */
   .hero { padding-top: 4rem; }
-  .hero-in { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 3rem; align-items: center; }
+  .hero-in { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 3rem; align-items: center; }
   @media (max-width: 900px) { .hero-in { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; } }
   h1 { font-size: clamp(2.75rem, 7vw, 4.75rem); line-height: 1; margin: 0; }
   h1 span { color: var(--primary); display: block; }
@@ -228,120 +248,57 @@
   .cta { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 2rem; }
   .cta .link { margin-left: .5rem; font-size: .875rem; font-weight: 500; color: var(--muted-foreground); text-underline-offset: 3px; }
   .cta .link:hover { color: var(--foreground); }
-  /* The whole command, always: it breaks at its slashes rather than hiding
-     its end behind the button. */
+  /* The command on one line, on a phone too: the short address the site
+     serves (docs/install) keeps it short enough, and a narrower screen
+     scrolls it sideways rather than breaking it over four lines. */
   .install {
-    display: flex; align-items: flex-start; gap: .75rem; margin-top: 1.25rem; max-width: 36rem;
+    display: flex; align-items: center; gap: .625rem; margin-top: 1.25rem; max-width: 36rem;
     background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: .375rem .375rem .375rem 1rem;
     font: .8125rem/1.6 var(--mono); box-shadow: var(--shadow-xs);
   }
-  .install .p { color: var(--primary); user-select: none; padding-top: .3rem; }
-  .install code { flex: 1; min-width: 0; padding: .3rem 0; overflow-wrap: anywhere; white-space: normal; background: none; border: 0; font-size: inherit; }
+  .install .p { color: var(--primary); user-select: none; }
+  .install code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; background: none; border: 0; padding: 0; font-size: inherit; scrollbar-width: none; }
+  .install.wide { max-width: none; margin-top: 0; }
   .byline { margin-top: 1.25rem; font-size: .875rem; color: var(--muted-foreground); max-width: 36rem; }
-
-  /* The hero's picture: the loop in three numbered steps — the ticket as the
-     board shows it, Ponos at work on it, and what comes back for your decision,
-     with the way back to Ponos when the answer is not yes. One attribute,
-     data-step, says how far the round went; data-kind, what it brings back —
-     a pull request or a post, the two roads that wait for a yes. The page's
-     script moves them round, and without script — or with motion unwelcome —
-     the picture stays at the decision, both buttons on show. */
-  .flow { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 1.25rem; background: radial-gradient(60% 45% at 50% 50%, color-mix(in srgb, var(--primary) 12%, transparent), transparent), var(--card); }
-  .flow > * { padding-inline: 0; }
-  .flow-body { padding-right: 1.75rem; --loop: color-mix(in srgb, var(--primary) 75%, transparent); }
-  .flow[data-kind="code"] .k-post, .flow[data-kind="post"] .k-code { display: none; }
-  .flow-step { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
-  .flow-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .5rem; padding-right: 1.5rem; line-height: 1.375rem; }
-  .flow-num {
-    align-self: flex-start; flex: none; width: 1.375rem; height: 1.375rem; border-radius: 999px; text-align: center;
-    font: 600 .75rem/1.375rem var(--sans); background: var(--primary); color: var(--primary-foreground);
-  }
-  .flow-head b { font-weight: 600; font-size: .9375rem; letter-spacing: -.01em; }
-  .flow-head small { color: var(--muted-foreground); font-size: .75rem; }
-  .flow-pane {
-    background: var(--background); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: .75rem .875rem; font-size: .8125rem; line-height: 1.45; box-shadow: var(--shadow-xs);
-    transition: opacity .5s, border-color .5s, box-shadow .5s;
-  }
-  .flow-crumb { display: flex; align-items: center; gap: .375rem; color: var(--muted-foreground); font-size: .75rem; }
-  .flow-crumb svg { width: .875rem; height: .875rem; }
-  .flow-title { font-weight: 600; font-size: .9375rem; letter-spacing: -.01em; margin: .25rem 0 .5rem; }
-  .flow-props { margin: 0; display: grid; grid-template-columns: 5.5rem 1fr; gap: .25rem .5rem; font-size: .75rem; color: var(--muted-foreground); }
-  .flow-props dt { margin: 0; }
-  .flow-props dd { margin: 0; color: var(--foreground); }
-  /* The ticket stays Ready: how far it went is read in the steps below. */
-  .status { display: inline-flex; align-items: center; gap: .375rem; padding: 0 .5rem; border-radius: 999px; font-weight: 500; color: var(--tr-green); background: color-mix(in srgb, currentColor 14%, transparent); }
-  .status::before { content: ""; width: .375rem; height: .375rem; border-radius: 999px; background: currentColor; }
-  .flow-work { display: flex; align-items: center; gap: 1rem; }
-  .flow-work ponos-robot { width: 4.5rem; flex: none; }
-  .flow-work > div { flex: 1; min-width: 0; }
-  .flow-who { font-weight: 600; font-size: .8125rem; }
-  .flow-state { margin: .125rem 0 0; font-size: .9375rem; }
-  .flow-state > span { display: none; }
-  .flow-state .ok { color: var(--tr-green); font-weight: 600; }
-  .flow[data-step="0"] .flow-state .wait, .flow:is([data-step="1"], [data-step="2"]) .flow-state .busy,
-  .flow:is([data-step="3"], [data-step="4"], [data-step="5"]) .flow-state .done { display: inline; }
-  .flow-state .wait { color: var(--muted-foreground); }
-  .flow-out { display: flex; align-items: center; gap: .75rem; }
-  .flow-out > svg { width: 1.25rem; height: 1.25rem; flex: none; color: var(--tr-green); }
-  .flow-out div { flex: 1; min-width: 0; }
-  .flow-out b { display: block; font-weight: 600; }
-  .flow-out small { display: block; color: var(--muted-foreground); font-size: .75rem; }
-  .flow-out .badge { display: none; color: var(--tr-violet); border-color: color-mix(in srgb, currentColor 40%, transparent); }
-  .flow-out .badge.shipped { color: var(--tr-green); }
-  .flow:not([data-step="5"]) .flow-out .badge.review, .flow[data-step="5"] .flow-out .badge.shipped { display: inline-flex; }
-  /* Two buttons drawn, not pressed: Validate and Run again are the console's
-     own two gestures on a ticket in review. */
-  .flow-act { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .5rem; margin-top: .75rem; min-height: 2rem; }
-  .flow-act .btn { cursor: default; transition: box-shadow .2s, scale .2s; }
-  .flow[data-step="4"] .flow-act .yes { scale: .95; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 45%, transparent); }
-  .flow-said { display: none; margin-right: auto; color: var(--tr-green); font-weight: 600; }
-  .flow[data-step="5"] .flow-act .btn { display: none; }
-  .flow[data-step="5"] .flow-said { display: inline; }
-  .flow:is([data-step="0"], [data-step="1"], [data-step="2"]) .flow-yes { opacity: .35; border-style: dashed; box-shadow: none; }
-  .flow:is([data-step="3"], [data-step="4"]) .flow-yes { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); }
-  .flow[data-step="5"] .flow-yes { border-color: color-mix(in srgb, var(--tr-green) 55%, var(--border)); }
-  /* Down the left, a thread from one number to the next, lit once the round
-     has passed along it. */
-  .flow-link { position: relative; min-height: 1.5rem; }
-  .flow-link::before {
-    content: ""; position: absolute; left: .6875rem; top: .25rem; bottom: .25rem; width: 2px; translate: -50% 0; border-radius: 2px;
-    background: var(--border); transition: background-color .5s;
-  }
-  .flow:not([data-step="0"]) .flow-link.to-work::before,
-  .flow:is([data-step="3"], [data-step="4"], [data-step="5"]) .flow-link.to-you::before { background: var(--primary); }
-  /* Up the right, the way back: from Run again to step 2, in three pieces that
-     each know where they start — the head of step 2, the gap, the button. */
-  .flow-loop { position: relative; }
-  .flow-loop .flow-step:first-child::after, .flow-link.to-you::after, .flow-loop .flow-step:last-child::after {
-    content: ""; position: absolute; right: -1rem; border: 0 dashed var(--loop); pointer-events: none; z-index: 1; opacity: var(--loop-alpha, 1); transition: opacity .5s;
-  }
-  .flow-loop .flow-step:first-child::after { top: .6875rem; bottom: 0; width: 2.25rem; border-width: 2px 2px 0 0; border-top-right-radius: .5rem; }
-  .flow-loop .flow-step:first-child::before {
-    content: ""; position: absolute; top: calc(.6875rem - 4px); right: 1.25rem; width: 0; height: 0; z-index: 1;
-    border: 5px solid transparent; border-right: 7px solid var(--loop); border-left: 0; opacity: var(--loop-alpha, 1); transition: opacity .5s;
-  }
-  .flow-link.to-you::after { top: 0; bottom: 0; width: 0; border-right-width: 2px; }
-  .flow-loop .flow-step:last-child::after { top: 0; bottom: calc(1.75rem + 1px); width: calc(1.875rem + 1px); border-width: 0 2px 2px 0; border-bottom-right-radius: .5rem; }
-  .flow-link.to-you { display: flex; align-items: center; justify-content: flex-end; padding: .375rem .5rem .375rem 1.75rem; }
-  .flow-link.to-you span { font-size: .75rem; line-height: 1.35; text-align: right; color: var(--muted-foreground); }
-  .flow-link.to-you b { color: var(--foreground); font-weight: 600; }
-  .flow:is([data-step="0"], [data-step="1"], [data-step="2"], [data-step="5"]) .flow-loop { --loop-alpha: .35; }
-  .flow-link.to-you span { opacity: var(--loop-alpha, 1); transition: opacity .5s; }
-  .flow figcaption { margin-top: 1rem; text-align: center; color: var(--muted-foreground); font-size: .8125rem; }
+  /* On a phone the line takes the whole width, without its prompt, and Copy
+     goes under it: beside it, the command would be cut. */
   @media (max-width: 480px) {
-    .flow { padding: 1rem; }
-    .flow-work ponos-robot { width: 3.75rem; }
-    .flow-work { gap: .75rem; }
+    .install { flex-wrap: wrap; gap: .5rem; padding: .625rem .75rem; font-size: .6875rem; }
+    .install .p { display: none; }
+    .install code { flex: 1 1 100%; }
+    .install .btn { width: 100%; }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .flow-pane, .flow-link::before, .flow-act .btn, .flow-loop .flow-step::after, .flow-loop .flow-step::before, .flow-link.to-you::after, .flow-link.to-you span { transition: none; }
+
+  /* The hero's picture: Ponos himself, going round the three states a ticket
+     puts him in — waiting for one, at work on it, back with it for your yes.
+     One attribute, data-state, says which; the page's script moves it round,
+     and without script — or with motion unwelcome — it rests on the last. */
+  .hero-bot {
+    margin: 0; display: grid; justify-items: center; gap: 1.25rem; padding: 2.5rem 1.5rem 1.75rem;
+    border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+    background: radial-gradient(55% 50% at 50% 40%, color-mix(in srgb, var(--primary) 16%, transparent), transparent), var(--card);
   }
-  /* -- 2. the loop: the console filmed doing it, and the four gestures under
+  .hero-bot ponos-robot { width: min(14rem, 52vw); }
+  .hero-states { display: flex; flex-wrap: wrap; justify-content: center; gap: .375rem; list-style: none; margin: 0; padding: 0; }
+  .hero-states li {
+    padding: .25rem .75rem; border: 1px solid var(--border); border-radius: 999px; font-size: .8125rem; font-weight: 500;
+    color: var(--muted-foreground); background: var(--background); transition: color .4s, border-color .4s, background-color .4s;
+  }
+  .hero-bot[data-state="idle"] [data-for="idle"], .hero-bot[data-state="working"] [data-for="working"], .hero-bot[data-state="success"] [data-for="success"] {
+    color: var(--foreground); border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  }
+  .hero-bot figcaption { max-width: 22rem; text-align: center; color: var(--muted-foreground); font-size: .8125rem; }
+  @media (max-width: 900px) { .hero-bot { padding: 1.75rem 1rem 1.25rem; } .hero-bot ponos-robot { width: 9rem; } }
+  @media (prefers-reduced-motion: reduce) { .hero-states li { transition: none; } }
+
+  /* -- 2. the loop: the console filmed doing it, and the four gestures beside
      it as its legend — the one the film is at lit, from the film's own clock
-     (data-cues-*, written by scripts/film-console.mjs). On a phone the film is
-     shown twice as large and follows the card across the board: whole, its
-     text would be a few pixels high. -- */
+     (data-cues-*, written by scripts/film-console.mjs). The third, your
+     decision, is drawn apart whatever the film shows: it is the promise. On a
+     phone the film is shown twice as large and follows the card across the
+     board: whole, its text would be a few pixels high. -- */
+  .reel { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  @media (max-width: 900px) { .reel { grid-template-columns: minmax(0, 1fr); } }
   .console-film { margin: 0; }
   .console-film .frame { position: relative; overflow: hidden; aspect-ratio: 8 / 5; background: var(--muted); }
   .console-film .frame video { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -362,14 +319,37 @@
     .console-film[data-step="3"] .frame video { transform: translate(-48%, -30%); }
   }
   @media (prefers-reduced-motion: reduce) { .console-film .frame video { transition: none; } }
-  .gestures { list-style: none; padding: 0; margin: 1rem 0 0; }
-  .step { transition: border-color .3s, box-shadow .3s, opacity .3s; }
-  .step .num { font: 600 .8125rem/1 var(--mono); color: var(--primary); }
-  .gestures.live .step:not(.on) { opacity: .6; }
-  .gestures .step.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--shadow-sm); }
+  .gestures { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
+  .step { padding: .625rem 1rem .75rem; border-left: 2px solid var(--border); transition: border-color .3s, opacity .3s; }
+  .step .num { font: 600 .75rem/1 var(--mono); color: var(--primary); }
+  .step h3 { margin: .375rem 0 0; font: 600 1rem/1.3 var(--sans); letter-spacing: -.01em; }
+  .step p { margin: .25rem 0 0; color: var(--muted-foreground); font-size: .875rem; line-height: 1.5; }
+  .step p b { color: var(--foreground); font-weight: 600; }
+  .step.key {
+    padding-block: 1rem; border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border)); border-left: 4px solid var(--primary);
+    border-radius: var(--radius); background: color-mix(in srgb, var(--primary) 9%, var(--card)); box-shadow: var(--shadow-sm);
+  }
+  .step.key h3 { font-size: 1.1875rem; }
+  .step.key p { color: var(--foreground); }
+  .step.key a { font-weight: 500; }
+  .gestures.live .step:not(.on):not(.key) { opacity: .7; }
+  .gestures .step.on:not(.key) { border-left-color: var(--primary); }
+  .gestures .step.key.on { box-shadow: 0 0 0 1px var(--primary), var(--shadow-sm); }
   @media (prefers-reduced-motion: reduce) { .step { transition: none; } }
 
-  /* -- 3. what it does: one card per type of ticket, an example ticket in each -- */
+  /* -- 3. the proof, right under the loop: a band across the page, and the
+     number counted on the repository rather than written from memory -- */
+  .band { margin-top: 5rem; padding: 3.5rem 0; background: var(--sidebar); border-block: 1px solid var(--border); }
+  .proof { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1rem 3.5rem; align-items: center; }
+  @media (max-width: 760px) { .proof { grid-template-columns: minmax(0, 1fr); } }
+  .proof-figure { display: grid; justify-items: start; }
+  .proof-figure b { font: var(--heading-weight) clamp(4rem, 10vw, 6.75rem)/.95 var(--heading); letter-spacing: var(--heading-tracking); color: var(--primary); }
+  .proof-figure span { color: var(--muted-foreground); font-size: .9375rem; }
+  .proof p { margin: .75rem 0 0; color: var(--muted-foreground); font-size: 1.0625rem; max-width: 40rem; }
+  .proof p b { color: var(--foreground); font-weight: 600; }
+  .proof .foot-note { font-size: .875rem; }
+
+  /* -- 4. what it does: one card per type of ticket, an example ticket in each -- */
   .task { gap: 1rem; }
   .task .card-title { font-size: 1.125rem; }
   .task .ask {
@@ -379,42 +359,6 @@
   .task .ask small { display: block; font: 400 .6875rem/1.5 var(--mono); color: var(--muted-foreground); margin-bottom: .125rem; }
   .task p { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
   .task p b { color: var(--foreground); font-weight: 600; }
-  .around { margin-top: 1rem; }
-  .around .card { gap: .75rem; }
-  .around .card-title { font-size: 1rem; }
-  .around p { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
-  .around q { color: var(--foreground); font-weight: 500; }
-  .around p b { color: var(--foreground); font-weight: 600; }
-  .around .card-footer a { color: var(--primary); font-weight: 500; text-decoration: none; }
-  .around .card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
-
-  /* -- 2. the proofs, under the loop -- */
-  .proof .card-title { font-size: 1.25rem; letter-spacing: -.015em; }
-  .proof p { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
-  .proof p b { color: var(--foreground); font-weight: 600; }
-  .proof .card-footer a { color: var(--primary); font-weight: 500; text-decoration: none; }
-  .proof .card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .chat { display: flex; flex-direction: column; gap: .375rem; font-size: .8125rem; }
-  .bubble { max-width: 88%; padding: .5rem .75rem; border-radius: var(--radius); background: var(--muted); }
-  .bubble.you { align-self: flex-end; background: var(--primary); color: var(--primary-foreground); }
-  .bubble small { display: block; font: .6875rem/1.4 var(--mono); color: var(--muted-foreground); margin-bottom: .125rem; }
-  .works { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1.5rem; color: var(--muted-foreground); font-size: .875rem; }
-  .works .badge { font-size: .8125rem; padding: .25rem .625rem; color: var(--foreground); }
-
-  /* -- 4. integrations: a card each -- */
-  .plug { gap: 1rem; }
-  .plug .card-header { grid-template-columns: 1fr auto; align-items: center; }
-  .plug .card-title { font-size: 1.125rem; }
-  .plug .badge { color: var(--muted-foreground); }
-  .plug p { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
-  .plug p b { color: var(--foreground); font-weight: 600; }
-  .plug .card-footer a { color: var(--primary); font-weight: 500; text-decoration: none; }
-  .plug .card-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .sub-head { max-width: 680px; margin: 5rem 0 2.25rem; scroll-margin-top: 76px; }
-  .sub-head h3 { font-size: clamp(1.5rem, 3vw, 1.875rem); line-height: 1.15; margin: .5rem 0 0; }
-  .sub-head p { color: var(--muted-foreground); font-size: 1.0625rem; margin: .875rem 0 0; }
-  .sub-head pre { margin-top: 1.25rem; }
-  @media (max-width: 640px) { .sub-head { margin-top: 3.5rem; } }
 
   /* A window around a capture: on the light page, a bar and an edge a shade
      deeper than the card keep it from bleeding into the white around. */
@@ -431,18 +375,14 @@
   .window-bar .dot { width: .625rem; height: .625rem; background: color-mix(in srgb, var(--muted-foreground) 45%, transparent); }
   .window-bar span:not(.dot) { margin-left: .5rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .window-bar .btn { margin-left: auto; width: 1.75rem; height: 1.75rem; color: var(--muted-foreground); }
-  .window img, .window video { display: block; width: 100%; height: auto; background: var(--muted); }
-  .window .play-icon, .loop.playing .pause-icon { display: block; }
-  .window .pause-icon, .loop.playing .play-icon { display: none; }
   .play {
     position: absolute; left: 50%; top: calc(50% + 1.125rem); translate: -50% -50%; width: 3.5rem; height: 3.5rem; border-radius: 999px;
     background: color-mix(in srgb, var(--background) 88%, transparent); border-color: var(--border); box-shadow: var(--shadow-sm);
   }
   .play { padding: 0; }
   .play svg { width: 1.375rem; height: 1.375rem; }
-  .loop:not(.held) .play, .loop:not(.ready) .window-bar .btn { display: none; }
 
-  /* -- 5. the console -- */
+  /* -- 5. the console, across the page -- */
   .shots { margin: 0; }
   .shots-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
   .shots-bar .tabs-list { max-width: 100%; overflow-x: auto; }
@@ -451,71 +391,62 @@
   .dark .shot .light, html:not(.dark) .shot .dark { display: none; }
   .shots figcaption { color: var(--muted-foreground); font-size: .875rem; margin-top: .875rem; }
 
-  /* -- 6. install -- */
-  .install-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
-  @media (max-width: 860px) { .install-grid { grid-template-columns: minmax(0, 1fr); } }
-  .install-grid .card p { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
-  .install-grid ul { margin: 0; padding-left: 2.625rem; color: var(--muted-foreground); font-size: .9375rem; }
-  /* A block of code sits inside the card's margins, not across its edges. */
-  .install-grid .card > pre { margin-inline: 1.5rem; padding-inline: 1rem 4.5rem; }
-  .install-grid .card > p + p { margin-top: -.75rem; font-size: .875rem; }
-  .install-grid li { margin: .25rem 0; }
-  /* On a server: Dokploy's mark, and its three steps side by side. */
-  .server { margin-top: 2.5rem; gap: 1.25rem; }
+  /* -- 7. install -- */
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem 3rem; margin-top: 1.75rem; }
+  @media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  .cols h3 { margin: 0; font: 600 1.0625rem/1.3 var(--sans); }
+  .cols p, .cols ul { margin: .5rem 0 0; color: var(--muted-foreground); font-size: .9375rem; }
+  .cols ul { padding-left: 1.25rem; }
+  .cols li { margin: .25rem 0; }
+  .install-source { margin: .625rem 0 0; color: var(--muted-foreground); font-size: .875rem; }
+  /* On a server: Dokploy's mark, its three steps in a line. */
+  .server { margin-top: 2.5rem; gap: 1rem; padding-block: 1.25rem; }
   .server .card-header { grid-template-columns: auto 1fr; align-items: center; column-gap: 1rem; }
-  .server .card-header img { display: block; width: 44px; height: 40px; }
+  .server .card-header img { display: block; width: 36px; height: 33px; }
   .dark .server .light, html:not(.dark) .server .dark { display: none; }
-  .server .card-header p, .server-foot { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
+  .server .card-header p { margin: 0; color: var(--muted-foreground); font-size: .9375rem; }
   .server-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0 1.5rem; list-style: none; counter-reset: step; }
   @media (max-width: 860px) { .server-steps { grid-template-columns: minmax(0, 1fr); } }
-  .server-steps li { counter-increment: step; color: var(--muted-foreground); font-size: .9375rem; }
-  .server-steps li::before { content: counter(step); display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; margin-right: .5rem; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); font: 600 .75rem var(--mono); }
+  .server-steps li { counter-increment: step; color: var(--muted-foreground); font-size: .875rem; }
+  .server-steps li::before { content: counter(step); display: inline-grid; place-items: center; width: 1.375rem; height: 1.375rem; margin-right: .375rem; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); font: 600 .6875rem var(--mono); }
   .server-steps b { color: var(--foreground); }
-  .server-steps pre { margin: .5rem 0; }
-  .server-foot { padding: 0 1.5rem; }
+  .server-foot { margin: 0; padding: 0 1.5rem; color: var(--muted-foreground); font-size: .875rem; }
   .server-foot a { color: var(--primary); font-weight: 500; text-decoration: none; }
   .server-foot a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: .5rem; margin-top: 1rem; }
-  .docs a {
-    display: flex; align-items: center; justify-content: space-between; gap: .75rem; text-decoration: none;
-    padding: .625rem .875rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: .875rem; font-weight: 500;
-    background: var(--card); transition: background-color .15s;
-  }
-  .docs a:hover { background: var(--accent); }
-  .docs a span { color: var(--muted-foreground); font: .75rem var(--mono); }
+  .closing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; margin-top: 3rem; align-items: start; }
+  @media (max-width: 900px) { .closing { grid-template-columns: minmax(0, 1fr); } }
+  .closing > div > h3 { margin: 0 0 .75rem; font-size: 1.25rem; }
+  /* The documentation's index: a column of links, no box around each. */
+  .docs { columns: 3 10.5rem; column-gap: 1.25rem; margin: 0; padding: 0; list-style: none; font-size: .8125rem; line-height: 1.4; }
+  .docs li { break-inside: avoid; padding: .25rem 0; }
+  @media (max-width: 640px) { .docs { columns: 2; } }
+  .docs a { text-decoration: none; color: var(--muted-foreground); }
+  .docs a:hover { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
 
-  /* -- 6b. faq, inside install: shadcn's accordion, on <details> so it opens without a script -- */
-  .faq { margin-top: 1rem; padding: 0 1.5rem; gap: 0; }
+  /* -- faq: shadcn's accordion, on <details> so it opens without a script -- */
+  .faq { padding: 0 1.25rem; gap: 0; }
   .faq > * { padding-inline: 0; }
   .faq details + details { border-top: 1px solid var(--border); }
   .faq summary {
-    display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0;
     list-style: none; cursor: pointer; border-radius: var(--radius-md);
   }
   .faq summary::-webkit-details-marker { display: none; }
-  .faq summary h3 { margin: 0; font-size: 1.0625rem; font-weight: 600; line-height: 1.35; }
-  .faq summary:hover h3 { text-decoration: underline; text-underline-offset: 3px; }
+  .faq summary h4 { margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.35; }
+  .faq summary:hover h4 { text-decoration: underline; text-underline-offset: 3px; }
   .faq summary svg { width: 1rem; height: 1rem; flex: none; color: var(--muted-foreground); transition: transform .2s; }
   .faq details[open] summary svg { transform: rotate(180deg); }
   @media (prefers-reduced-motion: reduce) { .faq summary svg { transition: none; } }
-  .faq-body { padding-bottom: 1.5rem; color: var(--muted-foreground); font-size: .9375rem; }
+  .faq-body { padding-bottom: 1.25rem; color: var(--muted-foreground); font-size: .9375rem; }
   .faq-body p { margin: 0 0 .75rem; }
-  .faq-body ol { margin: 0; padding-left: 1.25rem; }
-  .faq-body li { margin: 0 0 1.25rem; padding-left: .25rem; }
+  .faq-body ul, .faq-body ol { margin: 0; padding-left: 1.25rem; }
+  .faq-body li { margin: 0 0 1rem; padding-left: .25rem; }
   .faq-body li b { color: var(--foreground); }
-  .faq-body pre { margin: .625rem 0 .75rem; padding-right: 4.5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .faq-body pre { margin: .625rem 0 .75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
   .faq-note { margin: 0; padding: .875rem 1rem; border: 1px solid var(--border); border-left: 3px solid var(--destructive); border-radius: var(--radius); background: var(--muted); }
   .faq-note b { color: var(--foreground); }
 
-  /* -- 7. handmade -- */
-  .author { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 1.25rem; padding: 1.5rem; }
-  .author > * { padding: 0; }
-  .avatar { width: 3.25rem; height: 3.25rem; border-radius: var(--radius-xl); display: grid; place-items: center; flex: none; background: var(--primary); color: var(--primary-foreground); font-weight: 700; }
-  .author .txt { flex: 1 1 260px; }
-  .author .txt b { display: block; }
-  .author .txt span { color: var(--muted-foreground); font-size: .9375rem; }
-
-  footer { margin-top: 6rem; border-top: 1px solid var(--border); padding: 2rem 0 3rem; background: var(--sidebar); }
+  footer { margin-top: 5rem; border-top: 1px solid var(--border); padding: 2rem 0 3rem; background: var(--sidebar); }
   .foot { display: flex; flex-wrap: wrap; gap: 1rem 2rem; align-items: center; justify-content: space-between; font-size: .875rem; color: var(--muted-foreground); }
   .foot nav { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; }
   .foot a { text-decoration: none; }
@@ -523,8 +454,10 @@
 
   ponos-robot { display: inline-block; aspect-ratio: 1; vertical-align: middle; }
   @media (max-width: 640px) {
-    section { padding-top: 4rem; }
+    section { padding-top: 3.5rem; }
     .hero { padding-top: 2rem; }
+    .band { margin-top: 3.5rem; padding: 2.5rem 0; }
+    .sub-head { margin-top: 2.5rem; }
   }
 </style>
 <script type="module" src="../mascot/ponos-robot.js?v=ecran"></script>
@@ -539,8 +472,8 @@
       Ponos
     </a>
     <nav class="nav-links" aria-label="Rubriques">
-      <a class="btn btn-ghost btn-sm section-link" href="#tasks">Ce qu’il fait</a>
       <a class="btn btn-ghost btn-sm section-link" href="#loop">Comment ça marche</a>
+      <a class="btn btn-ghost btn-sm section-link" href="#tasks">Ce qu’il fait</a>
       <a class="btn btn-ghost btn-sm section-link" href="#console">Console</a>
       <a class="btn btn-ghost btn-sm section-link" href="#integrations">Intégrations</a>
       <a class="btn btn-ghost btn-sm section-link" href="#install">Installer</a>
@@ -580,71 +513,19 @@
       </div>
       <div class="install">
         <span class="p" aria-hidden="true">$</span>
-        <code id="install-cmd">curl -LsSf https://raw.githubusercontent.com/<wbr>hermez-agency/ponos/<wbr>main/install.sh | sh</code>
+        <code id="install-cmd">curl -LsSf https://the-ponos.app/install | sh</code>
         <button class="btn btn-outline btn-sm" id="copy-install" type="button" aria-label="Copier la commande d’installation">Copier</button>
       </div>
       <p class="byline">Libre et gratuit, MIT · Linux · macOS · Python et git · Demande Claude Code — <a href="#integrations">GitHub est facultatif</a>.</p>
     </div>
-    <figure class="card flow" id="flow" data-step="3" data-kind="code">
-      <div class="flow-body" role="img" aria-label="La boucle en trois temps. Un, tu écris le ticket sur ton tableau : Console : limiter la colonne Done, Ready. Deux, Ponos le fait sur ta machine avec Claude Code : fait, les tests passent. Trois, tu décides : la pull request #96 revient avec deux boutons — Validate, et il la fusionne ; ou Run again, et il la reprend avec ta remarque. Une publication préparée revient de la même façon.">
-        <div class="flow-step" aria-hidden="true">
-          <div class="flow-head"><span class="flow-num">1</span><b>Écris le ticket</b><small>ton tableau</small></div>
-          <div class="flow-pane">
-            <div class="flow-crumb">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
-              Tickets
-            </div>
-            <div class="flow-title"><span class="k-code">Console : limiter la colonne Done</span><span class="k-post">Annoncer la version 1.4 sur X</span></div>
-            <dl class="flow-props">
-              <dt>Statut</dt>
-              <dd><span class="status">Ready</span></dd>
-              <dt>Type</dt>
-              <dd><span class="k-code">Code</span><span class="k-post">Publication</span></dd>
-              <dt>Projet</dt>
-              <dd>ponos</dd>
-            </dl>
-          </div>
-        </div>
-        <div class="flow-link to-work" aria-hidden="true"></div>
-        <div class="flow-loop" aria-hidden="true">
-          <div class="flow-step">
-            <div class="flow-head"><span class="flow-num">2</span><b>Ponos le fait</b><small>sur ta machine · Claude Code</small></div>
-            <div class="flow-pane flow-work">
-              <ponos-robot id="hero-bot" state="waiting"></ponos-robot>
-              <div>
-                <div class="flow-who">Ponos</div>
-                <p class="flow-state">
-                  <span class="wait">Prochain dans la file…</span>
-                  <span class="busy">Au travail…</span>
-                  <span class="done"><span class="ok">✓ Fait</span>, <span class="k-code">les tests passent</span><span class="k-post">publication prête</span></span>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="flow-link to-you"><span><b>Run again</b> — il le reprend avec ta remarque</span></div>
-          <div class="flow-step">
-            <div class="flow-head"><span class="flow-num">3</span><b>Tu décides</b><small>rien ne part sans ton oui</small></div>
-            <div class="flow-pane flow-yes">
-              <div class="flow-out">
-                <svg class="k-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></svg>
-                <svg class="k-post" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3Z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
-                <div>
-                  <b><span class="k-code">Done garde ses 30 derniers tickets</span><span class="k-post">« Ponos 1.4 est sortie »</span></b>
-                  <small><span class="k-code">PR #96 · les tests passent</span><span class="k-post">Un post pour X · 212 caractères</span></small>
-                </div>
-                <span class="badge review">In review</span>
-                <span class="badge shipped"><span class="k-code">Merged</span><span class="k-post">Published</span></span>
-              </div>
-              <div class="flow-act">
-                <span class="flow-said">✓ Tu as dit oui</span>
-                <span class="btn btn-primary btn-sm yes">Validate</span>
-                <span class="btn btn-outline btn-sm again">Run again</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <figcaption>Ponos porte le nom du dieu grec de la peine : il fait la partie fastidieuse, tu gardes les décisions.</figcaption>
+    <figure class="hero-bot" id="hero-figure" data-state="success">
+      <ponos-robot id="hero-bot" state="success" role="img" aria-label="Ponos, le robot : il attend un ticket, y travaille, puis revient avec pour ton oui."></ponos-robot>
+      <ol class="hero-states" aria-hidden="true">
+        <li data-for="idle">Prêt</li>
+        <li data-for="working">Au travail</li>
+        <li data-for="success">De retour pour ton oui</li>
+      </ol>
+      <figcaption>Il porte le nom du dieu grec de la peine : il fait la partie fastidieuse, tu gardes les décisions.</figcaption>
     </figure>
   </div>
 </section>
@@ -670,66 +551,53 @@
           <button class="btn play" type="button" data-play aria-label="Lancer le film"><svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg></button>
         </div>
       </figure>
-      <ol class="grid g4 gestures">
-        <li class="card step">
-          <div class="card-header"><span class="num">01 · toi</span><h3 class="card-title">Tu écris le ticket</h3></div>
-          <p class="card-description">Ce que tu dirais à un collègue, sur ton tableau — puis tu le passes en <em>Ready</em>.</p>
+      <ol class="gestures">
+        <li class="step">
+          <span class="num">01 · toi</span>
+          <h3>Tu écris le ticket</h3>
+          <p>Ce que tu dirais à un collègue, sur ton tableau — puis tu le passes en <em>Ready</em>. Un ticket sans type est classé d’abord, et un doute te le renvoie.</p>
         </li>
-        <li class="card step">
-          <div class="card-header"><span class="num">02 · Ponos</span><h3 class="card-title">Ponos le fait</h3></div>
-          <p class="card-description">Pendant que tu fais autre chose : une pull request sur sa propre branche, un texte écrit dans le ticket, une action menée à bien.</p>
+        <li class="step">
+          <span class="num">02 · Ponos</span>
+          <h3>Ponos le fait</h3>
+          <p>Pendant que tu fais autre chose, sur ta machine : une pull request sur son worktree jetable, un texte écrit dans le ticket, une action menée à bien.</p>
         </li>
-        <li class="card step">
-          <div class="card-header"><span class="num">03 · toi</span><h3 class="card-title">Tu lis, et tu réponds d’un mot</h3></div>
-          <p class="card-description">Une question ou un résultat t’arrive — dans la console, ou sur ton téléphone. <em>oui</em> est une réponse complète.</p>
+        <li class="step key">
+          <span class="num">03 · toi</span>
+          <h3>Tu décides</h3>
+          <p>Le résultat t’arrive — dans la console, ou sur ton téléphone, où <em>oui</em> est une réponse complète. <b>Rien ne part tant que tu n’as pas appuyé sur <em>Validate</em>.</b> <em>Run again</em>, avec une remarque, et il le reprend. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/safety.md#what-protects-your-code">Ce qui protège ton code →</a></p>
         </li>
-        <li class="card step">
-          <div class="card-header"><span class="num">04 · Ponos</span><h3 class="card-title">Il livre</h3></div>
-          <p class="card-description">Passe-le en <em>Validated</em> : la pull request est fusionnée, la publication est mise en ligne — et c’est seulement alors qu’il est <em>Done</em>. Tu as changé d’avis ? <em>Cancelled</em> le range, sans jamais l’exécuter.</p>
+        <li class="step">
+          <span class="num">04 · Ponos</span>
+          <h3>Il livre</h3>
+          <p>La pull request est fusionnée, la publication mise en ligne — et c’est seulement alors qu’il est <em>Done</em>. Tu as changé d’avis ? <em>Cancelled</em> le range.</p>
         </li>
       </ol>
     </div>
+  </div>
+</section>
 
-    <div class="sub-head" id="proofs">
-      <span class="label">Pourquoi lui confier</span>
-      <h3>Trois choses qu’il fait et qu’une liste de tâches ne fait pas.</h3>
+<section id="handmade" class="band">
+  <div class="wrap proof">
+    <div class="proof-figure">
+      <b>663</b>
+      <span>des 716 pull requests du dépôt</span>
     </div>
-    <div class="grid g3">
-      <article class="card proof">
-        <div class="card-header"><span class="badge badge-secondary">Il demande d’abord</span><h3 class="card-title">Un doute l’arrête.</h3></div>
-        <p>Un ticket <b>sans type</b> est classé avant de s’exécuter, et une hésitation te le renvoie avec la question. Une action s’arrête <b>au premier doute</b> — un mauvais compte, une valeur que le ticket ne donne pas — plutôt que d’agir au jugé.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#the-type-of-a-ticket">Les quatre types de ticket →</a></div>
-      </article>
-      <article class="card proof">
-        <div class="card-header"><span class="badge badge-secondary">Tu gardes la main</span><h3 class="card-title">Rien ne sort sans toi.</h3></div>
-        <p>Aucune pull request n’est fusionnée et rien n’est publié tant que <b>tu</b> n’as pas passé le ticket en <em>Validated</em>. Et tout tourne <b>sur ta machine</b>, chaque ticket dans un worktree jetable — ton propre dépôt n’est jamais touché.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/safety.md#what-protects-your-code">Ce qui protège ton code →</a></div>
-      </article>
-      <article class="card proof">
-        <div class="card-header"><span class="badge badge-secondary">Il vient à toi</span><h3 class="card-title">« oui » suffit.</h3></div>
-        <div class="chat" aria-label="Une question de Ponos sur Telegram, et sa réponse">
-          <div class="bubble"><small>Ponos · Telegram</small>Quel header — celui du dashboard ou celui du site public ?</div>
-          <div class="bubble you">celui du dashboard</div>
-          <div class="bubble">✓ noté sur « Le header » — la prochaine passe continue.</div>
-        </div>
-        <p>Quand un ticket demande une décision, la question t’arrive sur <b>Telegram ou Slack</b>, et ta réponse atterrit sur le ticket.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/channels.md#being-told-and-answering-with-one-word">Telegram et Slack →</a></div>
-      </article>
-    </div>
-    <div class="works">
-      <span>Tourne sur</span><span class="badge">Claude Code</span><span>et un tableau à lui. Se branche à</span>
-      <span class="badge">GitHub</span><span class="badge">Telegram</span><span class="badge">Slack</span><span class="badge">OpenRouter</span>
-      <span>— <a href="#integrations">seulement si tu le veux</a>.</span>
+    <div>
+      <span class="label">La preuve</span>
+      <h2>Fait par Ponos lui-même.</h2>
+      <p>Sur les 716 pull requests du dépôt de Ponos, <b>663 ont été ouvertes par Ponos</b>, à partir de tickets de son propre tableau — cette page comprise. Un développeur écrit les tickets et dit oui ; les versions sont publiées de la même façon.</p>
+      <p class="foot-note">Compté le 23 novembre 2026. <a href="https://github.com/hermez-agency/ponos/pulls?q=is%3Apr">Les pull requests, sur GitHub →</a> · Un produit Hermez, <a href="https://hermez.dev" target="_blank" rel="noopener">hermez.dev</a></p>
     </div>
   </div>
 </section>
 
 <section id="tasks">
   <div class="wrap">
-    <div class="sec-head">
+    <div class="sec-head split">
       <span class="label">Ce qu’il fait</span>
       <h2>Pas seulement du code. Quatre sortes de tâche.</h2>
-      <p>Le type du ticket décide de la route — choisis-le, ou laisse un petit modèle lire le ticket et trancher. Un doute l’arrête avant que rien ne s’exécute.</p>
+      <p>Le type du ticket décide de la route — choisis-le, ou laisse un petit modèle lire le ticket et trancher.</p>
     </div>
     <div class="grid g4">
       <article class="card task code">
@@ -743,62 +611,60 @@
         <p>Notes de version, brief, résumé : écrits dans le ticket, prêts à copier. <b>Aucun dépôt nécessaire.</b></p>
       </article>
       <article class="card task action">
-        <div class="card-header"><span class="badge">Action externe</span><h3 class="card-title">Faite, et consignée.</h3></div>
+        <div class="card-header"><span class="badge">Action externe</span><h3 class="card-title">Fait, et consigné.</h3></div>
         <div class="ask"><small>ticket</small>Ajouter les enregistrements DNS du nouveau domaine</div>
         <p>Dans le navigateur ou les réglages d’un service, avec <b>chaque changement consigné</b> — avant, après, ce qui a été vérifié. Il s’arrête au premier doute.</p>
       </article>
       <article class="card task publication">
         <div class="card-header"><span class="badge">Publication</span><h3 class="card-title">Préparée, puis publiée.</h3></div>
-        <div class="ask"><small>ticket</small>Publier la version 1.2 sur LinkedIn</div>
+        <div class="ask"><small>ticket</small>Annoncer la version 1.2 sur LinkedIn</div>
         <p>Un post, un site mis en ligne, un message envoyé : préparé et montré d’abord. <b>Publié quand tu dis oui.</b></p>
       </article>
     </div>
-    <div class="grid g3 around">
-      <article class="card">
-        <div class="card-header"><h3 class="card-title">Un chat avec ta machine</h3></div>
-        <p><q>Crée un ticket pour la migration SQLite et mets-le en Ready</q> — le chat de la console est une session Claude Code dans ton espace de travail, et elle le fait.</p>
-      </article>
-      <article class="card">
-        <div class="card-header"><h3 class="card-title">Des projets, sans cérémonie</h3></div>
-        <p>Un projet, c’est un nom et un brief. Donne-lui un lien GitHub et le dépôt est cloné la première fois qu’un ticket en a besoin ; n’en donne pas et ses tickets reviennent en texte.</p>
-      </article>
-    </div>
+
     <div class="sub-head" id="around">
       <span class="label">Autour des tickets</span>
-      <h3>Quoi faire ensuite, à quoi ça sert, les clés dont il a besoin, quand ça revient.</h3>
+      <h3>À qui parler, quoi faire ensuite, à quoi ça sert, et quand ça revient.</h3>
     </div>
-    <div class="grid g4 around">
-      <article class="card">
-        <div class="card-header"><span class="badge badge-secondary">Idées</span><h3 class="card-title">Il propose quoi faire ensuite.</h3></div>
-        <p>Dix idées à la fois, pour l’espace de travail ou pour un projet, chacune avec une catégorie et un <b>score de pertinence sur 100</b>. Garde-en une, jette-en une — elle n’est plus jamais proposée — ou transforme-la en ticket d’un clic.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#ideas">Les idées →</a></div>
-      </article>
-      <article class="card">
-        <div class="card-header"><span class="badge badge-secondary">Objectifs</span><h3 class="card-title">À quoi servent les tickets.</h3></div>
-        <p>Un objectif a un critère et une échéance, et les tickets qui lui sont liés comptent pour lui : <b>« 3 tickets sur 7 terminés »</b>, au-dessus d’une barre, <em>Late</em> une fois le jour passé. Les idées sont proposées en en tenant compte.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#goals">Les objectifs →</a></div>
-      </article>
-      <article class="card">
-        <div class="card-header"><span class="badge badge-secondary">Coffre</span><h3 class="card-title">Des clés, jamais dans le ticket.</h3></div>
-        <p><code>[vault]</code> lit les jetons là où ils vivent déjà — l’environnement, le trousseau, <code>pass</code>, Bitwarden — et ne donne à chaque projet <b>que les siens</b>. La session en connaît les noms, jamais les valeurs, et une valeur affichée est masquée.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#keys-a-ticket-may-use-the-vault">Le coffre →</a></div>
-      </article>
-      <article class="card">
-        <div class="card-header"><span class="badge badge-secondary">Plannings</span><h3 class="card-title">Des tickets qui reviennent.</h3></div>
-        <p><q>Chaque lundi, passe les dépendances en revue</q> — un planning écrit le ticket et le passe en <em>Ready</em> tout seul, et la console dispose les suivants dans un calendrier. <b>Une machine éteinte une semaine se réveille avec un ticket, pas sept.</b></p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Les tickets récurrents →</a></div>
-      </article>
-    </div>
+    <ul class="list">
+      <li>
+        <h4>Un chat avec ta machine</h4>
+        <p><q>Crée un ticket pour la migration SQLite et mets-le en Ready</q> — le chat de la console est une session Claude Code dans ton espace de travail, et elle le fait.</p>
+      </li>
+      <li>
+        <h4>Des projets, sans cérémonie</h4>
+        <p>Un nom et un brief. Donne-lui un lien GitHub et le dépôt est cloné la première fois qu’un ticket en a besoin ; n’en donne pas et ses tickets reviennent en texte.</p>
+      </li>
+      <li>
+        <h4>Des idées</h4>
+        <p>Dix à la fois, pour l’espace de travail ou un projet, chacune avec un <b>score de pertinence sur 100</b>. Garde-en une, jette-en une pour de bon, ou transforme-la en ticket d’un clic.</p>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#ideas">Les idées →</a>
+      </li>
+      <li>
+        <h4>Des objectifs</h4>
+        <p>Un critère et une échéance ; les tickets qui lui sont liés comptent pour lui — <b>« 3 tickets sur 7 terminés »</b>, <em>Late</em> une fois le jour passé.</p>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#goals">Les objectifs →</a>
+      </li>
+      <li>
+        <h4>Des clés, jamais dans le ticket</h4>
+        <p><code>[vault]</code> lit les jetons là où ils vivent déjà — l’environnement, le trousseau, <code>pass</code>, Bitwarden — et ne donne à chaque projet <b>que les siens</b>, masqués partout où ils s’affichent.</p>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#keys-a-ticket-may-use-the-vault">Le coffre →</a>
+      </li>
+      <li>
+        <h4>Des tickets qui reviennent</h4>
+        <p><q>Chaque lundi, passe les dépendances en revue</q> — un planning écrit le ticket et le passe en <em>Ready</em> tout seul, disposé dans un calendrier. Une machine éteinte une semaine se réveille avec un ticket, pas sept.</p>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Les tickets récurrents →</a>
+      </li>
+    </ul>
   </div>
 </section>
 
-
 <section id="console">
   <div class="wrap">
-    <div class="sec-head">
+    <div class="sec-head split">
       <span class="label">La console</span>
       <h2>Un tableau à lui.</h2>
-      <p>Ponos n’a besoin du tableau de personne. La console, sur <code>127.0.0.1</code>, est l’endroit où tu écris un ticket, le glisses vers <em>Ready</em> et regardes sa session en direct — avec, à côté, un chat avec tout ton espace de travail. Dessous, le tableau est une base locale, <code>ponos.db</code>.</p>
+      <p>Ponos n’a besoin du tableau de personne. La console, sur <code>127.0.0.1</code>, est l’endroit où tu écris un ticket, le glisses vers <em>Ready</em> et regardes sa session en direct ; les tickets sont dans <code>ponos.db</code>, sur ta machine.</p>
     </div>
     <figure class="shots">
       <div class="shots-bar">
@@ -843,78 +709,62 @@
 
 <section id="integrations">
   <div class="wrap">
-    <div class="sec-head">
+    <div class="sec-head split">
       <span class="label">Intégrations</span>
       <h2>Se branche là où tu travailles déjà. Si tu veux.</h2>
       <p>Ponos n’a besoin que de Claude Code. Chacune de ces intégrations est un jeton de plus dans les réglages, et aucune n’est obligatoire.</p>
     </div>
-    <div class="grid g3">
-      <article class="card plug">
-        <div class="card-header"><h3 class="card-title">GitHub</h3><span class="badge">facultatif</span></div>
-        <p><b>Pull requests.</b> Un ticket de code en revient une, fusionnée sur ton oui. <b>Connecte GitHub</b> d’un clic depuis la console : Ponos crée sa propre GitHub App, tu choisis les dépôts, aucun jeton à coller — ou garde <code>gh</code>. La rédaction, les actions et les publications n’en ont pas besoin.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#connect-github-in-one-click">Connecter GitHub en un clic →</a></div>
-      </article>
-      <article class="card plug">
-        <div class="card-header"><h3 class="card-title">Telegram · Slack</h3><span class="badge">facultatif</span></div>
-        <p><b>Ton téléphone.</b> Une question ou un résultat t’y parvient, et ta réponse — <em>oui</em> suffit — atterrit sur le ticket.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/channels.md#being-told-and-answering-with-one-word">Telegram et Slack →</a></div>
-      </article>
-      <article class="card plug">
-        <div class="card-header"><h3 class="card-title">OpenRouter</h3><span class="badge">facultatif</span></div>
-        <p><b>Tous les autres modèles.</b> Une seule clé : un GPT écrit le texte, un modèle transcrit une note vocale — ou les sessions elles-mêmes tournent sur le modèle que tu nommes.</p>
-        <div class="card-footer"><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Tous les autres modèles →</a></div>
-      </article>
-    </div>
-
-    <div class="sec-head" id="claude" style="margin:5rem 0 1.5rem;scroll-margin-top:76px">
-      <span class="label">Claude</span>
-      <h3 style="font-size:clamp(1.5rem,3vw,1.875rem);line-height:1.15;margin:.5rem 0 0">Connecte Ponos à Claude.</h3>
-      <p>Tes tâches, tes projets, ce qui t’attend — depuis une conversation, sur le web ou sur ton téléphone. Son adresse, rien d’autre.</p>
-    </div>
-    <div class="install-grid">
-      <div class="card">
-        <div class="card-header"><h3 class="card-title">claude.ai · Claude Desktop</h3></div>
-        <ol>
-          <li><em>Settings › Connectors › Add custom connector</em>, avec l’adresse de ta console suivie de <code>/mcp</code>.</li>
-          <li>Clique sur <em>Connect</em> : une fenêtre Ponos s’ouvre. Connecte-toi, puis <em>Allow</em>. Aucun jeton à copier.</li>
-          <li>Demande <em>« qui suis-je sur Ponos ? »</em>, puis <em>« qu’est-ce qui m’attend ? »</em></li>
-        </ol>
-        <pre data-copy>https://ta-console.example.com/mcp</pre>
-      </div>
-      <div class="card">
-        <div class="card-header"><h3 class="card-title">Claude Code</h3></div>
-        <p>Sur la machine où tourne Ponos, une ligne — puis <code>/mcp</code>, <em>Authenticate</em>.</p>
-        <pre data-copy style="white-space:pre-wrap;overflow-wrap:anywhere;padding-right:4.5rem"><span class="p">$ </span>claude mcp add --transport http ponos http://127.0.0.1:8787/mcp</pre>
-        <p>Rien ne s’exécute, rien ne s’y supprime : Claude lit, crée une tâche, répond à une tâche bloquée. <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude">Tous les outils →</a></p>
-      </div>
-    </div>
+    <ul class="list">
+      <li>
+        <h3>GitHub <span class="badge">facultatif</span></h3>
+        <p>Un ticket de code revient en <b>pull request</b>, fusionnée sur ton oui. Connecte GitHub d’un clic depuis la console — Ponos crée sa propre GitHub App, tu choisis les dépôts — ou garde <code>gh</code>. La rédaction, les actions et les publications n’en ont pas besoin.</p>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#connect-github-in-one-click">Connecter GitHub en un clic →</a>
+      </li>
+      <li>
+        <h3>Telegram · Slack <span class="badge">facultatif</span></h3>
+        <p>Une question ou un résultat arrive sur <b>ton téléphone</b>, et ta réponse — <em>oui</em> suffit — atterrit sur le ticket.</p>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/channels.md#being-told-and-answering-with-one-word">Telegram et Slack →</a>
+      </li>
+      <li>
+        <h3>OpenRouter <span class="badge">facultatif</span></h3>
+        <p><b>Tous les autres modèles</b>, avec une seule clé : un GPT écrit le texte, un modèle transcrit une note vocale — ou les sessions elles-mêmes tournent sur le modèle que tu nommes.</p>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Tous les autres modèles →</a>
+      </li>
+      <li id="claude">
+        <h3>Claude <span class="badge">facultatif</span></h3>
+        <p>Tes tâches et ce qui t’attend, depuis une conversation. Dans claude.ai ou Claude Desktop, <em>Settings › Connectors › Add custom connector</em> avec l’adresse de ta console et <code>/mcp</code>, puis <em>Connect</em> — aucun jeton à copier. Dans Claude Code, une ligne, puis <code>/mcp</code>, <em>Authenticate</em> :</p>
+        <pre data-copy><span class="p">$ </span>claude mcp add --transport http ponos http://127.0.0.1:8787/mcp</pre>
+        <a class="more" href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude">Tous les outils →</a>
+      </li>
+    </ul>
   </div>
 </section>
 
 <section id="install">
   <div class="wrap">
-    <div class="sec-head">
+    <div class="sec-head split">
       <span class="label">Installation</span>
       <h2>Une commande.</h2>
       <p>Elle vérifie ce que ta machine a, dit ce qui manque et comment l’installer, démarre Ponos et ouvre sa console dans ton navigateur. Tout le reste se passe là.</p>
     </div>
-    <pre data-copy><span class="p">$ </span>curl -LsSf https://raw.githubusercontent.com/hermez-agency/ponos/main/install.sh | sh</pre>
-    <div class="install-grid" style="margin-top:1rem">
-      <div class="card">
-        <div class="card-header"><h3 class="card-title">Ensuite, la console te guide</h3></div>
+    <div class="install wide">
+      <span class="p" aria-hidden="true">$</span>
+      <code>curl -LsSf https://the-ponos.app/install | sh</code>
+      <button class="btn btn-outline btn-sm" type="button" aria-label="Copier la commande d’installation">Copier</button>
+    </div>
+    <p class="install-source">L’adresse courte récupère <a href="https://github.com/hermez-agency/ponos/blob/main/install.sh">install.sh</a> dans le dépôt et le lance — lis-le d’abord si tu veux.</p>
+    <div class="cols">
+      <div>
+        <h3>Ensuite, la console te guide</h3>
         <p>Sur <code>http://127.0.0.1:8787</code>, une première connexion par étapes, chacune vérifiée pour de bon avant la suivante : la langue, ton mot de passe, qui répond aux sessions, GitHub en un clic, un premier projet, et un ticket de démonstration joué sur-le-champ pour prouver que tout marche.</p>
-        <p>Le tableau n’a pas d’étape : les tickets vivent dans <code>ponos.db</code>, sur ta machine.</p>
       </div>
-      <div class="card">
-        <div class="card-header"><h3 class="card-title">Ce qu’il lui faut</h3></div>
+      <div>
+        <h3>Ce qu’il lui faut</h3>
         <ul>
-          <li>Linux ou macOS — systemd ou launchd le maintiennent en marche, et sans l’un ni l’autre la console démarre quand même. Sous Windows, WSL convient sans systemd : le démon tourne alors en arrière-plan, <code>ponos daemon</code> ;</li>
-          <li><code>python3</code> ≥ 3.11 — ses quatre dépendances, httpx, pydantic, FastAPI et uvicorn, vont dans un environnement à lui, créé par l’installeur ;</li>
-          <li>l’accès réseau à PyPI pendant l’installation, pour les récupérer (et à <code>uv</code>, depuis GitHub, quand la machine ne peut pas installer un paquet) ;</li>
-          <li><code>git</code> et <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, que l’installeur propose d’installer ;</li>
-          <li><code>gh</code> est facultatif : la console connecte GitHub en un clic.</li>
+          <li>Linux ou macOS — ou WSL, où <code>ponos daemon</code> tourne en arrière-plan sans systemd ;</li>
+          <li><code>python3</code> ≥ 3.11, et l’accès réseau à PyPI pendant qu’il installe ses dépendances dans un environnement à lui ;</li>
+          <li><code>git</code> et <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, que l’installeur propose d’installer. <code>gh</code> est facultatif.</li>
         </ul>
-        <p>Ce qui manque est nommé avec la commande qui l’installe ; relance ensuite la ligne ci-dessus.</p>
       </div>
     </div>
 
@@ -923,129 +773,111 @@
         <img class="light" src="../media/dokploy/dokploy-black.svg" width="44" height="40" alt="Dokploy">
         <img class="dark" src="../media/dokploy/dokploy-white.svg" width="44" height="40" alt="Dokploy">
         <div>
-          <h3 class="card-title">Installer sur un serveur, avec Dokploy</h3>
-          <p>Ponos est dans le catalogue de modèles de <a href="https://dokploy.com" target="_blank" rel="noopener">Dokploy</a> : HTTPS sur un domaine à lui, et tes données sur des volumes nommés, qu’un redémarrage ou une nouvelle version conserve.</p>
+          <h3 class="card-title">Sur un serveur, avec Dokploy</h3>
+          <p>Ponos est dans le catalogue de modèles de <a href="https://dokploy.com" target="_blank" rel="noopener">Dokploy</a> : HTTPS sur un domaine à lui, et tes données sur des volumes nommés.</p>
         </div>
       </div>
       <ol class="server-steps">
-        <li><b>Crée-le.</b> Dans Dokploy, <em>Templates</em> › cherche <em>Ponos</em> › <em>Create</em>. Le domaine, le mot de passe et le jeton sont générés pour toi.</li>
-        <li><b>Donne-lui un moyen de joindre Claude</b> — la seule chose obligatoire — dans l’onglet <em>Environment</em> : le jeton qu’affiche cette commande, dans <code>CLAUDE_CODE_OAUTH_TOKEN</code>, ou une clé Anthropic dans <code>ANTHROPIC_API_KEY</code>.
-          <pre data-copy><span class="p">$ </span>claude setup-token</pre></li>
-        <li><b>Déploie, et ouvre le domaine.</b> Connecte-toi avec <code>PONOS_WEB_EMAIL</code> et <code>PONOS_WEB_PASSWORD</code>, visibles dans l’onglet <em>Environment</em>. La console dit ce qui manque encore.</li>
+        <li><b>Crée-le :</b> <em>Templates</em> › <em>Ponos</em> › <em>Create</em>. Domaine, mot de passe et jeton sont générés.</li>
+        <li><b>Joindre Claude :</b> dans <em>Environment</em>, <code>CLAUDE_CODE_OAUTH_TOKEN</code> tiré de <code>claude setup-token</code>, ou <code>ANTHROPIC_API_KEY</code>.</li>
+        <li><b>Déploie</b>, ouvre le domaine, connecte-toi avec <code>PONOS_WEB_EMAIL</code> et <code>PONOS_WEB_PASSWORD</code>.</li>
       </ol>
       <p class="server-foot"><a href="https://templates.dokploy.com/?q=ponos" target="_blank" rel="noopener">Ponos dans le catalogue Dokploy →</a> · <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">Chaque variable, et l’import sans le catalogue →</a></p>
     </div>
 
-    <div id="faq">
-      <h3 style="margin:3rem 0 0;font-size:1.25rem">Questions, réponses</h3>
-      <div class="card faq">
-        <details id="stuck">
-          <summary>
-            <h3>Ça ne marche pas — par où commencer ?</h3>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="faq-body">
-            <ul>
-              <li><b>L’installeur s’est arrêté.</b> Il a affiché ce qui manque et la commande qui l’installe : lance-la, puis relance la ligne d’installation.</li>
-              <li><b>La console ne s’ouvre pas.</b> Va toi-même sur <code>http://127.0.0.1:8787</code> ; si rien ne répond, <code>ponos service run</code> la démarre et dit pourquoi elle ne peut pas.</li>
-              <li><b>Le ticket de démonstration échoue.</b> La console montre ce que la passe a dit ; <em>Run the full diagnosis</em> sur le récapitulatif — ou <code>ponos doctor</code> dans un terminal — vérifie tout, et c’est le texte à coller pour demander de l’aide.</li>
-            </ul>
-          </div>
-        </details>
-        <details id="dokploy">
-          <summary>
-            <h3>Que met en place le modèle Dokploy, et que puis-je ajouter ?</h3>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="faq-body">
-            <p>Les trois étapes sont <a href="#server">plus haut</a>. L’image embarque tout ce dont un ticket a besoin — Claude Code, git, <code>gh</code>, Node —, figée sur la version avec laquelle le modèle a été publié, et tourne sous un utilisateur à elle, jamais root. Quatre volumes nommés gardent la configuration et le tableau, les clones, et les connexions de Claude Code et de <code>gh</code> ; un healthcheck interroge <code>/healthz</code> ; la mémoire est plafonnée à 4 Go.</p>
-            <ul>
-              <li><b>Obligatoire :</b> <code>CLAUDE_CODE_OAUTH_TOKEN</code> (ton abonnement) ou <code>ANTHROPIC_API_KEY</code>.</li>
-              <li><b>Facultatif :</b> <code>OPENROUTER_API_KEY</code> pour tous les autres modèles ; <code>GH_TOKEN</code> pour les pull requests — ou une GitHub App, créée depuis la console ; <code>PONOS_TELEGRAM_TOKEN</code> et <code>PONOS_SLACK_TOKEN</code> pour ton téléphone.</li>
-              <li><b>Générées ou à définir :</b> <code>PONOS_WEB_EMAIL</code>, <code>PONOS_WEB_PASSWORD</code> et <code>PONOS_WEB_TOKEN</code> ; <code>PONOS_LANGUAGE</code>, <code>en</code> ou <code>fr</code> ; <code>TZ</code>, le fuseau dans lequel les heures d’un planning sont lues.</li>
-            </ul>
-            <p>Un Dokploy sans Ponos dans son catalogue l’importe : un service <em>Compose</em>, <em>Advanced › Import</em>, et le Base64 que la <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">documentation</a> affiche.</p>
-          </div>
-        </details>
-        <details id="remote-access" open>
-          <summary>
-            <h3>Comment joindre Ponos depuis mon téléphone, loin de mon bureau ?</h3>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="faq-body">
-            <p>Avec <a href="https://tailscale.com" target="_blank" rel="noopener">Tailscale</a> : un réseau privé entre tes propres appareils, gratuit pour un usage personnel. Aucun port ouvert sur Internet.</p>
-            <ol>
-              <li>
-                <b>Tailscale sur la machine qui fait tourner Ponos.</b> Crée un compte, puis sous Linux :
-                <pre data-copy><span class="p">$ </span>curl -fsSL https://tailscale.com/install.sh | sh
+    <div class="closing">
+      <div id="faq">
+        <h3>Questions, réponses</h3>
+        <div class="card faq">
+          <details id="stuck">
+            <summary>
+              <h4>Ça ne marche pas — par où commencer ?</h4>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="faq-body">
+              <ul>
+                <li><b>L’installeur s’est arrêté.</b> Il a affiché ce qui manque et la commande qui l’installe : lance-la, puis relance la ligne d’installation.</li>
+                <li><b>La console ne s’ouvre pas.</b> Va toi-même sur <code>http://127.0.0.1:8787</code> ; si rien ne répond, <code>ponos service run</code> la démarre et dit pourquoi elle ne peut pas.</li>
+                <li><b>Le ticket de démonstration échoue.</b> La console montre ce que la passe a dit ; <em>Run the full diagnosis</em> sur le récapitulatif — ou <code>ponos doctor</code> dans un terminal — vérifie tout, et c’est le texte à coller pour demander de l’aide.</li>
+              </ul>
+            </div>
+          </details>
+          <details id="dokploy">
+            <summary>
+              <h4>Que met en place le modèle Dokploy, et que puis-je ajouter ?</h4>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="faq-body">
+              <p>Les trois étapes sont <a href="#server">plus haut</a>. L’image embarque tout ce dont un ticket a besoin — Claude Code, git, <code>gh</code>, Node —, figée sur la version avec laquelle le modèle a été publié, et tourne sous un utilisateur à elle, jamais root. Quatre volumes nommés gardent la configuration et le tableau, les clones, et les connexions de Claude Code et de <code>gh</code> ; un healthcheck interroge <code>/healthz</code> ; la mémoire est plafonnée à 4 Go.</p>
+              <ul>
+                <li><b>Obligatoire :</b> <code>CLAUDE_CODE_OAUTH_TOKEN</code> (ton abonnement) ou <code>ANTHROPIC_API_KEY</code>.</li>
+                <li><b>Facultatif :</b> <code>OPENROUTER_API_KEY</code> pour tous les autres modèles ; <code>GH_TOKEN</code> pour les pull requests — ou une GitHub App, créée depuis la console ; <code>PONOS_TELEGRAM_TOKEN</code> et <code>PONOS_SLACK_TOKEN</code> pour ton téléphone.</li>
+                <li><b>Générées ou à définir :</b> <code>PONOS_WEB_EMAIL</code>, <code>PONOS_WEB_PASSWORD</code> et <code>PONOS_WEB_TOKEN</code> ; <code>PONOS_LANGUAGE</code>, <code>en</code> ou <code>fr</code> ; <code>TZ</code>, le fuseau dans lequel les heures d’un planning sont lues.</li>
+              </ul>
+              <p>Un Dokploy sans Ponos dans son catalogue l’importe : un service <em>Compose</em>, <em>Advanced › Import</em>, et le Base64 que la <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">documentation</a> affiche.</p>
+            </div>
+          </details>
+          <details id="remote-access">
+            <summary>
+              <h4>Comment joindre Ponos depuis mon téléphone, loin de mon bureau ?</h4>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="faq-body">
+              <p>Avec <a href="https://tailscale.com" target="_blank" rel="noopener">Tailscale</a> : un réseau privé entre tes propres appareils, gratuit pour un usage personnel. Aucun port ouvert sur Internet.</p>
+              <ol>
+                <li>
+                  <b>Tailscale sur la machine qui fait tourner Ponos.</b> Crée un compte, puis sous Linux :
+                  <pre data-copy><span class="p">$ </span>curl -fsSL https://tailscale.com/install.sh | sh
 <span class="p">$ </span>sudo tailscale up</pre>
-              </li>
-              <li><b>Tailscale sur ton téléphone.</b> L’application, connectée au même compte.</li>
-              <li>
-                <b>Sers la console sur ton tailnet.</b> Elle n’écoute que sur <code>127.0.0.1:8787</code> — exprès, puisqu’elle lance des sessions qui exécutent du code — donc l’adresse <code>100.x</code> de la machine ne l’atteint pas. Tailscale fait le relais à la place, en HTTPS :
-                <pre data-copy><span class="p">$ </span>sudo tailscale serve --bg 8787</pre>
-                Il affiche l’adresse, <code>https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net</code>. La première fois, il peut te demander d’activer HTTPS pour ton tailnet.
-              </li>
-              <li>
-                <b>Donne ce nom à Ponos.</b> Dans la configuration (<code>ponos config</code>), ou <em>Settings › Public address</em> dans la console :
-                <pre data-copy><span class="c"># [web]</span>
+                </li>
+                <li><b>Tailscale sur ton téléphone.</b> L’application, connectée au même compte.</li>
+                <li>
+                  <b>Sers la console sur ton tailnet.</b> Elle n’écoute que sur <code>127.0.0.1:8787</code> — exprès, puisqu’elle lance des sessions qui exécutent du code — donc l’adresse <code>100.x</code> de la machine ne l’atteint pas. Tailscale fait le relais à la place, en HTTPS :
+                  <pre data-copy><span class="p">$ </span>sudo tailscale serve --bg 8787</pre>
+                  Il affiche l’adresse, <code>https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net</code>. La première fois, il peut te demander d’activer HTTPS pour ton tailnet.
+                </li>
+                <li>
+                  <b>Donne ce nom à Ponos.</b> Dans la configuration (<code>ponos config</code>), ou <em>Settings › Public address</em> dans la console :
+                  <pre data-copy><span class="c"># [web]</span>
 url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
-                La console répond à ce nom, et à celui-là seulement ; sans lui, un <code>421</code>. Aucun redémarrage nécessaire.
-              </li>
-              <li><b>Ouvre l’adresse sur ton téléphone</b>, et connecte-toi comme sur la machine — ton e-mail et ton mot de passe, ou le jeton (<code>ponos service run --print-token</code>).</li>
-            </ol>
-            <p class="faq-note"><b>Jamais <code>tailscale funnel</code>.</b> Funnel met la console sur l’Internet public, et derrière elle se trouve un runner qui exécute du code sur ta machine. Reste sur ton tailnet.</p>
-          </div>
-        </details>
+                  La console répond à ce nom, et à celui-là seulement ; sans lui, un <code>421</code>. Aucun redémarrage nécessaire.
+                </li>
+                <li><b>Ouvre l’adresse sur ton téléphone</b>, et connecte-toi comme sur la machine — ton e-mail et ton mot de passe, ou le jeton (<code>ponos service run --print-token</code>).</li>
+              </ol>
+              <p class="faq-note"><b>Jamais <code>tailscale funnel</code>.</b> Funnel met la console sur l’Internet public, et derrière elle se trouve un runner qui exécute du code sur ta machine. Reste sur ton tailnet.</p>
+            </div>
+          </details>
+        </div>
       </div>
-    </div>
 
-    <h3 style="margin:3rem 0 0;font-size:1.25rem">Tout le reste est dans la documentation</h3>
-    <nav class="docs" aria-label="La documentation">
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/installation.md#installation">Installation, en détail <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#the-statuses">Le tableau et ses colonnes <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#the-tickets-database">Ce que porte un ticket <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#validated-and-what-it-sets-off">Validated : fusionner ou publier <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#ten-tickets-on-one-repository">Dix tickets, un seul dépôt <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#talking-to-it-in-the-comments">Parler dans les commentaires <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/channels.md#being-told-and-answering-with-one-word">Telegram et Slack <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Les tickets qui reviennent <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">La console web <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude">Connecter Ponos à Claude <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#where-the-tickets-live">Où vivent les tickets <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Tous les autres modèles <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#connect-github-in-one-click">Connecter GitHub en un clic <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#several-github-accounts">Plusieurs comptes GitHub <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/credits.md#when-the-credits-run-out">Quand les crédits s’épuisent <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#configuration">Configuration <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/usage.md#usage">Toutes les commandes <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/safety.md#what-protects-your-code">Ce qui protège ton code <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#on-a-server">Sur un serveur <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">Installer avec Dokploy <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/guide/troubleshooting.md#when-it-does-not-work">Quand ça ne marche pas <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/CONTRIBUTING.md#architecture">Architecture <span>§</span></a>
-      <a href="https://github.com/hermez-agency/ponos/blob/main/CONTRIBUTING.md#ponos-the-mascot">Ponos, la mascotte <span>§</span></a>
-    </nav>
-  </div>
-</section>
-
-<section id="handmade">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="label">Fait main</span>
-      <h2>Fait par un développeur — et par Ponos lui-même.</h2>
-      <p>La plupart des pull requests de ce dépôt ont été ouvertes par Ponos, à partir de tickets de son propre tableau. Les versions sont publiées de la même façon.</p>
-    </div>
-    <div class="card author">
-      <div class="avatar" aria-hidden="true">H</div>
-      <div class="txt">
-        <b>Un produit Hermez</b>
-        <span>Les autres projets de la même agence, à la même adresse.</span>
+      <div>
+        <h3>Tout le reste est dans la documentation</h3>
+        <ul class="docs" aria-label="La documentation">
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/installation.md#installation">Installation, en détail</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#the-statuses">Le tableau et ses colonnes</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#the-tickets-database">Ce que porte un ticket</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#validated-and-what-it-sets-off">Validated : fusionner ou publier</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#ten-tickets-on-one-repository">Dix tickets, un seul dépôt</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#talking-to-it-in-the-comments">Parler dans les commentaires</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/channels.md#being-told-and-answering-with-one-word">Telegram et Slack</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#what-comes-back-on-its-own">Les tickets qui reviennent</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#the-web-console">La console web</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/console.md#connect-ponos-to-claude">Connecter Ponos à Claude</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/board.md#where-the-tickets-live">Où vivent les tickets</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#every-other-model">Tous les autres modèles</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#connect-github-in-one-click">Connecter GitHub en un clic</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#several-github-accounts">Plusieurs comptes GitHub</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/credits.md#when-the-credits-run-out">Quand les crédits s’épuisent</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/configuration.md#configuration">Configuration</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/usage.md#usage">Toutes les commandes</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/safety.md#what-protects-your-code">Ce qui protège ton code</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#on-a-server">Sur un serveur</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/server.md#install-with-dokploy">Installer avec Dokploy</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/guide/troubleshooting.md#when-it-does-not-work">Quand ça ne marche pas</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/CONTRIBUTING.md#architecture">Architecture</a></li>
+          <li><a href="https://github.com/hermez-agency/ponos/blob/main/CONTRIBUTING.md#ponos-the-mascot">Ponos, la mascotte</a></li>
+        </ul>
       </div>
-      <a class="btn btn-outline" href="https://hermez.dev" target="_blank" rel="noopener">
-        hermez.dev
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
-      </a>
     </div>
   </div>
 </section>
@@ -1136,8 +968,10 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
     try { document.execCommand('copy'); done(); } catch (e) { flash(btn, 'Échec'); }
     document.body.removeChild(ta);
   }
-  var ci = document.getElementById('copy-install');
-  ci.addEventListener('click', function () { copy(document.getElementById('install-cmd').textContent.trim(), ci, copied); });
+  Array.prototype.forEach.call(document.querySelectorAll('.install'), function (line) {
+    var btn = line.querySelector('button');
+    btn.addEventListener('click', function () { copy(line.querySelector('code').textContent.trim(), btn, copied); });
+  });
   Array.prototype.forEach.call(document.querySelectorAll('pre[data-copy]'), function (pre) {
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -1175,7 +1009,7 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
   /* --- the loop, filmed on the console: the light film or the dark one, as
      the page is; nothing fetched before the section is near; playing only
      while it is on screen, and never on its own if motion is unwelcome. The
-     gesture the film is at is lit under it, from its own clock. --- */
+     gesture the film is at is lit beside it, from its own clock. --- */
   var reel = document.getElementById('loop-film');
   var shown = reel.querySelector('video');
   var reelToggle = reel.querySelector('[data-toggle]');
@@ -1238,32 +1072,25 @@ url = "https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net"</pre>
     reelNear = true; dress(); reel.classList.add('held');
   }
 
-  /* --- the hero's picture: the ticket is written, Ponos does it, it comes
-     back for your yes — then Validate is pressed, and the next round brings
-     back the other kind of thing. Held at the decision when motion is
-     unwelcome, as the markup has it. --- */
-  var flow = document.getElementById('flow');
+  /* --- the hero's Ponos: waiting for a ticket, at work on it, back with it
+     for your yes — and round again. Held on the last, as the markup has it,
+     when motion is unwelcome; stopped while the tab is hidden. --- */
+  var heroFigure = document.getElementById('hero-figure');
   var heroBot = document.getElementById('hero-bot');
-  var faces = ['idle', 'thinking', 'working', 'waiting', 'waiting', 'success'];
-  var kinds = ['code', 'post'];
-  var kind = 0;
-  var flowTimers = [];
-  function step(n) { flow.setAttribute('data-step', String(n)); heroBot.setAttribute('state', faces[n]); }
-  function round() {
-    flowTimers.forEach(clearTimeout);
-    flow.setAttribute('data-kind', kinds[kind++ % kinds.length]);
-    step(0);
-    flowTimers = [1500, 3000, 4800, 7800, 8600].map(function (ms, i) { return setTimeout(function () { step(i + 1); }, ms); });
-    flowTimers.push(setTimeout(round, 12500));
+  var states = [['idle', 2200], ['working', 4200], ['success', 3600]];
+  var heroTimer = 0;
+  function pose(n) {
+    heroFigure.setAttribute('data-state', states[n][0]);
+    heroBot.setAttribute('state', states[n][0]);
+    heroTimer = setTimeout(function () { pose((n + 1) % states.length); }, states[n][1]);
   }
-
   if (reduce) {
     heroBot.setAttribute('still', '');
   } else {
-    round();
+    pose(0);
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) { flowTimers.forEach(clearTimeout); flowTimers = []; }
-      else { round(); }
+      clearTimeout(heroTimer);
+      if (!document.hidden) pose(0);
     });
   }
 })();
