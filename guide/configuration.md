@@ -510,7 +510,8 @@ anything goes out: the comments and pages written to `ponos.db`, the
 session's transcript and stderr, the runner's log, Telegram and Slack, the console's
 answers. By value, not by name: what leaks is never `$NPM_TOKEN`, it is what it expands
 to. A value under six characters is too short to mask without masking the code around it,
-and is not handed over at all.
+and is not handed over at all — except the user of a login of Ponos's vault, which is no
+secret: `admin` is handed over as it is, and left unmasked.
 
 **Prefer keys of narrow reach.** An npm *granular* token limited to the packages and the
 organisation it publishes, a GitHub *fine-grained* token limited to one repository and the
@@ -556,7 +557,15 @@ does not see the page, and the API answers them 403), or `ponos vault` in a term
 An entry is one of three kinds — an **API key / token**, a **login + password** (given as
 `<NAME>_USER` and `<NAME>_PASSWORD`), a **secret note** of several lines (a certificate) —
 with the name of its variable, the **projects allowed** (none by default), a description,
-an optional expiry date and an optional **site**. It reaches the sessions of those projects' tickets as an
+an optional expiry date and an optional **site**. The name is corrected rather than refused:
+upper case, accents dropped, spaces, dashes and dots made `_` — `umami login` is kept as
+`UMAMI_LOGIN`, and the form shows the variables it will give (`UMAMI_LOGIN`, or
+`UMAMI_USER`, `UMAMI_PASSWORD` and `UMAMI_URL` for a login with a site) as it is typed. Only
+an empty name, one of the runner's own (`PONOS_*` included) and one another entry already
+gives are refused. A password, a key and a note need six characters, so they can be masked;
+a login's user has no minimum. The form says what is wrong under the field about a second
+after the typing stops, and the server's refusals land under the same fields.
+It reaches the sessions of those projects' tickets as an
 environment variable, the way every `[vault]` key does, and is masked the same way;
 nothing more is needed in `config.toml`. A line of `[vault]` may still name one —
 `NPM_TOKEN = "ponos:NPM_TOKEN"` — and wins over the page for the same variable. The

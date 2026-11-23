@@ -6,6 +6,7 @@ import http.client
 import io
 import json
 import os
+import re
 import socket
 import sqlite3
 import sys
@@ -18,7 +19,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import httpx
-from support import _bare_runner, _board, _config, _http_answering, _ideas_api, _tools, case
+from support import (
+    FRONTEND,
+    _bare_runner,
+    _board,
+    _config,
+    _http_answering,
+    _ideas_api,
+    _tools,
+    case,
+)
 
 from ponos import config as C
 from ponos import health, ledger, pages, prompt, push, session, tickets, vault, vault_store
@@ -423,6 +433,51 @@ def a_logins_user_may_be_short_and_its_password_may_not(vault_home: Path) -> Non
     finally:
         del os.environ["SHORT_ONE_USER"]
     assert short.values == {} and "too short" in short.missing[0], short
+
+
+@case
+def the_vault_page_says_each_refusal_of_the_vault_in_its_own_words(vault_home: Path) -> None:
+    """Every sentence an entry is refused with is one `vault-page.tsx` recognises.
+
+    The page says them while the name is typed, and recognises the server's to
+    say them in French (its `refusals([...])`): one reworded here and not there
+    would be shown in English, under a field that said the old words.
+    """
+    page = (FRONTEND / "src/components/console/vault-page.tsx").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^const ([A-Z_]+) =\s*"(.*)"$', page, re.MULTILINE))
+    listed = re.search(r"refusals\(\[(.*?)\]\)", page, re.DOTALL)
+    assert listed, "vault-page.tsx no longer recognises the vault's refusals"
+    templates = [
+        json.loads(item) if item.startswith('"') else constants[item]
+        for item in (line.strip().rstrip(",") for line in listed.group(1).splitlines())
+        if item
+    ]
+    patterns = [
+        re.compile(
+            "^"
+            + "(.*?)".join(re.escape(part) for part in re.split(r"\{\{\w+\}\}", template))
+            + "$",
+            re.DOTALL,
+        )
+        for template in templates
+    ]
+    vault_store.create("TAKEN", "token", {"value": SECRET}, [])
+    good = {"value": SECRET}
+    refused = [
+        _refused(vault_store.create, "--", "token", good, []),
+        _refused(vault_store.create, "anthropic api key", "token", good, []),
+        _refused(vault_store.create, "taken", "token", good, []),
+        _refused(vault_store.create, "LOGIN", "login", {"user": "", "password": SECRET}, []),
+        _refused(vault_store.create, "LOGIN", "login", {"user": "admin", "password": "abc"}, []),
+        _refused(vault_store.create, "SHORT", "token", {"value": "abc"}, []),
+        _refused(vault_store.create, "WHEN", "token", good, [], expires="soon"),
+        _refused(vault_store.create, "WHERE", "token", good, [], url="ftp://files.example"),
+        _refused(vault_store.create, "WHAT", "secret", good, []),
+    ]
+    for sentence in refused:
+        assert any(pattern.match(sentence) for pattern in patterns), (
+            f"vault-page.tsx does not know “{sentence}”"
+        )
 
 
 # -- a session -----------------------------------------------------------------
@@ -831,6 +886,8 @@ def the_vault_unlocks_once_stays_open_while_used_and_locks_again(vault_home: Pat
             assert status == 200 and changed["projects"] == ["Opoil"], changed
             status, _, listed = _ask(console, "GET", "/api/vault", cookie=owner)
             assert listed["proven"] is True and listed["relocks_after"] == sessions.UNLOCKED_FOR
+            # What the page refuses while the name is typed, as the server would.
+            assert "ANTHROPIC_API_KEY" in listed["reserved"], listed["reserved"]
 
             # Used fourteen minutes after the last write: open fifteen more from then.
             sessions.prove(owner, now=time.time() - sessions.UNLOCKED_FOR + 60)

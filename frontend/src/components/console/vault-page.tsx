@@ -1,5 +1,19 @@
 import * as React from "react"
 import { ExternalLink, Globe, History, KeyRound, Lock, LockOpen, Plus, RefreshCw, Trash2, Users } from "lucide-react"
+import {
+  FormElement,
+  InputControllerProvider,
+  getFormInputsFromForm,
+  useForm,
+  useFormContext,
+  type FormContextOutput,
+  type FormDecoratorPropsInterface,
+  type FormGroupProviderPropsInterface,
+  type FormInputInterface,
+  type FormInterface,
+  type InputControllerComponentInterface,
+  type ViolationInterface,
+} from "react-data-form"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -10,7 +24,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ApiError, api, why } from "@/lib/api"
-import { Worded, useT } from "@/lib/i18n"
+import { refusals } from "@/lib/refusals"
+import { Worded, t, useT } from "@/lib/i18n"
 import { settingsFrench } from "@/lib/settings-store"
 import type { Vault, VaultEntry, VaultMoment } from "@/lib/types"
 
@@ -42,10 +57,10 @@ import { when } from "./ticket-bits"
 const SELECT =
   "border-input bg-background h-9 w-full rounded-md border px-2 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
 
-const KINDS: { kind: VaultEntry["kind"]; label: string; help: string }[] = [
-  { kind: "token", label: "API key / token", help: "One value, given as the variable itself." },
-  { kind: "login", label: "Login + password", help: "Given as <NAME>_USER and <NAME>_PASSWORD." },
-  { kind: "note", label: "Secret note", help: "Several lines — a certificate, say — given as the variable itself." },
+const KINDS: { kind: VaultEntry["kind"]; label: string }[] = [
+  { kind: "token", label: "API key / token" },
+  { kind: "login", label: "Login + password" },
+  { kind: "note", label: "Secret note" },
 ]
 
 const labelOf = (kind: string) => KINDS.find((one) => one.kind === kind)?.label ?? kind
@@ -352,113 +367,411 @@ function values(
     : { value: value.current?.value ?? "" }
 }
 
-function New({ vault, guard, onMade }: { vault: Vault; guard: Guard; onMade: () => void }) {
-  const t = useT()
-  const [kind, setKind] = React.useState<VaultEntry["kind"]>("token")
-  const [name, setName] = React.useState("")
-  const [projects, setProjects] = React.useState<string[]>([])
-  const [description, setDescription] = React.useState("")
-  const [expires, setExpires] = React.useState("")
-  const [url, setUrl] = React.useState("")
-  const [problem, setProblem] = React.useState("")
-  const [busy, setBusy] = React.useState(false)
-  const value = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null)
-  const user = React.useRef<HTMLInputElement>(null)
-  const password = React.useRef<HTMLInputElement>(null)
+/* -- a new entry --------------------------------------------------------------- */
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (siteAddress(url) === null) {
-      setProblem(t(NO_SITE))
-      return
-    }
-    setBusy(true)
-    setProblem("")
-    const given = values(kind, value, user, password)
-    try {
-      const made = await guard(() => api.createVaultEntry({ name, kind, projects, description, expires, url, ...given }))
-      emptied(value, user, password)
+/* The rules `vault_store` writes an entry by, said while it is typed — the
+ * server is still the judge, and its refusals land under the same fields.
+ *
+ * A name is corrected rather than refused (`normalized`, as the server does):
+ * `umami login` is UMAMI_LOGIN, and the variables it gives are shown under the
+ * field as they will be. Only an empty name, the runner's own and one another
+ * entry already gives are refused. A login's user is no secret and has no
+ * length; a password, a key or a note needs `SHORTEST` characters, or Ponos
+ * could not mask it in what a session writes. */
+
+/** `vault.SHORTEST`: below it, a value could not be masked. */
+const SHORTEST = 6
+
+const NO_NAME = "Give the entry a name, in letters or digits: UMAMI, say."
+const RESERVED = "{{variable}} is Ponos's own and never given to a project: choose another name."
+const TAKEN = "This name is already given by the entry {{name}}: choose another one."
+const NO_USER = "Type the user name."
+const SHORT_PASSWORD = "The password needs at least {{count}} characters: shorter, Ponos could not mask it in what a session writes."
+const SHORT_VALUE = "The value needs at least {{count}} characters: shorter, Ponos could not mask it in what a session writes."
+
+/* What `vault_store` refuses with, recognised to be said in the page's
+ * language: these sentences are the vault's alone, so they travel with this
+ * page and its dictionary rather than in `refusals.ts`, which every page loads.
+ * `tests/test_vault_store.py` holds them to the Python's. */
+const said = (message: string) => {
+  const found = REFUSED(message)
+  return found ? t(found.key, found.params) : message
+}
+const REFUSED = refusals([
+  NO_NAME,
+  RESERVED,
+  TAKEN,
+  NO_USER,
+  SHORT_PASSWORD,
+  SHORT_VALUE,
+  "{{expires}} is not a date: write it YYYY-MM-DD.",
+  "{{url}} is not the address of a site: it starts with https://.",
+  "An entry is one of {{kinds}}.",
+])
+
+/** A name as `vault_store.normalized` writes it: upper case, no accent, `_` for the rest. */
+export function normalized(typed: string): string {
+  const bare = typed.trim().normalize("NFKD").replace(/\p{M}/gu, "")
+  const plain = bare
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_")
+  return /^\d/.test(plain) ? `_${plain}` : plain
+}
+
+/** The variables an entry gives its sessions — its address's only once it has one. */
+function given(name: string, kind: string, url = true): string[] {
+  const own = kind === "login" ? [`${name}_USER`, `${name}_PASSWORD`] : [name]
+  return url ? [...own, `${name}_URL`] : own
+}
+
+/** What the form holds. A secret field holds its length, never what is typed: see the top of this file. */
+interface Draft {
+  kind: VaultEntry["kind"]
+  name: string
+  value: number
+  user: number
+  password: number
+  url: string
+  projects: string[]
+  description: string
+  expires: string
+}
+
+const EMPTY: Omit<Draft, "kind"> = { name: "", value: 0, user: 0, password: 0, url: "", projects: [], description: "", expires: "" }
+
+/** Why `typed` cannot name an entry of `kind`, given what the vault already holds — or nothing. */
+function nameProblem(typed: string, kind: string, vault: Vault): string {
+  const name = normalized(typed)
+  if (!name) return t(NO_NAME)
+  const mine = given(name, kind)
+  const reserved = new Set(vault.reserved)
+  const own = mine.find((variable) => reserved.has(variable) || variable.startsWith("PONOS_"))
+  if (own) return t(RESERVED, { variable: own })
+  const other = vault.entries.find((entry) => given(entry.name, entry.kind).some((variable) => mine.includes(variable)))
+  return other ? t(TAKEN, { name: other.name }) : ""
+}
+
+/** The secret fields' elements, by name: read when the entry is sent, emptied once it is. */
+type Secrets = Map<string, HTMLInputElement | HTMLTextAreaElement>
+
+const SecretsContext = React.createContext<Secrets>(new Map())
+
+/** The length a secret field counts toward `SHORTEST`: as the server strips it. */
+const lengthOf = (typed: string, kind: string) => (kind === "note" ? typed.replace(/^\n+|\n+$/g, "") : typed.trim()).length
+
+/** A field and what is wrong with it, under it: one line, no explanation. */
+function Field({ formInput, onChange, formInputComponent: Control }: FormGroupProviderPropsInterface) {
+  const t = useT()
+  const { form } = useFormContext()
+  // A login's site is where Ponos's browser signs in with it: not optional in the same way.
+  const label = formInput.name === "url" && (form.data as Draft).kind === "login" ? "Site (sign-in page)" : String(formInput.label ?? "")
+  const problem = formInput.violations?.map((one: ViolationInterface) => one.message).join(" ")
+  const id = formInput.id ?? `vault-${formInput.name}`
+  return (
+    <div className="flex flex-col gap-1.5 text-sm" data-field={formInput.name}>
+      <label htmlFor={id} className="font-medium">
+        {t(label)}
+      </label>
+      <Control formInput={{ ...formInput, id }} onChange={onChange} />
+      {problem ? (
+        <p id={`${id}-problem`} role="alert" className="text-destructive text-xs" data-slot="vault-problem">
+          {problem}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+const invalid = (formInput: FormInputInterface) =>
+  formInput.violations?.length ? { "aria-invalid": true, "aria-errormessage": `${formInput.id}-problem` } : {}
+
+const KindController: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const t = useT()
+  const { updateData } = useFormContext()
+  return (
+    <select
+      id={formInput.id}
+      className={SELECT}
+      value={String(formInput.value ?? "token")}
+      onChange={(event) => {
+        onChange({ ...formInput, value: event.target.value })
+        // Another kind, other fields: what was typed in the old ones is gone with them.
+        updateData({ value: 0, user: 0, password: 0 })
+      }}
+      data-slot="vault-kind"
+    >
+      {KINDS.map((one) => (
+        <option key={one.kind} value={one.kind}>
+          {t(one.label)}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+const NameController: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const { form } = useFormContext()
+  const data = form.data as Draft
+  const name = normalized(String(formInput.value ?? ""))
+  return (
+    <>
+      <Input
+        id={formInput.id}
+        value={String(formInput.value ?? "")}
+        onChange={(event) => onChange({ ...formInput, value: event.target.value })}
+        placeholder="UMAMI"
+        className="font-mono"
+        autoComplete="off"
+        spellCheck={false}
+        data-slot="vault-name"
+        {...invalid(formInput)}
+      />
+      {name && !formInput.violations?.length ? (
+        <span className="text-muted-foreground font-mono text-xs break-words" data-slot="vault-variables">
+          {given(name, data.kind, Boolean(data.url.trim())).join(", ")}
+        </span>
+      ) : null}
+    </>
+  )
+}
+
+/* Uncontrolled: the value stays in the element, and the form is told its length alone. */
+const SecretController: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const secrets = React.use(SecretsContext)
+  const { form } = useFormContext()
+  const kind = (form.data as Draft).kind
+  const field = String(formInput.name)
+  const hold = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
+    if (element) secrets.set(field, element)
+    else secrets.delete(field)
+  }
+  const told = (event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    onChange({ ...formInput, value: lengthOf(event.currentTarget.value, kind) })
+  const shared = { id: formInput.id, name: `vault-${field}`, autoComplete: "off", onInput: told, "data-slot": `vault-${field}`, ...invalid(formInput) }
+  if (field === "value" && kind === "note")
+    return <Textarea ref={hold} rows={5} spellCheck={false} className="font-mono text-xs" {...shared} />
+  return <Input ref={hold} type="password" {...shared} />
+}
+
+const UrlController: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const { form } = useFormContext()
+  return (
+    <Input
+      id={formInput.id}
+      value={String(formInput.value ?? "")}
+      onChange={(event) => onChange({ ...formInput, value: event.target.value })}
+      placeholder={(form.data as Draft).kind === "login" ? "https://umami.example.com/login" : "https://openrouter.ai/settings/keys"}
+      autoComplete="off"
+      spellCheck={false}
+      inputMode="url"
+      data-slot="vault-url"
+      {...invalid(formInput)}
+    />
+  )
+}
+
+/** The vault as last read: the projects to tick, and the names already given. */
+const VaultContext = React.createContext<Vault | null>(null)
+
+const ProjectsController: InputControllerComponentInterface = ({ formInput, onChange }) => (
+  <Projects
+    known={React.use(VaultContext)?.projects ?? []}
+    chosen={(formInput.value as string[] | undefined) ?? []}
+    onChange={(projects) => onChange({ ...formInput, value: projects })}
+  />
+)
+
+const TextController: InputControllerComponentInterface = ({ formInput, onChange }) => (
+  <Input
+    id={formInput.id}
+    type={formInput.type === "date" ? "date" : "text"}
+    value={String(formInput.value ?? "")}
+    onChange={(event) => onChange({ ...formInput, value: event.target.value })}
+    {...invalid(formInput)}
+  />
+)
+
+/* The fields, laid out as the card wants them rather than in a column. */
+function NewFields() {
+  const { form } = useFormContext()
+  const inputs = new Map(getFormInputsFromForm(form).map((formInput) => [String(formInput.name), formInput]))
+  const field = (name: string) => {
+    const formInput = inputs.get(name)
+    return formInput ? <InputControllerProvider formInput={formInput} /> : null
+  }
+  const login = (form.data as Draft).kind === "login"
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {field("kind")}
+        {field("name")}
+      </div>
+      {login ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {field("user")}
+          {field("password")}
+        </div>
+      ) : (
+        field("value")
+      )}
+      {field("url")}
+      {field("projects")}
+      <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
+        {field("description")}
+        {field("expires")}
+      </div>
+    </>
+  )
+}
+
+/** What the server refused with that belongs to no field, and what kept the entry from being sent. */
+const ProblemContext = React.createContext("")
+
+function NewProblems() {
+  const { form } = useFormContext()
+  const problem = React.use(ProblemContext)
+  const said = [...(form.errors ?? []), ...(problem ? [problem] : [])]
+  if (!said.length) return null
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{said.join(" ")}</AlertDescription>
+    </Alert>
+  )
+}
+
+function NewSubmit() {
+  const t = useT()
+  const { form, isLoading } = useFormContext()
+  return (
+    <div>
+      <Button type="submit" size="sm" disabled={isLoading.value || !String(form.data.name ?? "").trim()} data-slot="vault-create">
+        <Plus />
+        {t("Keep in the vault")}
+      </Button>
+    </div>
+  )
+}
+
+function NewForm({ children }: FormDecoratorPropsInterface) {
+  const { onSubmit } = useFormContext()
+  return (
+    <form
+      className="flex flex-col gap-3"
+      noValidate
+      autoComplete="off"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void onSubmit()
+      }}
+    >
+      {children}
+    </form>
+  )
+}
+
+/** The declaration, read once: what changes — the entries, the projects — is read through `known`. */
+function newForm(known: React.RefObject<Vault>): FormInterface<Draft> {
+  const secret = (name: "value" | "user" | "password", label: string): FormInputInterface<number, Draft> => ({
+    label,
+    controller: SecretController,
+    dependsOn: ["kind"],
+    hidden: (data) => (data.kind === "login") === (name === "value"),
+    validator: (length) => {
+      if (name === "user") {
+        if (!length) throw new Error(t(NO_USER))
+      } else if ((length ?? 0) < SHORTEST)
+        throw new Error(t(name === "password" ? SHORT_PASSWORD : SHORT_VALUE, { count: String(SHORTEST) }))
+    },
+  })
+  return {
+    validateOnChange: true,
+    showSuccess: false,
+    components: { formDecorator: NewForm, formInputs: NewFields, formGroupProvider: Field, formErrors: NewProblems, formSubmitAction: NewSubmit },
+    inputs: {
+      kind: { label: "Kind", controller: KindController },
+      name: {
+        label: "Variable name",
+        controller: NameController,
+        dependsOn: ["kind"],
+        validator: (typed, data) => {
+          const problem = nameProblem(String(typed ?? ""), data?.kind ?? "token", known.current)
+          if (problem) throw new Error(problem)
+        },
+      },
+      value: secret("value", "Value"),
+      user: secret("user", "User"),
+      password: secret("password", "Password"),
+      url: {
+        label: "Site (optional)",
+        controller: UrlController,
+        validator: (typed) => {
+          if (siteAddress(String(typed ?? "")) === null) throw new Error(t(NO_SITE))
+        },
+      },
+      projects: { label: "Projects allowed", controller: ProjectsController, validateOnChange: false },
+      description: { label: "Description", controller: TextController, validateOnChange: false },
+      expires: { label: "Expires on (optional)", type: "date", controller: TextController, validateOnChange: false },
+    },
+  }
+}
+
+export function New({ vault, guard, onMade }: { vault: Vault; guard: Guard; onMade: () => void }) {
+  const t = useT()
+  const [problem, setProblem] = React.useState("")
+  const known = React.useRef(vault)
+  known.current = vault
+  const [secrets] = React.useState<Secrets>(() => new Map())
+  const [form] = React.useState(() => newForm(known))
+  const latest = React.useRef<FormContextOutput<Draft> | null>(null)
+
+  const read = (field: string) => secrets.get(field)?.value ?? ""
+  const empty = () => {
+    for (const element of secrets.values()) element.value = ""
+  }
+
+  const context = useForm<Draft>({
+    form,
+    data: { kind: "token", ...EMPTY },
+    onSubmit: async (draft) => {
+      setProblem("")
+      const values = draft.kind === "login" ? { user: read("user"), password: read("password") } : { value: read("value") }
+      const { kind, name, projects, description, expires, url } = draft
+      let made: VaultEntry
+      try {
+        made = await guard(() => api.createVaultEntry({ name, kind, projects, description, expires, url, ...values }))
+      } catch (error) {
+        // Given up at the password: everything stays where it was typed.
+        if (error instanceof StillLocked) return
+        // Refused field by field: each sentence under its field, and the rest kept to fix that one.
+        if (error instanceof ApiError && error.data.violations?.length)
+          throw { violations: error.data.violations.map((one) => ({ ...one, message: said(one.message) })) }
+        setProblem(said(why(error)))
+        return
+      }
+      empty()
       const seen = made.url_variable ? [...made.variables, made.url_variable] : made.variables
       toast.success(t("{{name}} is kept: its sessions see {{variables}}", { name: made.name, variables: seen.join(", ") }))
-      setName("")
-      setProjects([])
-      setDescription("")
-      setExpires("")
-      setUrl("")
+      latest.current?.updateData({ kind, ...EMPTY }, false)
       onMade()
-    } catch (error) {
-      if (!(error instanceof StillLocked)) {
-        emptied(value, user, password)
-        setProblem(why(error))
-      }
-    } finally {
-      setBusy(false)
-    }
-  }
+    },
+  })
+  latest.current = context
 
   return (
     <Card data-card="vault-new" className="gap-0 py-0">
-      <CardHeader className="gap-1 px-5 pt-5 pb-3 sm:px-6">
+      <CardHeader className="px-5 pt-5 pb-3 sm:px-6">
         <CardTitle className="text-base">{t("New entry")}</CardTitle>
-        <CardDescription className="text-[13px]">
-          {t("Given to the sessions of the projects you tick, as an environment variable: the prompt names it, and never says its value.")}
-        </CardDescription>
       </CardHeader>
       <CardContent className="px-5 pb-5 sm:px-6">
-        <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)} autoComplete="off">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">{t("Kind")}</span>
-              <select className={SELECT} value={kind} onChange={(event) => setKind(event.target.value as VaultEntry["kind"])} data-slot="vault-kind">
-                {KINDS.map((one) => (
-                  <option key={one.kind} value={one.kind}>
-                    {t(one.label)}
-                  </option>
-                ))}
-              </select>
-              <span className="text-muted-foreground text-xs">{t(KINDS.find((one) => one.kind === kind)?.help ?? "")}</span>
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">{t("Variable name")}</span>
-              <Input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="LEADZ_DOKPLOY_TOKEN"
-                className="font-mono"
-                autoComplete="off"
-                spellCheck={false}
-                data-slot="vault-name"
-              />
-            </label>
-          </div>
-          <ValueFields kind={kind} value={value} user={user} password={password} />
-          <SiteField kind={kind} name={name} url={url} onChange={setUrl} />
-          <div className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">{t("Projects allowed")}</span>
-            <Projects known={vault.projects} chosen={projects} onChange={setProjects} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">{t("Description")}</span>
-              <Input value={description} onChange={(event) => setDescription(event.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">{t("Expires on (optional)")}</span>
-              <Input type="date" value={expires} onChange={(event) => setExpires(event.target.value)} />
-            </label>
-          </div>
-          {problem ? (
-            <Alert variant="destructive">
-              <AlertDescription>{problem}</AlertDescription>
-            </Alert>
-          ) : null}
-          <div>
-            <Button type="submit" size="sm" disabled={busy || !name.trim()} data-slot="vault-create">
-              <Plus />
-              {t("Keep in the vault")}
-            </Button>
-          </div>
-        </form>
+        <VaultContext value={vault}>
+          <SecretsContext value={secrets}>
+            <ProblemContext value={problem}>
+              <FormElement {...context} />
+            </ProblemContext>
+          </SecretsContext>
+        </VaultContext>
       </CardContent>
     </Card>
   )
@@ -533,7 +846,7 @@ function Row({ entry, vault, guard, onChanged }: { entry: VaultEntry; vault: Vau
 
   // Given up at the password: the window stays open, with what was typed in it.
   const failed = (what: string, error: unknown) => {
-    if (!(error instanceof StillLocked)) toast.error(t(what), { description: why(error) })
+    if (!(error instanceof StillLocked)) toast.error(t(what), { description: said(why(error)) })
     return false
   }
   const replace = async () => {

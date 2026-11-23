@@ -149,12 +149,14 @@ test("a login kept with its site opens that site from the list, in a new tab", a
   await form.locator('[data-slot="vault-user"]').fill("e2e@hermez.dev")
   await form.locator('[data-slot="vault-password"]').fill("e2e_site_password_0123")
   const url = form.locator('[data-slot="vault-url"]')
-  // Anything but http(s) is said wrong before it is sent: the list makes it a link.
+  // Anything but http(s) is said wrong before it is sent, once the typing pauses: the list makes it a link.
   await url.fill("javascript:alert(1)")
   await expect(url).toHaveAttribute("aria-invalid", "true")
-  await expect(form.locator('[data-slot="vault-url-help"]')).toContainText("not the address of a site")
+  await expect(form.locator('[data-field="url"] [data-slot="vault-problem"]')).toContainText("not the address of a site")
   await url.fill(site)
-  await expect(form.locator('[data-slot="vault-url-help"]')).toContainText("E2E_SITE_URL")
+  await expect(form.locator('[data-field="url"] [data-slot="vault-problem"]')).toHaveCount(0)
+  // And the variables the entry gives, under its name.
+  await expect(form.locator('[data-slot="vault-variables"]')).toHaveText("E2E_SITE_USER, E2E_SITE_PASSWORD, E2E_SITE_URL")
   await form.locator('[data-slot="vault-create"]').click()
   const row = page.locator('[data-vault="E2E_SITE"]')
   const link = row.locator('[data-slot="vault-site-link"]')

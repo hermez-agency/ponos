@@ -84,9 +84,6 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "API key / token": "Clé d'API / jeton",
   "Login + password": "Login + mot de passe",
   "Secret note": "Note secrète",
-  "One value, given as the variable itself.": "Une valeur, donnée sous le nom de la variable.",
-  "Given as <NAME>_USER and <NAME>_PASSWORD.": "Donnée en <NOM>_USER et <NOM>_PASSWORD.",
-  "Several lines — a certificate, say — given as the variable itself.": "Plusieurs lignes — un certificat, par exemple — données sous le nom de la variable.",
   "entry created": "entrée créée",
   "value replaced": "valeur remplacée",
   "projects changed": "projets modifiés",
@@ -115,8 +112,20 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   Value: "Valeur",
   "{{name}} is kept: its sessions see {{variables}}": "{{name}} est gardée : ses sessions voient {{variables}}",
   "New entry": "Nouvelle entrée",
-  "Given to the sessions of the projects you tick, as an environment variable: the prompt names it, and never says its value.":
-    "Donnée aux sessions des projets cochés, en variable d'environnement : le prompt la nomme, sans jamais dire sa valeur.",
+  "Give the entry a name, in letters or digits: UMAMI, say.": "Donne un nom à l'entrée, en lettres ou en chiffres : UMAMI, par exemple.",
+  "{{variable}} is Ponos's own and never given to a project: choose another name.":
+    "{{variable}} est réservé à Ponos et n'est jamais donné à un projet : choisis un autre nom.",
+  "This name is already given by the entry {{name}}: choose another one.":
+    "Ce nom est déjà donné par l'entrée {{name}} : choisis-en un autre.",
+  "Type the user name.": "Indique le nom d'utilisateur.",
+  "The password needs at least {{count}} characters: shorter, Ponos could not mask it in what a session writes.":
+    "Le mot de passe doit faire au moins {{count}} caractères : plus court, Ponos ne pourrait pas le masquer dans ce qu'écrit une session.",
+  "The value needs at least {{count}} characters: shorter, Ponos could not mask it in what a session writes.":
+    "La valeur doit faire au moins {{count}} caractères : plus courte, Ponos ne pourrait pas la masquer dans ce qu'écrit une session.",
+  "{{expires}} is not a date: write it YYYY-MM-DD.": "{{expires}} n'est pas une date : écris-la AAAA-MM-JJ.",
+  "{{url}} is not the address of a site: it starts with https://.":
+    "{{url}} n'est pas l'adresse d'un site : elle commence par https://.",
+  "An entry is one of {{kinds}}.": "Une entrée est de l'un de ces types : {{kinds}}.",
   Kind: "Type",
   "Variable name": "Nom de la variable",
   "Projects allowed": "Projets autorisés",
