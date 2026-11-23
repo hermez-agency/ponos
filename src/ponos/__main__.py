@@ -1931,6 +1931,8 @@ def command_vault(args: argparse.Namespace) -> int:
             return 0
         if action == "set":
             known = {entry["name"]: entry for entry in vault_store.listing()}
+            # `umami login` is UMAMI_LOGIN, as the entry is written.
+            args.name = vault_store.normalized(args.name) or args.name
             if args.name in known:
                 values = _vault_value(known[args.name]["kind"])
                 vault_store.change(

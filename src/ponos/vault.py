@@ -43,7 +43,8 @@ MASK = "***"
 
 # Below this, a value is not masked: replacing every "1234" in a transcript
 # would mask the code rather than the key. A secret that short is no token
-# either, so it is not handed to a session at all — see `Grant.read`.
+# either, so it is not handed to a session at all — see `read`; only a
+# login's user, which is no secret, is given however short (`_open`).
 SHORTEST = 6
 
 # How long a provider is given to answer. A keyring that pops an unlock dialog
@@ -272,6 +273,17 @@ class Read:
     missing: list[str]
 
 
+def _open(which: str, item: str) -> bool:
+    """A value that is no secret, given however short: the user of a login of Ponos's vault.
+
+    Shorter than `SHORTEST`, it is left unmasked — `admin` masked in every
+    transcript would hide the word, not a key. Only Ponos's vault says which
+    field a value is (vault_store.OPEN_FIELDS); a token is held to the length
+    when it is written, so a short value under `_USER` there is a login's user.
+    """
+    return which == "ponos" and item.endswith("_USER")
+
+
 def read(granted: dict[str, str], default: str, stored: dict[str, str] | None = None) -> Read:
     """Every secret a project is granted, read — and remembered, to be masked.
 
@@ -288,7 +300,7 @@ def read(granted: dict[str, str], default: str, stored: dict[str, str] | None = 
         except VaultError as error:
             missing.append(f"{variable} ({which}: {error})")
             continue
-        if len(value) < SHORTEST:
+        if not value or (len(value) < SHORTEST and not _open(which, item)):
             missing.append(
                 f"{variable} ({which}: "
                 + ("no such item" if not value else "too short to be masked")

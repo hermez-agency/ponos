@@ -132,7 +132,7 @@ def any_entry_may_say_its_site_and_only_an_http_address_is_kept(vault_home: Path
         try:
             vault_store.change("BARE", url=wrong)
         except vault_store.Refused as error:
-            assert error.field == "url" and "not the address of a site" in str(error), error
+            assert error.field == "url" and "is not the address of a site" in str(error), error
         else:
             raise AssertionError(f"{wrong!r} should have been refused")
     assert vault_store.listing()[0]["url"] == "HTTP://Dokploy.example", (
@@ -146,15 +146,15 @@ def any_entry_may_say_its_site_and_only_an_http_address_is_kept(vault_home: Path
 def an_entrys_address_is_no_other_entrys_variable(vault_home: Path) -> None:
     vault_store.create("DOKPLOY", "login", {"user": "u" * 8, "password": "p" * 8}, [])
     # DOKPLOY_URL is the login's address, even before it has one.
-    assert "already gives DOKPLOY" in _refused(
+    assert "already given by the entry DOKPLOY" in _refused(
         vault_store.create, "DOKPLOY_URL", "token", {"value": SECRET}, []
     )
     vault_store.create("SITE_URL", "token", {"value": SECRET}, [])
-    assert "already gives SITE_URL" in _refused(
+    assert "already given by the entry SITE_URL" in _refused(
         vault_store.create, "SITE", "token", {"value": SECRET}, []
     )
     # A name whose address would be the runner's own.
-    assert "ANTHROPIC_BASE_URL is the runner's own" in _refused(
+    assert "ANTHROPIC_BASE_URL is Ponos's own" in _refused(
         vault_store.create, "ANTHROPIC_BASE", "token", {"value": SECRET}, []
     )
 
@@ -325,23 +325,26 @@ def the_key_is_looked_for_in_the_keyring_then_the_environment_then_a_file(
 def an_entry_is_named_like_a_variable_and_never_like_the_runners_own(vault_home: Path) -> None:
     good = {"value": SECRET}
     for name, why in (
-        ("not a name", "is not an environment variable name"),
-        ("ANTHROPIC_API_KEY", "is the runner's own"),
-        ("PONOS_WEB_TOKEN", "is the runner's own"),
-        ("PONOS_ANYTHING", "is the runner's own"),
-        (C.VAULT_KEY_ENV, "is the runner's own"),
+        ("  -- ", "Give the entry a name"),
+        ("ANTHROPIC_API_KEY", "is Ponos's own"),
+        ("anthropic-api-key", "ANTHROPIC_API_KEY is Ponos's own"),
+        ("PONOS_WEB_TOKEN", "is Ponos's own"),
+        ("PONOS_ANYTHING", "is Ponos's own"),
+        (C.VAULT_KEY_ENV, "is Ponos's own"),
     ):
         assert why in _refused(vault_store.create, name, "token", good, ["Leadz"]), name
-    assert "at least" in _refused(vault_store.create, "TINY", "token", {"value": "abc"}, [])
+    assert "needs at least 6 characters" in _refused(
+        vault_store.create, "TINY", "token", {"value": "abc"}, []
+    )
     assert "is not a date" in _refused(
         vault_store.create, "WHEN", "token", good, [], expires="soon"
     )
-    assert "one of" in _refused(vault_store.create, "WHAT", "secret", good, [])
+    assert "is one of" in _refused(vault_store.create, "WHAT", "secret", good, [])
     vault_store.create("DOKPLOY", "login", {"user": "admin-user", "password": SECRET}, [])
-    assert "already gives DOKPLOY" in _refused(
+    assert "already given by the entry DOKPLOY" in _refused(
         vault_store.create, "DOKPLOY_USER", "token", good, []
     )
-    assert "is the runner's own" in _refused(
+    assert "is Ponos's own" in _refused(
         vault_store.create, "PONOS", "login", {"user": "x" * 8, "password": SECRET}, []
     )
     # A value replaced, its projects changed, each said in the journal, never with a value.
@@ -358,6 +361,68 @@ def an_entry_is_named_like_a_variable_and_never_like_the_runners_own(vault_home:
         vault_store.history, entry["id"]
     )
     assert vault_store.read("DOKPLOY_PASSWORD") == "", "and nothing reads it any more"
+
+
+@case
+def a_name_typed_as_said_is_made_a_variable_rather_than_refused(vault_home: Path) -> None:
+    for typed, made in (
+        ("umami login", "UMAMI_LOGIN"),
+        ("umami-prod", "UMAMI_PROD"),
+        ("Umämi", "UMAMI"),
+        ("  api.key -- v2  ", "API_KEY_V2"),
+        ("a__b", "A_B"),
+        ("2fa", "_2FA"),
+        ("---", ""),
+    ):
+        assert vault_store.normalized(typed) == made, (typed, vault_store.normalized(typed))
+    entry = vault_store.create("umami login", "token", {"value": SECRET}, [])
+    assert entry["name"] == "UMAMI_LOGIN" and entry["variables"] == ["UMAMI_LOGIN"]
+    assert vault_store.read("UMAMI_LOGIN") == SECRET
+    # Taken once made a variable: `Umami-Login` is the same name.
+    try:
+        vault_store.create("Umami-Login", "token", {"value": SECRET}, [])
+    except vault_store.Refused as error:
+        assert error.field == "name", error.field
+        assert str(error) == (
+            "This name is already given by the entry UMAMI_LOGIN: choose another one."
+        ), str(error)
+    else:
+        raise AssertionError("a name already given should have been refused")
+
+
+@case
+def a_logins_user_may_be_short_and_its_password_may_not(vault_home: Path) -> None:
+    """The Umami case: `admin` is no secret, and the entry is kept at the first try."""
+    try:
+        vault_store.create("UMAMI", "login", {"user": "admin", "password": "abc"}, [])
+    except vault_store.Refused as error:
+        assert error.field == "password", error.field
+        assert str(error).startswith("The password needs at least 6 characters"), error
+    else:
+        raise AssertionError("a password of three characters should have been refused")
+    try:
+        vault_store.create("UMAMI", "login", {"user": " ", "password": SECRET}, [])
+    except vault_store.Refused as error:
+        assert error.field == "user", error.field
+    else:
+        raise AssertionError("a login without a user should have been refused")
+    made = vault_store.create(
+        "UMAMI", "login", {"user": "admin", "password": SECRET}, ["Leadz"], url="umami.example"
+    )
+    assert made["variables"] == ["UMAMI_USER", "UMAMI_PASSWORD"]
+    assert made["url_variable"] == "UMAMI_URL"
+    # Given to a session however short, and never masked: `admin` is a word too.
+    read = vault.read(vault_store.granted("Leadz"), "env")
+    assert read.values == {"UMAMI_USER": "admin", "UMAMI_PASSWORD": SECRET}, read
+    assert read.missing == []
+    assert vault.mask(f"admin signed in with {SECRET}") == "admin signed in with ***"
+    # A short value under any other provider is still left out.
+    os.environ["SHORT_ONE_USER"] = "abc"
+    try:
+        short = vault.read({"SHORT_ONE_USER": "env:SHORT_ONE_USER"}, "env")
+    finally:
+        del os.environ["SHORT_ONE_USER"]
+    assert short.values == {} and "too short" in short.missing[0], short
 
 
 # -- a session -----------------------------------------------------------------

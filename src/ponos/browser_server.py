@@ -242,12 +242,16 @@ class Browser:
         return self._values[variable]
 
     def _secrets(self) -> list[str]:
-        """Every value of the logins this session may use, read once."""
+        """Every value of the logins this session may use, read once — and long enough to hide.
+
+        A user shorter than `vault.SHORTEST` is no secret (`vault_store.OPEN_FIELDS`):
+        masking every `admin` would blank the page's words, and refuse to type them.
+        """
         found = []
         for name in self.logins:
             for _, suffix in vault_store.LOGIN_FIELDS:
                 value = self._value(name + suffix)
-                if value:
+                if len(value) >= vault.SHORTEST:
                     found.append(value)
         return found
 
@@ -318,7 +322,7 @@ class Browser:
     def masked_safely(self, text: str) -> str:
         """`masked`, for an error that may have come from a browser that is gone."""
         for value in self._values.values():
-            if value:
+            if len(value) >= vault.SHORTEST:
                 text = text.replace(value, vault.MASK)
         return vault.mask(text)
 

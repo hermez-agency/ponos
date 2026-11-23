@@ -63,6 +63,7 @@ import shutil
 import sqlite3
 import subprocess
 import threading
+import unicodedata
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -586,35 +587,73 @@ def _write_down(
     )
 
 
+# What a variable's name may not hold — everything else becomes `_`.
+_NOT_IN_A_NAME = re.compile(r"[^A-Z0-9_]+")
+
+
+def normalized(name: str) -> str:
+    """A name typed as one would say it, made a variable: `umami login` is `UMAMI_LOGIN`.
+
+    Corrected rather than refused: the page shows the variables an entry gives
+    while the name is typed, so a name changed here is no surprise. Accents go,
+    whatever a shell does not take becomes `_`, and a run of `_` is one; a name
+    that would start with a digit is given a `_` first.
+    """
+    plain = unicodedata.normalize("NFKD", name.strip())
+    plain = "".join(character for character in plain if not unicodedata.combining(character))
+    plain = _NOT_IN_A_NAME.sub("_", plain.upper()).strip("_")
+    plain = re.sub(r"_+", "_", plain)
+    return "_" + plain if plain[:1].isdigit() else plain
+
+
 def _checked_name(name: str, kind: str, connection: sqlite3.Connection, but: str = "") -> str:
-    name = name.strip()
-    if not vault._NAME.match(name):
-        raise Refused("name", f"{name!r} is not an environment variable name")
+    name = normalized(name)
+    if not name:
+        raise Refused("name", "Give the entry a name, in letters or digits: UMAMI, say.")
     taken = reserved()
     mine = _names(name, kind)
     for variable in sorted(mine):
         if variable in taken or variable.startswith("PONOS_"):
-            raise Refused("name", f"{variable} is the runner's own, and is not handed to a project")
+            raise Refused(
+                "name",
+                f"{variable} is Ponos's own and never given to a project: choose another name.",
+            )
     for other in connection.execute("SELECT id, name, kind FROM entries").fetchall():
         if other["id"] != but and mine & _names(other["name"], other["kind"]):
-            raise Refused("name", f"the vault already gives {other['name']} under that name")
+            raise Refused(
+                "name",
+                f"This name is already given by the entry {other['name']}: choose another one.",
+            )
     return name
 
 
+# The fields that are no secret: not held to `vault.SHORTEST`, and masked only
+# when they reach it — a login's user, `admin`, is no key to give away.
+OPEN_FIELDS = {"user"}
+
+
+def too_short(field: str) -> str:
+    """Why a secret shorter than `vault.SHORTEST` is refused, said for its field."""
+    what = "The password" if field == "password" else "The value"
+    return (
+        f"{what} needs at least {vault.SHORTEST} characters: shorter, Ponos could not "
+        "mask it in what a session writes."
+    )
+
+
 def _checked_values(kind: str, values: dict[str, str]) -> dict[str, str]:
-    """The fields an entry of `kind` is written with, each long enough to be masked."""
+    """The fields an entry of `kind` is written with, each secret one long enough to be masked."""
     fields = [field for field, _ in LOGIN_FIELDS] if kind == LOGIN else ["value"]
     kept: dict[str, str] = {}
     for field in fields:
         value = values.get(field, "")
         # A key pasted with its newline: kept without, as every provider reads it.
         value = value.strip("\n") if kind == NOTE else value.strip()
-        if len(value) < vault.SHORTEST:
-            raise Refused(
-                field,
-                f"at least {vault.SHORTEST} characters: shorter, it could not be masked "
-                "where a session writes it",
-            )
+        if field in OPEN_FIELDS:
+            if not value:
+                raise Refused(field, "Type the user name.")
+        elif len(value) < vault.SHORTEST:
+            raise Refused(field, too_short(field))
         kept[field] = value
     return kept
 
@@ -626,7 +665,7 @@ def _checked_expiry(expires: str) -> str:
     try:
         return date.fromisoformat(expires[:10]).isoformat()
     except ValueError:
-        raise Refused("expires", f"{expires!r} is not a date (YYYY-MM-DD)") from None
+        raise Refused("expires", f"{expires} is not a date: write it YYYY-MM-DD.") from None
 
 
 # The longest address an entry keeps.
@@ -649,7 +688,7 @@ def _checked_url(url: str) -> str:
         return ""
     if not _SCHEME.match(url):
         url = "https://" + url
-    refused = Refused("url", f"{url!r} is not the address of a site (https://…)")
+    refused = Refused("url", f"{url} is not the address of a site: it starts with https://.")
     if len(url) > URL_LENGTH or any(character.isspace() for character in url):
         raise refused
     try:
@@ -692,7 +731,7 @@ def create(
 ) -> dict[str, Any]:
     """A new entry, sealed — and said without its value."""
     if kind not in KINDS:
-        raise Refused("kind", f"an entry is one of {', '.join(KINDS)}")
+        raise Refused("kind", f"An entry is one of {', '.join(KINDS)}.")
     with _lock, _connected() as connection:
         name = _checked_name(name, kind, connection)
         kept = _checked_values(kind, values)
