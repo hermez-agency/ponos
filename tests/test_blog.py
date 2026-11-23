@@ -125,3 +125,21 @@ def a_declared_illustration_that_is_missing_fails_the_build() -> None:
         raise AssertionError("a missing raster must fail the build")
     finally:
         build_blog.ILLUSTRATIONS_OUT = saved
+
+
+@case
+def the_blog_index_shares_the_mascot_the_landing_page_shares() -> None:
+    """A network caches a share card by its URL: a bare `og.png` may still show the old robot.
+
+    The landing page bumps `?v=` when the mascot is redrawn; the blog's index, which shares
+    the same picture, has to carry the same version, and so does the favicon beside it.
+    """
+    for prefix in ("", "fr/"):
+        landing = (ROOT / "docs" / prefix / "index.html").read_text(encoding="utf-8")
+        index = (ROOT / "docs" / prefix / "blog" / "index.html").read_text(encoding="utf-8")
+        shared = re.search(r'<meta property="og:image" content="([^"]+)">', landing)
+        icon = re.search(r'href="(?:\.\./|/)?(mascot/favicon\.svg[^"]*)"', landing)
+        assert shared and icon, f"docs/{prefix}index.html shares no mascot"
+        assert f'<meta property="og:image" content="{shared[1]}">' in index, prefix or "en"
+        assert f'<meta name="twitter:image" content="{shared[1]}">' in index, prefix or "en"
+        assert f'href="/{icon[1]}"' in index, prefix or "en"
