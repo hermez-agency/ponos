@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
+import { unlocked } from "./vault"
+
 /* The settings are one file, and the way back to them is that file.
  *
  * The package links every record to its resource's list — "← Settings" over
@@ -140,6 +142,7 @@ test("the vault is no tab of the settings, and its old address leads to the Cont
 test("a login kept with its site opens that site from the list, in a new tab", async ({ page }) => {
   const site = `${test.info().project.use.baseURL}/?view=console/board`
   await open(page, "/?view=console/settings/read/config/vault")
+  await unlocked(page)
   const form = page.locator('[data-card="vault-new"]')
   await form.locator('[data-slot="vault-kind"]').selectOption("login")
   await form.locator('[data-slot="vault-name"]').fill("E2E_SITE")
@@ -152,8 +155,6 @@ test("a login kept with its site opens that site from the list, in a new tab", a
   await expect(form.locator('[data-slot="vault-url-help"]')).toContainText("not the address of a site")
   await url.fill(site)
   await expect(form.locator('[data-slot="vault-url-help"]')).toContainText("E2E_SITE_URL")
-  const confirm = form.locator('[data-slot="vault-confirm"]')
-  if (await confirm.count()) await confirm.fill("e2e")
   await form.locator('[data-slot="vault-create"]').click()
   const row = page.locator('[data-vault="E2E_SITE"]')
   const link = row.locator('[data-slot="vault-site-link"]')

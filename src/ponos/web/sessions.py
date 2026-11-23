@@ -85,6 +85,9 @@ def revoke() -> None:
     with _lock:
         _draw(key_path())
         _cached = None
+        # Signed out, and the vault with it — in this process; any other one
+        # refuses the cookie before it asks whether the vault is open.
+        _proven.clear()
 
 
 def _signature(proof: str, issued: int) -> str:
@@ -146,11 +149,14 @@ def issued(proof: str, cookie: str, now: float | None = None, holder: int = 0) -
     return given
 
 
-# -- a password typed lately ---------------------------------------------------
+# -- a password typed lately: the vault unlocked ---------------------------------
 
-# How long a password typed — to sign in, or again for the vault — is taken as
-# proof that the person is still in front of the browser.
-PROVEN_FOR = 5 * 60
+# How long the vault stays unlocked while nobody uses it. A password typed — to
+# sign in, or to unlock the vault — is taken as proof that the person is in
+# front of the browser, and every write to the vault carries that proof this
+# much further (`prove` again): the vault stays open while it is being used,
+# and locks itself a quarter of an hour after the last thing done with it.
+UNLOCKED_FOR = 15 * 60
 
 _proven: dict[str, float] = {}
 
@@ -160,7 +166,7 @@ def _digest(cookie: str) -> str:
 
 
 def prove(cookie: str, now: float | None = None) -> None:
-    """The password was typed by whoever holds `cookie`, just now.
+    """The password was typed by whoever holds `cookie` — or the vault used — just now.
 
     Kept in memory, by digest, and nowhere else: the date a cookie carries
     says when it was given *or renewed*, and a cookie a day old is renewed by
@@ -169,14 +175,20 @@ def prove(cookie: str, now: float | None = None) -> None:
     moment = time.time() if now is None else now
     with _lock:
         for known, at in list(_proven.items()):
-            if moment - at > PROVEN_FOR:
+            if moment - at > UNLOCKED_FOR:
                 del _proven[known]
         _proven[_digest(cookie)] = moment
 
 
 def proven(cookie: str, now: float | None = None) -> bool:
-    """Whoever holds `cookie` typed the password less than `PROVEN_FOR` ago."""
+    """Whoever holds `cookie` unlocked the vault, and used it less than `UNLOCKED_FOR` ago."""
     moment = time.time() if now is None else now
     with _lock:
         at = _proven.get(_digest(cookie))
-    return at is not None and moment - at <= PROVEN_FOR
+    return at is not None and moment - at <= UNLOCKED_FOR
+
+
+def forget(cookie: str) -> None:
+    """The vault locked again for whoever holds `cookie`: the password is asked anew."""
+    with _lock:
+        _proven.pop(_digest(cookie), None)

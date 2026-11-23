@@ -1,1 +1,0 @@
-export{k as DefaultViewComponent}from"./views-BFN-7MzY.js";

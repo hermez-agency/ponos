@@ -933,8 +933,10 @@ def github_disconnect(payload: Slug = Body(default_factory=Slug)) -> Response:
 # never said again — not in an answer, not in a refusal (`refusal` quotes no
 # input), not in a log (no route logs a body, uvicorn's access log is off, and
 # a failure's trace goes through `vault.mask` like every line of `ponos.log`).
-# Each write asks again for the password typed less than five minutes ago —
-# see `sessions.proven` — on top of what the guard asks of every write.
+# Each write asks, on top of what the guard asks of every write, that this
+# browser unlocked the vault with the console's password (`/api/vault/unlock`)
+# and has used it since less than `sessions.UNLOCKED_FOR` ago: the proof is
+# kept here, never in the page, and every write carries it further.
 
 # Writes to the vault, per address: a person makes a few, a script that tries
 # names makes many.
@@ -950,7 +952,11 @@ class VaultWrite(BaseModel):
     user: SecretStr | None = None
     password: SecretStr | None = None
     confirm: SecretStr = SecretStr("")
-    """The console's password, again — or its token, on a console opened with it alone."""
+    """The console's password, again — or its token, on a console opened with it alone.
+
+    The page never sends it: it unlocks the vault once (`/api/vault/unlock`).
+    A script may, and the write unlocks the vault on the way.
+    """
 
     def values(self) -> dict[str, str]:
         given = {"value": self.value, "user": self.user, "password": self.password}
@@ -981,6 +987,13 @@ class VaultRevoke(BaseModel):
     model_config = ConfigDict(extra="ignore", hide_input_in_errors=True)
 
     confirm: SecretStr = SecretStr("")
+
+
+class VaultUnlock(BaseModel):
+    model_config = ConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    password: SecretStr = SecretStr("")
+    """The console's password — or its token, on a console opened with it alone."""
 
 
 def _vault_refused(error: vault_store.Refused) -> Response:
@@ -1014,10 +1027,13 @@ def _unproven(request: Request, typed: str) -> Response | None:
     held = asking.presented()
     if not typed:
         if held and sessions.proven(held):
+            # Used: open a quarter of an hour more from now.
+            sessions.prove(held)
             return None
         return answer(
             {
-                "error": "type the console's password again to change the vault",
+                "error": "the vault is locked: unlock it with the console's password",
+                "locked": True,
                 "reauthenticate": True,
                 "violations": [{"propertyPath": "confirm", "message": "the password, again"}],
             },
@@ -1052,9 +1068,17 @@ def _by(request: Request) -> str:
     return who.name if who else "token"
 
 
+def _unlocked(request: Request) -> dict[str, Any]:
+    """Whether this browser's vault is open now, and how long it stays so unused."""
+    held = request.state.asking.presented()
+    return {
+        "proven": bool(held) and sessions.proven(held),
+        "relocks_after": sessions.UNLOCKED_FOR,
+    }
+
+
 @router.get("/api/vault", response_model=answers.Vault)
 def vault_entries(request: Request) -> Response:
-    held = request.state.asking.presented()
     names = sorted(
         {str(project["name"]) for project in _api(request).projects().values()}, key=str.casefold
     )
@@ -1063,9 +1087,38 @@ def vault_entries(request: Request) -> Response:
             "entries": vault_store.listing(),
             "key": vault_store.whereabouts(),
             "projects": names,
-            "proven": bool(held) and sessions.proven(held),
+            **_unlocked(request),
         }
     )
+
+
+@router.post("/api/vault/unlock", response_model=answers.VaultLock)
+def vault_unlock(
+    request: Request, payload: VaultUnlock = Body(default_factory=VaultUnlock)
+) -> Response:
+    """The password typed once, and the vault open for this browser — see `_unproven`."""
+    typed = payload.password.get_secret_value()
+    if not typed:
+        return answer(
+            {
+                "error": "type the console's password to unlock the vault",
+                "violations": [{"propertyPath": "password", "message": "the password"}],
+            },
+            400,
+        )
+    refused = _unproven(request, typed)
+    if refused is not None:
+        return refused
+    return answer(_unlocked(request))
+
+
+@router.post("/api/vault/lock", response_model=answers.VaultLock)
+def vault_lock(request: Request) -> Response:
+    """The vault closed now, for this browser: the next write asks for the password."""
+    held = request.state.asking.presented()
+    if held:
+        sessions.forget(held)
+    return answer(_unlocked(request))
 
 
 @router.get("/api/vault/{entry_id}/history", response_model=answers.VaultHistory)

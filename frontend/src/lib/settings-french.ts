@@ -94,9 +94,21 @@ export const SETTINGS_FRENCH: Record<string, string> = {
   "entry revoked": "entrée révoquée",
   "given to a session": "donnée à une session",
   "sealed under a new key": "rescellée sous une nouvelle clé",
-  "The console's password, again": "Le mot de passe de la console, à nouveau",
-  "Asked before every change, unless it was typed less than five minutes ago. A console opened with its token alone takes the token.":
-    "Demandé avant chaque modification, sauf s'il a été tapé il y a moins de cinq minutes. Une console ouverte avec son seul jeton prend le jeton.",
+  "The console's password": "Le mot de passe de la console",
+  "The vault is locked": "Le coffre est verrouillé",
+  "Type the console's password once to open it — the token, on a console opened with it alone.":
+    "Tapez une fois le mot de passe de la console pour l'ouvrir — le jeton, sur une console ouverte avec son seul jeton.",
+  Unlock: "Déverrouiller",
+  Lock: "Verrouiller",
+  "Type the console's password.": "Tapez le mot de passe de la console.",
+  "Wrong password.": "Mot de passe incorrect.",
+  "The vault locked itself": "Le coffre s'est reverrouillé",
+  "Nothing typed is lost: unlock it, and the change goes on.":
+    "Rien de ce qui a été saisi n'est perdu : déverrouillez-le, et la modification reprend.",
+  "Unlocked · locks again after {{minutes}} min without action": "Déverrouillé · se reverrouille après {{minutes}} min sans action",
+  "Locked after {{minutes}} min without action: the password is asked at the next change":
+    "Reverrouillé après {{minutes}} min sans action : le mot de passe sera demandé à la prochaine modification",
+  "The vault could not be locked": "Le coffre n'a pas pu être verrouillé",
   "No project on the board yet.": "Aucun projet sur le tableau pour l'instant.",
   User: "Utilisateur",
   Password: "Mot de passe",

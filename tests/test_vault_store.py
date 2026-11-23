@@ -10,6 +10,7 @@ import socket
 import sqlite3
 import sys
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date, timedelta
@@ -723,6 +724,152 @@ def the_vault_api_is_an_admins_says_no_value_and_asks_for_the_password_again(
             status, _, gone = _ask(console, "DELETE", f"/api/vault/{made['id']}", {}, cookie=owner)
             assert status == 200 and gone["name"] == "MA_CLE"
             assert vault_store.listing() == []
+
+
+@case
+def the_vault_unlocks_once_stays_open_while_used_and_locks_again(vault_home: Path) -> None:
+    from ponos.web import routes, sessions
+
+    # A quota per address, kept by the process: what another case spent is not this one's.
+    routes.VAULT_WRITES._windows.clear()
+
+    new = {"name": "UNE_CLE", "kind": "token", "value": SECRET, "projects": ["Leadz"]}
+    with _board() as markdown:
+        api = _ideas_api(markdown)
+        with _serving(api) as console:
+            owner = _signed_in(console, "salva@example.com", "the owner's own")
+            # Locked: the page is told so, and a write is refused unread.
+            status, _, locked = _ask(console, "POST", "/api/vault/lock", {}, cookie=owner)
+            assert status == 200 and locked == {"proven": False, "relocks_after": 15 * 60}
+            status, _, refused = _ask(console, "POST", "/api/vault", new, cookie=owner)
+            assert status == 403 and refused["locked"] is True, refused
+            assert vault_store.listing() == []
+            # Unlocked once, from the console's page only: then the writes go on, password-less.
+            status, _, _ = _ask(
+                console,
+                "POST",
+                "/api/vault/unlock",
+                {"password": "the owner's own"},
+                cookie=owner,
+                origin="https://evil.example",
+            )
+            assert status == 403 and not sessions.proven(owner)
+            status, _, opened = _ask(
+                console, "POST", "/api/vault/unlock", {"password": "the owner's own"}, cookie=owner
+            )
+            assert status == 200 and opened["proven"] is True, opened
+            status, _, made = _ask(console, "POST", "/api/vault", new, cookie=owner)
+            assert status == 200, made
+            status, _, changed = _ask(
+                console, "PUT", f"/api/vault/{made['id']}", {"projects": ["Opoil"]}, cookie=owner
+            )
+            assert status == 200 and changed["projects"] == ["Opoil"], changed
+            status, _, listed = _ask(console, "GET", "/api/vault", cookie=owner)
+            assert listed["proven"] is True and listed["relocks_after"] == sessions.UNLOCKED_FOR
+
+            # Used fourteen minutes after the last write: open fifteen more from then.
+            sessions.prove(owner, now=time.time() - sessions.UNLOCKED_FOR + 60)
+            status, _, _ = _ask(
+                console, "PUT", f"/api/vault/{made['id']}", {"description": "used"}, cookie=owner
+            )
+            assert status == 200
+            assert sessions.proven(owner, now=time.time() + sessions.UNLOCKED_FOR - 30)
+            # Left alone past fifteen minutes: locked again.
+            sessions.prove(owner, now=time.time() - sessions.UNLOCKED_FOR - 1)
+            status, _, refused = _ask(
+                console, "PUT", f"/api/vault/{made['id']}", {"description": "late"}, cookie=owner
+            )
+            assert status == 403 and refused["locked"] is True, refused
+
+            # Lock closes it at once.
+            _ask(
+                console, "POST", "/api/vault/unlock", {"password": "the owner's own"}, cookie=owner
+            )
+            assert sessions.proven(owner)
+            status, _, locked = _ask(console, "POST", "/api/vault/lock", {}, cookie=owner)
+            assert status == 200 and locked["proven"] is False
+            status, _, refused = _ask(
+                console, "DELETE", f"/api/vault/{made['id']}", {}, cookie=owner
+            )
+            assert status == 403 and refused["locked"] is True, refused
+
+            # The attempts are counted as signing in's: a wrong password, then a wait.
+            status, _, wrong = _ask(
+                console, "POST", "/api/vault/unlock", {"password": "not it"}, cookie=owner
+            )
+            assert status == 403 and wrong["error"] == "wrong password", wrong
+            status, answer, _ = _ask(
+                console, "POST", "/api/vault/unlock", {"password": "the owner's own"}, cookie=owner
+            )
+            assert status == 429 and answer.headers["Retry-After"], status
+            assert not sessions.proven(owner)
+            status, _, empty = _ask(console, "POST", "/api/vault/unlock", {}, cookie=owner)
+            assert status == 400, empty
+            console.attempts = type(console.attempts)()
+
+            # Signed out everywhere: the vault with it.
+            _ask(
+                console, "POST", "/api/vault/unlock", {"password": "the owner's own"}, cookie=owner
+            )
+            assert sessions.proven(owner)
+            sessions.revoke()
+            assert not sessions.proven(owner)
+            status, _, _ = _ask(
+                console, "POST", "/api/vault", {**new, "name": "AUTRE"}, cookie=owner
+            )
+            assert status == 401, status
+            again = _signed_in(console, "salva@example.com", "the owner's own")
+            status, _, _ = _ask(console, "POST", "/api/vault/lock", {}, cookie=again)
+            status, _, refused = _ask(
+                console, "POST", "/api/vault", {**new, "name": "AUTRE"}, cookie=again
+            )
+            assert status == 403 and refused["locked"] is True, refused
+
+
+@case
+def each_account_and_the_token_unlock_their_own_vault(vault_home: Path) -> None:
+    from ponos.web import accounts, routes
+
+    routes.VAULT_WRITES._windows.clear()
+
+    accounts.create("noe@example.com", "Noé", "an admin's own", "admin")
+    new = {"name": "PAR_COMPTE", "kind": "token", "value": SECRET, "projects": ["Leadz"]}
+    with _board() as markdown:
+        api = _ideas_api(markdown)
+        with _serving(api) as console:
+            owner = _signed_in(console, "salva@example.com", "the owner's own")
+            admin = _signed_in(console, "noe@example.com", "an admin's own")
+            for cookie in (owner, admin):
+                _ask(console, "POST", "/api/vault/lock", {}, cookie=cookie)
+            # The owner's password is no other account's.
+            status, _, _ = _ask(
+                console, "POST", "/api/vault/unlock", {"password": "the owner's own"}, cookie=admin
+            )
+            assert status == 403
+            console.attempts = type(console.attempts)()
+            status, _, _ = _ask(
+                console, "POST", "/api/vault/unlock", {"password": "an admin's own"}, cookie=admin
+            )
+            assert status == 200
+            status, _, made = _ask(console, "POST", "/api/vault", new, cookie=admin)
+            assert status == 200, made
+            # One browser unlocked is not another.
+            status, _, listed = _ask(console, "GET", "/api/vault", cookie=owner)
+            assert listed["proven"] is False
+            # A console opened with its token: the token unlocks it.
+            status, _, _ = _ask(console, "POST", "/api/vault/lock", {}, token="tok")
+            status, _, refused = _ask(
+                console, "PUT", f"/api/vault/{made['id']}", {"description": "x"}, token="tok"
+            )
+            assert status == 403 and refused["locked"] is True
+            status, _, _ = _ask(
+                console, "POST", "/api/vault/unlock", {"password": "tok"}, token="tok"
+            )
+            assert status == 200
+            status, _, _ = _ask(
+                console, "PUT", f"/api/vault/{made['id']}", {"description": "x"}, token="tok"
+            )
+            assert status == 200
 
 
 # -- the CLI -------------------------------------------------------------------------

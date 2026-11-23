@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ExternalLink, Globe, History, KeyRound, Plus, RefreshCw, Trash2, Users } from "lucide-react"
+import { ExternalLink, Globe, History, KeyRound, Lock, LockOpen, Plus, RefreshCw, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -26,8 +26,17 @@ import { when } from "./ticket-bits"
  * sits in a React state, a store, a cache or `localStorage`. There is no
  * "show": a value is replaced, never read back.
  *
- * Every write asks for the console's password again, unless it was typed less
- * than five minutes ago — signing in counts — which the list says (`proven`).
+ * The vault is locked until the console's password is typed once, on the page
+ * itself (`Locked`); from then on no form asks for it. Whether it is open is the
+ * server's to say (`proven`, kept by `web/sessions.py` for this browser and
+ * carried further by every write) — the page only draws it. Locked while open
+ * (fifteen minutes unused, another tab's Lock), a write is refused: the
+ * password is asked over the form, which keeps what was typed, and the write
+ * is sent again (`Guard`).
+ *
+ * The locked page shows nothing but the lock. The names are no secret — the
+ * server lists them to an admin either way — but a page of rows whose every
+ * button needs the password first is a page of buttons that do not work.
  */
 
 const SELECT =
@@ -56,32 +65,159 @@ const ACTIONS: Record<VaultMoment["action"], string> = {
   "login-refused": "sign-in refused",
 }
 
-/** The password field a write carries when the server wants it again. */
-function Confirm({ field, needed }: { field: React.RefObject<HTMLInputElement | null>; needed: boolean }) {
+/** A write refused because the vault is locked for this browser: the password is what it wants. */
+function locked(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403 && Boolean(error.data.violations?.some((one) => one.propertyPath === "confirm"))
+}
+
+/** The vault was locked, and the password was not typed: the write was not sent. */
+class StillLocked extends Error {}
+
+/** Send a write; if the vault locked itself meanwhile, ask for the password over the page and send it again. */
+type Guard = <T>(send: () => Promise<T>) => Promise<T>
+
+/** Empty fields once their values are sent: the value is in the request, and nowhere else. */
+function emptied(...fields: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>[]) {
+  for (const field of fields) if (field.current) field.current.value = ""
+}
+
+/** The password field and its button: on the locked page, and over a form when the vault locked itself. */
+function UnlockField({ field, problem, focused }: { field: React.RefObject<HTMLInputElement | null>; problem: string; focused?: boolean }) {
   const t = useT()
-  if (!needed) return null
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium">{t("The console's password, again")}</span>
-      <Input ref={field} type="password" autoComplete="off" name="confirm" data-slot="vault-confirm" />
-      <span className="text-muted-foreground text-xs">
-        {t("Asked before every change, unless it was typed less than five minutes ago. A console opened with its token alone takes the token.")}
-      </span>
-    </label>
+    <div className="flex flex-col gap-1.5 text-sm">
+      <label className="flex flex-col gap-1.5">
+        <span className="font-medium">{t("The console's password")}</span>
+        <Input
+          ref={field}
+          type="password"
+          autoComplete="current-password"
+          name="vault-unlock"
+          autoFocus={focused}
+          data-slot="vault-unlock-password"
+        />
+      </label>
+      {problem ? (
+        <Alert variant="destructive">
+          <AlertDescription>{problem}</AlertDescription>
+        </Alert>
+      ) : null}
+    </div>
   )
 }
 
-/** What a refused write says, and whether it was the password the server wanted. */
-function refusal(error: unknown): { said: string; password: boolean } {
-  const password = error instanceof ApiError && error.status === 403 && Boolean(error.data.violations?.some((one) => one.propertyPath === "confirm"))
-  return { said: why(error), password }
+/** Unlock with what is in `field`: "" once open, else what to say. */
+async function unlock(field: React.RefObject<HTMLInputElement | null>, t: ReturnType<typeof useT>): Promise<string> {
+  const typed = field.current?.value ?? ""
+  if (!typed) return t("Type the console's password.")
+  try {
+    await api.unlockVault(typed)
+    return ""
+  } catch (error) {
+    return error instanceof ApiError && error.status === 403 ? t("Wrong password.") : why(error)
+  } finally {
+    if (field.current) field.current.value = ""
+  }
 }
 
-/** Read a field, then empty it: the value is in the request, and nowhere else. */
-function taken(field: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>): string {
-  const value = field.current?.value ?? ""
-  if (field.current) field.current.value = ""
-  return value
+/** The page of a locked vault: the lock, and nothing else. */
+function Locked({ onUnlocked }: { onUnlocked: () => void }) {
+  const t = useT()
+  const field = React.useRef<HTMLInputElement>(null)
+  const [problem, setProblem] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    const said = await unlock(field, t)
+    setBusy(false)
+    setProblem(said)
+    if (said) field.current?.focus()
+    else onUnlocked()
+  }
+  return (
+    <Card data-card="vault-locked" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-3 sm:px-6">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Lock className="size-4" />
+          {t("The vault is locked")}
+        </CardTitle>
+        <CardDescription className="text-[13px]">
+          {t("Type the console's password once to open it — the token, on a console opened with it alone.")}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-5 sm:px-6">
+        <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)}>
+          <UnlockField field={field} problem={problem} focused />
+          <div>
+            <Button type="submit" size="sm" disabled={busy} data-slot="vault-unlock">
+              <LockOpen />
+              {t("Unlock")}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** The password asked over the page, when a write found the vault locked: `answer` says whether it was typed. */
+function Relock({ open, answer }: { open: boolean; answer: (unlocked: boolean) => void }) {
+  const t = useT()
+  const field = React.useRef<HTMLInputElement>(null)
+  const [problem, setProblem] = React.useState("")
+  // The window puts the focus on its button: the field is where the password goes.
+  React.useEffect(() => {
+    if (!open) return
+    const timer = window.setTimeout(() => field.current?.focus(), 0)
+    return () => window.clearTimeout(timer)
+  }, [open])
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) return
+        setProblem("")
+        answer(false)
+      }}
+      title={t("The vault locked itself")}
+      description={t("Nothing typed is lost: unlock it, and the change goes on.")}
+      confirm={t("Unlock")}
+      onConfirm={async () => {
+        const said = await unlock(field, t)
+        setProblem(said)
+        if (said) return false
+        answer(true)
+      }}
+    >
+      <div data-slot="vault-relock">
+        <UnlockField field={field} problem={problem} />
+      </div>
+    </ConfirmDialog>
+  )
+}
+
+/** The vault's state, discreetly: open, until when without action — and the lock. */
+function State({ minutes, asleep, onLock }: { minutes: number; asleep: boolean; onLock: () => void }) {
+  const t = useT()
+  return (
+    <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-slot="vault-state">
+      {asleep ? (
+        <span>{t("Locked after {{minutes}} min without action: the password is asked at the next change", { minutes })}</span>
+      ) : (
+        <span className="flex items-center gap-1.5">
+          <LockOpen className="size-3.5" aria-hidden />
+          {t("Unlocked · locks again after {{minutes}} min without action", { minutes })}
+        </span>
+      )}
+      {asleep ? null : (
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onLock} data-slot="vault-lock">
+          <Lock />
+          {t("Lock")}
+        </Button>
+      )}
+    </div>
+  )
 }
 
 function Projects({
@@ -203,16 +339,20 @@ function SiteLink({ url }: { url: string }) {
   )
 }
 
+/* Read, not emptied: a write the vault's lock stopped is sent again with them,
+ * and one given up leaves them where they were typed. `emptied` once it is over. */
 function values(
   kind: string,
   value: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
   user: React.RefObject<HTMLInputElement | null>,
   password: React.RefObject<HTMLInputElement | null>
 ) {
-  return kind === "login" ? { user: taken(user), password: taken(password) } : { value: taken(value) }
+  return kind === "login"
+    ? { user: user.current?.value ?? "", password: password.current?.value ?? "" }
+    : { value: value.current?.value ?? "" }
 }
 
-function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onAsked: () => void }) {
+function New({ vault, guard, onMade }: { vault: Vault; guard: Guard; onMade: () => void }) {
   const t = useT()
   const [kind, setKind] = React.useState<VaultEntry["kind"]>("token")
   const [name, setName] = React.useState("")
@@ -225,7 +365,6 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
   const value = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const user = React.useRef<HTMLInputElement>(null)
   const password = React.useRef<HTMLInputElement>(null)
-  const confirm = React.useRef<HTMLInputElement>(null)
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -237,16 +376,8 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
     setProblem("")
     const given = values(kind, value, user, password)
     try {
-      const made = await api.createVaultEntry({
-        name,
-        kind,
-        projects,
-        description,
-        expires,
-        url,
-        confirm: taken(confirm),
-        ...given,
-      })
+      const made = await guard(() => api.createVaultEntry({ name, kind, projects, description, expires, url, ...given }))
+      emptied(value, user, password)
       const seen = made.url_variable ? [...made.variables, made.url_variable] : made.variables
       toast.success(t("{{name}} is kept: its sessions see {{variables}}", { name: made.name, variables: seen.join(", ") }))
       setName("")
@@ -256,9 +387,10 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
       setUrl("")
       onMade()
     } catch (error) {
-      const refused = refusal(error)
-      setProblem(refused.said)
-      if (refused.password) onAsked()
+      if (!(error instanceof StillLocked)) {
+        emptied(value, user, password)
+        setProblem(why(error))
+      }
     } finally {
       setBusy(false)
     }
@@ -315,7 +447,6 @@ function New({ vault, onMade, onAsked }: { vault: Vault; onMade: () => void; onA
               <Input type="date" value={expires} onChange={(event) => setExpires(event.target.value)} />
             </label>
           </div>
-          <Confirm field={confirm} needed={!vault.proven} />
           {problem ? (
             <Alert variant="destructive">
               <AlertDescription>{problem}</AlertDescription>
@@ -390,7 +521,7 @@ function Moments({ entry }: { entry: VaultEntry }) {
   )
 }
 
-function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: Vault; onChanged: () => void; onAsked: () => void }) {
+function Row({ entry, vault, guard, onChanged }: { entry: VaultEntry; vault: Vault; guard: Guard; onChanged: () => void }) {
   const t = useT()
   const [projects, setProjects] = React.useState<string[]>(entry.projects)
   const [url, setUrl] = React.useState(entry.url)
@@ -398,27 +529,28 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
   const value = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const user = React.useRef<HTMLInputElement>(null)
   const password = React.useRef<HTMLInputElement>(null)
-  const confirm = React.useRef<HTMLInputElement>(null)
   const known = [...new Set([...vault.projects, ...entry.projects])].sort((a, b) => a.localeCompare(b))
 
+  // Given up at the password: the window stays open, with what was typed in it.
   const failed = (what: string, error: unknown) => {
-    const refused = refusal(error)
-    toast.error(t(what), { description: refused.said })
-    if (refused.password) onAsked()
+    if (!(error instanceof StillLocked)) toast.error(t(what), { description: why(error) })
     return false
   }
   const replace = async () => {
+    const given = values(entry.kind, value, user, password)
     try {
-      await api.changeVaultEntry(entry.id, { ...values(entry.kind, value, user, password), confirm: taken(confirm) })
+      await guard(() => api.changeVaultEntry(entry.id, given))
     } catch (error) {
+      if (!(error instanceof StillLocked)) emptied(value, user, password)
       return failed("The value could not be replaced", error)
     }
+    emptied(value, user, password)
     toast.success(t("{{name}}: value replaced", { name: entry.name }))
     onChanged()
   }
   const regrant = async () => {
     try {
-      await api.changeVaultEntry(entry.id, { projects, confirm: taken(confirm) })
+      await guard(() => api.changeVaultEntry(entry.id, { projects }))
     } catch (error) {
       return failed("The projects could not be changed", error)
     }
@@ -430,7 +562,7 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
       return false
     }
     try {
-      await api.changeVaultEntry(entry.id, { url, confirm: taken(confirm) })
+      await guard(() => api.changeVaultEntry(entry.id, { url }))
     } catch (error) {
       return failed("The site could not be changed", error)
     }
@@ -438,7 +570,7 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
   }
   const revoke = async () => {
     try {
-      await api.revokeVaultEntry(entry.id, taken(confirm))
+      await guard(() => api.revokeVaultEntry(entry.id))
     } catch (error) {
       return failed("The entry could not be revoked", error)
     }
@@ -489,7 +621,6 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
         >
           <div className="flex flex-col gap-3">
             <ValueFields kind={entry.kind} value={value} user={user} password={password} />
-            <Confirm field={confirm} needed={!vault.proven} />
           </div>
         </ConfirmDialog>
         <ConfirmDialog
@@ -505,10 +636,7 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
             </Button>
           }
         >
-          <div className="flex flex-col gap-3">
-            <Projects known={known} chosen={projects} onChange={setProjects} />
-            <Confirm field={confirm} needed={!vault.proven} />
-          </div>
+          <Projects known={known} chosen={projects} onChange={setProjects} />
         </ConfirmDialog>
         <ConfirmDialog
           title={t("Site of {{name}}", { name: entry.name })}
@@ -523,10 +651,7 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
             </Button>
           }
         >
-          <div className="flex flex-col gap-3">
-            <SiteField kind={entry.kind} name={entry.name} url={url} onChange={setUrl} />
-            <Confirm field={confirm} needed={!vault.proven} />
-          </div>
+          <SiteField kind={entry.kind} name={entry.name} url={url} onChange={setUrl} />
         </ConfirmDialog>
         <Button variant="ghost" size="icon-sm" onClick={() => setHistory((was) => !was)} aria-label={t("History of {{name}}", { name: entry.name })} aria-pressed={history}>
           <History />
@@ -542,9 +667,7 @@ function Row({ entry, vault, onChanged, onAsked }: { entry: VaultEntry; vault: V
               <Trash2 />
             </Button>
           }
-        >
-          <Confirm field={confirm} needed={!vault.proven} />
-        </ConfirmDialog>
+        />
       </div>
       {history ? <Moments entry={entry} /> : null}
     </li>
@@ -591,18 +714,72 @@ function VaultTab() {
   const t = useT()
   const [vault, setVault] = React.useState<Vault | null>(null)
   const [problem, setProblem] = React.useState("")
+  // When the vault was last used from this page, for the line that says it locks itself.
+  const [used, setUsed] = React.useState(0)
+  const [asleep, setAsleep] = React.useState(false)
+  const [asking, setAsking] = React.useState(false)
+  const answered = React.useRef<((unlocked: boolean) => void) | null>(null)
   const read = React.useCallback(() => {
     api.vault().then(
       (fresh) => {
         setVault(fresh)
         setProblem("")
+        if (fresh.proven) setUsed(Date.now())
       },
       (error: unknown) => setProblem(why(error))
     )
   }, [])
   React.useEffect(() => read(), [read])
-  // The server asked for the password again: the fields that carry it are drawn.
-  const asked = React.useCallback(() => setVault((was) => (was ? { ...was, proven: false } : was)), [])
+  const relocks = (vault?.relocks_after ?? 15 * 60) * 1000
+  React.useEffect(() => {
+    if (!used) return
+    setAsleep(false)
+    const timer = window.setTimeout(() => setAsleep(true), relocks)
+    return () => window.clearTimeout(timer)
+  }, [used, relocks])
+
+  const answer = React.useCallback((unlocked: boolean) => {
+    const waiting = answered.current
+    answered.current = null
+    setAsking(false)
+    waiting?.(unlocked)
+  }, [])
+  const guard = React.useCallback<Guard>(
+    async (send) => {
+      for (;;) {
+        try {
+          const done = await send()
+          setUsed(Date.now())
+          return done
+        } catch (error) {
+          if (!locked(error)) throw error
+        }
+        // Locked meanwhile: the password over the page, and the same write again.
+        const unlocked = await new Promise<boolean>((resolve) => {
+          answered.current?.(false)
+          answered.current = resolve
+          setAsking(true)
+        })
+        if (!unlocked) throw new StillLocked()
+      }
+    },
+    []
+  )
+  const lock = async () => {
+    try {
+      await api.lockVault()
+    } catch (error) {
+      toast.error(t("The vault could not be locked"), { description: why(error) })
+      return
+    }
+    setUsed(0)
+    setVault((was) => (was ? { ...was, proven: false } : was))
+  }
+  const opened = () => {
+    setVault((was) => (was ? { ...was, proven: true } : was))
+    read()
+  }
+
   return (
     <div className="flex max-w-[760px] min-w-0 flex-col gap-4" data-page="vault">
       {problem ? (
@@ -610,10 +787,13 @@ function VaultTab() {
           <AlertDescription>{problem}</AlertDescription>
         </Alert>
       ) : null}
-      {vault ? (
+      {vault && !vault.proven ? (
+        <Locked onUnlocked={opened} />
+      ) : vault ? (
         <>
+          <State minutes={Math.round(relocks / 60000)} asleep={asleep} onLock={() => void lock()} />
           <Key vault={vault} />
-          <New vault={vault} onMade={read} onAsked={asked} />
+          <New vault={vault} guard={guard} onMade={read} />
           <Card data-card="vault-list" className="gap-0 py-0">
             <CardHeader className="gap-1 px-5 pt-5 pb-1 sm:px-6">
               <CardTitle className="text-base">{t("In the vault")}</CardTitle>
@@ -625,7 +805,7 @@ function VaultTab() {
               {vault.entries.length ? (
                 <ul className="divide-y" data-testid="vault-list">
                   {vault.entries.map((entry) => (
-                    <Row key={entry.id} entry={entry} vault={vault} onChanged={read} onAsked={asked} />
+                    <Row key={entry.id} entry={entry} vault={vault} guard={guard} onChanged={read} />
                   ))}
                 </ul>
               ) : (
@@ -633,6 +813,7 @@ function VaultTab() {
               )}
             </CardContent>
           </Card>
+          <Relock open={asking} answer={answer} />
         </>
       ) : problem ? null : (
         <p className="text-muted-foreground text-sm">{t("Reading the vault…")}</p>

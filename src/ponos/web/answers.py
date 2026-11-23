@@ -1890,7 +1890,16 @@ class Vault(Shape):
     key: VaultKey
     projects: list[str]
     proven: bool
-    """Le mot de passe a été tapé il y a moins de cinq minutes : une écriture n'a pas à le redemander."""
+    """Le coffre est déverrouillé pour ce navigateur : une écriture n'a pas à redemander le mot de passe."""
+    relocks_after: int
+    """Les secondes sans action après lesquelles il se reverrouille."""
+
+
+class VaultLock(Shape):
+    """Le coffre de ce navigateur, déverrouillé ou non, après `/api/vault/unlock` ou `/lock`."""
+
+    proven: bool
+    relocks_after: int
 
 
 class VaultMoment(Shape):

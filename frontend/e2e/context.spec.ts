@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
+import { unlocked } from "./vault"
+
 /* The Context page: the standing context and the vault, as tabs.
  *
  * What is tested is the way a person goes: the page opens on the editor the
@@ -84,6 +86,7 @@ test.describe("at 1440px", () => {
     await expect(page.getByRole("tab", { name: "Context", exact: true })).toHaveAttribute("aria-selected", "true")
     await page.getByRole("tab", { name: "Vault" }).click()
     await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("console/context/read/context/vault")
+    await unlocked(page)
     await expect(page.locator('[data-card="vault-key"]')).toBeVisible()
     await page.getByRole("tab", { name: "Context", exact: true }).click()
     await expect(block(page)).toBeVisible()
@@ -129,6 +132,7 @@ test("the vault keeps a value it never shows again, and empties the form that ca
   await page.context().addCookies([{ name: "ponos_token", value: "e2e", url: test.info().project.use.baseURL }])
   const value = "e2e_vault_value_0123456789"
   await page.goto("/?view=console/context/read/context/vault")
+  await unlocked(page)
   await expect(page.locator('[data-card="vault-key"]')).toBeVisible()
   const form = page.locator('[data-card="vault-new"]')
   const field = form.locator('[data-slot="vault-value"]')
@@ -137,9 +141,6 @@ test("the vault keeps a value it never shows again, and empties the form that ca
   await form.locator('[data-slot="vault-name"]').fill("E2E_DEPLOY_TOKEN")
   await field.fill(value)
   await form.locator('[data-slot="vault-projects"] [role="checkbox"]').first().click()
-  // A console opened with its token alone: the token is what is typed again.
-  const confirm = form.locator('[data-slot="vault-confirm"]')
-  if (await confirm.count()) await confirm.fill("e2e")
   await form.locator('[data-slot="vault-create"]').click()
   const row = page.locator('[data-vault="E2E_DEPLOY_TOKEN"]')
   await expect(row).toBeVisible()

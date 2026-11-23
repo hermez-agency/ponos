@@ -999,7 +999,7 @@ def login(request: Request, payload: routes.Fields = Body(default_factory=dict))
     else:
         return fail(401, "wrong email or password")
     console.attempts.forgive(knocker)
-    # A password typed just now: what the vault's writes accept for a while — see `sessions.proven`.
+    # A password typed just now: the vault opens with it, as unlocking it would — see `sessions.proven`.
     sessions.prove(session)
     return _send(
         200,
