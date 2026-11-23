@@ -35,7 +35,7 @@ test("a card in review draws Decide and a menu, and nothing else", async ({ page
   }
   expect((await more.boundingBox())?.width).toBe(32)
   // The checks are said in the line along the bottom, beside the age.
-  await expect(card(page).locator('.border-t [data-slot="ticket-ci"]')).toHaveText(/CI failed/)
+  await expect(card(page).locator('[data-slot="card-foot"] [data-slot="ticket-ci"]')).toHaveText(/CI failed/)
   for (const theme of ["dark", "light"] as const) {
     await open(page, theme)
     await card(page).screenshot({ path: `test-results/review-card-${theme}.png` })
@@ -44,7 +44,7 @@ test("a card in review draws Decide and a menu, and nothing else", async ({ page
 
 test("the foot of a card wraps instead of drawing its items over one another", async ({ page }) => {
   await open(page)
-  const foot = card(page).locator(".border-t")
+  const foot = card(page).locator('[data-slot="card-foot"]')
   // From a phone's column to the board's widest: the card is squeezed by hand.
   for (const width of [150, 200, 260, 340, 480]) {
     await card(page).evaluate((element, px) => ((element.parentElement as HTMLElement).style.width = `${px}px`), width)

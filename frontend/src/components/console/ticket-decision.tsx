@@ -56,9 +56,12 @@ export function DecideButton({
   className,
   title,
   icon,
+  filled = false,
 }: {
   ticket: Ticket
   className?: string
+  /** The one filled button of a card of the board — see `CardGestures`. */
+  filled?: boolean
   /** The tooltip: on a blocked card, the cause's label and its line of help, which the card no longer shows. */
   title?: string
   /** The mark of the cause on a blocked card, in place of the generic question mark. */
@@ -79,13 +82,13 @@ export function DecideButton({
     <Button
       size="sm"
       // On the ticket itself it is what the ticket waits for, beside its
-      // status: the one filled button of the view. On a card, an outline in
-      // the column's colour, among the card's other gestures.
-      variant={tabs ? "default" : "outline"}
+      // status: the one filled button of the view — and of a card of the
+      // board. Elsewhere, an outline in the column's colour.
+      variant={tabs || filled ? "default" : "outline"}
       data-decide={ticket.id}
       title={title}
       className={cn(
-        tabs ? "" : blocked ? "text-tr-amber hover:text-tr-amber" : "text-tr-pink hover:text-tr-pink",
+        tabs || filled ? "" : blocked ? "text-tr-amber hover:text-tr-amber" : "text-tr-pink hover:text-tr-pink",
         className
       )}
       onClick={(event) => (tabs ? tabs.goTo(tab) : openOnTheTab(event))}

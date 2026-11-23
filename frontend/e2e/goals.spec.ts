@@ -86,7 +86,8 @@ test("a goal's page leads to the board filtered on it, and its card says the goa
   const cards = page.locator("[data-ticket-card]")
   await expect(cards).toHaveCount(1)
   await expect(cards.first()).toContainText("Ticket 3")
-  await expect(cards.first().locator('[data-slot="ticket-card-goal"]')).toHaveText("Lancer la v2")
+  // On hover: the goal is the title's tooltip, no longer a chip on the card.
+  await expect(cards.first().locator('[data-slot="card-title"] a')).toHaveAttribute("title", /Lancer la v2/)
   await expect(page.locator('[data-slot="search-count"]')).toContainText("1 /")
 })
 

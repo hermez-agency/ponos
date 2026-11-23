@@ -119,8 +119,16 @@ Monday*) or a date and hour in your browser's timezone, and it waits for that mo
 run* is ticked by default, and the form says what that means: a session, as soon as a
 place is free. **Ctrl+Enter** (⌘+Enter) creates the ticket from any of its fields. What the console adds is the part a database cannot do — the running session's
 steps, live, read straight from the session log on disk rather than from the `Progress`
-column. A card in progress has a pulsing dot, how many steps its session has taken, and
-what it is on in one line — what the agent last said, or else the last tool it ran. Over
+column. **A card says three things, each quieter than the one before**: its title, alone,
+on two lines at most; where it stands and the one thing it waits for — a single filled
+button (*Make ready* on a draft, *Unblock*, *Decide*, *Pause*), every other gesture behind
+*…*; then one line of secondary text: the sub-type's dot, the project, the age and the cost.
+The priority is a thin bar along the card's left edge, from neutral to orange as the score
+rises (its tooltip gives the score) — red stays the colour of errors. The model and the goal
+are the title's tooltip, and the ticket's page. A card in progress says *Ponos is working…*
+and what it is on, in one line — what the agent last said, or else the last tool it ran; the
+bar under it is drawn only when the agent wrote a plan, its tooltip saying how many of the
+plan's steps are done. A blocked card names its cause, its help in the tooltip. Over
 the columns, one strip carries the runner's figures: the sessions writing, the daemon's
 places (taken over all, and how many tickets wait — clicked, which ticket holds each place,
 per project, and the queue with why each ticket waits: every place taken, its project at
@@ -130,7 +138,7 @@ tickets wait.* — with how many ready tickets it holds back and the command tha
 (`ponos service on`, or `ponos daemon` without systemd), to copy: the console does not start
 it itself. The ready cards do not repeat it, since it is the machine's state rather than
 theirs — they keep the waits of their own, a date or the tickets they come after — and the
-band goes as soon as a daemon runs, on a phone as on a desktop. A ready card carries **Run now**: the daemon gives it a free place at once, or says
+band goes as soon as a daemon runs, on a phone as on a desktop. A ready card carries **Run now** — not filled, since a ready ticket starts on its own; *Set aside* is behind its *…* —: the daemon gives it a free place at once, or says
 none is free and offers to run it past the limit, once. A card in review carries a
 **validate** button, where the board has that column: confirm it and the daemon merges its
 pull request at once, or publishes what it holds at the next free place; *run again* asks

@@ -730,7 +730,12 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     # once over the board that no daemon runs (rather than on every ready card)
     # added 0.25 kB — the band itself and its French behind a `lazy()`, only
     # what decides to draw it in the first load —, so the ceiling went to
-    # 513 kB, by ticket.
+    # 513 kB, by ticket. The same day the board's cards went to three levels
+    # (PON-706): one filled button and the rest behind "…" (`CardGestures`, which
+    # the ticket's page now shares for review and done), the priority as a bar
+    # on the edge, the cause of a blocked card on its own line, the model and
+    # the goal as a tooltip — 0.65 kB once the duplicated gestures were merged,
+    # and the ceiling went to 514 kB, by ticket.
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -741,7 +746,7 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 513_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 514_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case

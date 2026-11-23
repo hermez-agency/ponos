@@ -26,7 +26,7 @@ function fullness(message: string, t: ReturnType<typeof useT>): string {
   return message
 }
 
-export function RunNow({ ticket }: { ticket: Ticket }) {
+export function RunNow({ ticket, labelled = false }: { ticket: Ticket; labelled?: boolean }) {
   const t = useT()
   const [busy, setBusy] = React.useState(false)
   const [full, setFull] = React.useState("")
@@ -52,11 +52,13 @@ export function RunNow({ ticket }: { ticket: Ticket }) {
 
   return (
     <>
-      {/* An icon beside « Set aside » and « … »: a card is narrow, and three
-          worded buttons on it go to two lines. Its name is the tooltip's. */}
+      {/* An icon beside « Set aside » and « … » on the ticket's page. On a
+          card of the board, worded, with the other gestures behind « … »
+          there — but not filled: a ready ticket waits for nobody, it starts
+          at the next free place on its own. */}
       <Button
         variant="outline"
-        size="icon-sm"
+        size={labelled ? "sm" : "icon-sm"}
         className="shrink-0"
         disabled={busy}
         data-slot="run-now"
@@ -65,6 +67,7 @@ export function RunNow({ ticket }: { ticket: Ticket }) {
         onClick={() => void launch(false)}
       >
         <Play />
+        {labelled ? t("Run now") : null}
       </Button>
       <ConfirmDialog
         open={Boolean(full)}

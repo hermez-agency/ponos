@@ -69,12 +69,14 @@ test("a status change is said and drawn before the server answers, and put back 
   const write = held(page, "**/api/tickets/*/status")
   await open(page)
   const card = page.getByRole("group", { name: "A long ticket" })
-  await card.getByRole("button", { name: "Set aside" }).click()
+  // On a card, setting aside waits behind "…".
+  await card.getByRole("button", { name: "More actions" }).click()
+  await page.getByRole("menuitem", { name: "Set aside" }).click()
   await expect(page.getByText("“A long ticket” moved to Blocked")).toBeVisible()
-  await expect(card.getByRole("button", { name: "Set aside" })).toHaveCount(0)
+  await expect(card.getByRole("button", { name: "Run now" })).toHaveCount(0)
   write.release({ status: 500, json: { error: "The board said no" } })
   await expect(page.getByText("could not move “A long ticket”")).toBeVisible()
-  await expect(card.getByRole("button", { name: "Set aside" })).toBeVisible()
+  await expect(card.getByRole("button", { name: "Run now" })).toBeVisible()
 })
 
 test("a message to a ticket is drawn before the server answers, and taken off when refused", async ({ page }) => {

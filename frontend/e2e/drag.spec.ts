@@ -44,7 +44,7 @@ for (const [id, title, grip] of [
     await expect(card).toBeVisible()
     expect(await together(card, LONG)).toBe(false)
 
-    const handle = grip === "title" ? card.getByRole("link", { name: title }) : card.locator(".border-t")
+    const handle = grip === "title" ? card.getByRole("link", { name: title }) : card.locator('[data-slot="card-foot"]')
     await handle.dragTo(page.locator(`[data-ticket-card="${LONG}"]`))
 
     await expect.poll(() => together(card, LONG)).toBe(true)
