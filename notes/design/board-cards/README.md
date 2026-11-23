@@ -10,6 +10,6 @@ columns (a phone draws one column, *Bloqué*).
 - `after/` — the title alone (two lines at most); the state and the one filled
   button (*Lancer*, *Débloquer*, *Décider*, *Pause*; *Lancer maintenant* stays
   an outline, a ready ticket starts on its own), the other gestures behind *…*;
-  one quiet line with the sub-type, the project, the age and the cost. The
-  priority is the thin bar along the left edge, neutral to orange. Five cards
-  per column at 1440×900, five on a phone.
+  one quiet line with the sub-type, the project, the priority, the age and the
+  cost — the priority only when it is not the middle score, 50 (*Priorité 95*).
+  No bar, no badge. Five cards per column at 1440×900, five on a phone.

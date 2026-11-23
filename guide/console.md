@@ -122,9 +122,9 @@ steps, live, read straight from the session log on disk rather than from the `Pr
 column. **A card says three things, each quieter than the one before**: its title, alone,
 on two lines at most; where it stands and the one thing it waits for — a single filled
 button (*Make ready* on a draft, *Unblock*, *Decide*, *Pause*), every other gesture behind
-*…*; then one line of secondary text: the sub-type's dot, the project, the age and the cost.
-The priority is a thin bar along the card's left edge, from neutral to orange as the score
-rises (its tooltip gives the score) — red stays the colour of errors. The model and the goal
+*…*; then one line of secondary text: the sub-type's dot, the project, the priority, the age
+and the cost. The priority is written there — *Priority 80* — only when it is not the middle
+score, 50: a card that says nothing about it is one that waits its turn. The model and the goal
 are the title's tooltip, and the ticket's page. A card in progress says *Ponos is working…*
 and what it is on, in one line — what the agent last said, or else the last tool it ran; the
 bar under it is drawn only when the agent wrote a plan, its tooltip saying how many of the

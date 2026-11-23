@@ -89,19 +89,11 @@ for (const viewport of [
   })
 }
 
-test("a card wears its priority as a thin bar on its edge, neutral to orange, never red", async ({ page }) => {
+test("a card says its priority on its quiet line, only when it is not the middle score, and draws no bar", async ({ page }) => {
   await open(page)
-  const mark = page.locator('[data-slot="priority-mark"][data-score="90"]').filter({ visible: true }).first()
-  await expect(mark).toBeVisible()
-  await expect(mark).toHaveAttribute("title", "Priority 90 out of 100")
+  await expect(page.locator('[data-slot="priority-mark"]')).toHaveCount(0)
   await expect(page.locator('[data-ticket-card] [data-slot="priority-badge"]')).toHaveCount(0)
-  const colour = async (score: string) => {
-    const one = page.locator(`[data-slot="priority-mark"][data-score="${score}"]`).first()
-    const value = await one.evaluate((element) => getComputedStyle(element).backgroundColor)
-    return (value.match(/\d+(\.\d+)?/g) ?? []).map(Number)
-  }
-  // Orange: more red than green, more green than blue — not the red of a failed check.
-  const [red, green, blue] = await colour("90")
-  expect(red).toBeGreaterThan(green)
-  expect(green).toBeGreaterThan(blue + 30)
+  const said = page.locator('[data-ticket-card] [data-slot="ticket-priority"]')
+  await expect(said.filter({ hasText: "Priority 90" }).filter({ visible: true }).first()).toBeVisible()
+  await expect(said.filter({ hasText: "Priority 50" })).toHaveCount(0)
 })
