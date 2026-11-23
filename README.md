@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://the-ponos.app/"><img src="docs/mascot/robot.svg" width="144" height="144" alt="Ponos, the robot: a flame, a head with a screen for a face, a small body"></a>
+  <a href="https://the-ponos.app/"><img src="docs/mascot/robot.svg" width="144" height="144" alt="Ponos, the robot: a head with a flame on top and a screen for a face"></a>
 </p>
 
 <h1 align="center">Ponos</h1>

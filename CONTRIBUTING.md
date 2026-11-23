@@ -311,12 +311,12 @@ the way to dark.
 
 ## Ponos, the mascot
 
-![Ponos in every state, light and dark, and the same SVG from 24 to 160 px](docs/mascot/states.png)
+![Ponos in every state, light and dark, and the same SVG from 18 to 160 px](docs/mascot/states.png)
 
 The product is called **Ponos**, and so is its face: a small robot named after the Greek god
-of toil, whose mood follows a ticket. He is flat, and made of three shapes in two oranges —
-a flame, a head whose screen is his face, a small body with its arms and feet — and every
-state is said by the face alone. What a machine runs or addresses keeps the first
+of toil, whose mood follows a ticket. He is a head and nothing else — the logo's very
+head, flat, in two oranges: two ears, a flame with its heart, a shell whose screen is his
+face — and every state is said by the face alone. What a machine runs or addresses keeps the first
 name — the command, the package, the repository, the paths and the element's tag all stay
 `ponos`. He lives in one file,
 [`docs/mascot/ponos-robot.js`](docs/mascot/ponos-robot.js) — a Web
@@ -332,16 +332,16 @@ build step and has to load it from a `<script>` tag:
 |---|---|
 | `state` | `idle` (default), `thinking`, `working`, `success`, `error`, `sleep`, `waiting` — any key of `STATES` |
 | `theme` | `auto` (default, follows `prefers-color-scheme`), `light`, `dark` |
-| `size` | a width in pixels; without it the robot takes the width of its container (the element is a square, the robot centred in it) |
+| `size` | a width in pixels; without it the robot takes the width of its container (the element is a square, and so is the head) |
 | `still` | present, and the robot holds the pose of its state: no animation, no blinking — for a list of many |
 
 | State | On the board | The face |
 |---|---|---|
-| `idle` | waiting for a ticket | round eyes, a small smile; breathes, the flame wavers, blinks at random |
+| `idle` | waiting for a ticket | oval eyes, a small smile; breathes, the flame wavers, blinks at random |
 | `thinking` | a ticket is in progress | eyes up to the right, a flat mouth; the flame wavers faster |
 | `working` | Claude Code is at it | eyes narrowed to bars, a flat mouth; breathes quicker, the flame flickers |
 | `success` | the pull request is open | eyes in arcs, a wide smile, an orange spark that twinkles |
-| `error` | the ticket is blocked | small eyes, a pout, the flame grey and still — a fire gone out |
+| `error` | the ticket is blocked | round eyes, a pout, the flame grey and still, its heart paler — a fire gone out |
 | `sleep` | the queue is empty | eyes closed, a small round mouth, the flame down to an ember, two *z*s drifting |
 | `waiting` | a person has the next move — a review, the credits | three dots that tick |
 
@@ -349,19 +349,18 @@ The animations stay small — a breath, a blink, the flame in a draught. With
 `prefers-reduced-motion`, every one of them stops and the robot holds the pose of its
 state, which the face says on its own.
 
-Under 40 pixels wide — a card, a toast, the bar — arms and feet are a smudge, so the robot
-is only its head and its flame, zoomed to fill the same box, the strokes of the face
-thicker: the state still reads. It is a container query on the element (and a media
-query in the standalone SVG, or `standalone({ small: true })` to force it), so nothing has to
-ask for it.
+At 24 pixels and under — a card, a toast — ears, the flame's heart and a thin mouth are a
+smudge, so the robot is the logo's simple head, with each state's `tiny` face: bigger eyes,
+thicker strokes, the mouth left out where the eyes say enough. The state still reads. It is
+a container query on the element (and a media query in the standalone SVG, or
+`standalone({ small: true })` to force it), so nothing has to ask for it.
 
 ### The logo
 
-The app's icon is not the whole robot: it is the **logo**, the robot's head alone — ears,
-flame, orange shell, dark screen, eyes and mouth — with no body and no frame, on a
-transparent ground. It is the same on a light page and a dark one, so it has one version.
+The app's icon is the **logo**: the robot's head in its `idle` face — ears, flame,
+orange shell, dark screen, eyes and mouth — with no frame, on a transparent ground. It is the same on a light page and a dark one, so it has one version.
 At 24 px and under it is drawn simpler, larger and without ears, flame heart or mouth, with
-bigger eyes, on the model of the robot's SMALL rule. It lives in
+bigger eyes — the robot's own SMALL rule, at the same size. It lives in
 [`docs/mascot/ponos-logo.js`](docs/mascot/ponos-logo.js), and is written out as
 `docs/mascot/logo.svg` (both drawings, a media query picking the simple one at 24 px and
 under) and `favicon.svg` (the simple one). It is the favicon of the site and of the console,
@@ -387,17 +386,17 @@ only — the stream, the version, the sync with the board — and no face.
 
 ### Layers
 
-The drawing sits on a 120 × 140 grid, flat colours only, and its groups carry a `data-layer`:
+The drawing sits on the logo's 120 × 120 grid, flat colours only, and its groups carry a
+`data-layer`:
 
 ```
-frame                          everything — what the small head zooms
-├── rig                        everything that breathes
-│   ├── body                   arms, feet, torso
-│   └── head
-│       ├── flame
-│       ├── the head and its screen
-│       └── a face per state   [data-face="idle"]… — only the state's own is shown
-└── fx                         what a state draws around the head: the spark, the z's
+rig                            everything that breathes
+└── head
+    ├── the ears                .full
+    ├── flame                   its heart (.full), or the simple flame (.simple)
+    ├── the shell, its screen   .full, with a face per state — [data-face="idle"]…, only the state's own is shown
+    └── the simple head         .simple, with a tiny face per state — shown at 24 px and under
+fx                             what a state draws around the head: the spark, the z's
 ```
 
 Each layer that turns or scales has its pivot in `PIVOTS`, in the grid's own units, so a
@@ -412,11 +411,12 @@ A page can override any of them on the element itself:
 | Variable | Used for | Value |
 |---|---|---|
 | `--robot-body` | the head | `#E8611A` |
-| `--robot-body-shade` | torso, arms, feet | `#BF4A02` |
+| `--robot-body-shade` | the ears | `#BF4A02` |
 | `--robot-screen` | the screen | `#1c1917` |
-| `--robot-eye` | eyes and mouth | `#FFE1CC` |
+| `--robot-eye` | eyes, mouth and the flame's heart | `#FFE1CC` |
 | `--robot-flame` | the flame, the spark, the *z*s | `#E8611A` |
 | `--robot-ash` | `error`: the flame gone out | `#a8a29e` |
+| `--robot-ash-core` | `error`: its heart | `#e7e5e4` |
 
 ```css
 ponos-robot.holiday { --robot-body: #4ade80; --robot-flame: #fde047; }
@@ -426,7 +426,7 @@ ponos-robot.holiday { --robot-body: #4ade80; --robot-flame: #fde047; }
 
 A state is one entry in `STATES`, never a copy of the drawing: a label, what it means,
 its `face` — SVG on the screen, inked with the classes `ink` (a fill) and `line` (a
-stroke) — an optional `fx` around the head, and a map of layer → CSS declarations. The
+stroke) — its `tiny` face, the same on the simple head, an optional `fx` around the head, and a map of layer → CSS declarations. The
 plain declarations are the pose; `animation` names a keyframe from `KEYFRAMES` (without
 its `robot-` prefix); `blink: true` lets the component close the eyes — the group of class
 `eyes` — at random moments.
@@ -437,8 +437,9 @@ surprised: {
   label: 'Surprised',
   means: 'a comment just arrived',
   blink: true,
-  face: `<g class="eyes"><circle class="ink" cx="48" cy="58" r="7"/><circle class="ink" cx="72" cy="58" r="7"/></g>
-    <circle class="ink" cx="60" cy="72" r="4"/>`,
+  face: `<g class="eyes"><circle class="ink" cx="46" cy="66" r="8"/><circle class="ink" cx="74" cy="66" r="8"/></g>
+    <circle class="ink" cx="60" cy="84" r="4"/>`,
+  tiny: '<g class="eyes"><circle class="ink" cx="44" cy="72" r="12"/><circle class="ink" cx="76" cy="72" r="12"/></g>',
   layers: { flame: { animation: 'boing .5s ease-out infinite' } },
 },
 // in KEYFRAMES
