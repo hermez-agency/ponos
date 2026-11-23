@@ -116,7 +116,7 @@ answered("toolu_read", "def api():\\n    return board()")
 use("Bash", "toolu_check", command="python3 -m app.check")
 answered("toolu_check", "Exit code 1\\nTraceback (most recent call last): boom", failed=True)
 if "slowly" in prompt:
-    use("Bash", "toolu_sleep", command="sleep 600")
+    use("Bash", "toolu_sleep", command="sleep 600", description="Waits ten minutes")
     time.sleep(600)
 if "hold-the-line" in prompt:
     time.sleep(4)
