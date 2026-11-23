@@ -1321,6 +1321,8 @@ export const FRENCH: Record<string, string> = {
     "Attend la revue, quoi que disent le projet ou le réglage global.",
   "Whether the ticket is validated without waiting for you: inherited from the project, then the global setting.":
     "Si le ticket est validé sans vous attendre : hérité du projet, puis du réglage global.",
+  "Whether each ticket is validated as soon as its session succeeds. Inherited, it follows the project's setting.":
+    "Si chaque ticket est validé dès que sa session réussit. Hérité, il suit le réglage du projet.",
   "Force validated saved": "Force validated enregistré",
   "Validated as soon as the session succeeds — the ticket's setting.":
     "Validé dès que la session réussit — réglage du ticket.",
@@ -2020,6 +2022,8 @@ export const FRENCH: Record<string, string> = {
   "no schedule with id {{id}}": "Aucune récurrence ne porte l'identifiant {{id}}.",
   "unknown type “{{kind}}”": "Type inconnu : « {{kind}} ».",
   "unknown sub-type “{{subtype}}”": "Sous-type inconnu : « {{subtype}} ».",
+  "unknown validation “{{word}}”: inherit, forced or free":
+    "Validation inconnue : « {{word}} » — hérité, forcé ou non forcé.",
   "this schedule is already being launched": "Cette récurrence est déjà en train d'être lancée.",
   "no ticket with id {{id}}":
     "Ce ticket n'existe pas : il a été supprimé, ou n'a jamais été sur ce board.",

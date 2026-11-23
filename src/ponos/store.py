@@ -318,6 +318,8 @@ def shape(settings: BoardNames) -> dict[str, dict[str, str]]:
             prop("goal"): "relation",
             # The prompt every ticket it makes is born with: see transitions.py.
             prop("on"): "rich_text",
+            # Their Force validated, as `tickets.Record.validation` says it.
+            prop("validation"): "select",
         },
         # A goal is a name, what meets it and when. The tickets point at the
         # goal, never the other way round: `Api.goals` counts them.

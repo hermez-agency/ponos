@@ -4871,6 +4871,8 @@ export interface components {
             subtype?: string;
             /** @description The `On` prompt each ticket is born with, empty for none. */
             on?: string;
+            /** @description Their Force validated: empty inherits the project's, `forced` or `free` decides. */
+            validation?: string;
             /** @description The name of the goal its tickets serve, empty for none. */
             goal?: string;
             goal_id?: string;
@@ -4928,6 +4930,8 @@ export interface components {
             subtype?: string;
             /** @description The `On` prompt each ticket is born with, empty for none. */
             on?: string;
+            /** @description Their Force validated: empty inherits the project's, `forced` or `free` decides. */
+            validation?: string;
             /** @description The name of the goal its tickets serve, empty for none. */
             goal?: string;
             goal_id?: string;

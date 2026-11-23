@@ -473,6 +473,11 @@ def _schedule_page(page_id: str, **values: Any) -> store.Page:
                 else {}
             ),
             **(
+                {"Validation": {"type": "select", "select": {"name": values["validation"]}}}
+                if values.get("validation")
+                else {}
+            ),
+            **(
                 {"Objectif": {"type": "relation", "relation": [{"id": values["goal"]}]}}
                 if values.get("goal")
                 else {}

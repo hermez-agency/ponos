@@ -960,6 +960,9 @@ PROPERTIES = {
     "next_run": "Next",  # date: when the next ticket is born
     "last_run": "Last",  # date: when the last one was
     "last_ticket": "Last ticket",  # relation → the tickets database
+    # What its tickets say of their Force validated: "forced" or "free", empty to
+    # inherit the project's — see recurrence.py. Written on each ticket at birth.
+    "validation": "Validation",  # select: forced, free, or none
 }
 
 # The five types of ticket, told apart by the road they take rather than by what

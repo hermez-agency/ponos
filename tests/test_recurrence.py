@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
+from unittest import mock
 
 from support import (
     _recurring,
@@ -486,6 +487,28 @@ def a_schedule_with_an_on_prompt_makes_tickets_that_carry_it(state_home: Path) -
     changed.launch("s-1")
     assert _schedules(changed).created[-1][1]["On"] == "Autre prompt"
     assert with_on["On"] == prompt, "the ticket already born keeps its own"
+
+
+@case
+def a_schedule_with_a_validation_writes_it_on_each_ticket_it_makes(state_home: Path) -> None:
+    """Forced or free goes on the ticket, by a pass and by the button; inherited
+    writes nothing, and editing the schedule leaves the tickets already born alone."""
+    stale = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    runner = _recurring(
+        [
+            _schedule_page("s-1", next=stale, validation="forced"),
+            _schedule_page("s-2", next=stale, validation="free"),
+            _schedule_page("s-3", next=stale),
+        ]
+    )
+    with mock.patch("ponos.tickets.update") as update:
+        assert len(runner.recur()) == 3
+        assert [call.kwargs for call in update.call_args_list] == [
+            {"validation": "forced"},
+            {"validation": "free"},
+        ]
+        runner.launch("s-1")
+        assert update.call_args.kwargs == {"validation": "forced"}
 
 
 @case

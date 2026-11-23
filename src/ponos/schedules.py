@@ -76,6 +76,8 @@ class Schedule:
     goal: str = ""
     # The `On` prompt every ticket is born with, copied as written; "" for none.
     on: str = ""
+    # Their Force validated: "" inherits the project's, "forced" or "free" decides.
+    validation: str = ""
     problem: str = ""
 
 
@@ -151,6 +153,7 @@ def read(page: store.Page, settings: BoardNames) -> Schedule:
         subtype=str(value("subtype") or "").strip(),
         goal=first("goal"),
         on=str(value("on") or ""),
+        validation=str(value("validation") or "").strip().lower(),
     )
     schedule.problem = _problem(schedule)
     return schedule
