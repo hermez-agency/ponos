@@ -8,6 +8,21 @@
   <updated>2026-11-23T00:00:00Z</updated>
   <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
   <entry>
+    <title>Steer a running Claude Code session, rewind it to any step, schedule tickets for later: what&#x27;s new in Ponos</title>
+    <link href="https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/"/>
+    <id>https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/</id>
+    <published>2026-11-23T00:00:00Z</published>
+    <updated>2026-11-23T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>Correct a Claude Code session while it works, start a ticket again from the step where it went wrong, date tickets on an agenda, and set rules the agent cannot ignore — what was merged on Ponos&#x27;s main this week.</summary>
+    <category term="Ponos"/>
+    <category term="Claude Code"/>
+    <category term="AI agents"/>
+    <category term="guardrails"/>
+    <category term="scheduling"/>
+    <category term="backlog"/>
+  </entry>
+  <entry>
     <title>One ticket, step by step: from a written brief to a reviewed pull request with Claude Code</title>
     <link href="https://the-ponos.app/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/"/>
     <id>https://the-ponos.app/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/</id>

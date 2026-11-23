@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="A rail of steps with a small card dropping a line onto it mid-way, and a branch leaving one step to climb towards a large orange ring" data-brand="ponos" stroke-linecap="round" stroke-linejoin="round">
+<style>
+svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+@media (prefers-color-scheme:dark){svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}}
+.dark svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}
+.light svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+</style>
+<rect width="1600" height="900" fill="var(--ill-bg)"/>
+<line x1="200" y1="560" x2="1180" y2="560" stroke="var(--ill-line)" stroke-width="8"/>
+<circle cx="200" cy="560" r="30" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<circle cx="440" cy="560" r="30" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<rect x="360" y="250" width="160" height="110" rx="24" fill="var(--ill-surface)" stroke="var(--ill-line)" stroke-width="4"/>
+<line x1="395" y1="295" x2="485" y2="295" stroke="var(--ill-mute)" stroke-width="8"/>
+<line x1="395" y1="320" x2="450" y2="320" stroke="var(--ill-mute)" stroke-width="8"/>
+<line x1="440" y1="380" x2="440" y2="510" stroke="var(--ill-mute)" stroke-width="4" stroke-dasharray="4 20"/>
+<circle cx="700" cy="560" r="36" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="12"/>
+<circle cx="1180" cy="560" r="24" fill="var(--ill-bg)" stroke="var(--ill-line)" stroke-width="8"/>
+<path d="M736 548 C 900 500, 980 340, 1160 330" fill="none" stroke="var(--ill-ink)" stroke-width="8"/>
+<circle cx="1280" cy="330" r="100" fill="var(--ill-soft)" stroke="var(--ill-accent)" stroke-width="8"/>
+<circle cx="1280" cy="330" r="28" fill="var(--ill-accent)"/>
+</svg>
