@@ -121,10 +121,18 @@ const statuses: Record<
   }
 > = {
   pending: { label: "Waiting", icon: <CircleDashed />, variant: "secondary" },
-  running: { label: "Running", icon: <Loader2 className="motion-safe:animate-spin" />, variant: "outline" },
+  running: {
+    label: "Running",
+    icon: <Loader2 className="motion-safe:animate-spin" />,
+    variant: "outline",
+  },
   done: { label: "Done", icon: <CheckCircle2 />, variant: "secondary" },
   error: { label: "Failed", icon: <XCircle />, variant: "destructive" },
-  approval: { label: "Approval needed", icon: <ShieldQuestion />, variant: "default" },
+  approval: {
+    label: "Approval needed",
+    icon: <ShieldQuestion />,
+    variant: "default",
+  },
   denied: { label: "Denied", icon: <XCircle />, variant: "secondary" },
 }
 
@@ -185,7 +193,53 @@ function ToolApproval({
   )
 }
 
-/** A tool call: its name, its state, its arguments, and the approval it waits for. */
+/** The plain-words title of a step, and the description the model wrote for it. */
+function stepTitle(call: ToolCallPart): { title: string; subtitle?: string } {
+  const args = parseArguments(call.arguments)
+  const name = call.name
+  if (name.startsWith("mcp__claude-in-chrome__") || name.startsWith("mcp__Claude_Browser__")) {
+    return { title: "Looks in the browser" }
+  }
+  if (name.startsWith("mcp__ponos__")) return { title: "Looks in the tickets" }
+  if (name === "Bash") {
+    const command = typeof args.command === "string" ? args.command.trim() : ""
+    const description = typeof args.description === "string" ? args.description.trim() : undefined
+    const title = /^(?:\S+\/)?ponos(?:\s|$)/.test(command)
+      ? "Looks in the tickets"
+      : "Looks at the disk"
+    return { title, subtitle: description || undefined }
+  }
+  return { title: STEP_TITLES[name] ?? "Uses a tool" }
+}
+
+const STEP_TITLES: Record<string, string> = {
+  Read: "Reads a file",
+  Grep: "Searches the code",
+  Glob: "Searches the code",
+  Edit: "Edits a file",
+  MultiEdit: "Edits a file",
+  Write: "Edits a file",
+  NotebookEdit: "Edits a file",
+  WebFetch: "Reads a web page",
+  WebSearch: "Searches the web",
+  Task: "Hands over to a helper",
+  Agent: "Hands over to a helper",
+  TodoWrite: "Updates its to-do list",
+}
+
+/** The arguments of a call as an object; empty while they stream or when they are not one. */
+function parseArguments(text: string): Record<string, unknown> {
+  try {
+    const value: unknown = JSON.parse(text)
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+/** A step: one folded line, closed, for the call and its result together. Open, it shows the arguments then the result. */
 function ToolCallPartView({
   part,
   result,
@@ -193,7 +247,7 @@ function ToolCallPartView({
   className,
 }: {
   part: ToolCallPart
-  /** The result of this call, once it has come: it sets the state shown. */
+  /** The result of this call, once it has come: it sets the state shown, and is shown in the step. */
   result?: ToolResultPart
   /** Called with the id of the approval request, and the answer. */
   onApprove?: (approvalId: string, approved: boolean) => void
@@ -201,30 +255,73 @@ function ToolCallPartView({
 }) {
   const t = useT()
   const status = toolStatus(part, result)
+  const [open, setOpen] = React.useState(false)
   const id = React.useId()
+  const { title, subtitle } = stepTitle(part)
+  const failed = result?.state === "error"
 
   return (
     <div
       data-slot="chat-tool-call"
       data-status={status}
-      className={cn("border-border bg-card overflow-hidden rounded-xl border text-sm", className)}
+      data-tool={part.name}
+      className={cn(
+        "bg-card overflow-hidden rounded-xl border text-sm",
+        status === "error" ? "border-destructive/40" : "border-border",
+        className
+      )}
     >
-      <div className="flex items-center justify-between gap-3 px-3 py-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen(!open)}
+        className="hover:bg-muted/40 focus-visible:ring-ring/30 flex w-full items-center justify-between gap-3 px-3 py-2 text-left outline-none focus-visible:ring-3"
+      >
         <span className="flex min-w-0 items-center gap-2">
+          <ChevronRight
+            className={cn(
+              "text-muted-foreground size-4 shrink-0 motion-safe:transition-transform",
+              open && "rotate-90"
+            )}
+            aria-hidden
+          />
           <Wrench className="text-muted-foreground size-4 shrink-0" aria-hidden />
-          <span className="truncate font-mono font-medium">{part.name}</span>
+          <span className="truncate font-medium">{t(title)}</span>
+          {subtitle && <span className="text-muted-foreground truncate text-xs">{subtitle}</span>}
         </span>
         <ToolStatusBadge status={status} />
-      </div>
-      {part.arguments && (
-        <pre
-          id={id}
-          tabIndex={0}
-          aria-label={t("Arguments of {{name}}", { name: part.name })}
-          className="border-border bg-muted/40 focus-visible:ring-ring/30 max-h-48 overflow-auto border-t px-3 py-2 font-mono text-xs leading-relaxed outline-none focus-visible:ring-3"
-        >
-          {pretty(part.arguments)}
-        </pre>
+      </button>
+      {open && (
+        <div id={id} className="border-border flex flex-col border-t">
+          <p className="text-muted-foreground px-3 pt-2 text-xs">
+            {t("Tool")} <code className="font-mono">{part.name}</code>
+          </p>
+          {part.arguments && (
+            <pre
+              tabIndex={0}
+              aria-label={t("Arguments of {{name}}", { name: part.name })}
+              className="bg-muted/40 focus-visible:ring-ring/30 mt-2 max-h-48 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed outline-none focus-visible:ring-3"
+            >
+              {pretty(part.arguments)}
+            </pre>
+          )}
+          {result && (
+            <pre
+              tabIndex={0}
+              aria-label={t("Result of {{name}}", { name: part.name })}
+              className={cn(
+                "focus-visible:ring-ring/30 max-h-64 overflow-auto border-t px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap outline-none focus-visible:ring-3",
+                failed
+                  ? "border-destructive/40 bg-destructive/10 text-destructive"
+                  : "border-border bg-muted/40"
+              )}
+            >
+              {failed ? result.error || result.content : pretty(result.content)}
+              {result.state === "streaming" && <Caret />}
+            </pre>
+          )}
+        </div>
       )}
       {status === "approval" && part.approval && onApprove && (
         <ToolApproval
@@ -297,4 +394,5 @@ export {
   ToolCallPartView,
   ToolResultPartView,
   ToolStatusBadge,
+  stepTitle,
 }

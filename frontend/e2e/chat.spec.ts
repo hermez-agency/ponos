@@ -44,7 +44,7 @@ test("a turn streams what Ponos says and does, then the answer, and is kept that
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible()
   const turn = page.locator("[data-slot=said][data-role=workspace]").last()
   await expect(turn.getByText("Let me look.")).toBeVisible()
-  const read = turn.locator("[data-slot=chat-tool-call]").filter({ hasText: "Read" })
+  const read = turn.locator("[data-slot=chat-tool-call]").filter({ hasText: "Reads a file" })
   await expect(read).toBeVisible()
 
   await expect(page.getByText("Done. The board has 13 tickets.")).toBeVisible()
@@ -55,9 +55,14 @@ test("a turn streams what Ponos says and does, then the answer, and is kept that
   await expect(turn.locator("ponos-robot").first()).toBeVisible()
   // A tool that answered is done, one that failed says so — with what it answered.
   await expect(read).toHaveAttribute("data-status", "done")
-  const check = turn.locator("[data-slot=chat-tool-call]").filter({ hasText: "python3 -m app.check" })
-  await expect(check).toHaveAttribute("data-status", "error")
-  await expect(turn.locator("[data-slot=chat-tool-result][data-state=error]")).toContainText("boom")
+  const check = turn.locator("[data-slot=chat-tool-call][data-status=error]")
+  await expect(check).toHaveCount(1)
+  // A step stays folded, even failed: the badge says so, the command and what it answered wait inside.
+  await expect(check).toContainText("Failed")
+  await expect(check.getByRole("button", { expanded: false })).toBeVisible()
+  await check.getByRole("button").click()
+  await expect(check).toContainText("python3 -m app.check")
+  await expect(check).toContainText("boom")
   // The cost to the cent, the exact figure a hover away; the span says what it measures.
   await expect(turn.locator("[data-slot=said-footer]")).toContainText("answered in")
   await expect(turn.locator("[data-slot=said-footer]")).toContainText("$0.01")
@@ -82,7 +87,7 @@ test("Stop ends the turn, says so, and the conversation carries on", async ({ pa
   expect(session).toBeTruthy()
 
   await ask(page, "take it slowly")
-  const sleeping = page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  const sleeping = page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "Looks at the disk" })
   await expect(sleeping).toBeVisible({ timeout: 10_000 })
   const stop = page.getByRole("button", { name: "Stop" })
   await stop.click()
@@ -94,7 +99,7 @@ test("Stop ends the turn, says so, and the conversation carries on", async ({ pa
   await expect(page.getByRole("textbox", { name: FIELD })).toBeFocused()
   // The command it was in is not left running on the page.
   const stopped = page.locator("[data-slot=said][data-role=stopped]").last()
-  await expect(stopped.locator("[data-slot=chat-tool-call]").filter({ hasText: "sleep 600" })).toHaveAttribute(
+  await expect(stopped.locator("[data-slot=chat-tool-call]").filter({ hasText: "Looks at the disk" })).toHaveAttribute(
     "data-status",
     "error"
   )
@@ -109,7 +114,7 @@ test("Escape from the empty field stops the turn, and leaves the drawer open", a
   const stopped = await page.getByText("stopped by you").count()
   await ask(page, "slowly, please")
   await expect(
-    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "Looks at the disk" })
   ).toBeVisible({ timeout: 10_000 })
   const field = page.getByRole("textbox", { name: FIELD })
   await field.focus()
@@ -163,7 +168,7 @@ test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ 
   await openConsole(page)
   await ask(page, "take it slowly")
   await expect(
-    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "Looks at the disk" })
   ).toBeVisible({ timeout: 10_000 })
   await ask(page, "kept after the stop")
   const waiting = page.locator("[data-slot=queued]")
@@ -187,7 +192,7 @@ test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ 
   // And thrown away, the other way.
   await ask(page, "take it slowly again")
   await expect(
-    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "Looks at the disk" })
   ).toBeVisible({ timeout: 10_000 })
   await ask(page, "never sent")
   await expect(waiting).toHaveCount(1)
@@ -206,7 +211,7 @@ test("Stop keeps the waiting messages: they are sent, or thrown away", async ({ 
 
 test("two conversations answer at once, and Stop reaches only its own", async ({ page }) => {
   await openConsole(page)
-  const sleeping = page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+  const sleeping = page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "Looks at the disk" })
   const stop = page.getByRole("button", { name: "Stop" })
   const history = page.locator("[data-talk-history]")
   const goTo = async (title: string) => {
@@ -266,7 +271,7 @@ test("a command runs while a turn answers", async ({ page }) => {
   await openConsole(page)
   await ask(page, "slowly, then a command")
   await expect(
-    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "sleep 600" })
+    page.locator("[data-slot=chat-tool-call][data-status=running]").filter({ hasText: "Looks at the disk" })
   ).toBeVisible({ timeout: 10_000 })
   await ask(page, ">status")
   await expect(page.getByText("ponos status")).toBeVisible()
