@@ -51,7 +51,7 @@ How to install Ponos, configure it and use it, one page per subject. Working on 
 - [Merging is the only gesture](tickets.md#merging-is-the-only-gesture)
 - [Ten tickets on one repository](tickets.md#ten-tickets-on-one-repository)
 - [Validated, and what it sets off](tickets.md#validated-and-what-it-sets-off)
-- [Force validated: skipping the review](tickets.md#force-validated-skipping-the-review)
+- [Review: validated without waiting for you](tickets.md#review-validated-without-waiting-for-you)
 - [What comes back on its own](tickets.md#what-comes-back-on-its-own)
 
 ## [Telegram and Slack](channels.md)

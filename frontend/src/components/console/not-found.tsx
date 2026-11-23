@@ -14,7 +14,7 @@ import { useT } from "@/lib/i18n"
  */
 
 const VIEWS: [string, string][] = [
-  ["Dashboard", "/?view=console/tickets/list"],
+  ["Board", "/?view=console/tickets/list"],
   ["Projects", "/?view=console/projects/list"],
   ["Goals", "/?view=console/goals/list"],
   ["Ideas", "/?view=console/ideas/list"],

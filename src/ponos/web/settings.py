@@ -381,10 +381,13 @@ SECTIONS: tuple[Section, ...] = (
     Section(
         key="validation",
         group="execution",
-        title="Automatic validation",
+        # « Force validated » in the code and the file: the question it answers,
+        # for whoever reads the page, is whether they review the work first.
+        title="Review",
         blurb=(
-            "Skip your review for some types of ticket: once the session succeeds, the "
-            "runner validates it itself and says so. A failed or blocked ticket never is."
+            "Whether you review a ticket before it is validated. A type switched on never "
+            "waits for you: once the session succeeds, the runner validates it itself and "
+            "says so. A failed or blocked ticket is never validated."
         ),
         fields=(
             Field(

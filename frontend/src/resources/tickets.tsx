@@ -487,9 +487,9 @@ const createForm: FormInterface = {
       defaultValue: "",
       controller: OnInputController,
     },
-    // Force validated of its own: inherited unless the ticket says otherwise.
+    // Its Review (Force validated): as the project unless the ticket says otherwise.
     validation: {
-      label: "Force validated",
+      label: "Review",
       defaultValue: "",
       controller: ValidationInputController,
     },
@@ -1620,9 +1620,8 @@ const TicketHead = () => (
 )
 const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<TicketItem, TicketWrite>["views"] => ({
   list: {
-    // The page is the Dashboard everywhere else — the menu, the bar — so the
-    // section under its figures is the board, not the same word a third time.
-    title: "Board",
+    // No title of its own: the list is called by the resource's name, Board
+    // (« Tableau »), the one the menu, the bar and the way back from a ticket say.
     // The resource's name and the line under it are what the list's own header
     // says, next to its icon: the board opens on its own words. What the board
     // is, without naming where it is kept.
@@ -1633,7 +1632,8 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
      * `calendar`, in every language. */
     layouts: [
       layout.board({
-        label: "Board",
+        // Not the page's name a second time: what the view draws.
+        label: "Columns",
         // The page's whole width, for the board and the table alike: switching
         // between them must not move the page. The forms keep the column every
         // other page is drawn in.
@@ -1706,7 +1706,7 @@ const viewsOf = (form: FormInterface, empty: React.FC): ResourceDefinition<Ticke
 })
 
 const options: ResourceDefinition<TicketItem, TicketWrite> = {
-  name: "Dashboard",
+  name: "Board",
   path: "/api/board",
   icon: LayoutGrid,
   // Nothing is deleted from here. `update` stays allowed: the package

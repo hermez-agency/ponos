@@ -226,11 +226,11 @@ export function ProjectSettingsTab({ project }: { project: string }) {
       ) : null}
       <Card data-card="project-validation" className="gap-0 py-0">
         <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
-          <CardTitle className="text-base">{t("Automatic validation")}</CardTitle>
+          <CardTitle className="text-base">{t("Review")}</CardTitle>
           <CardDescription className="text-[13px] leading-relaxed">
             <Rich
               text={t(
-                "Skip your review for some types of ticket: once the session succeeds, the runner validates it itself and says so. A failed or blocked ticket never is."
+                "Whether you review a ticket before it is validated. A type switched on never waits for you: once the session succeeds, the runner validates it itself and says so. A failed or blocked ticket is never validated."
               )}
             />
           </CardDescription>
@@ -239,7 +239,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
           <div className="divide-y">
             <Row
               id="project-own-validation"
-              label={t("Its own automatic validation")}
+              label={t("Its own review setting")}
               line={
                 validation.own
                   ? t("This project's switches apply to its tickets, whatever the global settings say.")

@@ -611,7 +611,7 @@ describe("the header", () => {
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("A long ticket")
     expect(screen.getByText("#000abcde")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Copy the full id" })).toBeTruthy()
-    expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("href")).toBe("/board")
+    expect(screen.getByRole("link", { name: "Board" }).getAttribute("href")).toBe("/board")
   })
 
   test("follows the stream where it has the same ticket", () => {

@@ -80,7 +80,7 @@ import { canAct } from "@/lib/role"
  */
 
 const PAGES = [
-  { name: "Dashboard", icon: LayoutGrid, href: boardHref },
+  { name: "Board", icon: LayoutGrid, href: boardHref },
   { name: "Projects", icon: FolderGit2, href: projectsHref },
   { name: "Schedules", icon: CalendarClock, href: schedulesHref },
   { name: "Ideas", icon: Lightbulb, href: ideasHref },

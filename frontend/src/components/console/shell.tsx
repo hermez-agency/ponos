@@ -160,8 +160,7 @@ function useConnectionWord(): string {
 /* What the tab says: where you are, so seven tabs of "Ponos" are not a row to
  * open one by one — the record on screen by its name, a list by its resource's
  * name, which is the menu's word for it, and any other page by the name of its
- * view, read the way the layout's own heading reads it. A list's own title can
- * name a section of the page rather than the page: the Dashboard's is "Board". */
+ * view, read the way the layout's own heading reads it. */
 function useDocumentTitle() {
   const { viewName, recordTitle, recordId } = useAdminPageTitle()
   const { resource, resourceAction } = useCurrentViewResourceContext()

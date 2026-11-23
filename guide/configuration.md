@@ -117,7 +117,7 @@ ponos doctor
 which checks the board, who answers the sessions, GitHub, each project, the machine and the
 file itself — and names whichever of those is not in place.
 
-The console's dashboard says the same thing without a terminal: an "Installation status"
+The console's Board page says the same thing without a terminal: an "Installation status"
 band lists what is misconfigured — the board, GitHub, Claude Code, each project, the machine —
 with its probable cause, and either a **Configure** button (a project's default branch, the
 state directory's permissions: Ponos changes it only after you confirm)
@@ -130,7 +130,7 @@ is not drawn while everything is green. `ponos doctor` prints the same
 checks (`src/ponos/health/`) — every one of them, `doctor` asks nothing on its own —
 grouped as the band groups them (*Board*, *GitHub*, *Claude*, *Projects*, *Machine*,
 *Settings*), with the settings it only describes in grey, which the band leaves out. The one
-thing the two do differently: `doctor` asks the remote for the newest version, the dashboard
+thing the two do differently: `doctor` asks the remote for the newest version, the Board page
 reads what the last check found.
 
 ### The rest of the file
@@ -154,7 +154,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `runner.app_language` | `""` | the language the console opens in; empty follows `runner.language` — see [The language it answers in](board.md#the-language-it-answers-in) |
 | `runner.base_branch` | `""` | empty = each repository's default branch |
 | `runner.merge_method` | `"squash"` | how a **validated** pull request is merged — `squash`, `merge`, `rebase` |
-| `runner.force_validated` | `[]` | the types of ticket validated as soon as their session succeeds, among `"code"` (the pull request is merged, then *Done*), `"publication"` (published without waiting in review), `"writing"` and `"external"` (which already end in *Done*, so they change nothing today) — see [*Force validated*](tickets.md#force-validated-skipping-the-review). Replaces the four `force_validated_<type>` booleans (`ponos config` converts them) |
+| `runner.force_validated` | `[]` | the types of ticket validated as soon as their session succeeds, among `"code"` (the pull request is merged, then *Done*), `"publication"` (published without waiting in review), `"writing"` and `"external"` (which already end in *Done*, so they change nothing today) — see [*Review*](tickets.md#review-validated-without-waiting-for-you). Replaces the four `force_validated_<type>` booleans (`ponos config` converts them) |
 | `runner.local_ci` | `false` | run the project's CI on this machine, in Docker, once the session has committed and before the push — the command the project's Settings tab declares, else its workflows through `act`; a red one goes back to the same session to be fixed. Needs Docker; a project may say otherwise for itself. GitHub's CI still runs |
 | `runner.self_review` | `true` | before the push, a session in plan mode reads the diff against the ticket's done criterion and the project's CLAUDE.md; what it finds blocking goes back to the ticket's session once, then the pull request opens and its *Review* section says what was fixed and what was left. A project may say otherwise for itself — see [Read once before the pull request](tickets.md#read-once-before-the-pull-request) |
 | `runner.unblock` | `false` | look once at a ticket that waits on its own, and answer it when the answer is already written |

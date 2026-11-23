@@ -11,20 +11,20 @@ const ticket = (validation: string, inherited: string, column = "ready") =>
 
 afterEach(cleanup)
 
-describe("the ticket's Force validated", () => {
+describe("the ticket's Review", () => {
   it("says what an inherited ticket gets, and from whom", () => {
     render(<TicketValidation ticket={ticket("", "project")} />)
     expect(screen.getByText(/the project's setting/)).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Inherited" }).getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getByRole("button", { name: "As the project" }).getAttribute("aria-pressed")).toBe("true")
   })
 
   it("says the ticket's own word over what it would inherit", () => {
     render(<TicketValidation ticket={ticket("free", "global")} />)
-    expect(screen.getByText(/Waits for the review — the ticket's setting/)).toBeTruthy()
+    expect(screen.getByText(/Waits for your review — the ticket's setting/)).toBeTruthy()
   })
 
   it("is read only once the ticket is done", () => {
     render(<TicketValidation ticket={ticket("", "", "done")} />)
-    expect(screen.getByRole("button", { name: "Forced" }).hasAttribute("disabled")).toBe(true)
+    expect(screen.getByRole("button", { name: "Never" }).hasAttribute("disabled")).toBe(true)
   })
 })

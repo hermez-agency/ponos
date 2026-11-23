@@ -65,12 +65,12 @@ const entry = (
 })
 
 /* The pages you go to every day, down the left — and along the bottom of a
- * phone, where four of them and More are what fits a 360px screen. There the
- * Dashboard is named after what it draws, the board: « Tableau de bord » is cut
- * at 375px, « Board » is not, and is the board's name in every language. The Conversations are « Chat » there, for the
- * same reason. */
+ * phone, where four of them and More are what fits a 360px screen. The board
+ * has one name, the same there as everywhere else — Board, « Tableau » — short
+ * enough for 375px. The Conversations are « Chat » there, where their name is
+ * cut. */
 const MENU: MenuItemInterface[] = [
-  entry(tickets.icon, "Dashboard", boardHref, BoardCount, undefined, "Board"),
+  entry(tickets.icon, "Board", boardHref, BoardCount),
   entry(projects.icon, "Projects", projectsHref),
   // No count, here as under Projects: the only way to know is to ask the
   // board, and this menu is redrawn every time the board moves.

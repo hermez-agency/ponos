@@ -15,10 +15,10 @@
  *
  * The words, one per thing, the same everywhere:
  *
- * - le tableau de bord — the console's page that draws the board (Dashboard);
- *   « Board » in a phone's bottom bar, where the three words are cut, and for
- *   the board's own section and its tab, as in every language: the product's
- *   word for it as a name, where « Tableau » read as « Table »;
+ * - le Tableau — the console's page that draws the board (Board), one name in
+ *   the menu, the phone's bottom bar, the page's heading and the way back from
+ *   a ticket; its view in columns is « Colonnes » (Columns), so the tab over it
+ *   does not say the page's name again;
  * - le tableau — the board itself, in a sentence: never « board »;
  * - un ticket — a card on it; lancer, relancer — what sends it to the runner;
  * - une récurrence — a ticket that comes back by itself (a schedule);
@@ -169,7 +169,7 @@ export const FRENCH: Record<string, string> = {
   "Reading the board…": "Lecture du tableau…",
 
   /* -- the menu ------------------------------------------------------------ */
-  Dashboard: "Tableau de bord",
+  Board: "Tableau",
   Schedules: "Récurrences",
   Settings: "Réglages",
   // On a phone, the entry the bottom bar keeps the other pages behind.
@@ -1008,6 +1008,7 @@ export const FRENCH: Record<string, string> = {
   "Heading 3": "Titre 3",
   Quote: "Citation",
   Divider: "Séparateur",
+  Columns: "Colonnes",
   List: "Liste",
   "Bullet list": "Liste à puces",
   "Numbered list": "Liste numérotée",
@@ -1325,26 +1326,26 @@ export const FRENCH: Record<string, string> = {
   "If it goes to validated, create the deployment ticket.":
     "Si on passe en validé, crée le ticket de déploiement.",
   "Save the prompt": "Enregistrer le prompt",
-  Inherited: "Hérité",
-  Forced: "Forcé",
-  "Not forced": "Non forcé",
-  "The project's setting, or the global one.": "Le réglage du projet, sinon le réglage global.",
-  "Validated as soon as the session succeeds.": "Validé dès que la session réussit.",
-  "Waits for the review, whatever the project or the global setting says.":
-    "Attend la revue, quoi que disent le projet ou le réglage global.",
-  "Whether the ticket is validated without waiting for you: inherited from the project, then the global setting.":
-    "Si le ticket est validé sans vous attendre : hérité du projet, puis du réglage global.",
-  "Whether each ticket is validated as soon as its session succeeds. Inherited, it follows the project's setting.":
-    "Si chaque ticket est validé dès que sa session réussit. Hérité, il suit le réglage du projet.",
-  "Force validated saved": "Force validated enregistré",
+  // Review: whether you read the work before it is validated — `validation`,
+  // « Force validated » in the code, whose `forced` is Never and `free` Always.
+  Review: "Relecture",
+  "As the project": "Selon le projet",
+  Never: "Jamais",
+  Always: "Toujours",
+  "As the project: its setting, or the global one.": "Selon le projet : son réglage, sinon le réglage global.",
+  "Never: validated as soon as the session succeeds.": "Jamais : validé dès que la session réussit.",
+  "Always: waits for my review.": "Toujours : attend ma relecture.",
+  "Never: each ticket is validated as soon as its session succeeds; always: it waits for your review; as the project: its setting.":
+    "Jamais : chaque ticket est validé dès que sa session réussit ; toujours : il attend votre relecture ; selon le projet : son réglage.",
+  "Review saved": "Relecture enregistrée",
   "Validated as soon as the session succeeds — the ticket's setting.":
     "Validé dès que la session réussit — réglage du ticket.",
-  "Waits for the review — the ticket's setting.": "Attend la revue — réglage du ticket.",
+  "Waits for your review — the ticket's setting.": "Attend votre relecture — réglage du ticket.",
   "Validated as soon as the session succeeds — the project's setting.":
     "Validé dès que la session réussit — réglage du projet.",
   "Validated as soon as the session succeeds — the global setting.":
     "Validé dès que la session réussit — réglage global.",
-  "Waits for the review.": "Attend la revue.",
+  "Waits for your review.": "Attend votre relecture.",
   Automation: "Automatisation",
   "Automation (On)": "Automatisation (On)",
   "No prompt on this ticket.": "Aucun prompt sur ce ticket.",
@@ -2036,7 +2037,7 @@ export const FRENCH: Record<string, string> = {
   "unknown type “{{kind}}”": "Type inconnu : « {{kind}} ».",
   "unknown sub-type “{{subtype}}”": "Sous-type inconnu : « {{subtype}} ».",
   "unknown validation “{{word}}”: inherit, forced or free":
-    "Validation inconnue : « {{word}} » — hérité, forcé ou non forcé.",
+    "Relecture inconnue : « {{word}} » — selon le projet (inherit), jamais (forced) ou toujours (free).",
   "this schedule is already being launched": "Cette récurrence est déjà en train d'être lancée.",
   "no ticket with id {{id}}":
     "Ce ticket n'existe pas : il a été supprimé, ou n'a jamais été sur ce board.",

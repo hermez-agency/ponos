@@ -10,19 +10,22 @@ import { cn } from "@/lib/utils"
 
 import { Eyebrow } from "./frame"
 
-/* « Force validated » of one ticket, over the project's and the global one.
+/* « Review » of one ticket — « Force validated » in the code — over the
+ * project's and the global one.
  *
- * Three states: inherited (what the project says, else the global setting —
- * said with its source, as the report will say it), forced, or not forced
- * (waits for the review even where the project or the file forces). Saved
+ * Three states: as the project (what the project says, else the global
+ * setting — said with its source, as the report will say it), never (`forced`:
+ * validated as soon as the session succeeds), or always (`free`: waits for the
+ * review even where the project or the file forces). The question asked is
+ * whether you read the work first, not the code's word for it. Saved
  * straight to the ledger, and read when the validation is decided, so a change
  * made while the session runs counts. Not offered once the ticket is done.
  */
 
 const CHOICES = [
-  { value: "", label: "Inherited" },
-  { value: "forced", label: "Forced" },
-  { value: "free", label: "Not forced" },
+  { value: "", label: "As the project" },
+  { value: "forced", label: "Never" },
+  { value: "free", label: "Always" },
 ]
 
 export function TicketValidation({
@@ -48,7 +51,7 @@ export function TicketValidation({
     try {
       await api.setValidation(ticket.id, next)
       setValue(next)
-      toast.success(t("Force validated saved"))
+      toast.success(t("Review saved"))
     } catch (error) {
       toast.error(why(error))
     } finally {
@@ -60,23 +63,23 @@ export function TicketValidation({
     value === "forced"
       ? t("Validated as soon as the session succeeds — the ticket's setting.")
       : value === "free"
-        ? t("Waits for the review — the ticket's setting.")
+        ? t("Waits for your review — the ticket's setting.")
         : inherited === "project"
           ? t("Validated as soon as the session succeeds — the project's setting.")
           : inherited === "global"
             ? t("Validated as soon as the session succeeds — the global setting.")
-            : t("Waits for the review.")
+            : t("Waits for your review.")
 
   return (
     <section
       data-slot="ticket-validation"
-      aria-label={compact ? t("Force validated") : undefined}
+      aria-label={compact ? t("Review") : undefined}
       className={cn("flex flex-col", compact ? "gap-1" : "gap-2 border-t pt-4")}
     >
-      {compact ? null : <Eyebrow>{t("Force validated")}</Eyebrow>}
+      {compact ? null : <Eyebrow>{t("Review")}</Eyebrow>}
       <div
         role="group"
-        aria-label={t("Force validated")}
+        aria-label={t("Review")}
         className="bg-field flex w-fit flex-wrap gap-0.5 rounded-lg border p-0.5"
       >
         {CHOICES.map((choice) => (

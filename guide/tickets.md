@@ -768,7 +768,7 @@ and the second no longer replays cleanly — “Pull Request has merge conflicts
    anything; one ticket “Repair `<base>` of `<project>`” is opened in *Ready*, type *Code*,
    sub-type *Bug*, at priority 75, with the failing jobs and the link of their run — never
    a second one while it is open. Its pull request is validated without waiting for you,
-   whatever *Force validated* says: once its CI is green it is merged by the runner, since
+   whatever *Review* says: once its CI is green it is merged by the runner, since
    every other pull request of the repository waits behind it. And at every round the base is read again: once those checks are no longer red
    there, the pull request goes on by itself. `ponos doctor` and `ponos projects` say when
    a repository's base has no CI run at push, or only skipped ones: that is how a red base
@@ -911,19 +911,21 @@ Five things are worth knowing:
   status` lists them with why each waits;
 - **it is never guessed at.** The runner acts on that column and on nothing else: no
   ticket is merged or published because a session felt sure of itself — only because you
-  moved it, or ticked [*Force validated*](#force-validated-skipping-the-review) for its
+  moved it, or said [*Review: never*](#review-validated-without-waiting-for-you) for its
   type beforehand. And
   `ponos run --dry-run` says what it *would* merge or publish without touching
   anything — this is the one gesture worth rehearsing.
 
-## Force validated: skipping the review
+## Review: validated without waiting for you
 
 For some types of ticket the review stopped earning its keep: you validate every pull
-request of a project you trust, or every post of an account that only relays. One box per
-type — **Code**, **Writing**, **External action**, **Publication** — in the console's
-*Settings › Automatic validation*, or `force_validated_<type> = true` under `[runner]`, makes
-that gesture in advance. All four are off by default, and nothing changes until you tick
-one.
+request of a project you trust, or every post of an account that only relays. The console
+asks it as a question — do you review the work before it is validated? — under the name
+**Review** (*Relecture* in French), and the code, the file and the API keep the older name,
+*Force validated*. One switch per type — **Code**, **Writing**, **External action**,
+**Publication** — in the console's *Settings › Review*, or `force_validated = ["<type>"]`
+under `[runner]`, makes that gesture in advance: switched on, that type is never reviewed.
+All four are off by default, and nothing changes until you switch one on.
 
 Ticked, a ticket of that type no longer stops in *In review*: as soon as its session has
 succeeded, the runner does what moving it to *Validated* would have set off, then moves it
@@ -931,25 +933,26 @@ to *Done*. Its report says so, and says whose decision it was — *Validated aut
 (Force validated: Code) — the global setting*, *— the project's setting* or *— the ticket's setting*.
 
 **Project by project.** The four switches above are every project's, until a project has
-its own: on its page in the console, the *Settings* tab has *Its own automatic validation*.
+its own: on its page in the console, the *Settings* tab has *Its own review setting*.
 Off — the default — the project follows the global switches, shown there read only with a
 link to change them. On, it gets the same four switches of its own, started from what the
 global ones said, and they are what its tickets follow, even where they contradict the
 global ones — merging unread on a project of your own, every pull request read on a
 client's, whatever `config.toml` says. They are kept in the runner's local database
-(`ponos.db`), not on the board, and survive a restart; *Settings › Automatic validation*
+(`ponos.db`), not on the board, and survive a restart; *Settings › Review*
 names the projects that have their own, and so does `ponos doctor`.
 
-**Ticket by ticket.** A ticket inherits by default: its project's switches when the project
-has its own, the global ones otherwise. In the ticket itself — the *Force validated* field of
+**Ticket by ticket.** A ticket follows its project by default: its project's switches when
+the project has its own, the global ones otherwise. In the ticket itself — the *Review* field of
 the *New ticket* dialog, the same row among the ticket's facts (in the rail of its view, or
 under *Details*), the
 `validation` field of `POST /api/tickets` (and `POST /api/tickets/<id>/validation` to change
-it), the `validation` argument of the MCP's `create_task` — it can be set to **Forced**
-(validated as soon as the session succeeds) or **Not forced** (waits in *In review* even where
-the project or the global setting forces); **Inherited** hands it back. The order is
+it), the `validation` argument of the MCP's `create_task` — it can be set to **Never**
+(*Jamais*, `forced`: validated as soon as the session succeeds) or **Always** (*Toujours*,
+`free`: waits in *In review* for you even where the project or the global setting says
+never); **As the project** (*Selon le projet*, empty or `inherit`) hands it back. The order is
 ticket, then project, then global, and it only concerns the ticket's own type. The ticket's
-page shows what *Inherited* amounts to, and its source. The word is read when the validation
+page shows what *As the project* amounts to, and its source. The word is read when the validation
 is decided, so one changed during the session counts; it can no longer be changed once the
 ticket is done. It lives in `ponos.db` with the ticket, not on the board. The ticket that
 repairs a red base is validated whatever any of them says.
@@ -1060,8 +1063,8 @@ A ticket born with a `Type` is never classified: set it to *Code* on a schedule 
 tickets are code, or a long, well-written brief may well read as *Writing*. A schedule
 with no `Type` whose project declares a repository makes *Code* tickets rather than leave
 them to the classifier. A schedule also chooses the
-[*Force validated*](#force-validated-skipping-the-review) of its tickets — *Inherited* (the
-default: the project's setting), *Forced* or *Not forced*, in the `Validation` column and the
+[*Review*](#review-validated-without-waiting-for-you) of its tickets — *As the project* (the
+default: the project's setting), *Never* or *Always*, in the `Validation` column and the
 schedule's form — written on each ticket as it is born; the tickets already born keep theirs. Three columns
 are the runner's to write: `Next`, `Last`, and `Last ticket`.
 
