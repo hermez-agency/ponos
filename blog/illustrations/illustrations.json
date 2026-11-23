@@ -1,0 +1,34 @@
+{
+  "en/write-the-ticket-it-comes-back-done": {
+    "file": "write-the-ticket",
+    "alt": "A ticket card with tidy lines, joined by a rail to a large orange circle holding a check mark"
+  },
+  "fr/ecris-le-ticket-il-revient-fait": {
+    "file": "write-the-ticket",
+    "alt": "Une fiche de ticket aux lignes rangées, reliée par un rail à un grand rond orange coché"
+  },
+  "en/drive-your-backlog-from-claude-mcp-goals-recurrences": {
+    "file": "drive-your-backlog",
+    "alt": "Three stacked tasks converging on a target, circled by a ring of dots that keep coming back"
+  },
+  "fr/pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences": {
+    "file": "drive-your-backlog",
+    "alt": "Trois tâches empilées convergent vers une cible entourée d'un anneau de points qui reviennent"
+  },
+  "en/a-faster-console": {
+    "file": "a-faster-console",
+    "alt": "A table where only three rows are drawn and the next one is dotted, with speed lines on its left"
+  },
+  "fr/une-console-plus-rapide": {
+    "file": "a-faster-console",
+    "alt": "Un tableau dont seules trois lignes sont dessinées, la suivante en pointillés, avec des traits de vitesse à gauche"
+  },
+  "en/one-ticket-step-by-step-from-brief-to-reviewed-pull-request": {
+    "file": "one-ticket-step-by-step",
+    "alt": "A four-step rail whose stops grow from left to right, ending on a large orange circle holding a check mark"
+  },
+  "fr/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue": {
+    "file": "one-ticket-step-by-step",
+    "alt": "Un rail à quatre étapes qui grossissent de gauche à droite jusqu'à un grand rond orange coché"
+  }
+}

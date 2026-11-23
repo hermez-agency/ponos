@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Un rail à quatre étapes qui grossissent de gauche à droite jusqu'à un grand rond orange coché" data-brand="ponos" stroke-linecap="round" stroke-linejoin="round">
+<style>
+svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+@media (prefers-color-scheme:dark){svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}}
+.dark svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}
+.light svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+</style>
+<rect width="1600" height="900" fill="var(--ill-bg)"/>
+<line x1="250" y1="450" x2="1230" y2="450" stroke="var(--ill-line)" stroke-width="8"/>
+<rect x="190" y="230" width="120" height="100" rx="24" fill="var(--ill-surface)" stroke="var(--ill-line)" stroke-width="4"/>
+<line x1="220" y1="270" x2="280" y2="270" stroke="var(--ill-mute)" stroke-width="8"/>
+<circle cx="250" cy="450" r="36" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<circle cx="600" cy="450" r="44" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<rect x="540" y="570" width="120" height="100" rx="24" fill="var(--ill-surface)" stroke="var(--ill-line)" stroke-width="4"/>
+<line x1="570" y1="610" x2="630" y2="610" stroke="var(--ill-mute)" stroke-width="8"/>
+<circle cx="950" cy="450" r="52" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<rect x="890" y="230" width="120" height="100" rx="24" fill="var(--ill-surface)" stroke="var(--ill-line)" stroke-width="4"/>
+<line x1="920" y1="270" x2="980" y2="270" stroke="var(--ill-mute)" stroke-width="8"/>
+<circle cx="1330" cy="450" r="110" fill="var(--ill-soft)" stroke="var(--ill-accent)" stroke-width="8"/>
+<path d="M1280 455 L1315 490 L1385 410" fill="none" stroke="var(--ill-accent)" stroke-width="12"/>
+</svg>

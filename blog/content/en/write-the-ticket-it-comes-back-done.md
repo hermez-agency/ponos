@@ -6,8 +6,6 @@ tags: [Claude Code, backlog, git worktree, automation]
 lang: en
 translation: ecris-le-ticket-il-revient-fait
 category: Behind the scenes
-cover: mascot/og.png
-cover_alt: Ponos, the robot, jumping beside its name and the words "Write the ticket. It comes back done."
 ---
 
 Most of a backlog is work you already know how to describe. A bug with a clear

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Une fiche de ticket aux lignes rangées, reliée par un rail à un grand rond orange coché" data-brand="ponos" stroke-linecap="round" stroke-linejoin="round">
+<style>
+svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+@media (prefers-color-scheme:dark){svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}}
+.dark svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}
+.light svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+</style>
+<rect width="1600" height="900" fill="var(--ill-bg)"/>
+<rect x="200" y="250" width="380" height="400" rx="40" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<line x1="280" y1="350" x2="500" y2="350" stroke="var(--ill-line)" stroke-width="12"/>
+<line x1="280" y1="450" x2="440" y2="450" stroke="var(--ill-line)" stroke-width="12"/>
+<circle cx="300" cy="550" r="16" fill="var(--ill-mute)"/>
+<line x1="580" y1="450" x2="1050" y2="450" stroke="var(--ill-line)" stroke-width="8"/>
+<circle cx="760" cy="450" r="14" fill="var(--ill-mute)"/>
+<circle cx="1250" cy="450" r="190" fill="none" stroke="var(--ill-line)" stroke-width="4"/>
+<circle cx="1250" cy="450" r="120" fill="var(--ill-soft)" stroke="var(--ill-accent)" stroke-width="8"/>
+<path d="M1195 455 L1235 495 L1310 410" fill="none" stroke="var(--ill-accent)" stroke-width="12"/>
+</svg>

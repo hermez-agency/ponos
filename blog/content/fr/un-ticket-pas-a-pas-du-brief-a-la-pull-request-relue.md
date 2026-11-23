@@ -6,8 +6,6 @@ tags: [Ponos, Claude Code, pull request, relecture, git worktree, cas d'usage]
 lang: fr
 translation: one-ticket-step-by-step-from-brief-to-reviewed-pull-request
 category: Cas d'usage
-cover: mascot/og.png
-cover_alt: Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »
 ---
 
 La plupart des articles sur Claude Code appliqué à un backlog restent

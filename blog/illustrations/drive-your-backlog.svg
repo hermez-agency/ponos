@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Trois tâches empilées convergent vers une cible entourée d'un anneau de points qui reviennent" data-brand="ponos" stroke-linecap="round" stroke-linejoin="round">
+<style>
+svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+@media (prefers-color-scheme:dark){svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}}
+.dark svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}
+.light svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+</style>
+<rect width="1600" height="900" fill="var(--ill-bg)"/>
+<g fill="var(--ill-surface)" stroke="var(--ill-line)" stroke-width="4">
+<rect x="200" y="240" width="320" height="120" rx="24"/>
+<rect x="200" y="390" width="320" height="120" rx="24"/>
+<rect x="200" y="540" width="320" height="120" rx="24"/>
+</g>
+<g fill="none" stroke="var(--ill-line)" stroke-width="8">
+<path d="M540 300 C700 300 760 450 880 450"/>
+<line x1="540" y1="450" x2="880" y2="450"/>
+<path d="M540 600 C700 600 760 450 880 450"/>
+</g>
+<circle cx="1120" cy="450" r="330" fill="none" stroke="var(--ill-mute)" stroke-width="8" stroke-dasharray="0 44"/>
+<circle cx="1120" cy="450" r="230" fill="none" stroke="var(--ill-line)" stroke-width="4"/>
+<circle cx="1120" cy="450" r="140" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<circle cx="1120" cy="450" r="44" fill="var(--ill-accent)"/>
+</svg>

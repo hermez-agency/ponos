@@ -6,8 +6,6 @@ tags: [Ponos, console, performance, react-resource-view, react-data-form]
 lang: fr
 translation: a-faster-console
 category: Nouveautés
-cover: mascot/og.png
-cover_alt: Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »
 ---
 
 La console de Ponos, c'est là où tu regardes le backlog bouger : un clic lent
