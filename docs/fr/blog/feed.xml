@@ -5,8 +5,23 @@
   <link href="https://the-ponos.app/fr/blog/feed.xml" rel="self"/>
   <link href="https://the-ponos.app/fr/blog/"/>
   <id>https://the-ponos.app/fr/blog/</id>
-  <updated>2026-11-19T00:00:00Z</updated>
+  <updated>2026-11-23T00:00:00Z</updated>
   <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+  <entry>
+    <title>Un ticket pas à pas : du brief écrit à la pull request relue, avec Claude Code</title>
+    <link href="https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/"/>
+    <id>https://the-ponos.app/fr/blog/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue/</id>
+    <published>2026-11-23T00:00:00Z</published>
+    <updated>2026-11-23T00:00:00Z</updated>
+    <author><name>Hermez</name><uri>https://hermez.dev</uri></author>
+    <summary>Un exemple suivi sur un board de démonstration — comment écrire un ticket que Claude Code peut finir seul, ce que Ponos fait pendant la session, ce que la relecture automatique attrape, et le seul geste qui livre.</summary>
+    <category term="Ponos"/>
+    <category term="Claude Code"/>
+    <category term="pull request"/>
+    <category term="relecture"/>
+    <category term="git worktree"/>
+    <category term="cas d&#x27;usage"/>
+  </entry>
   <entry>
     <title>Une console plus rapide : des fenêtres qui s&#x27;ouvrent tout de suite, un tableau qui ne dessine que ce que tu vois</title>
     <link href="https://the-ponos.app/fr/blog/une-console-plus-rapide/"/>
