@@ -82,6 +82,8 @@ test("a ticket is found by its public id, whatever the case, and no other", () =
   assert.equal(keeps(numbered, { text: "pon-142" }), true)
   assert.equal(keeps(numbered, { text: "PON-142" }), true)
   assert.equal(keeps(ticket({ public_id: "BA-142", project: "Brand" }), { text: "pon-142" }), false)
+  // Whole or not at all: the words of a search do not reach into its number.
+  assert.equal(keeps(ticket({ title: "Ticket 2", public_id: "T-12" }), { text: "ticket 1" }), false)
 })
 
 test("the filters combine: every one of them must hold, with the words", () => {

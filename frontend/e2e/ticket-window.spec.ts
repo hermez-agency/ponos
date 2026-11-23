@@ -25,7 +25,8 @@ async function openLong(page: Page) {
   await page.getByRole("link", { name: "A long ticket" }).click()
   await expect(window_(page)).toBeVisible()
   await expect(window_(page).locator('[data-slot="dialog-title"]')).toHaveText("A long ticket")
-  await expect(window_(page).getByText("#000abcde")).toBeVisible()
+  // Its public id over the title — a ticket with no project numbers as T-.
+  await expect(window_(page).getByText(/^T-\d+$/).first()).toBeVisible()
   // The ticket's page, drawn inside: its facts and, once read, its brief.
   // « Unknown »: the project of a ticket that names none — see projectless.py.
   await expect(window_(page).locator('[data-slot="ticket-summary"]').getByText("Unknown", { exact: true })).toBeVisible()
