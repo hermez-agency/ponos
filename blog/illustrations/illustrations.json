@@ -30,5 +30,13 @@
   "fr/un-ticket-pas-a-pas-du-brief-a-la-pull-request-relue": {
     "file": "one-ticket-step-by-step",
     "alt": "Un rail à quatre étapes qui grossissent de gauche à droite jusqu'à un grand rond orange coché"
+  },
+  "en/steer-a-running-claude-code-session-and-schedule-tickets": {
+    "file": "steer-and-schedule",
+    "alt": "A rail of steps with a small card dropping a line onto it mid-way, and a branch leaving one step to climb towards a large orange ring"
+  },
+  "fr/corriger-une-session-claude-code-en-cours-et-programmer-ses-tickets": {
+    "file": "steer-and-schedule",
+    "alt": "Un rail d'étapes sur lequel une petite fiche dépose un trait en chemin, et une branche qui part d'une étape pour monter vers un grand anneau orange"
   }
 }

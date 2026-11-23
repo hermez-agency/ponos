@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steer a running Claude Code session, rewind it to any step, schedule tickets for later: what&#x27;s new in Ponos — Ponos</title>
+<meta name="description" content="Correct a Claude Code session while it works, start a ticket again from the step where it went wrong, date tickets on an agenda, and set rules the agent cannot ignore — what was merged on Ponos&#x27;s main this week.">
+<link rel="canonical" href="https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/">
+<link rel="alternate" hreflang="en" href="https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/">
+<link rel="alternate" hreflang="fr" href="https://the-ponos.app/fr/blog/corriger-une-session-claude-code-en-cours-et-programmer-ses-tickets/">
+<link rel="alternate" hreflang="x-default" href="https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/">
+<link rel="alternate" type="application/atom+xml" title="Atom feed" href="https://the-ponos.app/blog/feed.xml">
+<link rel="icon" type="image/svg+xml" href="/mascot/favicon.svg?v=ecran">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Ponos">
+<meta property="og:title" content="Steer a running Claude Code session, rewind it to any step, schedule tickets for later: what&#x27;s new in Ponos — Ponos">
+<meta property="og:description" content="Correct a Claude Code session while it works, start a ticket again from the step where it went wrong, date tickets on an agenda, and set rules the agent cannot ignore — what was merged on Ponos&#x27;s main this week.">
+<meta property="og:url" content="https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://the-ponos.app/blog/illustrations/steer-and-schedule-share.jpg">
+<meta property="og:image:alt" content="A rail of steps with a small card dropping a line onto it mid-way, and a branch leaving one step to climb towards a large orange ring">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Steer a running Claude Code session, rewind it to any step, schedule tickets for later: what&#x27;s new in Ponos — Ponos">
+<meta name="twitter:description" content="Correct a Claude Code session while it works, start a ticket again from the step where it went wrong, date tickets on an agenda, and set rules the agent cannot ignore — what was merged on Ponos&#x27;s main this week.">
+<meta name="twitter:image" content="https://the-ponos.app/blog/illustrations/steer-and-schedule-share.jpg">
+<meta name="twitter:image:alt" content="A rail of steps with a small card dropping a line onto it mid-way, and a branch leaving one step to climb towards a large orange ring">
+<meta property="article:published_time" content="2026-11-23">
+<meta property="article:tag" content="Ponos">
+<meta property="article:tag" content="Claude Code">
+<meta property="article:tag" content="AI agents">
+<meta property="article:tag" content="guardrails">
+<meta property="article:tag" content="scheduling">
+<meta property="article:tag" content="backlog">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/"
+  },
+  "headline": "Steer a running Claude Code session, rewind it to any step, schedule tickets for later: what's new in Ponos",
+  "description": "Correct a Claude Code session while it works, start a ticket again from the step where it went wrong, date tickets on an agenda, and set rules the agent cannot ignore — what was merged on Ponos's main this week.",
+  "image": [
+    "https://the-ponos.app/blog/illustrations/steer-and-schedule-share.jpg"
+  ],
+  "datePublished": "2026-11-23",
+  "dateModified": "2026-11-23",
+  "inLanguage": "en",
+  "author": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Hermez",
+    "url": "https://hermez.dev",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://the-ponos.app/apple-touch-icon.png"
+    }
+  },
+  "keywords": "Ponos, Claude Code, AI agents, guardrails, scheduling, backlog",
+  "url": "https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Ponos",
+      "item": "https://the-ponos.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://the-ponos.app/blog/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Steer a running Claude Code session, rewind it to any step, schedule tickets for later: what's new in Ponos",
+      "item": "https://the-ponos.app/blog/steer-a-running-claude-code-session-and-schedule-tickets/"
+    }
+  ]
+}
+</script>
+<script>
+  /* Avant le premier rendu, comme la page d'accueil : le choix du visiteur, sinon le système. */
+  try { var kept = localStorage.getItem("ponos-theme");
+    var dark = kept ? kept === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark); } catch (error) {}
+</script>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<script src="https://umami.cardona.digital/nx.js" defer data-website-id="a3af4ed4-63b2-4732-93a2-a43d156910ec" data-domains="the-ponos.app"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="Ponos, home">
+      <img src="/mascot/favicon.svg?v=ecran" alt="" width="28" height="28">
+      Ponos
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a class="btn btn-ghost btn-sm" href="/blog/" aria-current="page">Blog</a>
+      <a class="btn btn-outline btn-sm" href="https://github.com/hermez-agency/ponos#readme">Docs</a>
+      <a class="btn btn-ghost btn-sm lang-switch" href="/fr/blog/corriger-une-session-claude-code-en-cours-et-programmer-ses-tickets/" hreflang="fr" lang="fr" aria-label="Lire cette page en français">FR</a>
+      <button class="btn btn-ghost btn-icon theme-toggle" id="theme-toggle" type="button" aria-label="Switch between light and dark"><svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-2.93 1.41-1.41m11.32-11.32 1.41-1.41M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41"/></svg><svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="crumbs wrap"><a href="/blog/">← Blog</a></div>
+<article class="prose">
+<header>
+  <p class="product"><img src="/mascot/favicon.svg?v=ecran" alt="" width="20" height="20"><span>Ponos</span><span aria-hidden="true">·</span><span>Product updates</span></p>
+  <h1>Steer a running Claude Code session, rewind it to any step, schedule tickets for later: what&#x27;s new in Ponos</h1>
+  <p class="lead">Correct a Claude Code session while it works, start a ticket again from the step where it went wrong, date tickets on an agenda, and set rules the agent cannot ignore — what was merged on Ponos&#x27;s main this week.</p>
+  <p class="byline"><span class="by">Hermez</span><span aria-hidden="true">·</span><time datetime="2026-11-23">November 23, 2026</time><span aria-hidden="true">·</span><span>7 min read</span></p>
+</header>
+<figure class="wide"><div class="ill"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="A rail of steps with a small card dropping a line onto it mid-way, and a branch leaving one step to climb towards a large orange ring" data-brand="ponos" stroke-linecap="round" stroke-linejoin="round">
+<style>
+svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+.dark svg[data-brand="ponos"]{--ill-bg:#17140f;--ill-surface:#26211c;--ill-line:#413a33;--ill-ink:#f5f2ef;--ill-mute:#7d746a;--ill-accent:#f2803f;--ill-soft:#4a2a16}
+.light svg[data-brand="ponos"]{--ill-bg:#f5f2ef;--ill-surface:#e9e4df;--ill-line:#cdc6bf;--ill-ink:#1c1917;--ill-mute:#9a928a;--ill-accent:#e8611a;--ill-soft:#f8d5bf}
+</style>
+<rect width="1600" height="900" fill="var(--ill-bg)"/>
+<line x1="200" y1="560" x2="1180" y2="560" stroke="var(--ill-line)" stroke-width="8"/>
+<circle cx="200" cy="560" r="30" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<circle cx="440" cy="560" r="30" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="8"/>
+<rect x="360" y="250" width="160" height="110" rx="24" fill="var(--ill-surface)" stroke="var(--ill-line)" stroke-width="4"/>
+<line x1="395" y1="295" x2="485" y2="295" stroke="var(--ill-mute)" stroke-width="8"/>
+<line x1="395" y1="320" x2="450" y2="320" stroke="var(--ill-mute)" stroke-width="8"/>
+<line x1="440" y1="380" x2="440" y2="510" stroke="var(--ill-mute)" stroke-width="4" stroke-dasharray="4 20"/>
+<circle cx="700" cy="560" r="36" fill="var(--ill-surface)" stroke="var(--ill-ink)" stroke-width="12"/>
+<circle cx="1180" cy="560" r="24" fill="var(--ill-bg)" stroke="var(--ill-line)" stroke-width="8"/>
+<path d="M736 548 C 900 500, 980 340, 1160 330" fill="none" stroke="var(--ill-ink)" stroke-width="8"/>
+<circle cx="1280" cy="330" r="100" fill="var(--ill-soft)" stroke="var(--ill-accent)" stroke-width="8"/>
+<circle cx="1280" cy="330" r="28" fill="var(--ill-accent)"/>
+</svg></div></figure>
+<p>The last update was about speed: a console that opens its windows at once. This one is about control. Until now, once a ticket was running, you had two choices: let the session finish, or stop it. Since then, a set of changes merged on <code>main</code> gives you the moments in between — saying something to the agent while it works, rewinding it to the step where it went off course, deciding <em>when</em> it starts — and a few rules it cannot talk its way around.</p>
+<p>If you have not met it: <strong>Ponos</strong> turns a ticket moved to <em>Ready</em> into a Claude Code session on a disposable <code>git worktree</code>, and brings it back as a pull request or a written page. Here is what changed, grouped by what it changes for you rather than by pull request.</p>
+<h2 id="correct-a-ticket-while-it-runs">Correct a ticket while it runs</h2>
+<p>You open a running ticket, read its live journal, and see the agent heading for the wrong file. Before, a comment waited for the next pass. Now a message sent to a ticket <strong>whose session is running is given to the agent</strong>, from the console&#x27;s ticket view or from Telegram and Slack when you answer on the ticket. There are two ways to say it:</p>
+<ul><li><strong>A correction</strong> (the default) — <em>&quot;no, not that file&quot;</em>. It is handed over at the end of the tool call under way, and the session is not stopped.</li><li><strong>A message for after</strong> — tick <em>Give it once it has finished what it is doing</em> in the console, or start a channel message with <code>later</code>. It waits until the agent is about to close the session, which then goes on with it before writing its report.</li></ul>
+<p>Both appear in the ticket&#x27;s journal as a <em>Message</em> step, at their place among what the agent did, so the record reads in order. Under the hood these are two Claude Code hooks Ponos adds to the ticket&#x27;s session. A message the session ended without reading is not lost: it becomes a comment, and the next pass reads it.</p>
+<h2 id="start-again-from-the-step-where-it-went-wrong">Start again from the step where it went wrong</h2>
+<p>Sometimes the twelfth step of thirty is where things went sideways, and everything after it is noise. Running the whole ticket again throws away the eleven good steps; resuming carries the mistake along. There is now a third way.</p>
+<p>In the ticket&#x27;s journal, point at a step — a sentence of the agent or a tool call — and click <strong>Start again from here</strong>. You can add a message (<em>&quot;this time, use the existing helper&quot;</em>), and the ticket goes back to <em>Ready</em>. Its next session <strong>knows the conversation up to that step and nothing after it</strong>, then opens on your message. It is a new run: the run it came from stays readable as it was, and the journal shows which step of which run each branch started from.</p>
+<p>One thing to know before you use it: <strong>the files are not taken back</strong>. Only the conversation is rewound; the worktree and the ticket&#x27;s branch stay as the earlier session left them. The confirmation window says so, and the new session is told too — it reads <code>git status</code>, the log and the diff before writing, and undoes what does not fit. When you want clean files, run the ticket again from the start.</p>
+<h2 id="pause-is-not-abandon">Pause is not Abandon</h2>
+<p>On a running ticket, <em>Pause</em> and <em>Abandon</em> used to sit side by side as twin buttons — one keeps everything, the other throws away the session and its unpushed work. <strong>Pause</strong> stays a button where it was. <strong>Abandon</strong> moved into the &quot;…&quot; menu beside it, in red, and its window says what is lost and opens on <em>Cancel</em>: a reflexive Enter no longer abandons anything.</p>
+<h2 id="schedule-a-ticket-for-later-and-see-it-on-an-agenda">Schedule a ticket for later, and see it on an agenda</h2>
+<p>The runner has long respected a ticket&#x27;s <code>Scheduled</code> date. Now you can set it everywhere you write a ticket:</p>
+<ul><li>in the console, a <strong>Scheduled for</strong> field on <em>New ticket</em>, with shortcuts — <em>in 1 h</em>, <em>tonight</em>, <em>tomorrow morning</em>, <em>next Monday</em> — or a date and hour in your browser&#x27;s timezone; a ticket&#x27;s view changes or removes it until it is done, and <strong>Launch now</strong> removes the date;</li><li>from Claude, with <code>scheduled</code> in the MCP&#x27;s <code>create_task</code>;</li><li>from a terminal, <code>ponos schedule PON-142 &quot;tomorrow 14:30&quot;</code> or <code>ponos move PON-142 ready --at +2h</code>.</li></ul>
+<p>A date in the past is refused rather than read as <em>now</em>: a date typed a day wrong should not start paid work unnoticed. To see what is coming, the board gained a third view next to <strong>Columns</strong> and <strong>List</strong>: <strong>Agenda</strong>, a week, day or month calendar where each dated ticket sits at its hour, and the next launches of your active recurring tickets appear beside them, marked ↻. On <em>List</em>, <strong>Shown fields</strong> hides the columns you do not read.</p>
+<h2 id="rules-the-agent-cannot-ignore">Rules the agent cannot ignore</h2>
+<p>A prompt can ask a session not to touch your licence file; a session can forget. Ponos now checks every tool call <strong>before it runs</strong>, with a Claude Code <code>PreToolUse</code> hook, against a <code>[guards]</code> table — in <code>config.toml</code>, and in a project&#x27;s own <code>.ponos.toml</code>:</p>
+<pre><code class="language-toml"># .ponos.toml, at the root of the repository
+[guards]
+read_only = [&quot;LICENSE&quot;, &quot;**/package.json&quot;]
+forbidden = [&quot;.env&quot;, &quot;secrets/**&quot;]
+commands = [&quot;terraform\\s+destroy&quot;]
+</code></pre>
+<p>Paths can be read-only or forbidden outright, commands are regular expressions, and three git gestures — a push to the base branch, a force push, a branch deletion — are refused unless you allow them. The agent is told why and changes its approach; the refusal is a <em>Guard</em> line in the ticket&#x27;s journal, and the project&#x27;s settings list the rules and the latest refusals. It is a net, not a prison: the hook catches the usual ways of writing a file, not all hundred of them.</p>
+<h2 id="take-your-ponos-with-you-never-the-vault">Take your Ponos with you, never the vault</h2>
+<p><strong>Settings → Export &amp; import</strong> (or <code>ponos export</code> and <code>ponos import</code>) writes everything Ponos holds into one zip: settings, projects, context, memories, goals, recurrences, skills, tickets with their journals — and, only if you tick them, the conversations. The vault and every secret never leave; the archive lists their <em>names</em>, so you know what to type again. An import previews first, then merges or replaces after a confirmation and a copy of the database. Nothing starts on arrival: running tickets come back as drafts, recurrences come back off.</p>
+<p>The vault itself got friendlier: it now unlocks <strong>once</strong> with the console&#x27;s password, and locks again after fifteen minutes without action, instead of asking for the password in every form.</p>
+<h2 id="a-board-that-reads-faster">A board that reads faster</h2>
+<p>Smaller changes you will meet every day:</p>
+<ul><li><strong>A short id per ticket</strong>: <code>PON-142</code>, numbered per project and shown after the title. A click copies it, and the CLI, the API and the MCP accept it wherever a ticket is named.</li><li><strong>Review, said as a question</strong>: the setting once called <em>Force validated</em> reads <em>Review</em> now, with <em>As the project</em>, <em>Never</em> and <em>Always</em>. Recurrences can set it for the tickets they create.</li><li><strong>A ticket view in two columns</strong> on a wide screen: the tabs on the left, a rail on the right with the status and its main gesture, the facts you can edit in place, and the pull request said once.</li><li><strong>A filter bar that folds</strong>: search, <em>Project</em>, <em>Status</em> and <em>Priority</em> stay at hand; the rest sits behind a <strong>Filters</strong> button, and active filters show as chips.</li><li><strong>One banner when no daemon runs</strong>, with the command that starts it, instead of a warning on every ready card.</li><li><strong>Console conversations fold their steps</strong> into one line with a plain title.</li></ul>
+<h2 id="when-you-get-it">When you get it</h2>
+<p>All of this is merged on <code>main</code> and listed under <em>Unreleased</em> in the changelog; it reaches your installation with the next release. The guide already describes each part: <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#correcting-a-ticket-while-it-runs" rel="noopener">correcting a running ticket</a>, <a href="https://github.com/hermez-agency/ponos/blob/main/guide/tickets.md#starting-again-from-one-step-of-a-session" rel="noopener">starting again from a step</a>, <a href="https://github.com/hermez-agency/ponos/blob/main/guide/safety.md#what-protects-your-code" rel="noopener">the guards</a> and <a href="https://github.com/hermez-agency/ponos/blob/main/guide/installation.md#export-and-import" rel="noopener">export and import</a>.</p>
+<h2 id="try-it">Try it</h2>
+<p>The <a href="https://github.com/hermez-agency/ponos/blob/main/guide/installation.md" rel="noopener">installation guide</a> takes a few minutes on Linux or macOS. Write a small ticket, move it to <em>Ready</em>, and while it runs, open its journal and send it a one-line correction. Then date the next one for tomorrow morning and find it on the Agenda.</p>
+<p><em>A Hermez product.</em></p>
+<footer class="article-foot"><span>Ponos</span><span>Claude Code</span><span>AI agents</span><span>guardrails</span><span>scheduling</span><span>backlog</span><span class="signature">A Hermez product</span></footer>
+</article>
+<section class="wrap more" aria-labelledby="more"><h2 id="more">Keep reading</h2><div class="cards"><a class="card" href="/blog/one-ticket-step-by-step-from-brief-to-reviewed-pull-request/">
+  <picture class="ill-light"><source type="image/avif" srcset="/blog/illustrations/one-ticket-step-by-step-480.avif 480w, /blog/illustrations/one-ticket-step-by-step-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/one-ticket-step-by-step-480.webp 480w, /blog/illustrations/one-ticket-step-by-step-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/one-ticket-step-by-step-960.webp" alt="" loading="lazy" width="960" height="540"></picture><picture class="ill-dark"><source type="image/avif" srcset="/blog/illustrations/one-ticket-step-by-step-dark-480.avif 480w, /blog/illustrations/one-ticket-step-by-step-dark-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/one-ticket-step-by-step-dark-480.webp 480w, /blog/illustrations/one-ticket-step-by-step-dark-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/one-ticket-step-by-step-dark-960.webp" alt="" loading="lazy" width="960" height="540"></picture>
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">One ticket, step by step: from a written brief to a reviewed pull request with Claude Code</p>
+    <p class="card-meta"><time datetime="2026-11-23">November 23, 2026</time> · 6 min</p>
+  </div>
+</a><a class="card" href="/blog/a-faster-console/">
+  <picture class="ill-light"><source type="image/avif" srcset="/blog/illustrations/a-faster-console-480.avif 480w, /blog/illustrations/a-faster-console-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/a-faster-console-480.webp 480w, /blog/illustrations/a-faster-console-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/a-faster-console-960.webp" alt="" loading="lazy" width="960" height="540"></picture><picture class="ill-dark"><source type="image/avif" srcset="/blog/illustrations/a-faster-console-dark-480.avif 480w, /blog/illustrations/a-faster-console-dark-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/a-faster-console-dark-480.webp 480w, /blog/illustrations/a-faster-console-dark-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/a-faster-console-dark-960.webp" alt="" loading="lazy" width="960" height="540"></picture>
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">A faster console: windows that open at once, a table that draws only what you see</p>
+    <p class="card-meta"><time datetime="2026-11-19">November 19, 2026</time> · 4 min</p>
+  </div>
+</a><a class="card" href="/blog/drive-your-backlog-from-claude-mcp-goals-recurrences/">
+  <picture class="ill-light"><source type="image/avif" srcset="/blog/illustrations/drive-your-backlog-480.avif 480w, /blog/illustrations/drive-your-backlog-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/drive-your-backlog-480.webp 480w, /blog/illustrations/drive-your-backlog-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/drive-your-backlog-960.webp" alt="" loading="lazy" width="960" height="540"></picture><picture class="ill-dark"><source type="image/avif" srcset="/blog/illustrations/drive-your-backlog-dark-480.avif 480w, /blog/illustrations/drive-your-backlog-dark-960.avif 960w" sizes="(min-width: 64rem) 20rem, 90vw"><source type="image/webp" srcset="/blog/illustrations/drive-your-backlog-dark-480.webp 480w, /blog/illustrations/drive-your-backlog-dark-960.webp 960w" sizes="(min-width: 64rem) 20rem, 90vw"><img src="/blog/illustrations/drive-your-backlog-dark-960.webp" alt="" loading="lazy" width="960" height="540"></picture>
+  <div class="card-body">
+    <p class="card-product">Ponos</p>
+    <p class="card-title">Run your backlog from Claude: Ponos&#x27;s MCP now manages projects, goals and recurrences</p>
+    <p class="card-meta"><time datetime="2026-11-16">November 16, 2026</time> · 5 min</p>
+  </div>
+</a></div></section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>Ponos — MIT licence · © 2026 <a href="https://hermez.dev" target="_blank" rel="noopener">A Hermez product</a></div>
+    <nav aria-label="Elsewhere">
+      <a href="/blog/">Blog</a>
+      <a href="https://github.com/hermez-agency/ponos#readme">Documentation</a>
+      <a href="https://github.com/hermez-agency/ponos">Repository</a>
+      <a href="https://github.com/hermez-agency/ponos/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="/blog/feed.xml">Atom feed</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="/fr/" hreflang="fr" lang="fr">Français</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var dark = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('ponos-theme', dark ? 'dark' : 'light'); } catch (error) {}
+  });
+</script>
+</body>
