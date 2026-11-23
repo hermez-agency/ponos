@@ -323,8 +323,12 @@ export const api = {
   vault: () => answer(client.GET("/api/vault")),
   vaultHistory: (id: string) =>
     answer(client.GET("/api/vault/{entry_id}/history", { params: { path: { entry_id: id } } })),
-  /* The writes: a value goes in and never comes back. `confirm` is the
-   * password again, when the server asks for it (a 403 under `confirm`). */
+  /* The writes: a value goes in and never comes back. They need the vault
+   * unlocked for this browser — a 403 with `locked` when it is not. */
+  /** The console's password, typed once: the vault open for this browser while it is used. */
+  unlockVault: (password: string) => answer(client.POST("/api/vault/unlock", { body: { password } })),
+  /** The vault closed now: the next write asks for the password. */
+  lockVault: () => answer(client.POST("/api/vault/lock")),
   /** Ponos's browser: its profiles by project, and the browsers running now. */
   browser: () => answer(client.GET("/api/browser")),
   /** Forget everything a project's browser kept: every site signed out. */
@@ -343,11 +347,12 @@ export const api = {
         body: { x: 0, y: 0, text: "", key: "", url: "", ...action },
       })
     ),
-  createVaultEntry: (body: VaultNew) => answer(client.POST("/api/vault", { body })),
-  changeVaultEntry: (id: string, body: VaultChange) =>
-    answer(client.PUT("/api/vault/{entry_id}", { params: { path: { entry_id: id } }, body })),
-  revokeVaultEntry: (id: string, confirm: string) =>
-    answer(client.DELETE("/api/vault/{entry_id}", { params: { path: { entry_id: id } }, body: { confirm } })),
+  // `confirm` empty: the page unlocks the vault once, and never sends the password with a write.
+  createVaultEntry: (body: Omit<VaultNew, "confirm">) => answer(client.POST("/api/vault", { body: { ...body, confirm: "" } })),
+  changeVaultEntry: (id: string, body: Omit<VaultChange, "confirm">) =>
+    answer(client.PUT("/api/vault/{entry_id}", { params: { path: { entry_id: id } }, body: { ...body, confirm: "" } })),
+  revokeVaultEntry: (id: string) =>
+    answer(client.DELETE("/api/vault/{entry_id}", { params: { path: { entry_id: id } }, body: { confirm: "" } })),
   /** Write the prompt run at every change of the ticket's status; empty removes it. */
   setOn: (id: string, on: string) =>
     answer(client.POST("/api/tickets/{ticket_id}/on", { params: { path: { ticket_id: id } }, body: { on } })),

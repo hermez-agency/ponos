@@ -30,7 +30,7 @@ async function asAdmin(page: Page) {
 }
 
 /** A link drawn from the Accounts tab, for `role`. */
-async function draw(page: Page, role: "Reader" | "Member"): Promise<string> {
+async function draw(page: Page, role: "Reader" | "Member" | "Admin"): Promise<string> {
   await page.goto(ACCOUNTS)
   const card = page.locator('[data-card="invite"]')
   await card.locator('[data-slot="account-role"]').click()
@@ -163,4 +163,60 @@ test("a member validates a ticket in review, and the comment on it says who", as
   await expect(audit).toContainText("Léa")
   await expect(audit).toContainText("validated it")
   await member.context().close()
+})
+
+test("an admin unlocks the vault once, then keeps two keys without typing the password again", async ({ page, browser }) => {
+  await asAdmin(page)
+  // An account of its own: its browser's vault is its own, locked until its own password.
+  const admin = await join_(browser, await draw(page, "Admin"), "Iris", unique("iris"))
+  await admin.goto("/?view=console/context/read/context/vault")
+  const locked = admin.locator('[data-card="vault-locked"]')
+  await expect(locked).toContainText("The vault is locked")
+  await expect(admin.locator('[data-card="vault-new"]')).toHaveCount(0)
+  // The console's own token is not this account's password.
+  await locked.locator('[data-slot="vault-unlock-password"]').fill("e2e")
+  await locked.locator('[data-slot="vault-unlock"]').click()
+  await expect(locked).toContainText("Wrong password.")
+  // A wrong password makes the address wait a moment before the next attempt.
+  await expect(async () => {
+    await locked.locator('[data-slot="vault-unlock-password"]').fill("long enough for this")
+    await locked.locator('[data-slot="vault-unlock"]').click()
+    await expect(locked).toHaveCount(0, { timeout: 1000 })
+  }).toPass({ timeout: 10_000 })
+
+  const state = admin.locator('[data-slot="vault-state"]')
+  await expect(state).toContainText("Unlocked · locks again after 15 min without action")
+  const form = admin.locator('[data-card="vault-new"]')
+  for (const name of ["E2E_FIRST_KEY", "E2E_SECOND_KEY"]) {
+    await form.locator('[data-slot="vault-name"]').fill(name)
+    await form.locator('[data-slot="vault-value"]').fill(`${name.toLowerCase()}_value_0123`)
+    await expect(form.locator('input[type="password"]')).toHaveCount(1)
+    await form.locator('[data-slot="vault-create"]').click()
+    await expect(admin.locator(`[data-vault="${name}"]`)).toBeVisible()
+    await expect(form.locator('[data-slot="vault-value"]')).toHaveValue("")
+  }
+  await expect(admin.locator('[data-slot="vault-relock"]')).toHaveCount(0)
+  await expect(admin.locator('[data-slot="vault-unlock-password"]')).toHaveCount(0)
+
+  // Locked behind the page's back — as fifteen minutes without action would: the form keeps
+  // what was typed, the password is asked over it, and the entry is kept all the same.
+  expect((await admin.request.post("/api/vault/lock", { headers: { "X-Ponos": "1" } })).ok()).toBe(true)
+  await form.locator('[data-slot="vault-name"]').fill("E2E_THIRD_KEY")
+  await form.locator('[data-slot="vault-value"]').fill("e2e_third_key_value_0123")
+  await form.locator('[data-slot="vault-create"]').click()
+  const relock = admin.locator('[data-slot="vault-relock"]')
+  await expect(relock).toBeVisible()
+  await expect(form.locator('[data-slot="vault-value"]')).toHaveValue("e2e_third_key_value_0123")
+  await relock.locator('[data-slot="vault-unlock-password"]').fill("long enough for this")
+  await admin.getByRole("button", { name: /^Unlock/ }).click()
+  await expect(admin.locator('[data-vault="E2E_THIRD_KEY"]')).toBeVisible()
+  await expect(relock).toHaveCount(0)
+  await expect(form.locator('[data-slot="vault-value"]')).toHaveValue("")
+
+  // Lock closes it at once: the page is the lock again.
+  await state.locator('[data-slot="vault-lock"]').click()
+  await expect(admin.locator('[data-card="vault-locked"]')).toBeVisible()
+  await admin.reload()
+  await expect(admin.locator('[data-card="vault-locked"]')).toBeVisible()
+  await admin.context().close()
 })

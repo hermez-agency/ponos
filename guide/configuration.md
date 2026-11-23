@@ -581,9 +581,20 @@ change of the site is written in the entry's journal, with what it became.
 refusal, not in a log. The list shows the name, the projects, when it was created and
 changed, when a session was last given it and the end of the value (four characters,
 nothing under twelve). There is no *show*: a value is replaced, or revoked — for good,
-after a confirmation. Every write asks for the console's password again, unless it was
-typed less than five minutes ago (signing in counts); a console opened with its token
-alone takes the token.
+after a confirmation.
+
+**Locked until the password is typed.** The vault page opens on *The vault is locked*:
+the console's password, typed once, unlocks it — the token, on a console opened with it
+alone; each account of a shared console types its own. Signing in counts as unlocking.
+From then on no form of the vault asks for it again: the proof is kept by the server for
+this browser, never by the page, and every change made to the vault carries it further —
+it locks itself again after 15 minutes without one (`UNLOCKED_FOR` in `web/sessions.py`).
+*Lock* closes it at once, and so does being signed out (`--sign-out-everywhere`, a new
+password, an account deleted). A change sent once it has locked itself is not lost: the
+password is asked over the form, and the change goes on. Unlocking is counted as signing
+in is, against the same limit of attempts. `POST /api/vault/unlock` (`{"password": …}`)
+and `POST /api/vault/lock` do the same for a script, which may also send the password as
+`confirm` with a write.
 
 ```sh
 ponos vault set LEADZ_DOKPLOY_TOKEN --project Leadz   # asks for the value, without echo

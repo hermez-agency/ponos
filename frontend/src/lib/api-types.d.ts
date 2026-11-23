@@ -1195,6 +1195,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vault Unlock
+         * @description The password typed once, and the vault open for this browser — see `_unproven`.
+         */
+        post: operations["vault_unlock_api_vault_unlock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vault Lock
+         * @description The vault closed now, for this browser: the next write asks for the password.
+         */
+        post: operations["vault_lock_api_vault_lock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/{entry_id}/history": {
         parameters: {
             query?: never;
@@ -5946,8 +5986,10 @@ export interface components {
             entries: components["schemas"]["VaultEntry"][];
             key: components["schemas"]["VaultKey"];
             projects: string[];
-            /** @description Le mot de passe a été tapé il y a moins de cinq minutes : une écriture n'a pas à le redemander. */
+            /** @description Le coffre est déverrouillé pour ce navigateur : une écriture n'a pas à redemander le mot de passe. */
             proven: boolean;
+            /** @description Les secondes sans action après lesquelles il se reverrouille. */
+            relocks_after: number;
         };
         VaultChange: {
             value?: string | null;
@@ -5998,6 +6040,11 @@ export interface components {
             source: "" | "keyring" | "env" | "file";
             where: string;
         };
+        /** @description Le coffre de ce navigateur, déverrouillé ou non, après `/api/vault/unlock` ou `/lock`. */
+        VaultLock: {
+            proven: boolean;
+            relocks_after: number;
+        };
         VaultMoment: {
             /** @enum {string} */
             action: "created" | "replaced" | "projects" | "described" | "url" | "revoked" | "read" | "rotated" | "login" | "login-failed" | "login-second-factor" | "login-refused";
@@ -6042,6 +6089,13 @@ export interface components {
              * @default
              */
             confirm: string;
+        };
+        VaultUnlock: {
+            /**
+             * Format: password
+             * @default
+             */
+            password: string;
         };
         /** @description A ticket of the queue, and why it waits. */
         Waiting: {
@@ -8589,6 +8643,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vault_unlock_api_vault_unlock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VaultUnlock"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultLock"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vault_lock_api_vault_lock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultLock"];
                 };
             };
         };
