@@ -34,7 +34,7 @@ export const ticketWindow = recordWindow({
   useHead: function useTicketHead(id) {
     const ticket = useBoard().tickets.find((item) => item.id === id)
     return {
-      eyebrow: ticket ? `#${ticket.short}` : undefined,
+      eyebrow: ticket ? ticket.public_id || `#${ticket.short}` : undefined,
       title: ticket ? titleOf(ticket) : "",
       description: ticket ? <TicketGoal ticket={ticket} /> : undefined,
     }

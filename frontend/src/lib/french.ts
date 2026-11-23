@@ -688,6 +688,7 @@ export const FRENCH: Record<string, string> = {
   Copied: "Copié",
   "Copy impossible: select the text": "Copie impossible : sélectionnez le texte",
   "Copy the full id": "Copier l’id complet",
+  "Copy the id {{id}}": "Copier l’id {{id}}",
   "Open the full page": "Ouvrir en page complète",
   "{{count}} launches · {{name}}": "{{count}} lancements · {{name}}",
   "Last launch.": "Dernier lancement.",

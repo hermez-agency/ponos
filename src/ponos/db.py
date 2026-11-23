@@ -1347,6 +1347,27 @@ def _one_ticket_per_due_moment(connection: sqlite3.Connection) -> None:
     )
 
 
+def _tickets_have_a_public_id(connection: sqlite3.Connection) -> None:
+    # `PON-142` : le préfixe de chaque projet, le compteur de chaque préfixe
+    # (jamais réutilisé, même quand un ticket change de projet), et les tickets
+    # existants numérotés projet par projet dans l'ordre de leur création —
+    # voir public_ids.py.
+    from . import public_ids
+
+    connection.execute(
+        "CREATE TABLE ticket_prefixes (project TEXT PRIMARY KEY, prefix TEXT NOT NULL UNIQUE)"
+    )
+    connection.execute(
+        "CREATE TABLE ticket_counters (prefix TEXT PRIMARY KEY, last INTEGER NOT NULL DEFAULT 0)"
+    )
+    connection.execute("ALTER TABLE tickets ADD COLUMN prefix TEXT NOT NULL DEFAULT ''")
+    connection.execute("ALTER TABLE tickets ADD COLUMN number INTEGER NOT NULL DEFAULT 0")
+    public_ids.backfill(connection)
+    connection.execute(
+        "CREATE UNIQUE INDEX tickets_by_public_id ON tickets (prefix, number) WHERE number > 0"
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1414,6 +1435,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _network_retries,
     _tickets_have_a_validation,
     _runs_branch_off,
+    _tickets_have_a_public_id,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

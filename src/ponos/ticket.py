@@ -42,6 +42,21 @@ class Ticket:
     def url(self) -> str:
         return self.page.url
 
+    @property
+    def public_id(self) -> str:
+        """`PON-142`, the id said out loud — see public_ids.py; empty for a page that has none."""
+        return str(self.page.raw.get("public_id") or "")
+
+    @property
+    def address(self) -> str:
+        """What a prompt says of where the ticket is: its page, and the id to name it by."""
+        if not self.public_id:
+            return self.url
+        return (
+            f"{self.url}\n- Public id: {self.public_id} — name the ticket by it in your "
+            "messages, not by its long id"
+        )
+
 
 @dataclass
 class Job:
@@ -118,6 +133,12 @@ class Job:
     # loosely so that this module still depends on nothing.
     adoptable: bool = False
     adopted: object = None
+
+
+def named(ticket: Ticket) -> str:
+    """The title, then the id said out loud: what a notification calls the ticket."""
+    public = str(ticket.page.raw.get("public_id") or "")
+    return f"{ticket.title} ({public})" if public else ticket.title
 
 
 def short_id(page_id: str) -> str:

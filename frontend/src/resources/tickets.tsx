@@ -42,6 +42,7 @@ import {
   when,
 } from "@/components/console/ticket-bits"
 import { IdeasButton } from "@/components/console/ideas-deck"
+import { TicketId } from "@/components/console/ticket-id"
 import {
   EDITOR_SETTLES,
   GoalInputController,
@@ -529,15 +530,19 @@ const PriorityCell: InputControllerComponentInterface = ({ formInput }) =>
 /* The title, in the table, as the way into the ticket — the window over the
  * list, as a card's title is. */
 const TitleCell: InputControllerComponentInterface = ({ formInput }) => {
-  const id = String((useFormContext().form.originalData as TicketItem | undefined)?.id ?? "")
+  const original = useFormContext().form.originalData as TicketItem | undefined
+  const id = String(original?.id ?? "")
   const title = String(formInput.value ?? "")
   const words = useSearchWords()
   const open = useOpensOverTheList(tickets, "read", id)
   if (!id) return <>{title}</>
   return (
-    <Link to={ticketHref(id)} onClick={open} className="font-medium hover:underline">
-      <Marked text={title} words={words} />
-    </Link>
+    <>
+      <Link to={ticketHref(id)} onClick={open} className="font-medium hover:underline">
+        <Marked text={title} words={words} />
+      </Link>{" "}
+      <TicketId id={original?.public_id} />
+    </>
   )
 }
 
@@ -664,19 +669,22 @@ const TicketCardBody = React.memo(function TicketCardBody({
       ) : null}
       {/* Given up on: still read, struck through, the way a list crosses out
           what it no longer means to do. */}
-      <Link
-        to={href}
-        onClick={open}
-        // Picked up, the title carries the card, not its address.
-        draggable={false}
-        className={cn(
-          "text-[0.93rem] leading-snug font-semibold break-words hover:underline",
-          selecting && "pe-6",
-          ticket.column === "cancelled" && "text-muted-foreground line-through"
-        )}
-      >
-        <Marked text={ticket.title} words={words} />
-      </Link>
+      <div className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-0.5", selecting && "pe-6")}>
+        <Link
+          to={href}
+          onClick={open}
+          // Picked up, the title carries the card, not its address.
+          draggable={false}
+          className={cn(
+            "min-w-0 text-[0.93rem] leading-snug font-semibold break-words hover:underline",
+            ticket.column === "cancelled" && "text-muted-foreground line-through"
+          )}
+        >
+          <Marked text={ticket.title} words={words} />
+        </Link>
+        {/* Right after the title, and copied by a click. */}
+        <TicketId id={ticket.public_id} />
+      </div>
 
       <TicketTags ticket={ticket} />
       <TicketSync ticket={ticket} />
@@ -1483,6 +1491,7 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
   const card: Ticket = {
     id: `pending${++provisionals}`,
     short: "",
+    public_id: "",
     title,
     url: "",
     status: column === "draft" ? drafts?.name ?? "" : "",
@@ -1544,11 +1553,6 @@ export async function createTicket(fresh: TicketWrite): Promise<TicketItem> {
  * is the page's, so it is neither a column nor a choice, and the table says
  * what a ticket is and when it moved rather than who runs it. */
 
-/** The id, as a card writes it. */
-const IdCell: InputControllerComponentInterface = ({ formInput }) => (
-  <span className="text-muted-foreground font-mono text-xs">#{String(formInput.value ?? "")}</span>
-)
-
 /** When a ticket last changed, in the words a cell has room for, as of the moment it is drawn. */
 const AgoCell: InputControllerComponentInterface = ({ formInput }) => <>{ago(String(formInput.value ?? ""))}</>
 
@@ -1556,7 +1560,7 @@ const shared = rowForm.inputs ?? {}
 
 const projectRowForm: FormInterface = {
   inputs: {
-    short: { label: "Id", readonly: true, controller: IdCell },
+    // The id is said right after the title, in its cell.
     title: shared.title,
     status: shared.status,
     priority: shared.priority,

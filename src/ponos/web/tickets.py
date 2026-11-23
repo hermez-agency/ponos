@@ -522,6 +522,8 @@ class Tickets(Base):
         return {
             "id": page.id.replace("-", ""),
             "short": short_id(page.id),
+            # `PON-142`: empty for a page that is not a ticket of `ponos.db`.
+            "public_id": str(page.raw.get("public_id") or ""),
             # Empty when the board has none: "(untitled ticket)" is the console's to
             # say, in the language it is read in.
             "title": page.title,

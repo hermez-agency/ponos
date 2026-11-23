@@ -357,7 +357,7 @@ class Transitions(Base):
             title=ticket.title,
             body=self._body(ticket),
             where=where,
-            url=ticket.url,
+            url=ticket.address,
             message=self._describe(ticket, row, prompt, project.name),
             brief=project.brief,
             context=self.workspace.context,
@@ -449,6 +449,7 @@ class Transitions(Base):
             f"- Old status: {row['old']}",
             f"- New status: {row['new']}",
             f"- Ticket: {ticket.title} ({ticket.url})",
+            *([f"- Public id: {ticket.public_id}"] if ticket.public_id else []),
             f"- Project: {project or '(none)'}",
         ]
         pull = store.read(page, settings.prop("pull_request"))

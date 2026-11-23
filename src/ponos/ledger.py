@@ -275,6 +275,8 @@ class Ledger:
             "url": url,
             "created_time": record.created_at,
             "last_edited_time": record.edited_at,
+            # The id said out loud — `PON-142` — see public_ids.py.
+            "public_id": record.public_id,
             "properties": properties,
             # Not a property of the board: what the card shows of the result.
             "result": record.result,

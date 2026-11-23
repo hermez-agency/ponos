@@ -34,7 +34,7 @@ export const GoalTicketsInputController: InputControllerComponentInterface = ({ 
   const { shown, more } = ticketsFor(tickets, { search, projects, every, chosen })
   const named = (id: string) => {
     const ticket = tickets.find((one) => one.id === id)
-    return ticket ? `#${ticket.short} ${titleOf(ticket)}` : id
+    return ticket ? `${titleOf(ticket)} ${ticket.public_id || `#${ticket.short}`}` : id
   }
   const write = (value: string[]) => onChange({ ...formInput, value })
   const ready = useFrench(words)
@@ -99,7 +99,7 @@ export const GoalTicketsInputController: InputControllerComponentInterface = ({ 
               <CommandGroup>
                 {shown.map((ticket) => (
                   <CommandItem key={ticket.id} value={ticket.id} onSelect={() => write([...chosen, ticket.id])}>
-                    <span className="min-w-0 flex-1 truncate">{`#${ticket.short} ${titleOf(ticket)}`}</span>
+                    <span className="min-w-0 flex-1 truncate">{`${titleOf(ticket)} ${ticket.public_id || `#${ticket.short}`}`}</span>
                     {ticket.project ? (
                       <span className="text-muted-foreground max-w-[40%] shrink-0 truncate text-xs">{ticket.project}</span>
                     ) : null}

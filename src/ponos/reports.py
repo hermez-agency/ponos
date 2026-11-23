@@ -55,7 +55,7 @@ from . import question as question_module
 from . import voice as voice_module
 from .base import Base
 from .channels import capture
-from .ticket import Job, Ticket
+from .ticket import Job, Ticket, named
 
 T = TypeVar("T")
 
@@ -438,8 +438,8 @@ class Reports(Base):
         everywhere, so that the post or the report is read where it is told.
         """
         said = self.voice
-        headline = said.headline(verdict, ticket.title)
-        title, text = said.desktop(verdict, ticket.title, project=project, summary=summary or body)
+        headline = said.headline(verdict, named(ticket))
+        title, text = said.desktop(verdict, named(ticket), project=project, summary=summary or body)
         opening = results.excerpt(result)
         if opening:
             text = f"{text}\n\n{opening}"
@@ -450,7 +450,7 @@ class Reports(Base):
             # bell rung anew is pushed to the phones subscribed to it, in the
             # desktop's words: plain text, for a lock screen.
             bell = notifications.kind_of(verdict, code)
-            if bell and notifications.add(bell, ticket.id, ticket.title):
+            if bell and notifications.add(bell, ticket.id, named(ticket)):
                 push.ring(bell, ticket.id, title, text, contact=self.config.web.email)
         self._notify(
             title,
@@ -467,7 +467,7 @@ class Reports(Base):
             settings,
             f"{voice_module.MARKS[verdict]} {headline}\n{body}\n{ticket.url}",
             ticket=ticket.page.id,
-            title=ticket.title,
+            title=named(ticket),
             ask=ask,
         )
 
@@ -592,6 +592,9 @@ class Reports(Base):
         except store.StoreError as error:
             channel.acknowledge(reply, said.say("ticket-refused", error=error))
             return
+        public = tickets.get(page_id)
+        if public and public.public_id:
+            title = f"{title} ({public.public_id})"
         self.say(f"  + {title} — written from {channel.name}")
         channel.acknowledge(
             reply,

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from . import db, projectless
+from . import db, projectless, public_ids
 from .config import STATUS
 
 STATUSES = tuple(STATUS.values())
@@ -89,9 +89,17 @@ class Record:
     twin: str = ""
     # "" inherits the project's or the file's Force validated, "forced" and "free" overrule them.
     validation: str = ""
+    # The id said out loud — `PON-142` — see public_ids.py. Written once, with
+    # the ticket; 0 only for a record built by hand, never for one read back.
+    prefix: str = ""
+    number: int = 0
     created_at: str = ""
     edited_at: str = ""
     after: list[str] = field(default_factory=list)
+
+    @property
+    def public_id(self) -> str:
+        return f"{self.prefix}-{self.number}" if self.number else ""
 
 
 @dataclass
@@ -162,9 +170,12 @@ def create(title: str, *, id: str = "", after: list[str] | None = None, **values
     for flag in _FLAGS:
         if flag in row:
             row[flag] = int(bool(row[flag]))
-    columns = ", ".join(row)
-    marks = ", ".join("?" for _ in row)
     with db.transaction() as connection:
+        # The number is taken in the transaction that writes the ticket: the
+        # write lock is what makes two simultaneous creations draw two numbers.
+        row["prefix"], row["number"] = public_ids.take(connection, row["project"])
+        columns = ", ".join(row)
+        marks = ", ".join("?" for _ in row)
         try:
             connection.execute(
                 f"INSERT INTO tickets ({columns}) VALUES ({marks})", tuple(row.values())
@@ -194,6 +205,34 @@ def get(ticket: str) -> Record | None:
     with db.transaction(immediate=False) as connection:
         row = connection.execute("SELECT * FROM tickets WHERE id = ?", (_key(ticket),)).fetchone()
         return _record(connection, row) if row else None
+
+
+def resolve(reference: str) -> Record | None:
+    """The one ticket a reference names, in any of its forms — or None.
+
+    The public id (`PON-142`, whatever its case), the id of thirty-two
+    characters with or without dashes, the eight last characters that used to be
+    the short id, and a ticket's URL ending with any of them.
+    """
+    text = reference.strip().rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0].strip()
+    if not text:
+        return None
+    if (public := public_ids.parse(text)) is not None:
+        with db.transaction(immediate=False) as connection:
+            row = connection.execute(
+                "SELECT * FROM tickets WHERE prefix = ? AND number = ?", public
+            ).fetchone()
+            return _record(connection, row) if row else None
+    bare = _key(text).lower()
+    if len(bare) == 32:
+        return get(bare)
+    if len(bare) >= 8 and all(char in "0123456789abcdef" for char in bare):
+        with db.transaction(immediate=False) as connection:
+            rows = connection.execute(
+                "SELECT * FROM tickets WHERE id LIKE ?", (f"%{bare}",)
+            ).fetchall()
+            return _record(connection, rows[0]) if len(rows) == 1 else None
+    return None
 
 
 def of_page(page: str) -> Record | None:

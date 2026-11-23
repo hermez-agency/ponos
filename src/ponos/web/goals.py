@@ -127,6 +127,7 @@ class Goals(Base):
                     {
                         "id": ticket["id"].replace("-", ""),
                         "short": ticket.get("short", ""),
+                        "public_id": ticket.get("public_id", ""),
                         "title": ticket.get("title", ""),
                         "column": ticket["column"],
                     }
@@ -285,6 +286,7 @@ class Goals(Base):
                 {
                     "id": bare,
                     "short": short_id(page.id),
+                    "public_id": str(page.raw.get("public_id") or ""),
                     "title": page.title,
                     "column": names.get(status, "draft"),
                     "goal_id": goals_module.pointed(page, settings.prop("goal")).replace("-", ""),

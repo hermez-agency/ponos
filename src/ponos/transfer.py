@@ -56,7 +56,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from . import __version__, db, disk, schema, vault
+from . import __version__, db, disk, projectless, public_ids, schema, vault
 from . import config as config_module
 
 # What `manifest.json` says it is, and the format it is written in. A format is
@@ -610,7 +610,21 @@ def _import_tickets(connection: sqlite3.Connection, data: dict[str, Any], done: 
             continue
         status = str(row.get("status") or "draft")
         held = HELD.get(status, status)
-        _insert(connection, "tickets", {**row, "status": held, "progress": "", "waiting": 0})
+        # Numbered here, whatever the archive says: its `PON-12` may be this
+        # board's `PON-12` already — see public_ids.py.
+        prefix, number = public_ids.take(connection, str(row.get("project") or projectless.ID))
+        _insert(
+            connection,
+            "tickets",
+            {
+                **row,
+                "status": held,
+                "progress": "",
+                "waiting": 0,
+                "prefix": prefix,
+                "number": number,
+            },
+        )
         # The « On » starts from the status the ticket arrives in: the import
         # is not a change of status — see transitions.py.
         connection.execute(

@@ -520,6 +520,33 @@ def a_ticket_the_board_does_not_have_is_a_404_not_the_boards_failure() -> None:
 
 
 @case
+def a_ticket_is_asked_for_by_its_public_id_in_any_case_and_answers_with_it() -> None:
+    """`/api/tickets/pon-142`, as well as the long id and the eight last characters."""
+    from support import _board, _local_api, _Nudged
+
+    from ponos import tickets
+    from ponos.web import board as web_board
+
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        key = {"Authorization": "Bearer tok"}
+        made = tickets.create("Là", project=board.create_row("projects", "Ponos"))
+        # The board of a case may share its `ponos.db` with the others': no number is assumed.
+        assert made.public_id.endswith("-1") or made.public_id.split("-")[1].isdigit()
+        with _console(api) as console:
+            for reference in (made.public_id, made.public_id.lower(), made.id, made.id[-8:]):
+                status, _, said = _talk_to(console, "GET", f"/api/tickets/{reference}", **key)
+                assert status == 200, (reference, status, said)
+                assert said["id"] == made.id and said["public_id"] == made.public_id, said
+            status, _, said = _talk_to(console, "GET", "/api/tickets/ZZZ-9999", **key)
+            assert status == 404, (status, said)
+
+
+@case
 def an_address_the_console_does_not_have_is_a_page_for_a_browser() -> None:
     """`/objectifs` typed in the bar: the console's page, saying so — not raw JSON.
 

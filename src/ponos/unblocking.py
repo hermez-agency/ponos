@@ -144,7 +144,7 @@ class Unblocking(Base):
         status = self.config.board.prop("status")
         pages = self.client.query(self.database)
         lines = [
-            f"- [{store.read(page, status) or '?'}] {Ticket(page).title} ({short_id(Ticket(page).id)})"
+            f"- [{store.read(page, status) or '?'}] {Ticket(page).title} ({Ticket(page).public_id or short_id(Ticket(page).id)})"
             for page in pages[:OVERVIEW]
         ]
         more = f"\n(and {len(pages) - OVERVIEW} more)" if len(pages) > OVERVIEW else ""
@@ -170,7 +170,7 @@ class Unblocking(Base):
             title=ticket.title,
             body=self._body(ticket),
             where=where,
-            url=ticket.url,
+            url=ticket.address,
             message=board,
             brief=project.brief,
             context=self.workspace.context,

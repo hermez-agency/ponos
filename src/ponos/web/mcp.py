@@ -59,6 +59,7 @@ from .. import (
     log,
     memory,
     projectless,
+    public_ids,
     state,
     store,
 )
@@ -168,8 +169,9 @@ def _schema(
 
 TASK_REFERENCE = {
     "type": "string",
-    "description": "L'identifiant de la tâche : le long (32 caractères hexadécimaux) ou le court "
-    "(8 caractères) que renvoient list_tasks et get_task.",
+    "description": "L'identifiant de la tâche : le public (PON-142, sans tenir compte de la casse), "
+    "le long (32 caractères hexadécimaux) ou le court (8 caractères) que renvoient list_tasks et "
+    "get_task. Dans tes messages, désigne une tâche par son identifiant public.",
 }
 
 PROJECT_FILTER = {
@@ -1132,6 +1134,7 @@ def _task(card: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": card["id"],
         "short": card["short"],
+        "public_id": card.get("public_id", ""),
         "title": card["title"] or "(sans titre)",
         "project": card["project"],
         "goal": card.get("goal") or "",
@@ -1162,7 +1165,15 @@ def _goal(api: Api, reference: str) -> dict[str, Any]:
 
 
 def _card(api: Api, reference: str) -> dict[str, Any]:
-    """The board's card for a task, found by its long or its short id."""
+    """The board's card for a task, found by its public, long or short id."""
+    if (public := public_ids.parse(reference)) is not None:
+        said = f"{public[0]}-{public[1]}"
+        named: list[dict[str, Any]] = [
+            card for card in api.board()["tickets"] if card.get("public_id") == said
+        ]
+        if not named:
+            raise ToolError(f"Aucune tâche « {reference} ».")
+        return named[0]
     wanted = re.sub(r"[^0-9a-f]", "", ids.bare(reference).lower())
     if not wanted:
         raise ToolError("Donner l'identifiant d'une tâche, tel que list_tasks le renvoie.")

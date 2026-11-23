@@ -27,6 +27,7 @@ export function says(texts: string[], words: string[]): boolean {
 /** The little the palette reads of a ticket: `Ticket` has it, and so does a test. */
 export interface Findable {
   short: string
+  public_id?: string
   title: string
   column: string
   project: string
@@ -37,7 +38,7 @@ const folded = new WeakMap<Findable, string>()
 function said(ticket: Findable): string {
   let text = folded.get(ticket)
   if (text === undefined) {
-    text = fold(`${ticket.title} ${ticket.project}`)
+    text = fold(`${ticket.title} ${ticket.project} ${ticket.public_id ?? ""}`)
     folded.set(ticket, text)
   }
   return text

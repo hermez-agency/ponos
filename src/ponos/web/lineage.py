@@ -178,6 +178,7 @@ def of(
             {
                 "id": ids.bare(ticket["id"]),
                 "short": str(ticket.get("short") or ""),
+                "public_id": str(ticket.get("public_id") or ""),
                 "title": str(ticket.get("title") or ""),
                 "url": str(ticket.get("url") or ""),
                 "status": str(ticket.get("status") or ""),

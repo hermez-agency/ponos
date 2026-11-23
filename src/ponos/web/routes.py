@@ -63,6 +63,7 @@ from .. import (
     voice,
 )
 from .. import config as config_module
+from .. import tickets as tickets_module
 from .. import triggers as triggers_module
 from . import accounts, agui, answers, creation, github, mcp_setup, sessions, setup
 from . import attempts as attempts_module
@@ -110,6 +111,24 @@ class _Pattern(Convertor[str]):
 # A page, with or without its dashes; a file of the conversation; a
 # picture's slot; a log file's name.
 register_url_convertor("page", _Pattern(r"[0-9a-fA-F-]{32,36}"))
+
+
+class _TicketReference(_Pattern):
+    """A ticket as a person names it: `PON-142` in any case, the eight last characters, or its id.
+
+    Handed over as the id of thirty-two characters, so that every route below
+    works with the id and none of them has to know the other forms. A reference
+    no ticket answers to is left as it was, and the route says it is not there.
+    """
+
+    def convert(self, value: str) -> str:
+        found = tickets_module.resolve(value)
+        return found.id if found else value
+
+
+register_url_convertor(
+    "ticket", _TicketReference(r"[0-9a-fA-F-]{32,36}|[A-Za-z][A-Za-z0-9]*-[0-9]+|[0-9a-fA-F]{8}")
+)
 register_url_convertor("attachment", _Pattern(r"[0-9a-f]{12}"))
 register_url_convertor("slot", _Pattern(r"\w+"))
 register_url_convertor("log", _Pattern(r"[\w.\-]+"))
@@ -433,7 +452,7 @@ def account_list(request: Request) -> Response:
     )
 
 
-@router.get("/api/tickets/{ticket_id:page}/audit", response_model=answers.Audit)
+@router.get("/api/tickets/{ticket_id:ticket}/audit", response_model=answers.Audit)
 def ticket_audit(ticket_id: str) -> Response:
     return answer({"entries": accounts.journal(ticket_id)})
 
@@ -734,12 +753,12 @@ def estimate(
     return answer(_api(request).estimate(project, type, subtype, model))
 
 
-@router.get("/api/tickets/{ticket_id:page}", response_model=answers.TicketDetail)
+@router.get("/api/tickets/{ticket_id:ticket}", response_model=answers.TicketDetail)
 def ticket(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).ticket(ticket_id))
 
 
-@router.get("/api/tickets/{ticket_id:page}/previews/{name:log}", response_class=Response)
+@router.get("/api/tickets/{ticket_id:ticket}/previews/{name:log}", response_class=Response)
 def ticket_preview(ticket_id: str, name: str) -> Response:
     data = preview.read(ticket_id, name)
     if data is None:
@@ -754,12 +773,12 @@ def ticket_preview(ticket_id: str, name: str) -> Response:
     )
 
 
-@router.get("/api/tickets/{ticket_id:page}/talk", response_model=answers.Talk)
+@router.get("/api/tickets/{ticket_id:ticket}/talk", response_model=answers.Talk)
 def ticket_talk(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).talk(ticket_id))
 
 
-@router.get("/api/tickets/{ticket_id:page}/decision", response_model=answers.Decision)
+@router.get("/api/tickets/{ticket_id:ticket}/decision", response_model=answers.Decision)
 def ticket_decision(request: Request, ticket_id: str) -> Response:
     try:
         return answer(_api(request).decision(ticket_id))
@@ -767,12 +786,12 @@ def ticket_decision(request: Request, ticket_id: str) -> Response:
         return fail(409, str(error))
 
 
-@router.get("/api/tickets/{ticket_id:page}/runs", response_model=answers.Runs)
+@router.get("/api/tickets/{ticket_id:ticket}/runs", response_model=answers.Runs)
 def ticket_runs(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).runs(ticket_id))
 
 
-@router.get("/api/tickets/{ticket_id:page}/transitions", response_model=answers.Transitions)
+@router.get("/api/tickets/{ticket_id:ticket}/transitions", response_model=answers.Transitions)
 def ticket_transitions(request: Request, ticket_id: str) -> Response:
     return answer(_api(request).transitions(ticket_id))
 
@@ -1363,7 +1382,7 @@ def create_ticket(
     return answer(created)
 
 
-@router.post("/api/tickets/{ticket_id:page}/scheduled", response_model=answers.TicketScheduled)
+@router.post("/api/tickets/{ticket_id:ticket}/scheduled", response_model=answers.TicketScheduled)
 def set_ticket_scheduled(
     request: Request, ticket_id: str, payload: Scheduled = Body(default_factory=Scheduled)
 ) -> Response:
@@ -1373,7 +1392,7 @@ def set_ticket_scheduled(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/on", response_model=answers.TicketOn)
+@router.post("/api/tickets/{ticket_id:ticket}/on", response_model=answers.TicketOn)
 def set_ticket_on(
     request: Request, ticket_id: str, payload: On = Body(default_factory=On)
 ) -> Response:
@@ -1382,7 +1401,7 @@ def set_ticket_on(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/result", response_model=answers.TicketResult)
+@router.post("/api/tickets/{ticket_id:ticket}/result", response_model=answers.TicketResult)
 def set_ticket_result(
     request: Request, ticket_id: str, payload: Text = Body(default_factory=Text)
 ) -> Response:
@@ -1393,7 +1412,7 @@ def set_ticket_result(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/revise", response_model=answers.Decided)
+@router.post("/api/tickets/{ticket_id:ticket}/revise", response_model=answers.Decided)
 def revise_ticket(
     request: Request, ticket_id: str, payload: Text = Body(default_factory=Text)
 ) -> Response:
@@ -1403,7 +1422,7 @@ def revise_ticket(
     return answer(revised)
 
 
-@router.post("/api/tickets/{ticket_id:page}/priority", response_model=answers.TicketPriority)
+@router.post("/api/tickets/{ticket_id:ticket}/priority", response_model=answers.TicketPriority)
 def set_ticket_priority(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
@@ -1412,7 +1431,7 @@ def set_ticket_priority(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/model", response_model=answers.TicketModel)
+@router.post("/api/tickets/{ticket_id:ticket}/model", response_model=answers.TicketModel)
 def set_ticket_model(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
@@ -1422,7 +1441,7 @@ def set_ticket_model(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/validation", response_model=answers.TicketValidation)
+@router.post("/api/tickets/{ticket_id:ticket}/validation", response_model=answers.TicketValidation)
 def set_ticket_validation(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
@@ -1432,7 +1451,7 @@ def set_ticket_validation(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/goal", response_model=answers.TicketGoal)
+@router.post("/api/tickets/{ticket_id:ticket}/goal", response_model=answers.TicketGoal)
 def set_ticket_goal(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
@@ -1441,7 +1460,7 @@ def set_ticket_goal(
     return answer(done)
 
 
-@router.post("/api/tickets/{ticket_id:page}/project", response_model=answers.TicketProject)
+@router.post("/api/tickets/{ticket_id:ticket}/project", response_model=answers.TicketProject)
 def set_ticket_project(
     request: Request, ticket_id: str, payload: Fields = Body(default_factory=dict)
 ) -> Response:
@@ -1456,7 +1475,7 @@ class Launch(Payload):
     force: bool = False
 
 
-@router.post("/api/tickets/{ticket_id:page}/launch", response_model=answers.Launched)
+@router.post("/api/tickets/{ticket_id:ticket}/launch", response_model=answers.Launched)
 def launch_ticket(
     request: Request, ticket_id: str, payload: Launch = Body(default_factory=Launch)
 ) -> Response:
@@ -1466,7 +1485,7 @@ def launch_ticket(
     return answer(launched)
 
 
-@router.post("/api/tickets/{ticket_id:page}/status", response_model=answers.Moved)
+@router.post("/api/tickets/{ticket_id:ticket}/status", response_model=answers.Moved)
 def set_ticket_status(
     request: Request, ticket_id: str, payload: Move = Body(default_factory=Move)
 ) -> Response:
@@ -1475,7 +1494,7 @@ def set_ticket_status(
     return answer(moved)
 
 
-@router.post("/api/tickets/{ticket_id:page}/talk", response_model=answers.Message)
+@router.post("/api/tickets/{ticket_id:ticket}/talk", response_model=answers.Message)
 def tell_ticket(
     request: Request, ticket_id: str, payload: Spoken = Body(default_factory=Spoken)
 ) -> Response:
@@ -1484,7 +1503,7 @@ def tell_ticket(
     return answer(told)
 
 
-@router.post("/api/tickets/{ticket_id:page}/decision", response_model=answers.Decided)
+@router.post("/api/tickets/{ticket_id:ticket}/decision", response_model=answers.Decided)
 def decide_ticket(
     request: Request, ticket_id: str, payload: Chosen = Body(default_factory=Chosen)
 ) -> Response:

@@ -77,6 +77,13 @@ test("a ticket is found by its id, its branch or its address, and only that one"
   assert.equal(keeps(ticket({ id: "0".repeat(32) }), { text: address }), false)
 })
 
+test("a ticket is found by its public id, whatever the case, and no other", () => {
+  const numbered = ticket({ public_id: "PON-142" })
+  assert.equal(keeps(numbered, { text: "pon-142" }), true)
+  assert.equal(keeps(numbered, { text: "PON-142" }), true)
+  assert.equal(keeps(ticket({ public_id: "BA-142", project: "Brand" }), { text: "pon-142" }), false)
+})
+
 test("the filters combine: every one of them must hold, with the words", () => {
   const one = ticket({ type: "Rédaction", column: "review", priority: 100, pull_request: "https://x/pull/3" })
   assert.equal(keeps(one, { type: ["writing"] }), true, "the key finds the board's own spelling")

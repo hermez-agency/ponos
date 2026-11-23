@@ -1568,6 +1568,7 @@ def no_two_routes_of_the_console_answer_one_path() -> None:
 
     examples = {
         "[0-9a-fA-F-]{32,36}": "3eaf7e7b99c04adeae76ac6ecd52cdd0",
+        "[0-9a-fA-F-]{32,36}|[A-Za-z][A-Za-z0-9]*-[0-9]+|[0-9a-fA-F]{8}": "PON-142",
         "[0-9a-f]{12}": "0123456789ab",
         "[0-9]+": "42",
         r"\w+": "icon",

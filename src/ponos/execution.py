@@ -289,7 +289,7 @@ class Execution(Base):
                 repo=str(job.project.path or job.workdir),
                 branch=job.branch,
                 base=job.base,
-                url=job.ticket.url,
+                url=job.ticket.address,
                 brief=job.project.brief,
                 notes=notes.kept(job.project.page_id),
                 memories=memory.for_prompt(job.project.page_id),

@@ -28,6 +28,7 @@ import {
 } from "react-resource-view"
 
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
+import { TicketId } from "@/components/console/ticket-id"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -467,10 +468,10 @@ function GoalTicketRow({ ticket }: { ticket: NonNullable<Goal["linked"]>[number]
       data-goal-ticket={ticket.id}
       className="flex min-w-0 items-baseline gap-2 border-b px-3 py-2 text-sm last:border-b-0"
     >
-      {ticket.short ? <span className="text-muted-foreground shrink-0 font-mono text-xs">#{ticket.short}</span> : null}
       <Link to={ticketHref(ticket.id)} onClick={open} className="truncate hover:underline" title={ticket.title}>
         {ticket.title}
       </Link>
+      <TicketId id={ticket.public_id} className="shrink-0" />
     </li>
   )
 }

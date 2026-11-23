@@ -369,12 +369,12 @@ export function CommandPalette() {
               {found.map((ticket) => (
                 <CommandItem
                   key={ticket.id}
-                  value={`${titleOf(ticket)} ${ticket.short} ${ticket.id}`}
+                  value={`${titleOf(ticket)} ${ticket.public_id} ${ticket.short} ${ticket.id}`}
                   onSelect={() => go(ticketHref(ticket.id))}
                 >
                   <LayoutGrid />
                   <span className="truncate">{titleOf(ticket)}</span>
-                  <CommandShortcut className="tracking-normal">#{ticket.short}</CommandShortcut>
+                  <CommandShortcut className="tracking-normal">{ticket.public_id || `#${ticket.short}`}</CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>
