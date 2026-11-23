@@ -182,6 +182,18 @@ export function ProjectSettingsTab({ project }: { project: string }) {
     }
   }
 
+  const savePrefix = async (value: string) => {
+    setSaving(true)
+    try {
+      setSettings(await api.saveProjectSettings(project, { prefix: { value } }))
+      setProblem("")
+    } catch (error) {
+      setProblem(why(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const saveSetup = async (command: string) => {
     setSaving(true)
     try {
@@ -286,6 +298,7 @@ export function ProjectSettingsTab({ project }: { project: string }) {
           />
         </CardContent>
       </Card>
+      <PrefixCard key={`prefix:${settings.prefix.value}`} prefix={settings.prefix} saving={saving} onSave={savePrefix} />
       <PlanCard key={JSON.stringify(settings.plan)} plan={settings.plan} saving={saving} onSave={savePlan} />
       <NotesCard project={project} />
       {/* Prefixed: an empty path would otherwise share the key "" with an
@@ -643,6 +656,69 @@ function VaultCard({
           <Button type="submit" variant="outline" className="mt-2.5" disabled={!changed || saving}>
             {t("Save")}
           </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* The prefix of the project's public ids: `PON` for `PON-142`. The tickets already
+ * numbered keep theirs; the next ones take the new prefix. « Sans projet » has one
+ * for everybody, which is shown and not changed. */
+export function PrefixCard({
+  prefix,
+  saving,
+  onSave,
+}: {
+  prefix: ProjectSettings["prefix"]
+  saving: boolean
+  onSave: (value: string) => Promise<void>
+}) {
+  const t = useT()
+  const [value, setValue] = React.useState(prefix.value)
+  const changed = value.trim().toUpperCase() !== prefix.value
+  return (
+    <Card data-card="project-prefix" className="gap-0 py-0">
+      <CardHeader className="gap-1 px-5 pt-5 pb-2 sm:px-6">
+        <CardTitle className="text-base">{t("Ticket id prefix")}</CardTitle>
+        <CardDescription className="text-[13px] leading-relaxed">
+          {t(
+            "The public id of a ticket is this prefix and a number that follows, like PON-142. The tickets already numbered keep their ids; the next ones take the new prefix."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 sm:px-6">
+        <form
+          className="py-2"
+          data-field="project-prefix-value"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (changed && !prefix.fixed) void onSave(value.trim().toUpperCase())
+          }}
+        >
+          <Label htmlFor="project-prefix-value" className="leading-snug font-semibold">
+            {t("Prefix")}
+          </Label>
+          <p className="text-muted-foreground mt-1 text-[13px] leading-snug">
+            {prefix.fixed
+              ? t("The tickets without a project share one prefix, which is not changed.")
+              : t("Two to six capitals or digits, a letter first, and not another project's.")}
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <Input
+              id="project-prefix-value"
+              className="max-w-40 font-mono text-[13px] uppercase"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={6}
+              readOnly={prefix.fixed}
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+            />
+            <Button type="submit" variant="outline" disabled={!changed || saving || prefix.fixed}>
+              {t("Save")}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

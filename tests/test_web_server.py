@@ -576,6 +576,16 @@ def an_address_the_console_does_not_have_is_a_page_for_a_browser() -> None:
         assert (status, headers["Location"]) == (303, f"/?view=console/tickets/read/{ticket}")
         status, _, _ = _talk_to(console, "GET", "/tickets/not-an-id!", **browser)
         assert status == 404, status
+        # The public id, in any case, leads to the ticket's own id.
+        from ponos import tickets
+
+        made = tickets.create("Là")
+        for typed in (made.public_id, made.public_id.lower()):
+            status, headers, _ = _talk_to(console, "GET", f"/tickets/{typed}", **browser)
+            assert (status, headers["Location"]) == (
+                303,
+                f"/?view=console/tickets/read/{made.id}",
+            ), (typed, status)
         status, _, said = _talk_to(console, "GET", "/api/inconnu", **browser)
         assert (status, said) == (404, {"error": "no such route: /api/inconnu"})
         status, _, said = _talk_to(console, "GET", "/nowhere", **key)

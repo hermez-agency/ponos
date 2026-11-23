@@ -19,7 +19,7 @@ console draws one (the card, the page, the lists, the palette), and a click on i
 - **A ticket that changes project keeps its id.** The counter belongs to the prefix, so the
   project it joins never gives out a number that was already given — nor does a prefix that was
   changed and taken back.
-- **The prefix is a setting of the project** (`prefix`, in the project's settings of the API).
+- **The prefix is a setting of the project** (the « Ticket id prefix » card of its settings tab, and `prefix` in the API).
   Unless chosen — two to six capitals or digits, a letter first, not another project's — it is
   drawn from the name the first time a ticket needs it (`Ponos` → `PON`, `Brand Assets` → `BA`) and
   kept: renaming the project does not move it, and a new prefix only numbers the next tickets.
