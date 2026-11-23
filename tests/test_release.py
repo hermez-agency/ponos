@@ -725,7 +725,12 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     # react-resource-view 2.2.0 (its "Shown fields" menu, drawn over the
     # board's List) and react-data-form 0.5.0 added 6.5 kB to `views` and `ui`,
     # by ticket again — the agenda they came with is behind a `lazy()` —, and
-    # the ceiling went to 512 kB, the same 1.4 kB of room as before.
+    # the ceiling went to 512 kB, the same 1.4 kB of room as before. By
+    # 23 November 2026 that room was down to 9 bytes, and the band that says
+    # once over the board that no daemon runs (rather than on every ready card)
+    # added 0.25 kB — the band itself and its French behind a `lazy()`, only
+    # what decides to draw it in the first load —, so the ceiling went to
+    # 513 kB, by ticket.
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -736,7 +741,7 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 512_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 513_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case

@@ -680,7 +680,7 @@ const TicketCardBody = React.memo(function TicketCardBody({
 
       <TicketTags ticket={ticket} />
       <TicketSync ticket={ticket} />
-      <TicketHeld ticket={ticket} />
+      <TicketHeld ticket={ticket} card />
       {/* A blocked card says why in its Unblock button's tooltip. */}
       {ticket.column !== "blocked" ? <TicketBlock block={ticket.block} /> : null}
       {/* In review, the checks are said in the line along the bottom. */}

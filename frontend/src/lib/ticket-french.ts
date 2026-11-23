@@ -8,6 +8,9 @@
    rule as there: the English sentence is the key. */
 
 export const TICKET_FRENCH: Record<string, string> = {
+  // No daemon running: on the board, the band over the columns says it once
+  // (`daemon-band.tsx`); a card no longer does, its page still does.
+  "waiting: no daemon is running — nothing takes it": "en attente : aucun démon ne tourne — rien ne le prendra",
   "A draft: the runner does not touch it until it is made ready.":
     "Un brouillon : le runner n'y touche pas tant qu'il n'est pas lancé.",
   "Waiting for a free place: a session starts on it by itself.":

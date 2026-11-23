@@ -33,7 +33,9 @@ import { Rich } from "./text"
  *
  * Above them, whatever is stopping the whole thing: a daemon that is on above a
  * board that stands still has only one other honest reading, and it is "this
- * thing is broken". Everything is read off the state the console already has.
+ * thing is broken" — and a daemon that is off, said here once rather than on
+ * every ready card (`daemon-band.tsx`). Everything is read off the state the
+ * console already has.
  */
 
 /* What the daemon's state is called, in words. `systemctl` answers in its own
@@ -56,6 +58,15 @@ function daemonNote(state: string | undefined): string {
   const said = DAEMON[state]
   return said ? translate(said) : translate("daemon {{state}}", { state })
 }
+
+/** How many ready cards wait for a daemon only: a number, so the strip is drawn again only when it moves. */
+export const awaitingDaemon = (board: Board) =>
+  board.tickets.filter((ticket) => ticket.column === "ready" && ticket.held?.reason === "daemon").length
+
+/* No daemon running, said once over the columns rather than on every ready
+ * card (see `daemon-band.tsx`). Fetched when it is drawn: the first load is
+ * held to a budget (tests/test_release.py), and a running daemon needs none of it. */
+const DaemonBand = React.lazy(() => import("./daemon-band"))
 
 /* Why a ticket of the queue waits, as the daemon writes it (`scheduler.py`). */
 function waits(waiting: Waiting): string {
@@ -181,6 +192,7 @@ export function RunnerStrip({ action }: { action?: React.ReactNode }) {
   const { running: sessions } = useStatus()
   const t = useT()
   const running = useBoardWith(runningCount)
+  const awaiting = useBoardWith(awaitingDaemon)
   const on = runner?.daemon === "running"
   const places = runner?.places
 
@@ -205,6 +217,11 @@ export function RunnerStrip({ action }: { action?: React.ReactNode }) {
             )}
           </AlertDescription>
         </Alert>
+      ) : null}
+      {runner && !on && awaiting ? (
+        <React.Suspense fallback={null}>
+          <DaemonBand state={runner.daemon} waiting={awaiting} />
+        </React.Suspense>
       ) : null}
       {runner && !runner.claude ? (
         <Alert variant="destructive">
