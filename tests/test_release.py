@@ -834,21 +834,29 @@ def the_console_and_the_landing_page_draw_one_robot() -> None:
 
 @case
 def the_icon_is_the_logo_and_the_robot_is_flat() -> None:
-    """The app's icon is the logo, a file of its own; the robot is three flat shapes.
+    """The app's icon is the logo, the robot's head alone; the robot is three flat shapes.
 
-    The favicon used to be the robot's face, and the robot wore gradients, a
-    tunic, a sash and a brooch. The logo is drawn in `ponos-logo.js` and written
-    out by `scripts/mascot.mjs` — the favicon in both schemes, the Dokploy
-    template's icon — and the robot keeps nothing of its old dress.
+    The favicon used to be the robot's face, then a white tile with the robot's
+    screen in an orange frame, beside a perforated ticket (`docs/icon.svg`) —
+    three symbols, none of which held at 16 px. The logo is the head, drawn in
+    `ponos-logo.js` and written out by `scripts/mascot.mjs`: one version for
+    both themes, a simpler one at 24 px and under (the favicon), and the
+    Dokploy template's icon — and the robot keeps nothing of its old dress.
     """
     mascot = ROOT / "docs/mascot"
     assert (mascot / "ponos-logo.js").is_file(), "the logo has no source of its own"
+    assert not (ROOT / "docs/icon.svg").exists(), "the ticket icon is back beside the logo"
+    assert not (mascot / "logo-dark.svg").exists(), "the head is the same on both grounds"
     favicon = (mascot / "favicon.svg").read_text(encoding="utf-8")
-    assert 'viewBox="0 0 120 120"' in favicon and "prefers-color-scheme: dark" in favicon, (
-        "the favicon is not the logo, light and dark"
+    assert 'viewBox="0 0 120 120"' in favicon and 'r="11"' in favicon, (
+        "the favicon is not the simple head"
     )
-    assert "#1c1917" in favicon and "#0c0a09" in favicon and "#44403c" in favicon
+    assert "ellipse" not in favicon and "#BF4A02" not in favicon, "the favicon has ears or a mouth"
     logo = (mascot / "logo.svg").read_text(encoding="utf-8")
+    assert "max-width: 24px" in logo and "#BF4A02" in logo and 'r="11"' in logo, (
+        "the logo does not hold the full head and the simple one under 24 px"
+    )
+    assert "prefers-color-scheme" not in logo, "the logo has a theme of its own again"
     assert (ROOT / "docker/dokploy/ponos.svg").read_text(encoding="utf-8") == logo, (
         "the Dokploy template does not show the logo"
     )
@@ -885,7 +893,7 @@ def docs_holds_the_site_and_nothing_written_for_the_team() -> None:
     assert not markdown, f"docs/ is the public site, and these are not pages of it: {markdown}"
     site = {
         ".nojekyll", "404.html", "CNAME", "apple-touch-icon.png", "architecture.png",
-        "architecture.webp", "blog", "console", "favicon.ico", "fr", "icon.svg", "index.html", "install",
+        "architecture.webp", "blog", "console", "favicon.ico", "fr", "index.html", "install",
         "llms.txt", "mascot", "media", "robots.txt", "sitemap.xml", "tokens.css",
     }  # fmt: skip
     unknown = sorted({path.parts[1] for path in files if len(path.parts) > 1} - site)

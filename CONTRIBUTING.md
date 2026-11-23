@@ -357,13 +357,19 @@ ask for it.
 
 ### The logo
 
-The app's icon is not the robot: it is the **logo**, the robot's flame and screen in the
-frame of the Hermez symbol — a white rounded square with an orange border, or, in its dark
-version, a `#1c1917` square whose darker screen has a thin `#44403c` outline. It lives in
+The app's icon is not the whole robot: it is the **logo**, the robot's head alone — ears,
+flame, orange shell, dark screen, eyes and mouth — with no body and no frame, on a
+transparent ground. It is the same on a light page and a dark one, so it has one version.
+At 24 px and under it is drawn simpler, larger and without ears, flame heart or mouth, with
+bigger eyes, on the model of the robot's SMALL rule. It lives in
 [`docs/mascot/ponos-logo.js`](docs/mascot/ponos-logo.js), and is written out as
-`docs/mascot/logo.svg` (light), `logo-dark.svg` (dark) and `favicon.svg` (both, following
-`prefers-color-scheme`). It is the favicon of the site and of the console, the icon an
-installed app, a home screen, a dock and a notification show, and the Dokploy template's.
+`docs/mascot/logo.svg` (both drawings, a media query picking the simple one at 24 px and
+under) and `favicon.svg` (the simple one). It is the favicon of the site and of the console,
+the icon a dock and a notification show, and the Dokploy template's. An app icon is square:
+the head on a `#1c1917` stone ground at about 73 % of the side — a rounded square for the
+installed app, the stone to the edge for iOS and for the maskable icon, the head inside its
+safe zone. Its orange is the `--brand` token of `tokens.css`: headings, icons and the logo,
+never running text.
 
 ### In the console
 
@@ -445,7 +451,7 @@ The standalone SVGs, the favicons, the Open Graph card, the sheet above and ever
 written from the two modules — none of them is drawn by hand:
 
 ```bash
-node scripts/mascot.mjs   # robot.svg, logo.svg, logo-dark.svg, favicon.svg, og.png, states.png in docs/mascot/;
+node scripts/mascot.mjs   # robot.svg, logo.svg, favicon.svg, og.png, states.png in docs/mascot/;
                           # the app icons in frontend/public/pwa/; favicon.ico and apple-touch-icon.png in docs/;
                           # the desktop icons in src/ponos/icons/; docker/dokploy/ponos.svg
 ```

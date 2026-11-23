@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img">
+<title>Ponos</title>
+<path d="M60 3C70 13 72 21 68.5 27C66.5 30.5 53.5 30.5 51.5 27C48 21 50 13 60 3Z" fill="#E8611A"/>
+<rect x="6" y="30" width="108" height="86" rx="32" fill="#E8611A"/>
+<rect x="18" y="42" width="84" height="60" rx="20" fill="#1c1917"/>
+<circle cx="44" cy="72" r="11" fill="#FFE1CC"/>
+<circle cx="76" cy="72" r="11" fill="#FFE1CC"/>
+</svg>
