@@ -6,8 +6,6 @@ tags: [MCP, Claude Code, backlog, automatisation, objectifs]
 lang: fr
 translation: drive-your-backlog-from-claude-mcp-goals-recurrences
 category: Nouveautés
-cover: mascot/og.png
-cover_alt: Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »
 ---
 
 Il y a une semaine, le connecteur MCP de Ponos savait lire votre board et écrire

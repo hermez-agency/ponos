@@ -6,8 +6,6 @@ tags: [MCP, Claude Code, backlog, automation, goals]
 lang: en
 translation: pilotez-votre-backlog-depuis-claude-mcp-objectifs-recurrences
 category: Product updates
-cover: mascot/og.png
-cover_alt: Ponos, the robot, jumping beside its name and the words "Write the ticket. It comes back done."
 ---
 
 A week ago, Ponos's MCP connector could read your board and write a draft

@@ -87,3 +87,20 @@ def markdown_keeps_html_out_of_the_text_and_scripts_out_of_links() -> None:
     assert "<h2" in build_blog.markdown("# T\n")  # the page's h1 is the header's
     html = build_blog.markdown("a & b [x](javascript:alert(1)) `<i>`\n")
     assert "javascript:" not in html and "&lt;i&gt;" in html and "a &amp; b" in html
+
+
+@case
+def every_article_has_its_own_illustration_shared_by_both_languages() -> None:
+    """Une carte qui ressemble à toutes les autres ne dit rien de l'article : une image par article."""
+    articles = build_blog.load()
+    shared = {a.slug: a for a in articles["en"]}
+    for fr in articles["fr"]:
+        en = shared[build_blog.cover_key(fr, articles)]
+        assert fr.illustration and fr.illustration == en.illustration, fr.slug
+        assert fr.cover_alt and en.cover_alt and fr.cover_alt != en.cover_alt
+        page = (ROOT / "docs/fr/blog" / fr.slug / "index.html").read_text(encoding="utf-8")
+        stem = fr.illustration.rsplit(".", 1)[0]
+        assert f"/blog/covers/{stem}-og.jpg" in page, "og:image est l'image de partage de l'article"
+        assert "mascot/og.png" not in page.split("</head>")[0]
+    stems = [a.illustration for a in articles["en"]]
+    assert len(set(stems)) == len(stems), "deux articles partagent une illustration"

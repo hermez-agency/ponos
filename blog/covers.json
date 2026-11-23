@@ -1,0 +1,34 @@
+{
+  "write-the-ticket-it-comes-back-done": {
+    "alt": {
+      "en": "Abstract illustration: a pale card of grey bars on the left is linked through a small orange gate to the same card on the right, its bars now orange and marked with a check, a curved arrow looping beneath, on a dark ground.",
+      "fr": "Illustration abstraite : une carte pâle de barres grises, à gauche, est reliée par une petite porte orange à la même carte, à droite, dont les barres sont devenues orange et marquées d'une coche, une flèche courbe bouclant dessous, sur fond sombre."
+    },
+    "prompt": "A flat card made of a few horizontal text-like bars on the left, a long curved path leaving it through a small circular gate in the middle, and the same card coming back on the right with all bars filled in and a bold check mark, a thin loop arrow closing the cycle underneath",
+    "file": "write-the-ticket-it-comes-back-done.jpg"
+  },
+  "a-faster-console": {
+    "alt": {
+      "en": "Abstract illustration: a tall column of thin table rows, solid in the middle and fading to outlines above and below, around an orange window that has just swung open, with speed streaks trailing to its right.",
+      "fr": "Illustration abstraite : une haute colonne de fines lignes de tableau, pleines au milieu et s'effaçant en contours en haut et en bas, autour d'une fenêtre orange qui vient de s'ouvrir, avec des traînées de vitesse à sa droite."
+    },
+    "prompt": "A tall stack of many thin table rows where only a handful of rows inside a bright rounded rectangular viewport frame are drawn solid and filled, the rows above and below fading to faint outlines, and a panel window just slid open at the right with three short horizontal speed streaks trailing behind it",
+    "file": "a-faster-console.jpg"
+  },
+  "drive-your-backlog-from-claude-mcp-goals-recurrences": {
+    "alt": {
+      "en": "Abstract illustration: an orange hub with concentric rings, linked by thin lines to eight small square nodes, beside a circular orange arrow carrying five identical cards around a loop, on a dark ground.",
+      "fr": "Illustration abstraite : un nœud orange à anneaux concentriques, relié par de fines lignes à huit petits nœuds carrés, à côté d'une flèche circulaire orange qui porte cinq cartes identiques en boucle, sur fond sombre."
+    },
+    "prompt": "A central circular hub with thin connector lines radiating to several small square nodes and to one concentric target ring, and beside it a circular orbit arrow carrying four identical small plain orange cards with completely blank faces, no markings on them that repeat around the loop",
+    "file": "drive-your-backlog-from-claude-mcp-goals-recurrences.jpg"
+  },
+  "one-ticket-step-by-step-from-brief-to-reviewed-pull-request": {
+    "alt": {
+      "en": "Abstract illustration: an orange card starts a horizontal track of round stations, a side branch dips below and rejoins like a git branch, and the last, larger station holds a check mark, on a dark ground.",
+      "fr": "Illustration abstraite : une carte orange ouvre une voie horizontale de stations rondes, une branche passe en dessous puis rejoint la voie comme une branche git, et la dernière station, plus grande, porte une coche, sur fond sombre."
+    },
+    "prompt": "A single flat card travelling along a horizontal track with four round stations, a short side branch splitting off below the track and merging back near the end like a git branch, and the final station larger and holding a bold check mark",
+    "file": "one-ticket-step-by-step-from-brief-to-reviewed-pull-request.jpg"
+  }
+}

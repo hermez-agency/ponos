@@ -6,8 +6,6 @@ tags: [Claude Code, backlog, git worktree, automatisation]
 lang: fr
 translation: write-the-ticket-it-comes-back-done
 category: Coulisses
-cover: mascot/og.png
-cover_alt: Ponos, le robot, qui saute à côté de son nom et de la devise « Écris le ticket. Il revient fait. »
 ---
 
 L'essentiel d'un backlog, c'est du travail qu'on sait déjà décrire. Un bug avec

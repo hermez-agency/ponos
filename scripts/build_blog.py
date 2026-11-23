@@ -44,6 +44,9 @@ DOCS = ROOT / "docs"
 SITE = "https://the-ponos.app"
 LANGS = ("en", "fr")
 DEFAULT_COVER = "mascot/og.png"
+COVERS = ROOT / "blog" / "covers.json"
+COVERS_URL = "blog/covers"  # sous docs/, d'où le site les sert
+COVER_WIDTHS = (480, 960)
 DOCS_URL = "https://github.com/hermez-agency/ponos#readme"
 LLMS_START = "<!-- blog:start — écrit par scripts/build_blog.py -->"
 LLMS_END = "<!-- blog:end -->"
@@ -115,6 +118,7 @@ class Article:
     category: str
     body: str
     source: Path = field(repr=False, default=Path())
+    illustration: str = ""  # le fichier de `blog/covers.json`, ex. `mon-article.jpg`
 
     @property
     def path(self) -> str:
@@ -207,7 +211,48 @@ def load() -> dict[str, list[Article]]:
                     raise SystemExit(
                         f"{article.source}: `translation: {article.translation}` n'existe pas en {other}"
                     )
+    covers = load_covers()
+    for lang, articles in found.items():
+        for article in articles:
+            key = cover_key(article, found)
+            if key in covers and not article.cover:
+                article.illustration = str(covers[key]["file"])
+                article.cover_alt = str(covers[key]["alt"][lang])  # type: ignore[index]
     return found
+
+
+def cover_key(article: Article, found: dict[str, list[Article]]) -> str:
+    """Le slug anglais de l'article : sous lui `blog/covers.json` range l'image des deux langues."""
+    if article.lang == "en":
+        return article.slug
+    if article.translation:
+        return article.translation
+    return next((a.slug for a in found["en"] if a.translation == article.slug), article.slug)
+
+
+def load_covers() -> dict[str, dict[str, object]]:
+    """Les illustrations déclarées. Une qui manque sur le disque casse le build, pas la page."""
+    if not COVERS.exists():
+        return {}
+    covers: dict[str, dict[str, object]] = json.loads(COVERS.read_text(encoding="utf-8"))
+    for slug, entry in covers.items():
+        file = entry.get("file")
+        if not file:
+            continue  # pas encore générée : l'article garde l'affiche de la mascotte
+        alt = entry.get("alt")
+        if not isinstance(alt, dict) or not all(alt.get(lang) for lang in LANGS):
+            raise SystemExit(f"{COVERS.name}: `{slug}` n'a pas de `alt` en {' et '.join(LANGS)}")
+        stem = Path(str(file)).stem
+        wanted = [str(file), f"{stem}-og.jpg"] + [
+            f"{stem}-{w}.{f}" for w in COVER_WIDTHS for f in ("avif", "webp")
+        ]
+        for name in wanted:
+            if not (DOCS / COVERS_URL / name).exists():
+                raise SystemExit(
+                    f"{COVERS.name}: `{slug}` déclare {file}, mais docs/{COVERS_URL}/{name} manque "
+                    "(python3 scripts/blog_covers.py --variants)"
+                )
+    return {slug: e for slug, e in covers.items() if e.get("file")}
 
 
 # -- Markdown -------------------------------------------------------------------------
@@ -520,12 +565,41 @@ def home_other(lang: str) -> str:
     return "/fr/" if lang == "en" else "/"
 
 
+def _picture(a: Article, *, alt: str, sizes: str, loading: str) -> str:
+    """AVIF et WebP à 480 et 960 px devant le fichier d'origine, que `<picture>` choisit."""
+    if not a.illustration:
+        image = f"/{a.cover or DEFAULT_COVER}"
+        return (
+            f'<img src="{_e(image)}" alt="{_e(alt)}" loading="{loading}" width="1200" height="630">'
+        )
+    stem = Path(a.illustration).stem
+    base = f"/{COVERS_URL}/{stem}"
+    sources = "".join(
+        f'<source type="image/{kind}" sizes="{sizes}" srcset="'
+        + ", ".join(f"{base}-{w}.{ext} {w}w" for w in COVER_WIDTHS)
+        + '">'
+        for kind, ext in (("avif", "avif"), ("webp", "webp"))
+    )
+    return (
+        f"<picture>{sources}"
+        f'<img src="/{COVERS_URL}/{_e(a.illustration)}" alt="{_e(alt)}" loading="{loading}" '
+        f'width="1024" height="576"></picture>'
+    )
+
+
+def share_image(a: Article) -> str:
+    """L'image de partage : celle de l'article, ou, tant qu'il n'en a pas, l'affiche de la mascotte."""
+    if a.illustration:
+        return _asset(f"{COVERS_URL}/{Path(a.illustration).stem}-og.jpg")
+    return _asset(a.cover or DEFAULT_COVER)
+
+
 def _card(a: Article) -> str:
     w = WORDS[a.lang]
-    image = f"/{a.cover or DEFAULT_COVER}"
+    picture = _picture(a, alt="", sizes="(min-width: 640px) 19rem, 100vw", loading="lazy")
     return (
         f'<a class="card" href="/{a.path}">\n'
-        f'  <img src="{_e(image)}" alt="" loading="lazy" width="1200" height="630">\n'
+        f"  {picture}\n"
         f'  <div class="card-body">\n'
         f'    <p class="card-product">Ponos</p>\n'
         f'    <p class="card-title">{_e(a.title)}</p>\n'
@@ -551,7 +625,7 @@ def article_page(a: Article, all_articles: dict[str, list[Article]]) -> str:
         for article in (a, twin):
             alternates[article.lang] = article.path
         alternates["x-default"] = (a if a.lang == "en" else twin).path
-    image = _asset(a.cover or DEFAULT_COVER)
+    image = share_image(a)
     image_alt = a.cover_alt or a.title
     home = f"{SITE}/{_prefix(a.lang)}"
     posting: dict[str, object] = {
@@ -589,11 +663,12 @@ def article_page(a: Article, all_articles: dict[str, list[Article]]) -> str:
         json_ld=[posting, crumbs], extra=extra.strip(),
     )  # fmt: skip
     cover = ""
-    if a.cover:
-        cover = (
-            f'<figure class="wide"><div><img src="/{_e(a.cover)}" alt="{_e(image_alt)}" width="1200" height="630">'
-            "</div></figure>\n"
+    if a.cover or a.illustration:
+        picture = _picture(
+            a, alt=image_alt, sizes="(min-width: 1024px) 64rem, 100vw", loading="eager"
         )
+        cover = f'<figure class="wide"><div>{picture}</div></figure>\n'
+
     tags = "".join(f"<span>{_e(t)}</span>" for t in a.tags)
     category = (
         f'<span aria-hidden="true">·</span><span>{_e(a.category)}</span>' if a.category else ""
