@@ -461,20 +461,64 @@ const SecretsContext = React.createContext<Secrets>(new Map())
 /** The length a secret field counts toward `SHORTEST`: as the server strips it. */
 const lengthOf = (typed: string, kind: string) => (kind === "note" ? typed.replace(/^\n+|\n+$/g, "") : typed.trim()).length
 
-/** A field and what is wrong with it, under it: one line, no explanation. */
+/** How long the typing pauses before what is wrong with a field is said. */
+const PAUSE = 1000
+
+/** Starts a new round of fields once an entry is kept: none of them has been typed in. */
+const RoundContext = React.createContext(0)
+
+/** What `formInput`'s rule says of its value now, given the whole draft: "" when nothing is wrong. */
+function ruled(formInput: FormInputInterface, data: Draft): string {
+  try {
+    formInput.validator?.(formInput.value, data)
+    return ""
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+}
+
+/* A field and what is wrong with it, under it: one line, no explanation.
+ *
+ * Said while it is typed, without waiting for the form to be sent: the rule
+ * the form checks at sending is read again here at each change, and what it
+ * says is shown once the typing has paused for `PAUSE` — gone at once when it
+ * is right. A field nobody typed in says nothing. What the sending refused —
+ * the form's rules, or the server's — is drawn as it is, until the field
+ * changes. */
 function Field({ formInput, onChange, formInputComponent: Control }: FormGroupProviderPropsInterface) {
   const t = useT()
   const { form } = useFormContext()
+  const data = form.data as Draft
   // A login's site is where Ponos's browser signs in with it: not optional in the same way.
-  const label = formInput.name === "url" && (form.data as Draft).kind === "login" ? "Site (sign-in page)" : String(formInput.label ?? "")
-  const problem = formInput.violations?.map((one: ViolationInterface) => one.message).join(" ")
+  const label = formInput.name === "url" && data.kind === "login" ? "Site (sign-in page)" : String(formInput.label ?? "")
   const id = formInput.id ?? `vault-${formInput.name}`
+  const [typed, setTyped] = React.useState(false)
+  const [shown, setShown] = React.useState("")
+  const live = typed ? ruled(formInput, data) : ""
+  const value = JSON.stringify(formInput.value ?? null)
+  React.useEffect(() => {
+    if (!live) {
+      setShown("")
+      return
+    }
+    const timer = window.setTimeout(() => setShown(live), PAUSE)
+    return () => window.clearTimeout(timer)
+  }, [live, value])
+  const refused = formInput.violations?.map((one: ViolationInterface) => one.message).join(" ")
+  const problem = refused || shown
   return (
     <div className="flex flex-col gap-1.5 text-sm" data-field={formInput.name}>
       <label htmlFor={id} className="font-medium">
         {t(label)}
       </label>
-      <Control formInput={{ ...formInput, id }} onChange={onChange} />
+      <Control
+        formInput={{ ...formInput, id, violations: problem ? [{ propertyPath: formInput.name, message: problem }] : [] }}
+        onChange={(next) => {
+          setTyped(true)
+          // Changed: what the sending refused is about a value that is no more.
+          onChange({ ...next, violations: [] })
+        }}
+      />
       {problem ? (
         <p id={`${id}-problem`} role="alert" className="text-destructive text-xs" data-slot="vault-problem">
           {problem}
@@ -603,7 +647,7 @@ function NewFields() {
   }
   const login = (form.data as Draft).kind === "login"
   return (
-    <>
+    <React.Fragment key={React.use(RoundContext)}>
       <div className="grid gap-3 sm:grid-cols-2">
         {field("kind")}
         {field("name")}
@@ -622,7 +666,7 @@ function NewFields() {
         {field("description")}
         {field("expires")}
       </div>
-    </>
+    </React.Fragment>
   )
 }
 
@@ -676,7 +720,6 @@ function newForm(known: React.RefObject<Vault>): FormInterface<Draft> {
   const secret = (name: "value" | "user" | "password", label: string): FormInputInterface<number, Draft> => ({
     label,
     controller: SecretController,
-    dependsOn: ["kind"],
     hidden: (data) => (data.kind === "login") === (name === "value"),
     validator: (length) => {
       if (name === "user") {
@@ -686,7 +729,6 @@ function newForm(known: React.RefObject<Vault>): FormInterface<Draft> {
     },
   })
   return {
-    validateOnChange: true,
     showSuccess: false,
     components: { formDecorator: NewForm, formInputs: NewFields, formGroupProvider: Field, formErrors: NewProblems, formSubmitAction: NewSubmit },
     inputs: {
@@ -694,7 +736,6 @@ function newForm(known: React.RefObject<Vault>): FormInterface<Draft> {
       name: {
         label: "Variable name",
         controller: NameController,
-        dependsOn: ["kind"],
         validator: (typed, data) => {
           const problem = nameProblem(String(typed ?? ""), data?.kind ?? "token", known.current)
           if (problem) throw new Error(problem)
@@ -710,9 +751,9 @@ function newForm(known: React.RefObject<Vault>): FormInterface<Draft> {
           if (siteAddress(String(typed ?? "")) === null) throw new Error(t(NO_SITE))
         },
       },
-      projects: { label: "Projects allowed", controller: ProjectsController, validateOnChange: false },
-      description: { label: "Description", controller: TextController, validateOnChange: false },
-      expires: { label: "Expires on (optional)", type: "date", controller: TextController, validateOnChange: false },
+      projects: { label: "Projects allowed", controller: ProjectsController },
+      description: { label: "Description", controller: TextController },
+      expires: { label: "Expires on (optional)", type: "date", controller: TextController },
     },
   }
 }
@@ -720,6 +761,7 @@ function newForm(known: React.RefObject<Vault>): FormInterface<Draft> {
 export function New({ vault, guard, onMade }: { vault: Vault; guard: Guard; onMade: () => void }) {
   const t = useT()
   const [problem, setProblem] = React.useState("")
+  const [round, setRound] = React.useState(0)
   const known = React.useRef(vault)
   known.current = vault
   const [secrets] = React.useState<Secrets>(() => new Map())
@@ -754,6 +796,7 @@ export function New({ vault, guard, onMade }: { vault: Vault; guard: Guard; onMa
       const seen = made.url_variable ? [...made.variables, made.url_variable] : made.variables
       toast.success(t("{{name}} is kept: its sessions see {{variables}}", { name: made.name, variables: seen.join(", ") }))
       latest.current?.updateData({ kind, ...EMPTY }, false)
+      setRound((done) => done + 1)
       onMade()
     },
   })
@@ -768,7 +811,9 @@ export function New({ vault, guard, onMade }: { vault: Vault; guard: Guard; onMa
         <VaultContext value={vault}>
           <SecretsContext value={secrets}>
             <ProblemContext value={problem}>
-              <FormElement {...context} />
+              <RoundContext value={round}>
+                <FormElement {...context} />
+              </RoundContext>
             </ProblemContext>
           </SecretsContext>
         </VaultContext>

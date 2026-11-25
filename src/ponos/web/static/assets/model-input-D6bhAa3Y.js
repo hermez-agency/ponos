@@ -1,0 +1,1 @@
+export{n as ModelInputController}from"./model-input-CArnLtT2.js";
