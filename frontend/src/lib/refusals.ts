@@ -88,21 +88,35 @@ const PLACE = /\{\{(\w+)\}\}/g
 
 /* Each template as the expression that recognises it, whole: the values are
  * the shortest that still let the rest of the sentence match. */
-const PATTERNS = REFUSALS.map((template) => {
-  const names = [...template.matchAll(PLACE)].map((found) => found[1])
-  const source = template
-    .split(PLACE)
-    .map((part, index) => (index % 2 ? "(.*?)" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
-    .join("")
-  return { template, names, pattern: new RegExp(`^${source}$`, "s") }
-})
+const recognised = (templates: readonly string[]) =>
+  templates.map((template) => {
+    const names = [...template.matchAll(PLACE)].map((found) => found[1])
+    const source = template
+      .split(PLACE)
+      .map((part, index) => (index % 2 ? "(.*?)" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
+      .join("")
+    return { template, names, pattern: new RegExp(`^${source}$`, "s") }
+  })
+
+const PATTERNS = recognised(REFUSALS)
 
 /** The template a refusal was said from, and the values it was said with — or nothing, for a sentence not on the list. */
-export function refusalOf(message: string): { key: string; params: Record<string, string> } | undefined {
-  for (const { template, names, pattern } of PATTERNS) {
+export function refusalOf(
+  message: string,
+  among = PATTERNS
+): { key: string; params: Record<string, string> } | undefined {
+  for (const { template, names, pattern } of among) {
     const found = pattern.exec(message)
     if (!found) continue
     return { key: template, params: Object.fromEntries(names.map((name, index) => [name, found[index + 1]])) }
   }
   return undefined
+}
+
+/* A page's own refusals, kept off this list — and off the first load — when only
+ * that page meets them: it recognises them with this, and says them in the words
+ * its own dictionary carries (the vault's, in `vault-page.tsx`). */
+export const refusals = (templates: readonly string[]) => {
+  const among = recognised(templates)
+  return (message: string) => refusalOf(message, among)
 }

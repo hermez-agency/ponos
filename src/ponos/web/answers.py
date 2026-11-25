@@ -1901,6 +1901,8 @@ class Vault(Shape):
     entries: list[VaultEntry]
     key: VaultKey
     projects: list[str]
+    reserved: list[str]
+    """Les variables qui sont à Ponos (et tout `PONOS_*`) : jamais le nom d'une entrée, que la page refuse pendant la frappe."""
     proven: bool
     """Le coffre est déverrouillé pour ce navigateur : une écriture n'a pas à redemander le mot de passe."""
     relocks_after: int

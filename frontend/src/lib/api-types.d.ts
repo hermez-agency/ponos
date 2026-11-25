@@ -5999,6 +5999,8 @@ export interface components {
             entries: components["schemas"]["VaultEntry"][];
             key: components["schemas"]["VaultKey"];
             projects: string[];
+            /** @description Les variables qui sont à Ponos (et tout `PONOS_*`) : jamais le nom d'une entrée, que la page refuse pendant la frappe. */
+            reserved: string[];
             /** @description Le coffre est déverrouillé pour ce navigateur : une écriture n'a pas à redemander le mot de passe. */
             proven: boolean;
             /** @description Les secondes sans action après lesquelles il se reverrouille. */

@@ -735,7 +735,10 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     # the ticket's page now shares for review and done), the priority as a bar
     # on the edge, the cause of a blocked card on its own line, the model and
     # the goal as a tooltip — 0.65 kB once the duplicated gestures were merged,
-    # and the ceiling went to 514 kB, by ticket.
+    # and the ceiling went to 514 kB, by ticket. Then react-data-form 0.6.0,
+    # which validates a field while it is typed (the vault's « New entry »),
+    # added 0.6 kB to `views` — the vault's own sentences going with its page —,
+    # and the ceiling went to 514 kB, by ticket (PON-710).
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")

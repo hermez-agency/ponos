@@ -1106,6 +1106,7 @@ def vault_entries(request: Request) -> Response:
             "entries": vault_store.listing(),
             "key": vault_store.whereabouts(),
             "projects": names,
+            "reserved": sorted(vault_store.reserved()),
             **_unlocked(request),
         }
     )
