@@ -1137,11 +1137,14 @@ function ProjectsFoot() {
  * board, or a name mapped to a path in the settings — and the second is here. */
 function NoProject() {
   const { filterContext } = useListViewContext()
-  if (filtering(filterContext.filter))
+  const filter = filterContext.filter
+  // Only the archived asked for, and none to show: say so rather than « no match ».
+  const archived = showsArchived(filter) && !String(filter?.q ?? "").trim() && !String(filter?.type ?? "").trim()
+  if (filtering(filter))
     return (
       <EmptyState
-        icon={SearchX}
-        title={t("No project matches")}
+        icon={archived ? Archive : SearchX}
+        title={t(archived ? "No archived project" : "No project matches")}
         action={
           <Button variant="outline" size="sm" onClick={() => filterContext.resetFilter({})}>
             <X />
@@ -1149,7 +1152,7 @@ function NoProject() {
           </Button>
         }
       >
-        {t("Other words, or another type, and they will be back.")}
+        {archived ? null : t("Other words, or another type, and they will be back.")}
       </EmptyState>
     )
   return (

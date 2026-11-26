@@ -12,7 +12,7 @@ import { folded } from "./settings-search.ts"
 export const KINDS = ["code", "document"] as const
 
 /** What the list is asked for: the words typed, the type kept ("" for both),
- * and whether the archived projects are shown too — hidden while it says nothing. */
+ * and whether only the archived projects are shown — they stay hidden while it says nothing. */
 export interface ProjectFilter {
   q?: unknown
   type?: unknown
@@ -29,7 +29,7 @@ export interface Findable {
   shelved?: boolean
 }
 
-/** Whether the filter asks for the archived projects too. */
+/** Whether the filter asks for the archived projects, shown alone. */
 export function showsArchived(filter: ProjectFilter = {}): boolean {
   const said = String(filter.archived ?? "").trim()
   return said !== "" && said !== "0" && said !== "false"
@@ -41,9 +41,10 @@ export function filtering(filter: ProjectFilter = {}): boolean {
 }
 
 /** Whether a project is kept: every word is in its name or its type, the type is the one asked
- * for, and it is not archived — unless the archived ones are asked for. */
+ * for, and it is archived exactly when the archived ones are asked for — they are shown alone,
+ * not added to the others. */
 export function keeps(project: Findable, filter: ProjectFilter = {}): boolean {
-  if (project.shelved && !showsArchived(filter)) return false
+  if (Boolean(project.shelved) !== showsArchived(filter)) return false
   const type = String(filter.type ?? "").trim()
   if (type && project.kind !== type) return false
   const words = folded(String(filter.q ?? "")).split(/\s+/).filter(Boolean)

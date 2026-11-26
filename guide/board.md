@@ -725,8 +725,10 @@ which is a deleted one and is still refused by every ticket that names it.
 An archived project:
 
 - **leaves the Projects list**, which hides it until the *Archived* filter beside the type
-  and the order is on — the button counts them, and an archived card carries a quiet
-  *Archived* badge;
+  and the order is on. The filter then shows the archived projects alone, not added to the
+  active ones; the search and the type still narrow them, and with none archived the list
+  says *No archived project*. The button counts them and is filled while it is on, and an
+  archived card carries a quiet *Archived* badge;
 - **is no longer offered** in the pickers: *New ticket*, a schedule's and a goal's
   projects, the board's *Project* filter, *New idea*, and moving a ticket. A ticket, a
   schedule or a goal that already names it still shows it;
