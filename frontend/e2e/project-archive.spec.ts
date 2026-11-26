@@ -47,7 +47,8 @@ test("a project is archived, shown again by the filter, and unarchived", async (
   await expect(filter(page)).toHaveAttribute("aria-pressed", "true")
   await expect(card(page, "Old wiki")).toBeVisible()
   await expect(card(page, "Old wiki").locator('[data-slot="project-archived"]')).toBeVisible()
-  await expect(card(page, "Website").locator('[data-slot="project-archived"]')).toHaveCount(0)
+  // Alone: the active projects are not in the list while it is on.
+  await expect(card(page, "Website")).toHaveCount(0)
 
   // Nothing is lost: its ticket is still on the board, still ready.
   const board = await (await page.request.get("/api/board")).json()

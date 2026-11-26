@@ -1137,6 +1137,23 @@ function ProjectsFoot() {
  * board, or a name mapped to a path in the settings — and the second is here. */
 function NoProject() {
   const { filterContext } = useListViewContext()
+  const filter = filterContext.filter
+  // Only the archived asked for, and none to show: say so rather than « no match ».
+  if (showsArchived(filter) && !String(filter?.q ?? "").trim() && !String(filter?.type ?? "").trim())
+    return (
+      <EmptyState
+        icon={Archive}
+        title={t("No archived project")}
+        action={
+          <Button variant="outline" size="sm" onClick={() => filterContext.resetFilter({})}>
+            <X />
+            {t("Clear the search")}
+          </Button>
+        }
+      >
+        {t("A project you archive comes here.")}
+      </EmptyState>
+    )
   if (filtering(filterContext.filter))
     return (
       <EmptyState

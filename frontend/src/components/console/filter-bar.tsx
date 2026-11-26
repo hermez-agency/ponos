@@ -62,7 +62,12 @@ export function FilterToggle({
       size="sm"
       aria-pressed={on}
       data-on={on || undefined}
-      className={cn("shrink-0 font-normal", !on && "border-dashed", on && "border-primary/50", className)}
+      className={cn(
+        "shrink-0 font-normal",
+        !on && "border-dashed",
+        on && "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+        className
+      )}
       {...props}
     >
       {label}
@@ -70,7 +75,7 @@ export function FilterToggle({
         <span
           className={cn(
             "rounded px-1.5 text-xs font-medium tabular-nums",
-            on ? "bg-primary/10 text-primary" : "text-muted-foreground"
+            on ? "bg-primary-foreground/20 text-primary-foreground" : "text-muted-foreground"
           )}
         >
           {children}
