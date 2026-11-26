@@ -58,16 +58,11 @@ export function FilterToggle({
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={on ? "default" : "outline"}
       size="sm"
       aria-pressed={on}
       data-on={on || undefined}
-      className={cn(
-        "shrink-0 font-normal",
-        !on && "border-dashed",
-        on && "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
-        className
-      )}
+      className={cn("shrink-0 font-normal", !on && "border-dashed", className)}
       {...props}
     >
       {label}
@@ -75,7 +70,7 @@ export function FilterToggle({
         <span
           className={cn(
             "rounded px-1.5 text-xs font-medium tabular-nums",
-            on ? "bg-primary-foreground/20 text-primary-foreground" : "text-muted-foreground"
+            on ? "bg-primary-foreground/20" : "text-muted-foreground"
           )}
         >
           {children}

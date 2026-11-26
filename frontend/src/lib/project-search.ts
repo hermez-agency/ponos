@@ -29,7 +29,7 @@ export interface Findable {
   shelved?: boolean
 }
 
-/** Whether the filter asks for the archived projects too. */
+/** Whether the filter asks for the archived projects, shown alone. */
 export function showsArchived(filter: ProjectFilter = {}): boolean {
   const said = String(filter.archived ?? "").trim()
   return said !== "" && said !== "0" && said !== "false"

@@ -656,7 +656,6 @@ export const FRENCH: Record<string, string> = {
   "Clear the filters": "Effacer les filtres",
   "No project matches": "Aucun projet ne correspond",
   "No archived project": "Aucun projet archivé",
-  "A project you archive comes here.": "Un projet que vous archivez apparaît ici.",
   "Other words, or another type, and they will be back.":
     "D'autres mots, ou un autre type, et ils reviendront.",
   "Search a project": "Chercher un projet",
