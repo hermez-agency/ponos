@@ -89,6 +89,9 @@ def a_project_follows_the_file_unless_it_says_its_own_word() -> None:
     assert idea_schedule.covers(chosen, "bbb", "beta", None), "or by its name"
     assert not idea_schedule.covers(chosen, "ccc", "Gamma", None)
     assert idea_schedule.covers(chosen, "ccc", "Gamma", True), "its own word wins"
+    assert not idea_schedule.covers(everyone, "aaa", "Alpha", True, shelved=True), (
+        "but an archived project is in no pass"
+    )
 
 
 @case
@@ -479,3 +482,57 @@ def the_pass_leaves_its_tables_to_the_migration(state_home: Path) -> None:
     with db.transaction(immediate=False) as connection:
         tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
     assert {"idea_plan", "idea_passes"} <= tables
+
+
+@case
+def an_archived_project_gets_no_ideas_keeps_its_old_ones_and_comes_back_unarchived(
+    state_home: Path,
+) -> None:
+    with _board() as board:
+        run = _Pass(board, schedule="every_4h", scope="all", workspace=False)
+        api, beta = run.api, run.ids["Beta"]
+        kept = ideas.record(beta, "sonnet", 0.01, [_idea("une idée d'avant")])[1]
+        api.save_project(beta, {"shelved": True})
+        assert {row["id"]: row for row in api.all_projects()["projects"]}[beta]["shelved"] is True
+
+        assert beta not in {row["id"] for row in api.planned.describe()["projects"]}, (
+            "not a line of the dialog"
+        )
+        run.look(NOW)
+        done = run.look(NOW + timedelta(hours=5))
+        assert done is not None and done.projects == 2
+        assert (run.count("Alpha"), run.count("Gamma")) == (3, 3)
+        assert [idea.title for idea in ideas.listed(beta)] == [kept[0].title], (
+            "nothing new, and what it was proposed is still there to read"
+        )
+        try:
+            api.generate_ideas(beta)
+        except ValueError as error:
+            assert "archived" in str(error)
+        else:
+            raise AssertionError("ideas are not searched for an archived project")
+
+        api.save_project(beta, {"shelved": False})
+        assert "shelved" not in {row["id"]: row for row in api.all_projects()["projects"]}[beta]
+        again = run.look(NOW + timedelta(hours=9))
+        assert again is not None and again.projects == 3 and run.count("Beta") == 4
+
+
+@case
+def the_dialog_keeps_an_archived_project_in_the_selection_it_cannot_show(
+    state_home: Path,
+) -> None:
+    with _board() as board:
+        path, config = _saved()
+        run = _Pass(board)
+        api = run.api
+        api._config = config
+        api._stamp = web_base._stamp(path)
+        alpha, beta = run.ids["Alpha"], run.ids["Beta"]
+        api._config.runner.ideas_projects = f"{alpha}, {beta}"
+        project_settings.set_ideas(beta, "Beta", True)
+        api.save_project(beta, {"shelved": True})
+
+        api.planned.save({"scope": "selected", "projects": [alpha]})
+        assert C.load(path).runner.ideas_projects == f"{alpha}, {beta}"
+        assert project_settings.every_ideas() == {beta: True}, "its own word is kept too"

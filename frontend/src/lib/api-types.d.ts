@@ -4454,6 +4454,11 @@ export interface components {
              *     repository. See `projectless.py`.
              */
             builtin?: boolean;
+            /**
+             * @description Archived — put away, not deleted: hidden from the lists and the pickers, no ideas and no
+             *     schedule for it, its tickets kept. See `projects.SHELVED`.
+             */
+            shelved?: boolean;
         };
         /** @description A project's brief as the editor opens it, and what saving it would not keep. */
         ProjectBrief: {
@@ -4555,6 +4560,11 @@ export interface components {
              *     repository. See `projectless.py`.
              */
             builtin?: boolean;
+            /**
+             * @description Archived — put away, not deleted: hidden from the lists and the pickers, no ideas and no
+             *     schedule for it, its tickets kept. See `projects.SHELVED`.
+             */
+            shelved?: boolean;
             content: string;
             version: string;
         };

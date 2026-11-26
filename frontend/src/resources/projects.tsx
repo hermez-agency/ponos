@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, Clock, Columns2, Copy, FileText, Folder, FolderGit2, LayoutGrid, Plus, SearchX, Stethoscope, X } from "lucide-react"
+import { Archive, Check, Clock, Columns2, Copy, FileText, Folder, FolderGit2, LayoutGrid, Plus, SearchX, Stethoscope, X } from "lucide-react"
 import {
   ActionList,
   useFormContext,
@@ -23,10 +23,9 @@ import {
 } from "react-resource-view"
 
 import { EmptyState } from "@/components/console/empty-state"
-import { FilterSelect, listFilters } from "@/components/console/filter-bar"
+import { FilterSelect, FilterToggle, listFilters } from "@/components/console/filter-bar"
 import { MarkdownInputController } from "@/components/console/markdown-editor"
 import { ProjectThumb } from "@/components/console/project-picture"
-import { ProjectMenu } from "@/components/console/project-delete"
 import {
   BoxInputController,
   KindInputController,
@@ -47,13 +46,13 @@ import { copy } from "@/lib/copy"
 import { boardOnce, currentTallies, useTicketTallies, type Tally } from "@/lib/board-store"
 import { counted, t, useT } from "@/lib/i18n"
 import { repositoryName, shortPath } from "@/lib/places"
-import { KINDS, filtering, keeps } from "@/lib/project-search"
+import { KINDS, filtering, keeps, showsArchived } from "@/lib/project-search"
 import { SORTS, directionOf, naturalDirection, ordered, sortOf } from "@/lib/project-sort"
 import { carrying, layoutOf, useLayoutInTheAddress } from "@/lib/resource-view"
 import { useRoute } from "@/lib/router"
 import type { Project, Projects } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { isAdmin, readOnly } from "@/lib/role"
+import { canAct, isAdmin, readOnly } from "@/lib/role"
 import { settingsHref } from "@/resources/settings"
 import { tickets } from "@/resources/tickets"
 
@@ -84,6 +83,12 @@ import { tickets } from "@/resources/tickets"
 // A chunk of its own: only the split view shows it, and it imports this file.
 const ProjectAside = React.lazy(() =>
   import("@/components/console/project-panel").then((module) => ({ default: module.ProjectAside }))
+)
+
+// The “…” of a card or a row, and the dialogs behind it: fetched once a list of
+// projects is drawn, never with the board the console opens on.
+const ProjectMenu = React.lazy(() =>
+  import("@/components/console/project-delete").then((module) => ({ default: module.ProjectMenu }))
 )
 
 export const PROJECTS = "projects"
@@ -254,6 +259,16 @@ const heldListeners = new Set<() => void>()
 export function forgetProject(id: string) {
   held.delete(id)
   heldListeners.forEach((listener) => listener())
+}
+
+/** Archive a project (put it away, nothing lost) or unarchive it, and redraw
+ * whoever shows it: the list, the pickers that read it, its own page. */
+export async function shelveProject(id: string, shelved: boolean): Promise<ProjectItem> {
+  const written = projectItem(await api.saveProject(id, { shelved }))
+  await api.projects().then(publish)
+  held.set(id, Promise.resolve(written))
+  heldListeners.forEach((listener) => listener())
+  return written
 }
 
 /** One project, from wherever it is held: its page, or the line that names it. */
@@ -553,6 +568,21 @@ export function KindBadge({ project }: { project: ProjectItem }) {
   )
 }
 
+/** « Archivé », quietly: a project put away, shown once the list is asked for them. */
+export function ArchivedBadge({ project }: { project: Pick<ProjectItem, "shelved"> }) {
+  if (!project.shelved) return null
+  return (
+    <Badge
+      variant="secondary"
+      data-slot="project-archived"
+      className="text-muted-foreground rounded-full px-1.5 py-0 text-[0.65rem] font-medium"
+    >
+      <Archive className="size-3" />
+      <span className="first-letter:uppercase">{t("archived")}</span>
+    </Badge>
+  )
+}
+
 /* GitHub's mark, which lucide no longer draws: a repository on GitHub is
  * recognised by it before its name is read. */
 function GitHubMark({ className }: { className?: string }) {
@@ -656,9 +686,20 @@ const REACHABLE =
  * Only for a project that is a page — a line of `config.toml` is not deleted from here. */
 export function RowMenu({ project, onDeleted, className }: { project: ProjectItem; onDeleted: () => void; className?: string }) {
   const tickets = useTicketCount(project.name)
-  // « Unknown » is never deleted: the tickets without a project go there.
+  // « Unknown » is never deleted nor archived: the tickets without a project go there.
   if (!isAPage(project.id) || project.builtin) return null
-  return <ProjectMenu project={project} tickets={tickets} onDeleted={onDeleted} className={className} />
+  return (
+    <React.Suspense fallback={null}>
+      <ProjectMenu
+        project={project}
+        tickets={tickets}
+        onDeleted={onDeleted}
+        // Archived, it leaves the list as it rests: the list reads itself again.
+        onShelve={canAct() ? (shelved) => shelveProject(project.id, shelved).then(onDeleted) : undefined}
+        className={className}
+      />
+    </React.Suspense>
+  )
 }
 
 /** “+ Ticket”, beside the link of a card or a row and not inside it: the dialog is the dashboard's
@@ -737,6 +778,7 @@ function ProjectCard({ project, onDeleted }: { project: ProjectItem; onDeleted: 
             </span>
             <span className="flex flex-wrap items-center gap-1.5">
               <KindBadge project={project} />
+              <ArchivedBadge project={project} />
               {project.source === "config" ? (
                 <Chip className="rounded-full px-1.5 py-0 text-[0.65rem]">{t("from the configuration")}</Chip>
               ) : null}
@@ -815,6 +857,7 @@ function ProjectRows({ rows = [] }: ListComponentPropsInterface) {
                   <span className="flex min-w-0 items-center gap-2.5">
                     <ProjectThumb project={project} className="size-8 rounded-md" />
                     <span className="truncate font-medium">{project.name}</span>
+                    <ArchivedBadge project={project} />
                   </span>
                   <span className="hidden md:block">
                     <KindBadge project={project} />
@@ -963,6 +1006,7 @@ function ProjectMaster({ rows = [] }: ListComponentPropsInterface) {
                       {project.name}
                     </span>
                     <KindBadge project={project} />
+                    <ArchivedBadge project={project} />
                   </span>
                   <span className="flex min-w-0 items-center justify-between gap-3">
                     <TicketTally project={project} withStatuses={false} />
@@ -1196,6 +1240,28 @@ const DirectionFilter: InputControllerComponentInterface = ({ formInput, onChang
   )
 }
 
+/* « Archivés »: one button that is on or off, beside the others and drawn
+ * like them — dashed while the archived projects stay hidden, as a filter
+ * that asks for nothing is. How many there are is said in it, so a project
+ * that seems gone is found by its count. */
+const ArchivedFilter: InputControllerComponentInterface = ({ formInput, onChange }) => {
+  const t = useT()
+  const read = useProjects()
+  const on = showsArchived({ archived: formInput.value })
+  const count = (read?.projects ?? []).filter((project) => project.shelved).length
+  if (!count && !on) return null
+  return (
+    <FilterToggle
+      label={t("Archived")}
+      on={on}
+      data-slot="projects-archived-filter"
+      onClick={() => onChange({ ...formInput, value: on ? "" : "1" })}
+    >
+      {count}
+    </FilterToggle>
+  )
+}
+
 const formFilter: FormInterface = {
   components: { formInputs: listFilters({ lead: "q", grow: true }) },
   inputs: {
@@ -1208,6 +1274,7 @@ const formFilter: FormInterface = {
     type: { label: "Type", controller: TypeFilter },
     sort: { label: "Sort by", controller: SortFilter },
     dir: { label: "Direction", controller: DirectionFilter },
+    archived: { label: "Archived", controller: ArchivedFilter },
   },
 }
 

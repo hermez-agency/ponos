@@ -14,6 +14,7 @@ import { useRoute } from "@/lib/router"
 import { cn } from "@/lib/utils"
 import { canAct, isAdmin } from "@/lib/role"
 import {
+  ArchivedBadge,
   DiagnoseButton,
   Repository,
   Where,
@@ -21,6 +22,7 @@ import {
   pick,
   projectHref,
   projectsHref,
+  shelveProject,
   useTicketCount,
   type ProjectItem,
 } from "@/resources/projects"
@@ -417,7 +419,11 @@ export function ProjectActions() {
         <Chip>{counted(count, "{{count}} ticket", "{{count}} tickets")}</Chip>
       ) : null}
       {/* Then the actions, one height so the row reads as one group. */}
-      {isAPage(project.id) && canAct() ? <IdeasButton project={project.id} name={project.name} inline /> : null}
+      {/* Archived: put away, said first — and offered no ideas, which are not searched for it. */}
+      <ArchivedBadge project={project} />
+      {isAPage(project.id) && canAct() && !project.shelved ? (
+        <IdeasButton project={project.id} name={project.name} inline />
+      ) : null}
       {isAPage(project.id) && canAct() ? <DiagnoseButton project={project} /> : null}
       {isAPage(project.id) && canAct() ? (
         // One piece, so that on a phone the "…" wraps with the edit button
@@ -429,13 +435,15 @@ export function ProjectActions() {
               {t("Edit")}
             </span>
           </ResourceViewButton>
-          {/* Deleting a project is an admin's — and never « Unknown »'s. */}
-          {isAdmin() && !project.builtin ? (
+          {/* Archiving it is anybody's who acts; deleting it an admin's — and neither is ever « Unknown »'s. */}
+          {!project.builtin ? (
             <ProjectMenu
               project={project}
               tickets={count}
               // Beside the list, the list is already there: the panel empties.
               onDeleted={() => (context.panel ? pick("") : void navigate({ to: projectsHref() }))}
+              onShelve={(shelved) => shelveProject(project.id, shelved)}
+              deletable={isAdmin()}
             />
           ) : null}
         </span>

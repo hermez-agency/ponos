@@ -517,6 +517,9 @@ class Project(Shape):
     builtin: bool = omitted()
     """« Sans projet », where the tickets without a project go: never deleted, never given a
     repository. See `projectless.py`."""
+    shelved: bool = omitted()
+    """Archived — put away, not deleted: hidden from the lists and the pickers, no ideas and no
+    schedule for it, its tickets kept. See `projects.SHELVED`."""
 
 
 class ProjectCheck(Shape):

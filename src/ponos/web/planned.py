@@ -141,7 +141,11 @@ class Planned:
             for row in self._api.all_projects()["projects"]
             if row["id"]
             and idea_schedule.covers(
-                wanted, row["id"], row["name"], said.get(project_settings.key(row["id"]))
+                wanted,
+                row["id"],
+                row["name"],
+                said.get(project_settings.key(row["id"])),
+                shelved=bool(row.get("shelved")),
             )
         ]
 
@@ -238,7 +242,8 @@ class Planned:
                 "own": said.get(project_settings.key(row["id"])),
             }
             for row in api.all_projects()["projects"]
-            if row["id"]
+            # An archived project is offered no ideas: not a line of the dialog either.
+            if row["id"] and not row.get("shelved")
         ]
         last = idea_schedule.last()
         return {
@@ -355,21 +360,31 @@ class Planned:
                 raise ValueError("The budget: 0 or more")
             values["runner.ideas_budget_usd"] = f"{amount:g}" if amount else None
         chosen = payload.get("projects")
+        # The archived projects are not in the dialog, so not in what it sends
+        # back: what they were in is kept rather than lost, for the day they
+        # are unarchived.
+        rows = [row for row in api.all_projects()["projects"] if row["id"]]
+        shelved = [row for row in rows if row.get("shelved")]
         if chosen is not None:
             if not isinstance(chosen, list):
                 raise ValueError("The projects: a list")
+            before = idea_schedule.plan(api.config.runner).projects
+            kept = [
+                row["id"]
+                for row in shelved
+                if project_settings.key(row["id"]) in before
+                or row["name"].strip().casefold() in before
+            ]
             values["runner.ideas_projects"] = (
-                ", ".join(project_settings.key(str(item)) for item in chosen) or None
+                ", ".join(project_settings.key(str(item)) for item in [*chosen, *kept]) or None
             )
         saved = api.save_settings({"settings": values}) if values else {"saved": []}
         scope = api.config.runner.ideas_scope
         if chosen is not None and scope == "selected":
-            names = {
-                project_settings.key(row["id"]): row["name"]
-                for row in api.all_projects()["projects"]
-                if row["id"]
-            }
+            names = {project_settings.key(row["id"]): row["name"] for row in rows}
+            put_away = {project_settings.key(row["id"]) for row in shelved}
             for project in project_settings.every_ideas():
-                project_settings.set_ideas(project, names.get(project, ""), None)
+                if project not in put_away:
+                    project_settings.set_ideas(project, names.get(project, ""), None)
         api.hub.publish("ideas", settings=True)
         return {**self.describe(), "saved": saved["saved"]}

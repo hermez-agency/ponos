@@ -1523,6 +1523,16 @@ export const FRENCH: Record<string, string> = {
     "Ponos cessera de créer ce ticket. Les tickets déjà créés restent en place.",
   "The schedule could not be run": "La récurrence n'a pas pu être lancée",
   "Project “{{name}}” deleted": "Projet « {{name}} » supprimé",
+  Archive: "Archiver",
+  Unarchive: "Désarchiver",
+  Archived: "Archivés",
+  "Project “{{name}}” archived": "Projet « {{name}} » archivé",
+  "Project “{{name}}” unarchived": "Projet « {{name}} » désarchivé",
+  "Hidden from the list and the pickers, no more ideas nor schedules for it. Its tickets stay.":
+    "Caché de la liste et des sélecteurs, plus d'idées ni de récurrences pour lui. Ses tickets restent.",
+  "project archived": "projet archivé",
+  // The badge on one project; « Archived », the filter, says them all.
+  archived: "archivé",
   "Its page was put aside in the board's trash folder.":
     "Sa page a été mise de côté dans le dossier trash du tableau.",
   "Delete “{{name}}”?": "Supprimer « {{name}} » ?",

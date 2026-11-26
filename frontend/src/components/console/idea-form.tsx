@@ -159,7 +159,8 @@ function ProjectMenu() {
   const project = String(data.project ?? "")
   const value = project || (data.kind === "project" ? NEW_PROJECT : WORKSPACE)
   const named = (projects?.projects ?? [])
-    .filter((row) => isAPage(row.id))
+    // An archived project is proposed nothing — but an idea already its keeps its name.
+    .filter((row) => isAPage(row.id) && (!row.shelved || bare(row.id) === project))
     .map((row) => ({ id: bare(row.id), name: row.name }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const name =

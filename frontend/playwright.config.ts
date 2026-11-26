@@ -95,7 +95,7 @@ export default defineConfig({
   projects: [
     {
       name: "console",
-      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "setup-fresh.spec.ts", "project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts", "series.spec.ts", "accounts.spec.ts"],
+      testIgnore: ["chat.spec.ts", "ideas.spec.ts", "ideas-page.spec.ts", "ideas-schedule.spec.ts", "sessions.spec.ts", "setup.spec.ts", "setup-fresh.spec.ts", "project-delete.spec.ts", "project-archive.spec.ts", "project-new.spec.ts", "goals.spec.ts", "series.spec.ts", "accounts.spec.ts"],
       use: { baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
@@ -105,7 +105,7 @@ export default defineConfig({
     },
     {
       name: "delete",
-      testMatch: ["project-delete.spec.ts", "project-new.spec.ts", "goals.spec.ts"],
+      testMatch: ["project-delete.spec.ts", "project-archive.spec.ts", "project-new.spec.ts", "goals.spec.ts"],
       // One board for files that delete projects and count them: side by side,
       // a deletion lands between the count before and the count after.
       workers: 1,

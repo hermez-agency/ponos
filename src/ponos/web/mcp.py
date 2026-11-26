@@ -127,7 +127,7 @@ create_task accepte aussi un modèle (model) et un prompt « on », que Ponos ex
 à chaque changement de statut de la tâche : de quoi préparer des tâches enchaînées.
 - Les projets (list_projects) se créent et se modifient ici (create_project, update_project), par \
 le même circuit que la console : un dossier déjà sur le disque (path), un dépôt GitHub que Ponos \
-clone si besoin (repository), ou un projet document ; aucun outil ne supprime un projet.
+clone si besoin (repository), ou un projet document ; aucun outil ne supprime un projet. Un projet s'archive (update_project, archived=true) : caché dans la console, plus d'idées ni de récurrences, ses tâches gardées ; archived=false le ressort.
 - Les objectifs (list_goals) se créent et se modifient ici (create_goal, update_goal), par le \
 même circuit que la console ; un objectif se désactive (active=false), il ne se supprime pas : \
 aucun outil ne le fait. set_task_goal rattache des tâches existantes à un objectif, ou les en \
@@ -281,9 +281,10 @@ TOOLS: list[dict[str, Any]] = [
         "title": "Projets",
         "scope": READ,
         "description": "Liste les projets de Ponos : nom, identifiant, icône (emoji ou adresse "
-        "d'image), dépôt git (« propriétaire/nom ») et genre (« code » quand le projet a un dépôt, "
-        "« document » sinon). À appeler pour connaître le nom exact d'un projet avant "
-        "list_tasks, create_task ou create_idea.",
+        "d'image), dépôt git (« propriétaire/nom »), genre (« code » quand le projet a un dépôt, "
+        "« document » sinon) et « archived » (rangé : la console le cache, aucune idée ni "
+        "récurrence ne tourne pour lui, ses tâches restent). À appeler pour connaître le nom "
+        "exact d'un projet avant list_tasks, create_task ou create_idea.",
         "inputSchema": _schema(),
     },
     {
@@ -424,7 +425,8 @@ TOOLS: list[dict[str, Any]] = [
         "scope": WRITE,
         "description": "Modifie un projet (identifiant ou nom donné par list_projects), par le "
         "même circuit que la console : seuls les champs donnés changent. Un nouveau dépôt GitHub "
-        "est cloné s'il n'est pas déjà sur cette machine, comme pour create_project. Le "
+        "est cloné s'il n'est pas déjà sur cette machine, comme pour create_project. "
+        "« archived » le range (true) ou le ressort (false) : rien n'est supprimé. Le "
         "supprimer n'est pas permis.",
         "inputSchema": _schema(
             {
@@ -439,6 +441,11 @@ TOOLS: list[dict[str, Any]] = [
                     "description": "Un dépôt GitHub : propriétaire/nom, ou son adresse github.com.",
                 },
                 **PROJECT_FIELDS,
+                "archived": {
+                    "type": "boolean",
+                    "description": "true l'archive (caché par défaut, plus d'idées ni de "
+                    "récurrences, ses tâches gardées), false le désarchive.",
+                },
             },
             ("project",),
         ),
@@ -1223,6 +1230,7 @@ def list_projects(api: Api) -> dict[str, Any]:
                 "icon": _icon(project),
                 "repository": project.get("repository", ""),
                 "kind": project.get("kind", ""),
+                "archived": bool(project.get("shelved")),
             }
             for project in _projects(api)
         ]
@@ -1466,6 +1474,7 @@ def _project_shown(api: Api, page_id: str) -> dict[str, Any]:
         "kind": row["kind"],
         "repository": row["repository"],
         "path": str(located) if located else row["path"],
+        "archived": bool(row.get("shelved")),
     }
 
 
@@ -1529,6 +1538,8 @@ def update_project(api: Api, project: str, **fields: Any) -> dict[str, Any]:
     for key, column in (("description", "description"), ("site", "site"), ("brief", "content")):
         if key in fields:
             values[column] = fields[key]
+    if "archived" in fields:
+        values["shelved"] = bool(fields["archived"])
     if values.get("site", "").strip() and not is_site(values["site"].strip()):
         raise ToolError(api.runner.voice.say("project-site-invalid", given=values["site"].strip()))
     if fields.get("path") is not None and "repository" in fields:

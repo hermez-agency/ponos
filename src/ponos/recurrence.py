@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from . import goals, models, priority, project_settings, state, store, ticket_page
+from . import goals, models, priority, project_settings, projects, state, store, ticket_page
 from . import schedules as schedules_module
 from . import tickets as tickets_module
 from . import voice as voice_module
@@ -90,6 +90,9 @@ class Recurrence(Base):
           on at all.
         - **The timezone is this machine's**, the same reading `scheduled_for`
           gives a date on a ticket.
+
+        A schedule whose project is archived lets its occurrences go by, each
+        one said, and makes no ticket until the project is unarchived.
         """
         if not self.config.runner.schedule:
             return []
@@ -139,6 +142,13 @@ class Recurrence(Base):
             # makes the ticket.
             if not state.take_slot(schedule.page.id, schedule.next):
                 continue
+            if self._shelved(schedule):
+                # Its project is put away: the occurrence goes by, said, and the
+                # next one is drawn as usual — so unarchiving it starts it again
+                # at its next moment, not with a pile of missed ones.
+                self.say(f"  · {schedule.name} — its project is archived, no ticket made")
+                state.occurred(schedule.page.id, "skipped", reason="its project is archived")
+                continue
             if self._busy(schedule):
                 self.say(f"  · {schedule.name} — its last ticket is still open, no second one made")
                 state.occurred(
@@ -180,6 +190,19 @@ class Recurrence(Base):
         self._mark(schedule, {self.config.board.prop("last_run"): datetime.now().astimezone()})
         state.record(entry)
         return entry
+
+    def _shelved(self, schedule: schedules_module.Schedule) -> bool:
+        """Is the project its tickets are for archived (`projects.SHELVED`)?
+
+        A project the integration cannot read is not: whatever went wrong with
+        it is said by the ticket that tries it, not hidden as an archive.
+        """
+        if not schedule.project:
+            return False
+        try:
+            return projects.shelved(self.client.page(schedule.project))
+        except store.StoreError:
+            return False
 
     def _busy(self, schedule: schedules_module.Schedule) -> bool:
         """Is the previous occurrence still going?

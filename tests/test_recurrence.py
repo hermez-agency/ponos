@@ -570,3 +570,40 @@ def running_a_schedule_by_hand_twice_in_a_day_is_refused_without_force(state_hom
     state.occurred("s-1", "launched", ticket="t1", title="x")
     assert state.made_since("s-1", datetime.now().astimezone() - timedelta(days=1))
     assert not state.made_since("s-2", datetime.now().astimezone() - timedelta(days=1))
+
+
+def _project_page(*, shelved: bool) -> store.Page:
+    return store.Page(
+        id="p-northwind",
+        url="",
+        title="Northwind",
+        properties={projects.SHELVED: {"type": "checkbox", "checkbox": shelved}},
+    )
+
+
+@case
+def an_archived_project_lets_its_schedules_go_by_and_unarchiving_starts_them_again(
+    state_home: Path,
+) -> None:
+    """Archived, its occurrences pass without a ticket — said; unarchived, the next one is born."""
+    stale = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
+    runner = _recurring(
+        [_schedule_page("s-1", next=stale)],
+        tickets={"p-northwind": _project_page(shelved=True)},
+    )
+    assert runner.recur() == []
+    assert _schedules(runner).created == [], "no ticket while its project is archived"
+    # The occurrence goes by: the next one is drawn, so nothing piles up.
+    ahead = schedules.scheduled_for(_written(runner, "Next"))
+    assert ahead is not None and ahead > datetime.now().astimezone()
+    said = state.occurrences("s-1")
+    assert said and said[0]["outcome"] == "skipped", said
+    assert "archived" in said[0]["reason"], said
+
+    later = (datetime.now().astimezone() - timedelta(hours=1)).isoformat()
+    runner = _recurring(
+        [_schedule_page("s-1", next=later)],
+        tickets={"p-northwind": _project_page(shelved=False)},
+    )
+    assert len(runner.recur()) == 1
+    assert len(_schedules(runner).created) == 1

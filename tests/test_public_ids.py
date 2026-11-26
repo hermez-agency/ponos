@@ -114,8 +114,8 @@ def a_chosen_prefix_is_kept_and_refused_when_it_is_another_projects(state_home: 
 @case
 def existing_tickets_are_numbered_project_by_project_in_the_order_of_their_creation() -> None:
     location = Path(tempfile.mkdtemp()) / "ponos.db"
-    before = db.MIGRATIONS[:-1]
-    assert db.name(db.MIGRATIONS[-1]) == "tickets_have_a_public_id"
+    names = [db.name(migration) for migration in db.MIGRATIONS]
+    before = db.MIGRATIONS[: names.index("tickets_have_a_public_id")]
     old = db.open_at(location, before)
     try:
         old.execute(

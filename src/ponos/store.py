@@ -295,7 +295,14 @@ def shape(settings: BoardNames) -> dict[str, dict[str, str]]:
             prop("after"): "relation",
             prop("goal"): "relation",
         },
-        "projects": {"Name": "title", "Repository": "rich_text", "Path": "rich_text"},
+        # `Shelved` is the console's « Archivé »: a project put away, its tickets
+        # kept — not a page in the trash. See projects.SHELVED.
+        "projects": {
+            "Name": "title",
+            "Repository": "rich_text",
+            "Path": "rich_text",
+            "Shelved": "checkbox",
+        },
         # An agent is a page — its body is the role. The columns are the exceptions.
         "agents": {"Name": "title", prop("model"): "select"},
         # A schedule is the recipe for a ticket, and how often it is born: the

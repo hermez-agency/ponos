@@ -153,11 +153,18 @@ export const PillsInputController: InputControllerComponentInterface = ({ formIn
  * whether it has a repository to open a pull request on. */
 export const ProjectInputController: InputControllerComponentInterface = (props) => {
   const projects = React.use(Projects)
-  const project = projects.find((candidate) => candidate.id === props.formInput.value)
+  const current = String(props.formInput.value ?? "")
+  const project = projects.find((candidate) => candidate.id === current)
+  // An archived project is offered no more — but the one a schedule already
+  // points at stays, said by its name, so the field never reads empty.
+  const shelved = new Set(projects.filter((one) => one.shelved).map((one) => one.id))
+  const valueOptions = (props.formInput.valueOptions ?? []).filter(
+    (option: { value?: unknown }) => !shelved.has(String(option.value)) || String(option.value) === current
+  )
   return (
     <div className="flex min-w-0 items-center gap-2">
       <div className="min-w-0 flex-1">
-        <ComboboxInputController {...props} />
+        <ComboboxInputController {...props} formInput={{ ...props.formInput, valueOptions }} />
       </div>
       {project ? (
         hasRepository(project) ? (

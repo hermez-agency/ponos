@@ -425,6 +425,14 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "“Unknown” is the project of the tickets that have none: it cannot be deleted",
         "fr": "« Sans projet » est le projet des tickets qui n'en ont pas : il ne se supprime pas",
     },
+    "projectless-not-shelved": {
+        "en": "“Unknown” is the project of the tickets that have none: it cannot be archived",
+        "fr": "« Sans projet » est le projet des tickets qui n'en ont pas : il ne s'archive pas",
+    },
+    "project-shelved": {
+        "en": "“{name}” is archived: no ideas are found for it until it is unarchived",
+        "fr": "« {name} » est archivé : aucune idée n'est cherchée pour lui avant qu'il soit désarchivé",
+    },
     "project-which-repo": {
         "en": "it is a code ticket without a project: I do not know which repository to work in",
         "fr": "c'est un ticket de code sans projet : je ne sais pas dans quel dépôt travailler",

@@ -35,3 +35,15 @@ test("the words may name the type, and a name and a type are combined", () => {
   assert.deepEqual(names({ q: "d", type: "code" }), ["Leadz"])
   assert.deepEqual(names({ q: "lea", type: "document" }), [])
 })
+
+test("an archived project is hidden, and shown once the archived ones are asked for", () => {
+  const ARCHIVED = { name: "Vieux site", kind: "code", work: "code work", shelved: true }
+  const all = (filter: object) => [LEADZ, DOSSIER, ARCHIVED].filter((p) => keeps(p, filter)).map((p) => p.name)
+  assert.deepEqual(all({}), ["Leadz", "Dossier Été"])
+  assert.deepEqual(all({ q: "vieux" }), [])
+  assert.deepEqual(all({ archived: "1" }), ["Leadz", "Dossier Été", "Vieux site"])
+  assert.deepEqual(all({ archived: "1", q: "vieux" }), ["Vieux site"])
+  assert.deepEqual(all({ archived: "1", type: "document" }), ["Dossier Été"])
+  assert.equal(filtering({ archived: "1" }), true)
+  assert.equal(filtering({ archived: "" }), false)
+})
