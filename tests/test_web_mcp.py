@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from support import _board, _ideas_api, _time_passes, case
 
 from ponos import config as C
-from ponos import db, state, store, voice
+from ponos import db, projectless, state, store, voice
 from ponos import http as http_module
 from ponos.__main__ import main as cli_main
 
@@ -280,6 +280,224 @@ def an_mcp_client_launches_tasks_only_once_confirmed(state_home: Path) -> None:
         assert journal_lines[0]["outcome"].startswith("refused")
         assert journal_lines[2]["outcome"] == "ok"
         assert '"confirm": true' in journal_lines[2]["arguments"]
+
+
+# -- changing, moving, commenting on and deleting a task ----------------------
+
+
+@case
+def an_mcp_client_edits_a_task_after_the_fact_by_any_form_of_its_id(state_home: Path) -> None:
+    """update_task: only the fields given change, an empty one clears, the rules are the console's.
+
+    The task is found by its public id, its long id and its short id alike; a
+    task in progress keeps its title, mission, type and project but not its
+    score; a finished one no longer changes its date; a refusal writes nothing.
+    """
+    from ponos import tickets
+    from ponos.web import mcp as web_mcp
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        project = board.create_row("projects", "Usine", {"Repository": "user/usine"})
+        board.create_row("projects", "Atelier", {"Repository": "user/atelier"})
+        settings = C.BoardNames()
+        first = board.create_row("tickets", "Premier", {"statut": "draft", "Project": [project]})
+        running = board.create_row("tickets", "En cours", {"statut": settings.state("running")})
+        closed = board.create_row("tickets", "Fini", {"statut": settings.state("done")})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+        public = tickets.get(first).public_id  # type: ignore[union-attr]
+        assert public
+
+        done = _mcp_call(
+            api,
+            grant,
+            "update_task",
+            task=public.lower(),
+            title="Premier, corrigé",
+            description="Une mission **réécrite**.",
+            on="Quand elle passe à review, dis-le.",
+            priority=80,
+            model="fable",
+            type="code",
+            subtype="bug",
+            validation="forced",
+            project="atelier",
+        )
+        assert not done["isError"], done
+        assert set(done["structuredContent"]["changed"]) == {
+            "title",
+            "body",
+            "on",
+            "priority",
+            "model",
+            "validation",
+            "project",
+            "kind",
+            "subtype",
+        }
+        page = board.page(first)
+        assert page.title == "Premier, corrigé"
+        assert store.read(page, "On") == "Quand elle passe à review, dis-le."
+        assert store.read(page, "Model") == "opus", "a client never gives Fable"
+        assert store.read(page, "Type") == "Code" and store.read(page, "Project") != [project]
+        record = tickets.get(first)
+        assert record is not None
+        assert (record.mission, record.priority, record.validation, record.subtype) == (
+            "Une mission **réécrite**.",
+            80,
+            "forced",
+            "Bug",
+        )
+        assert record.status == "draft", "no status moved"
+
+        # Absent stays, empty clears.
+        cleared = _mcp_call(api, grant, "update_task", task=first, on="", project="")
+        assert not cleared["isError"], cleared
+        page = board.page(first)
+        assert not store.read(page, "On") and store.read(page, "Project") == [projectless.ID]
+        assert board.page(first).title == "Premier, corrigé"
+        assert tickets.get(first).priority == 80  # type: ignore[union-attr]
+
+        # By the long and by the short id as well.
+        assert not _mcp_call(api, grant, "update_task", task=first.replace("-", ""), priority=10)[
+            "isError"
+        ]
+        assert not _mcp_call(
+            api, grant, "update_task", task=first.replace("-", "")[-8:], priority=20
+        )["isError"]
+
+        # Refused, in words, and nothing written: bad values, nothing to change.
+        for bad in (
+            {"title": "  "},
+            {"type": "poem"},
+            {"scheduled": "2001-01-01 09:00"},
+            {"project": "Inconnu"},
+            {},
+        ):
+            refused = _mcp_call(api, grant, "update_task", task=first, **bad)
+            assert refused["isError"], bad
+        assert board.page(first).title == "Premier, corrigé"
+
+        # A task in progress: the session was given its mission, not its score.
+        held = _mcp_call(api, grant, "update_task", task=running, title="Autre", priority=70)
+        assert held["isError"] and "in progress" in held["content"][0]["text"]
+        assert board.page(running).title == "En cours" and tickets.get(running).priority == 50  # type: ignore[union-attr]
+        assert not _mcp_call(api, grant, "update_task", task=running, priority=70)["isError"]
+        assert tickets.get(running).priority == 70  # type: ignore[union-attr]
+
+        # A finished task no longer takes a date.
+        late = _mcp_call(api, grant, "update_task", task=closed, scheduled="+2d")
+        assert late["isError"]
+
+        # The tool belongs to the write scope, and the journal has the refusals.
+        reader = web_oauth.Grant(client="c-2", name="lecteur", scopes=frozenset({"read"}))
+        denied = _mcp_call(api, reader, "update_task", task=first, priority=1)
+        assert denied["isError"] and "lecture" in denied["content"][0]["text"]
+        assert tickets.get(first).priority == 20  # type: ignore[union-attr]
+        assert any(line["tool"] == "update_task" for line in web_mcp.calls())
+
+
+@case
+def an_on_prompt_added_after_the_fact_runs_at_the_next_change_of_status(state_home: Path) -> None:
+    """update_task with an « On » starts watching from the status the ticket has then.
+
+    Without it the daemon would meet the ticket for the first time at its new
+    status — a starting point, never a change — and the first move would be lost.
+    """
+    from ponos import transitions
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        ticket = board.create_row("tickets", "Premier", {"statut": "draft"})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+        assert not _mcp_call(api, grant, "update_task", task=ticket, on="Si review, avertis.")[
+            "isError"
+        ]
+        bare = ticket.replace("-", "")
+        # The board moves before the daemon ever looked at the ticket.
+        found, old = transitions.observe(bare, "review", title="Premier", depth_limit=3)
+        assert found and old == "draft", "the first change is a change"
+        assert [(row["old"], row["new"]) for row in transitions.pending(10)] == [
+            ("draft", "review")
+        ]
+
+        # A ticket already watched keeps the starting point it had.
+        again = board.create_row("tickets", "Second", {"statut": "draft"})
+        transitions.observe(again.replace("-", ""), "draft", title="Second", depth_limit=3)
+        board.update("tickets", again, {"statut": "ready"})
+        assert not _mcp_call(api, grant, "update_task", task=again, on="Autre.")["isError"]
+        found, old = transitions.observe(
+            again.replace("-", ""), "ready", title="Second", depth_limit=3
+        )
+        assert found and old == "draft", "a pending change is not swallowed by a new prompt"
+
+
+@case
+def an_mcp_client_moves_comments_and_deletes_a_task_with_the_consoles_rules(
+    state_home: Path,
+) -> None:
+    """move_task, comment_task and delete_task on a board in `ponos.db`."""
+    from ponos import tickets
+    from ponos.web import oauth as web_oauth
+
+    with _board() as board:
+        settings = C.BoardNames()
+        draft = board.create_row("tickets", "Brouillon", {"statut": "draft"})
+        running = board.create_row("tickets", "En cours", {"statut": settings.state("running")})
+        api = _ideas_api(board)
+        grant = web_oauth.Grant(client="c-1", name="claude.ai", scopes=frozenset({"read", "write"}))
+        public = tickets.get(draft).public_id  # type: ignore[union-attr]
+
+        # move_task: by public id, refused toward a launch, guarded by `from`.
+        moved = _mcp_call(api, grant, "move_task", task=public, status="paused")
+        assert not moved["isError"], moved
+        assert moved["structuredContent"]["from"] == "draft"
+        assert {mark.column for mark in api.outbox.marks().values()} == {"paused"}
+        for status in ("ready", "running", "done"):
+            assert _mcp_call(api, grant, "move_task", task=draft, status=status)["isError"]
+        raced = _mcp_call(
+            api, grant, "move_task", task=draft, status="cancelled", **{"from": "review"}
+        )
+        assert raced["isError"] and "rien n'a bougé" in raced["content"][0]["text"]
+        guarded = _mcp_call(
+            api, grant, "move_task", task=draft, status="cancelled", **{"from": "paused"}
+        )
+        assert not guarded["isError"], guarded
+
+        # comment_task: the comment is on the ticket, secrets masked.
+        said = _mcp_call(api, grant, "comment_task", task=public, text="Un mot.")
+        assert not said["isError"], said
+        assert any("Un mot." in remark.text for remark in board.comments(draft))
+        assert _mcp_call(api, grant, "comment_task", task=draft, text="  ")["isError"]
+
+        # delete_task: a preview writes nothing, a running task is refused, confirm deletes.
+        preview = _mcp_call(api, grant, "delete_task", task=public)
+        assert not preview["isError"], preview
+        assert preview["structuredContent"]["deleted"] is False
+        assert preview["structuredContent"]["task"]["title"] == "Brouillon"
+        assert tickets.get(draft) is not None and board.comments(draft)
+        refused = _mcp_call(api, grant, "delete_task", task=running, confirm=True)
+        assert refused["isError"] and tickets.get(running) is not None
+        gone = _mcp_call(api, grant, "delete_task", task=public, confirm=True)
+        assert not gone["isError"], gone
+        assert gone["structuredContent"]["deleted"] is True
+        assert tickets.get(draft) is None
+        missing = _mcp_call(api, grant, "delete_task", task=public, confirm=True)
+        assert missing["isError"]
+
+        # A client that reads only may do none of the four.
+        reader = web_oauth.Grant(client="c-2", name="lecteur", scopes=frozenset({"read"}))
+        for name, arguments in (
+            ("update_task", {"priority": 1}),
+            ("move_task", {"status": "paused"}),
+            ("comment_task", {"text": "x"}),
+            ("delete_task", {"confirm": True}),
+        ):
+            answer = _mcp_call(api, reader, name, task=running, **arguments)
+            assert answer["isError"] and tickets.get(running) is not None, name
+        assert tickets.get(running).priority == 50  # type: ignore[union-attr]
 
 
 # -- the goals ----------------------------------------------------------------
@@ -909,11 +1127,11 @@ def an_mcp_client_writes_schedules_that_are_born_off_and_cannot_turn_them_on(
 
 
 @case
-def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
+def no_mcp_tool_runs_a_command_and_the_only_one_that_deletes_asks_to_be_confirmed() -> None:
     """The whole list, written down: a tool added is a decision, not a drift.
 
-    One tool launches tasks, `launch_task`, and only in a second call that says
-    `confirm`: none cancels, pauses or deletes one.
+    One tool launches tasks, `launch_task`, and one deletes one, `delete_task`:
+    both only in a second call that says `confirm`.
     """
     from ponos.web import mcp as web_mcp
 
@@ -933,6 +1151,10 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
         "update_goal",
         "set_task_goal",
         "create_task",
+        "update_task",
+        "move_task",
+        "comment_task",
+        "delete_task",
         "list_schedules",
         "create_schedule",
         "update_schedule",
@@ -956,6 +1178,10 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
         "update_goal",
         "set_task_goal",
         "create_task",
+        "update_task",
+        "move_task",
+        "comment_task",
+        "delete_task",
         "create_schedule",
         "update_schedule",
         "launch_task",
@@ -971,6 +1197,12 @@ def no_mcp_tool_runs_a_command_or_deletes_anything() -> None:
     )
     launch = next(tool for tool in web_mcp.TOOLS if tool["name"] == "launch_task")
     assert launch["inputSchema"].get("required") == ["tasks"], "confirm is never assumed"
+    deleting = next(tool for tool in web_mcp.TOOLS if tool["name"] == "delete_task")
+    assert deleting["inputSchema"].get("required") == ["task"], "confirm is never assumed"
+    moving = next(tool for tool in web_mcp.TOOLS if tool["name"] == "move_task")
+    assert not {"ready", "running", "validated", "done"} & set(
+        moving["inputSchema"]["properties"]["status"]["enum"]
+    ), "a move that starts a session or merges is launch_task's and apply_solution's"
     for tool in web_mcp.TOOLS:
         assert len(tool["description"]) > 80, f"{tool['name']}: a description Claude can choose by"
         assert tool["title"] and len(tool["title"]) < 40, (

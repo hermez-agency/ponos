@@ -986,6 +986,54 @@ def command_schedule(args: argparse.Namespace) -> int:
     return 0
 
 
+def _update(ticket: str, fields: dict[str, Any]) -> int:
+    """Fields written through `Api.update_ticket`, the road the MCP's `update_task` takes too."""
+    from .web.api import Api
+
+    record = _find_ticket(ticket)
+    if record is None:
+        return 1
+    api = Api.alone(load_config())
+    try:
+        done = api.update_ticket(record.id, fields)
+    except (ValueError, LookupError, store.StoreError) as error:
+        print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
+        return 1
+    print(f"{record.title} #{_public(record.id)}: {', '.join(done['changed'])} changed")
+    return 0
+
+
+def command_on(args: argparse.Namespace) -> int:
+    """Write the prompt a ticket runs at each change of its status; nothing clears it."""
+    return _update(args.ticket, {"on": " ".join(args.prompt)})
+
+
+def command_edit(args: argparse.Namespace) -> int:
+    """Change fields of a ticket: only the options given, an empty one clears its field."""
+    fields = {
+        name: getattr(args, name)
+        for name in (
+            "title",
+            "body",
+            "on",
+            "priority",
+            "model",
+            "validation",
+            "project",
+            "kind",
+            "subtype",
+            "scheduled",
+        )
+        if getattr(args, name, None) is not None
+    }
+    if fields.get("body") == "-":
+        fields["body"] = sys.stdin.read()
+    if not fields:
+        print(f"{RED}error:{RESET} nothing to change: give at least one option", file=sys.stderr)
+        return 2
+    return _update(args.ticket, fields)
+
+
 def _flush_move(api: Any) -> str:
     """Send the move waiting in the outbox, as many times as its backoff allows; "" when it is on the board."""
     for _ in range(4):
@@ -2398,6 +2446,32 @@ def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     commenting.add_argument("ticket", help="the ticket's ID, in any form")
     commenting.add_argument("text", nargs="+", help="what to say")
     commenting.set_defaults(function=command_comment)
+
+    prompting = subparsers.add_parser(
+        "on", help="write a ticket's « On » prompt, run at each change of its status (empty clears)"
+    )
+    prompting.add_argument("ticket", help="the ticket's ID, in any form")
+    prompting.add_argument("prompt", nargs="*", help="what to run at each change; none clears it")
+    prompting.set_defaults(function=command_on)
+
+    editing = subparsers.add_parser(
+        "edit",
+        help="change fields of a ticket, as the console does (an empty value clears the field)",
+    )
+    editing.add_argument("ticket", help="the ticket's ID, in any form")
+    editing.add_argument("--title", help="the title")
+    editing.add_argument("--body", help="the mission, replaced whole (`-` reads it from stdin)")
+    editing.add_argument("--on", help="the « On » prompt")
+    editing.add_argument("--priority", help="a score from 0 to 100")
+    editing.add_argument("--model", help="the model of the next session")
+    editing.add_argument("--validation", help="inherit, forced or free")
+    editing.add_argument("--project", help="a project's name or id")
+    editing.add_argument("--type", dest="kind", help="code, writing, external, publication…")
+    editing.add_argument("--subtype", help="a code ticket's sub-type")
+    editing.add_argument(
+        "--at", dest="scheduled", help='hold it back until then: "demain 9h", "+2d"'
+    )
+    editing.set_defaults(function=command_edit)
 
     logs = subparsers.add_parser("logs", help="show a session's log (-f to follow)")
     logs.add_argument("ticket", nargs="?", help="the ticket's ID, in any form")

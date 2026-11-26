@@ -832,7 +832,14 @@ class Tickets(Base):
         name = settings.prop("on")
         if name not in self.runner.client.schema(self.runner.database):
             raise ValueError(f"this board has no “{name}” column: run `ponos init` to add it")
-        self.runner.client.update(self.runner.database, page_id, {name: prompt.strip()})
+        client = self.runner.client
+        client.update(self.runner.database, page_id, {name: prompt.strip()})
+        if prompt.strip():
+            # The status the ticket has now is where its prompt starts watching:
+            # see `transitions.begin`.
+            status = str(store.read(client.page(page_id), settings.prop("status")) or "")
+            if status:
+                transitions_module.begin(page_id.replace("-", ""), status)
         return {"id": page_id.replace("-", ""), "on": prompt.strip()}
 
     def set_priority(self, page_id: str, priority: int | str) -> dict[str, Any]:
@@ -909,6 +916,151 @@ class Tickets(Base):
             "project": chosen,
             "project_name": str(row.get("name") or ""),
             "status": status,
+        }
+
+    # What a ticket in progress keeps as it is: the session was given them.
+    # The score, the model (from the next session), the « On », the validation
+    # and the date are the console's to change at any moment, and stay so.
+    HELD_WHILE_RUNNING = ("title", "body", "kind", "subtype", "project")
+
+    def update_ticket(
+        self, page_id: str, fields: dict[str, Any], by_hand: bool = False
+    ) -> dict[str, Any]:
+        """Change several fields of an existing ticket in one gesture.
+
+        What the MCP's `update_task` and `ponos edit` share. A field left out of
+        `fields` is not touched; one that is empty is cleared (no « On », no
+        project, the default score, the runner's model, no date, no type). Each
+        field goes through the setter the console's own gesture uses, and
+        everything is checked before anything is written: a refusal leaves the
+        ticket as it was. Title, mission, type, sub-type and project are held
+        while a session runs on the ticket — the console never edits the first
+        four at all, and a project changed under a session would send its
+        result nowhere. `by_hand` is a person choosing, as in `create_ticket`:
+        anywhere else a Model of Fable is written as Opus.
+        """
+        unknown = set(fields) - {
+            "title",
+            "body",
+            "on",
+            "priority",
+            "model",
+            "validation",
+            "project",
+            "kind",
+            "subtype",
+            "scheduled",
+        }
+        if unknown:
+            raise ValueError(f"unknown field: {', '.join(sorted(unknown))}")
+        if not fields:
+            raise ValueError("nothing to change: say at least one field")
+        record = tickets_module.get(page_id)
+        if record is None:
+            raise LookupError(f"no ticket with id {page_id}")
+        settings = self.config.board
+        status = str(store.read(self.runner.client.page(page_id), settings.prop("status")) or "")
+        if status == settings.state("running"):
+            held = [name for name in self.HELD_WHILE_RUNNING if name in fields]
+            if held:
+                raise ValueError(
+                    f"“{record.title}” is in progress: {', '.join(held)} cannot change while "
+                    "its session runs — pause it first, or change the other fields"
+                )
+        if record.status in ("done", "cancelled") and (
+            "validation" in fields or "scheduled" in fields
+        ):
+            raise ValueError("a finished ticket's validation and date can no longer change")
+        if "title" in fields and not str(fields["title"]).strip():
+            raise ValueError("a ticket needs a title")
+        kind = str(fields["kind"]).strip() if "kind" in fields else record.kind
+        if kind and kind not in kinds_module.KINDS:
+            raise ValueError(f"unknown type “{kind}”")
+        subtype = str(fields["subtype"]).strip() if "subtype" in fields else ""
+        if subtype and subtype not in subtypes.KEYS:
+            raise ValueError(f"unknown sub-type “{subtype}”")
+        if subtype and kind not in ("", "code"):
+            raise ValueError("a sub-type belongs to a code ticket")
+        if "priority" in fields:
+            priority_module.given(fields["priority"])
+        if "validation" in fields:
+            self._validation_word(fields["validation"])
+        if "scheduled" in fields:
+            later.written(fields["scheduled"])
+
+        changed: list[str] = []
+        client = self.runner.client
+        if "project" in fields:
+            self.set_ticket_project(page_id, str(fields["project"]))
+            changed.append("project")
+        values: dict[str, Any] = {}
+        if "title" in fields:
+            values[client.title_property(self.runner.database)] = str(fields["title"]).strip()
+        if "kind" in fields or "subtype" in fields:
+            if not self._has("type"):
+                raise ValueError(f"this board has no “{settings.prop('type')}” column")
+            if "kind" in fields:
+                values[settings.prop("type")] = self.runner.kind_name(kind) if kind else ""
+            if "subtype" in fields:
+                values[settings.prop("subtype")] = subtypes.option(subtype)
+        if values:
+            client.update(self.runner.database, page_id, values)
+            self.reader.hold(client.page(page_id))
+            self.watch.nudge()
+            changed += [name for name in ("title", "kind", "subtype") if name in fields]
+        if "body" in fields:
+            tickets_module.update(page_id, mission=vault.mask(str(fields["body"]).strip()))
+            self.reader.hold(client.page(page_id))
+            self.watch.nudge()
+            changed.append("body")
+        if "on" in fields:
+            self.set_on(page_id, str(fields["on"]))
+            changed.append("on")
+        if "priority" in fields:
+            self.set_priority(page_id, fields["priority"])
+            changed.append("priority")
+        if "model" in fields:
+            chosen = str(fields["model"]).strip()
+            self.set_model(page_id, chosen if by_hand or not chosen else models.allowed(chosen))
+            changed.append("model")
+        if "validation" in fields:
+            self.set_validation(page_id, str(fields["validation"]))
+            changed.append("validation")
+        if "scheduled" in fields:
+            self.set_scheduled(page_id, str(fields["scheduled"]))
+            changed.append("scheduled")
+        return {"id": page_id.replace("-", ""), "title": record.title, "changed": changed}
+
+    def delete_ticket(self, page_id: str) -> dict[str, Any]:
+        """Delete a ticket, its throwaway worktrees with it; refused while a session runs.
+
+        The ticket goes through `client.trash`, as a ticket does when its
+        project is deleted with them. What it leaves — the pull request, the
+        branch, the repository — is not ours to remove. Abandoning a ticket
+        keeps its history on the board: `cancelled` is the move to prefer.
+        """
+        record = tickets_module.get(page_id)
+        if record is None:
+            raise LookupError(f"no ticket with id {page_id}")
+        settings = self.config.board
+        status = str(store.read(self.runner.client.page(page_id), settings.prop("status")) or "")
+        shorts = {entry["source"] for entry in live.active()}
+        if status == settings.state("running") or short_id(page_id) in shorts:
+            raise ValueError(
+                f"a session is running on “{record.title}”: stop it (move it to paused or "
+                "cancelled) or wait for it to end, then delete it"
+            )
+        ticket = page_id.replace("-", "")
+        state.release(page_id)
+        self.runner.client.trash(page_id)
+        self.reader.forget(page_id)
+        removed, kept = self.runner.drop_for({short_id(page_id)})
+        self.watch.nudge()
+        return {
+            "id": ticket,
+            "title": record.title,
+            "worktrees": len(removed),
+            "kept": [path.name for path in kept],
         }
 
     def set_result(self, page_id: str, text: str, who: str = "") -> dict[str, Any]:

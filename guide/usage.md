@@ -23,6 +23,8 @@ ponos show <ticket>          # its mission, its result and its journal
 ponos show <ticket> --result # the result alone, as it is — to pipe into a clipboard or a file
 ponos move <ticket> <status> # change a ticket's status as the console does, without its login (--from <status>: only if it is still in that one; --at <when>: scheduled for then) — see « On »
 ponos comment <ticket> "text"  # comment on a ticket, as a reply from the console does
+ponos on <ticket> "prompt"     # write a ticket's « On » prompt (empty: clear it)
+ponos edit <ticket> --title …  # change fields (--body, --on, --priority, --model, --validation, --project, --type, --subtype, --at); an empty value clears
 ponos schedule <ticket> <when>  # hold it back until then: "2026-11-21 09:00", "demain 9h", "+2d" — `now` removes the date (see Scheduled in board.md)
 ponos status       # daemon, console, places taken and free per project, the queue and why each waits, recent tickets
 ponos history      # what has been handled, with the pull requests (-n, --number: how many)

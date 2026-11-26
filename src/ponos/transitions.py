@@ -126,6 +126,22 @@ def forget(kept: set[str]) -> None:
                 connection.execute("DELETE FROM watched WHERE ticket = ?", (ticket,))
 
 
+def begin(ticket: str, status: str) -> None:
+    """Take `status` as the starting point of a ticket nobody watches yet, and leave a watched one alone.
+
+    A prompt written on an existing ticket (the console, the MCP, the CLI) is
+    only seen at the next look of the daemon, which is read as a first sight —
+    a starting point, never a change. A ticket moved in between would then be
+    met already at its new status, and its first change lost. The status the
+    ticket had when the prompt was written is the starting point instead.
+    """
+    with db.transaction() as connection:
+        connection.execute(
+            "INSERT OR IGNORE INTO watched (ticket, status, depth, at) VALUES (?, ?, 0, ?)",
+            (ticket, status, _now()),
+        )
+
+
 def adopt(ticket: str, status: str, depth: int | None = None) -> None:
     """Take `status` as this ticket's starting point without running anything.
 
