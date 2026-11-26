@@ -714,6 +714,38 @@ the names already written in place of an identifier back into identifiers.
 and *Run it again*: the ticket is moved there and goes back to *Ready* in one gesture
 (`POST /api/tickets/<id>/project`, `{"project": "<name or id>", "ready": true}`).
 
+#### Archiving a project
+
+A project you no longer look after can be **archived** rather than deleted: *Archive* in
+the project's “…” menu, on its card, its row or its page (*Unarchive* in the same place
+puts it back). It is a box on the project's page — the `Shelved` property, set to unticked
+on every project by a migration of `ponos.db` — and nothing like a project in the trash,
+which is a deleted one and is still refused by every ticket that names it.
+
+An archived project:
+
+- **leaves the Projects list**, which hides it until the *Archived* filter beside the type
+  and the order is on — the button counts them, and an archived card carries a quiet
+  *Archived* badge;
+- **is no longer offered** in the pickers: *New ticket*, a schedule's and a goal's
+  projects, the board's *Project* filter, *New idea*, and moving a ticket. A ticket, a
+  schedule or a goal that already names it still shows it;
+- **gets no ideas**: the scheduled passes step over it and their dialog no longer lists it,
+  and finding ideas for it from the console is refused. Its ideas already proposed stay
+  where they are, to be read. What the dialog and the project's own setting said about it
+  is kept for the day it comes back;
+- **lets its schedules go by**: each occurrence that falls while it is archived makes no
+  ticket, is written in the schedule's activity as skipped (« its project is archived »),
+  and the next one is drawn as usual — the list of schedules says *project archived* beside
+  its name. They start again at their next moment once it is unarchived; *Run now* still
+  makes a ticket, since somebody asked.
+
+**Nothing is lost or blocked**: its tickets, their history and its statistics stay
+visible; a ticket already *Ready* on it runs as before; unarchiving it puts everything
+back. « Sans projet » is never archived. The same switch is `"shelved": true | false` on
+`POST /api/projects/<id>`, and `archived` on the MCP's `update_project` (`list_projects`
+says which projects are archived).
+
 **Whatever you write on the project page becomes standing instructions** for every
 ticket of that project. Not the ticket's page — the *project's*. It is prepended to the
 brief the agent receives, so it is written once instead of retyped into every ticket:

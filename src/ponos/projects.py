@@ -35,6 +35,14 @@ on the strength of its `origin` remote, never because its folder happens to be
 named like the project, and never when two clones answer to the same remote.
 A project none of its declarations lead to is put back, with every way that
 was tried and why it failed in a comment.
+
+**Shelved is not archived.** The page's `archived` (or `in_trash`) is a project
+*deleted* — in the trash, and refused below. A project somebody has stopped
+looking after is another thing, and says so under another name: `Shelved`, a
+box on its page that the console calls « Archivé ». It hides the project from
+the lists and the pickers, and stops what Ponos would start for it on its own —
+ideas, schedules —, but refuses nothing: a ticket already written for it still
+resolves and runs, and unticking the box puts everything back.
 """
 
 from __future__ import annotations
@@ -46,6 +54,14 @@ from pathlib import Path
 from . import git, store
 
 SKIP = {"node_modules", "vendor", ".git", "dist", "build", ".venv", "__pycache__"}
+
+# The box on a project's page that puts it away — see the module's docstring.
+SHELVED = "Shelved"
+
+
+def shelved(page: store.Page) -> bool:
+    """Has somebody put this project away? Never true of a page that does not say so."""
+    return store.read(page, SHELVED) is True
 
 
 @dataclass

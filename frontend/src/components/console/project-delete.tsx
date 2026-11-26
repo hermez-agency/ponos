@@ -1,5 +1,5 @@
 import * as React from "react"
-import { MoreHorizontal, Trash2 } from "lucide-react"
+import { Archive, ArchiveRestore, MoreHorizontal, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@/components/console/confirm-dialog"
@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
@@ -16,7 +17,8 @@ import { api } from "@/lib/api"
 import { counted, useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
-/* Deleting a project, from the list and from its page.
+/* Deleting a project, from the list and from its page — and, in the same
+ * menu, archiving it, which is the gentle way of putting one away.
  *
  * One dialog for both, and no way around it: the menu only opens the dialog,
  * and the button in it stays off until the box saying one is sure has been
@@ -27,10 +29,11 @@ import { cn } from "@/lib/utils"
  * tickets are stopped (or deleted, if asked), and what is on the machine is not
  * touched. */
 
-/** What the dialog needs to know of a project. */
+/** What the dialog needs to know of a project — and the menu, whether it is archived. */
 export interface Deletable {
   id: string
   name: string
+  shelved?: boolean
 }
 
 export function DeleteProjectDialog({
@@ -152,20 +155,46 @@ export function DeleteProjectDialog({
   )
 }
 
-/** The “…” menu of a project, whose one entry opens the dialog above. */
+/** The “…” menu of a project: archiving it — put away, nothing lost, undone
+ * from the same menu — and the entry that opens the dialog above. */
 export function ProjectMenu({
   project,
   tickets,
   onDeleted,
+  onShelve,
+  deletable = true,
   className,
 }: {
   project: Deletable
   tickets: number | null
   onDeleted: () => void
+  /** Archive (true) or unarchive (false) it; absent, the menu offers neither. */
+  onShelve?: (shelved: boolean) => Promise<unknown>
+  /** Whether it offers to delete it: an admin's. */
+  deletable?: boolean
   className?: string
 }) {
   const t = useT()
   const [asking, setAsking] = React.useState(false)
+  if (!onShelve && !deletable) return null
+  const shelve = async (shelved: boolean) => {
+    if (!onShelve) return
+    try {
+      await onShelve(shelved)
+      toast.success(
+        shelved
+          ? t("Project “{{name}}” archived", { name: project.name })
+          : t("Project “{{name}}” unarchived", { name: project.name }),
+        shelved
+          ? { description: t("Hidden from the list and the pickers, no more ideas nor schedules for it. Its tickets stay.") }
+          : undefined
+      )
+    } catch (error) {
+      toast.error(t("The project could not be changed"), {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
   return (
     <>
       <DropdownMenu>
@@ -182,10 +211,19 @@ export function ProjectMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem variant="destructive" onSelect={() => setAsking(true)}>
-            <Trash2 />
-            {t("Delete")}
-          </DropdownMenuItem>
+          {onShelve ? (
+            <DropdownMenuItem data-project-shelve onSelect={() => void shelve(!project.shelved)}>
+              {project.shelved ? <ArchiveRestore /> : <Archive />}
+              {project.shelved ? t("Unarchive") : t("Archive")}
+            </DropdownMenuItem>
+          ) : null}
+          {onShelve && deletable ? <DropdownMenuSeparator /> : null}
+          {deletable ? (
+            <DropdownMenuItem variant="destructive" onSelect={() => setAsking(true)}>
+              <Trash2 />
+              {t("Delete")}
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       <DeleteProjectDialog

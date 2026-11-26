@@ -27,8 +27,8 @@ the console's own checks are off, so that it stays the one found.
 The blocked ticket has two runs in the local journal, for the session tab that
 reads them.
 
-Given `doomed`, the same console with two more projects, for the tests that
-delete them. Given `series`, a board of its own: three blocked tickets, each on
+Given `doomed`, the same console with three more projects, for the tests that
+delete them and the one that archives one. Given `series`, a board of its own: three blocked tickets, each on
 another kind of stop, and two in review — the columns the series of
 `series.spec.ts` goes through whole, which no other test may move a card of. Given `unclaimed`, the same console with no token and no sign-in: what a
 fresh installation serves, its first connection. Given `accounts`, a board of
@@ -191,11 +191,13 @@ WRITING = ("0000000000000000000000000000f00d", "Journal", "📝")
 # A ticket on a project that has an icon: what its card's foot shows.
 FOOTED = ("00000000000000000000000000f007ed", "Write the journal entry")
 # Two projects only the deleting tests touch — one from the list, one from its
-# page — each with a ticket ready and one done, which a deletion must tell apart.
+# page — each with a ticket ready and one done, which a deletion must tell apart;
+# and a third that `project-archive.spec.ts` archives and brings back.
 # Written only for the console given `doomed`: the other tests count projects.
 DOOMED = {
     "0000000000000000000000000000d001": "Old shop",
     "0000000000000000000000000000d002": "Old blog",
+    "0000000000000000000000000000d003": "Old wiki",
 }
 
 

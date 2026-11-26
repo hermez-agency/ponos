@@ -346,3 +346,23 @@ def a_clone_that_cannot_be_made_joins_the_ways_that_were_tried() -> None:
             raise AssertionError("a clone that fails leaves the project unresolved")
     assert "matches no origin remote" in message, "every earlier way is still listed"
     assert "could not be cloned" in message and "no network in this test" in message
+
+
+@case
+def an_archived_project_still_resolves_and_one_in_the_trash_is_still_refused() -> None:
+    """« Archivé » is `Shelved`, a box on the page; `archived` is the trash, as before."""
+    client = _ProjectClient("Rangé")
+    client._page.properties[projects.SHELVED] = {"type": "checkbox", "checkbox": True}  # noqa: SLF001
+    with _workspace({}) as (resolver, _):
+        assert projects.shelved(client.page("p-1"))
+        found = resolver.resolve(client, "p-1")  # type: ignore[arg-type]  # a double of the board
+        assert found.name == "Rangé" and found.path is None, "its tickets still run"
+        for gone in ({"archived": True}, {"in_trash": True}):
+            client._page.raw = gone  # noqa: SLF001
+            try:
+                resolver.resolve(client, "p-1")  # type: ignore[arg-type]
+            except LookupError as error:
+                assert "deleted" in str(error)
+            else:
+                raise AssertionError(f"{gone}: a project in the trash is refused")
+    assert not projects.shelved(_ProjectClient("Courant").page("p-1"))

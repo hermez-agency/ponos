@@ -630,12 +630,32 @@ export function ProjectOf({ said, page }: { said: string; page: string }) {
   const [unread, setUnread] = React.useState(false)
   React.useEffect(() => {
     // A list that cannot be read leaves the cell empty, as a project with no
-    // name would; the schedule itself is still there.
-    if (wanted) void projectsOnce().catch(() => setUnread(true))
-  }, [wanted])
-  if (!wanted) return <>{said}</>
+    // name would; the schedule itself is still there. Asked for a name the
+    // server did not know, and for whether the project is archived.
+    if (page) void projectsOnce().catch(() => wanted && setUnread(true))
+  }, [page, wanted])
+  const project = known?.projects.find((one) => one.id === page)
+  // Archived: its schedule makes nothing until the project is unarchived — said
+  // beside the name, so a schedule that seems stuck says why.
+  const shelved = project?.shelved ? (
+    <Badge variant="secondary" data-slot="schedule-project-archived" className="text-muted-foreground ml-1.5 rounded-full px-1.5 py-0 text-[0.65rem] font-medium">
+      {t("project archived")}
+    </Badge>
+  ) : null
+  if (!wanted)
+    return (
+      <>
+        {said}
+        {shelved}
+      </>
+    )
   if (!known) return unread ? null : <Skeleton className="h-3 w-20" />
-  return <>{known.projects.find((project) => project.id === page)?.name ?? ""}</>
+  return (
+    <>
+      {project?.name ?? ""}
+      {shelved}
+    </>
+  )
 }
 
 const ProjectName: InputControllerComponentInterface = ({ formInput }) => {

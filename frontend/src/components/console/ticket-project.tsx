@@ -45,6 +45,8 @@ export function TicketProjectChoice({ ticket }: { ticket: Ticket }) {
     (project) =>
       project.id &&
       project.id !== ticket.project_id &&
+      // Archived: not somewhere to send a ticket any more.
+      !project.shelved &&
       (code === "project.which-repo" ? project.kind === "code" : true)
   )
   if (!offered.length) return null

@@ -27,6 +27,9 @@ ones listed when it is "selected". The workspace's ideas, the ones with no
 project, are a switch of their own: "all projects" has never meant the
 workspace.
 
+An archived project (`projects.SHELVED`) is in no pass, and the dialog does
+not show it; what it and the file said is kept for the day it comes back.
+
 **What a pass remembers.** One row each, with when, how many ideas it found,
 what it cost and which projects it stepped over: the Ideas page's "last pass",
 and the reason a project got nothing, which otherwise would only be in a log.
@@ -130,8 +133,16 @@ def upcoming(wanted: Plan, first: datetime, until: datetime, limit: int = 500) -
     return found
 
 
-def covers(wanted: Plan, project: str, name: str, own: bool | None) -> bool:
-    """Is a project part of a pass: its own word first, the file's otherwise."""
+def covers(
+    wanted: Plan, project: str, name: str, own: bool | None, *, shelved: bool = False
+) -> bool:
+    """Is a project part of a pass: its own word first, the file's otherwise.
+
+    An archived project is in none, whatever either says — and both are kept as
+    they were, so that unarchiving it puts it back in the passes it was in.
+    """
+    if shelved:
+        return False
     if own is not None:
         return own
     if wanted.scope == "all":

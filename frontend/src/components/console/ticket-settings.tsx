@@ -173,7 +173,9 @@ export function ProjectField({ ticket, children }: { ticket: Ticket; children: R
   const load = (open: boolean) => {
     if (!open || projects) return
     api.projects().then(
-      (read) => setProjects(read.projects.filter((project) => project.id)),
+      // An archived project is offered no more; the ticket's own stays, to be read.
+      (read) =>
+        setProjects(read.projects.filter((project) => project.id && (!project.shelved || project.id === ticket.project_id))),
       () => setProjects([])
     )
   }

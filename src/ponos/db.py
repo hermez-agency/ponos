@@ -1368,6 +1368,17 @@ def _tickets_have_a_public_id(connection: sqlite3.Connection) -> None:
     )
 
 
+def _projects_can_be_shelved(connection: sqlite3.Connection) -> None:
+    # « Archivé » dans la console : une case `Shelved` sur la page d'un projet
+    # (projects.SHELVED), autre chose que la corbeille. Tous les projets
+    # existants la reçoivent décochée — rien n'est rangé par la migration.
+    connection.execute(
+        "UPDATE board_pages SET properties = json_set(properties, '$.Shelved', json('false'))"
+        " WHERE collection = 'projects' AND json_valid(properties)"
+        " AND json_extract(properties, '$.Shelved') IS NULL"
+    )
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1436,6 +1447,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _tickets_have_a_validation,
     _runs_branch_off,
     _tickets_have_a_public_id,
+    _projects_can_be_shelved,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

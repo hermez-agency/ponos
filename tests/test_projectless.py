@@ -167,6 +167,7 @@ def the_console_creates_a_ticket_by_its_projects_name_and_moves_one_to_another()
         refusals: list[Callable[[], object]] = [
             lambda: api.save_project(projectless.ID, {"repository": "acme/site"}),
             lambda: api.save_project(projectless.ID, {"kind": "code"}),
+            lambda: api.save_project(projectless.ID, {"shelved": True}),
             lambda: api.delete_project(projectless.ID, {"confirm": "Unknown"}),
             lambda: api.create_ticket("Ailleurs", project="Déménager"),
         ]

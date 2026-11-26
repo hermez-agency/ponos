@@ -46,6 +46,7 @@ import {
 } from "@/lib/ticket-search"
 import type { Board, Ticket } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { projectsOnce, useProjects } from "@/resources/projects"
 
 /* The search over the tickets: one bar, for the board and for a project's page.
  *
@@ -430,6 +431,17 @@ export function TicketSearch({
   // again at every change of the address, a ticket's window opened over the
   // board among them, and on 1 800 tickets the counting was 50 ms of the click.
   // `t` is there for the language the labels are said in.
+  // The archived projects, by name — what a ticket carries: offered no more
+  // as a filter, unless the address already asks for one.
+  const listed = useProjects()
+  React.useEffect(() => {
+    if (projects) void projectsOnce().catch(() => undefined)
+  }, [projects])
+  const shelved = React.useMemo(
+    () => new Set((listed?.projects ?? []).filter((project) => project.shelved).map((project) => project.name)),
+    [listed]
+  )
+  const chosenProjects = query.project
   const facets = React.useMemo((): Record<Facet, Option[]> => {
     return {
       type: offered(tickets, (ticket) => ticket.type, said(choices?.type), choiceWord),
@@ -463,7 +475,9 @@ export function TicketSearch({
         (value, ticket) => ticket?.model_label || value
       ),
       project: projects
-        ? offered(tickets, (ticket) => ticket.project).sort((a, b) => a.label.localeCompare(b.label))
+        ? offered(tickets, (ticket) => ticket.project)
+            .filter((option) => !shelved.has(option.value) || chosenProjects.includes(option.value))
+            .sort((a, b) => a.label.localeCompare(b.label))
         : [],
       // The goal by its id, said by its name: the one on the card.
       goal: offered(
@@ -483,7 +497,7 @@ export function TicketSearch({
     // `t` is not read here, but changes with the language that `blockSaid` and
     // `choiceWord` read: switching it says the labels again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickets, choices, subtypes, columns, validate, cancel, projects, t])
+  }, [tickets, choices, subtypes, columns, validate, cancel, projects, shelved, chosenProjects, t])
   const names: Record<Facet, string> = {
     type: t("Type"),
     subtype: t("Sub-type"),

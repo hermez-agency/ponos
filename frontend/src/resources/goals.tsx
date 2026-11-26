@@ -27,7 +27,7 @@ import { t } from "@/lib/i18n"
 import { readScore } from "@/lib/priority"
 import type { Goal, GoalSaved } from "@/lib/types"
 import { readOnly } from "@/lib/role"
-import { projectsOnce } from "@/resources/projects"
+import { projectsOnce, useProjects } from "@/resources/projects"
 
 /* The goals, declared for react-resource-view as the ideas are.
  *
@@ -193,6 +193,19 @@ const LazyTickets: InputControllerComponentInterface = (props) => (
 
 /* -- the forms ------------------------------------------------------------- */
 
+/* The projects a goal may name: an archived one is offered no more, but one
+ * the goal already names stays, by its name — unticking it is a choice, not
+ * something the archive does behind somebody's back. */
+const OfferedProjects: InputControllerComponentInterface = (props) => {
+  const listed = useProjects()
+  const shelved = new Set((listed?.projects ?? []).filter((project) => project.shelved).map((project) => project.id))
+  const chosen = new Set((Array.isArray(props.formInput.value) ? props.formInput.value : []).map(String))
+  const valueOptions = (props.formInput.valueOptions ?? []).filter(
+    (option: { value?: unknown }) => !shelved.has(String(option.value)) || chosen.has(String(option.value))
+  )
+  return <MultiSelectInputController {...props} formInput={{ ...props.formInput, valueOptions }} />
+}
+
 /* The columns of the Objectifs database, in the order they are read; the
  * server writes the ones it finds under their names there. The statuses are
  * the database's own options, as the last read found them, and the projects
@@ -251,7 +264,7 @@ const fields: FormInterface["inputs"] = {
   },
   projects: {
     label: "Projects",
-    controller: MultiSelectInputController,
+    controller: OfferedProjects,
     getValueOptions: async () => {
       const every = await projectsOnce()
       return every.projects

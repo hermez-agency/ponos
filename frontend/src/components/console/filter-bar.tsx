@@ -46,6 +46,40 @@ export const FilterButton = React.forwardRef<
   )
 })
 
+/** A filter that is on or off, as a filter button: no list to open, a press
+ * turns it on and another turns it off. What it counts goes beside its name. */
+export function FilterToggle({
+  label,
+  on,
+  children,
+  className,
+  ...props
+}: { label: string; on: boolean } & React.ComponentProps<typeof Button>) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      aria-pressed={on}
+      data-on={on || undefined}
+      className={cn("shrink-0 font-normal", !on && "border-dashed", on && "border-primary/50", className)}
+      {...props}
+    >
+      {label}
+      {children !== undefined && children !== null ? (
+        <span
+          className={cn(
+            "rounded px-1.5 text-xs font-medium tabular-nums",
+            on ? "bg-primary/10 text-primary" : "text-muted-foreground"
+          )}
+        >
+          {children}
+        </span>
+      ) : null}
+    </Button>
+  )
+}
+
 /* A select has no empty value: "" — "all", where a list rests — is this one. */
 const ANY = "__any__"
 

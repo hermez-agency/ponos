@@ -15,6 +15,7 @@ import time
 from typing import Any
 
 from .. import project_settings, projectless, store
+from .. import projects as projects_module
 from .base import Base
 from .creation import COLUMNS, is_site
 
@@ -51,6 +52,9 @@ class Projects(Base):
                         "description": _first(page, *COLUMNS["description"]),
                         "site": _first(page, *COLUMNS["site"]),
                         **self._pictures(page),
+                        # Put away: hidden from the lists and the pickers, its
+                        # ideas and schedules stopped — see projects.SHELVED.
+                        **({"shelved": True} if projects_module.shelved(page) else {}),
                         # « Sans projet »: the console offers neither to delete
                         # it nor to give it a repository — see projectless.py.
                         **({"builtin": True} if projectless.is_it(page.id) else {}),
@@ -175,8 +179,9 @@ class Projects(Base):
 
         What a project is: its name, what it does in a sentence, its public
         address, the repository its tickets are worked in, the path this
-        machine finds that repository at, and the brief. Never its tickets —
-        those point at the page, and are moved on the board.
+        machine finds that repository at, the brief, and whether it is put away
+        (`shelved`, the console's « Archiver »). Never its tickets — those point
+        at the page, and are moved on the board.
 
         Its type is no column: a page that names a repository or a folder is a
         code project (see `projects`). So "document" empties both, and "code"
@@ -226,6 +231,12 @@ class Projects(Base):
             written[_column(page, *COLUMNS["site"])] = site
         if str(values.get("name", "")).strip():
             written[self.runner.client.title_property(database)] = str(values["name"]).strip()
+        if "shelved" in values:
+            # « Archiver » — another word from the trash, which deleting is. The
+            # project of the tickets without one is never put away: they go there.
+            if projectless.is_it(page_id) and values["shelved"]:
+                raise ValueError(self.runner.voice.say("projectless-not-shelved"))
+            written[projects_module.SHELVED] = bool(values["shelved"])
         if not written and "content" not in values:
             raise ValueError("nothing to change")
         if "content" in values:

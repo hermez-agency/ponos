@@ -165,7 +165,10 @@ class Ideas(Base):
                     )
                 )
         else:
-            names = sorted((row["name"] for row in self.projects().values()), key=str.lower)
+            names = sorted(
+                (row["name"] for row in self.projects().values() if not row.get("shelved")),
+                key=str.lower,
+            )
             try:
                 context = self.runner.workspace.context
             except store.StoreError:
@@ -183,6 +186,14 @@ class Ideas(Base):
     def _generate_ideas(self, project: str, count: int | None = None) -> dict[str, Any]:
         configuration = self.config
         count = configuration.runner.ideas_per_batch if count is None else count
+        shelf = next(
+            (row for row in self.all_projects()["projects"] if project and row["id"] == project),
+            None,
+        )
+        if shelf and shelf.get("shelved"):
+            # Put away: nothing is searched for it. What it was proposed before
+            # stays where it is, to be read.
+            raise ValueError(self.runner.voice.say("project-shelved", name=shelf["name"]))
         name, brief, readme, names, context = self._idea_scope(project)
         tickets = self._idea_tickets(name if project else "")
         known = ideas.known(project)
