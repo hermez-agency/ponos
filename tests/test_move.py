@@ -149,3 +149,58 @@ def ponos_move_at_makes_a_ticket_ready_for_later(state_home: Path) -> None:
         )
     assert code == 1 and "unreadable" in err
     assert _status(made.id) == "ready", "a date refused moves nothing"
+
+
+@case
+def ponos_on_writes_the_prompt_of_a_ticket_and_an_empty_one_clears_it(state_home: Path) -> None:
+    made = tickets.create("Premier", status="draft")
+    with _installed():
+        code, out, err = _run(
+            cli.command_on, ticket=made.id[-8:], prompt=["Si", "done,", "crée", "la", "suite."]
+        )
+        assert (code, err) == (0, ""), (code, out, err)
+        assert "on changed" in out
+        record = tickets.get(made.id)
+        assert record is not None and record.on_change == "Si done, crée la suite."
+        code, _, err = _run(cli.command_on, ticket="T-1", prompt=[])
+        assert (code, err) == (0, ""), err
+    record = tickets.get(made.id)
+    assert record is not None and record.on_change == ""
+
+
+@case
+def ponos_edit_changes_only_the_fields_given_and_refuses_a_ticket_in_progress(
+    state_home: Path,
+) -> None:
+    made = tickets.create("Premier", status="draft")
+    running = tickets.create("En cours", status="progress")
+    nothing: dict[str, object] = {
+        name: None
+        for name in (
+            "title",
+            "body",
+            "on",
+            "priority",
+            "model",
+            "validation",
+            "project",
+            "kind",
+            "subtype",
+            "scheduled",
+        )
+    }
+    with _installed():
+        code, out, err = _run(
+            cli.command_edit, ticket=made.id, **{**nothing, "title": "Corrigé", "priority": "75"}
+        )
+        assert (code, err) == (0, ""), (code, out, err)
+        record = tickets.get(made.id)
+        assert record is not None and (record.title, record.priority) == ("Corrigé", 75)
+        code, _, err = _run(cli.command_edit, ticket=made.id, **{**nothing, "priority": "500"})
+        assert code == 1 and "priority" in err
+        code, _, err = _run(cli.command_edit, ticket=made.id, **nothing)
+        assert code == 2 and "nothing to change" in err
+        code, _, err = _run(cli.command_edit, ticket=running.id, **{**nothing, "title": "Autre"})
+        assert code == 1 and "in progress" in err, err
+    record = tickets.get(running.id)
+    assert record is not None and record.title == "En cours"

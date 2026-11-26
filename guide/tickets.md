@@ -371,6 +371,8 @@ never by importing Ponos's code or writing into `ponos.db`. The prompt of the se
 ```sh
 ponos move <ticket> <status> [--from <status>] [--at <when>]
 ponos comment <ticket> "text"
+ponos on <ticket> "prompt"            # the « On » prompt; empty clears it
+ponos edit <ticket> [--title …] [--body …|-] [--on …] [--priority …] [--model …] [--validation …] [--project …] [--type …] [--subtype …] [--at …]
 ponos schedule <ticket> <when>
 ```
 
