@@ -51,7 +51,6 @@ RETIRED: dict[str, tuple[str, ...]] = {
         "max_load_per_core",
         "session_workers",
         "min_free_disk_mb",
-        "credit_reserve_percent",
         "permission_mode",
         "branch_prefix",
         "fetch",

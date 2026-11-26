@@ -148,6 +148,7 @@ key below is a field there; the file itself is `config.example.toml`, under 150 
 | `runner.timeout_minutes` | `30` | past this, the session is killed and the ticket fails |
 | `runner.log_max_mb` | `4096` | the most `logs/` may hold, service journal included; past it the oldest logs are removed down to 90 % of it, never those of a ticket in use — see [What `clean` removes](usage.md#what-clean-removes-and-what-it-refuses-to) |
 | `runner.wait_for_credits` | `true` | a spent subscription window puts the runner to sleep instead of failing tickets — see [When the credits run out](credits.md#when-the-credits-run-out) |
+| `runner.credit_reserve_percent` | `5` | the share of the subscription left alone, `0` to `50`: nothing new starts past `100` minus this — Settings › Credits says it the other way round, « Stop at 95 % » — see [Stopping before the wall](credits.md#stopping-before-the-wall) |
 | `runner.network_retries` | `3` | tries, after 5, 15 then 45 minutes, of a ticket whose session was cut by the network or the API; `0` fails it at once — see [When the network is cut](credits.md#when-the-network-is-cut) |
 | `runner.model` | `""` | `"opus"`, `"sonnet"`… empty = the CLI's default |
 | `runner.language` | `""` | `"fr"` to be answered in French — see [The language it answers in](board.md#the-language-it-answers-in) |
@@ -184,7 +185,7 @@ Everything else that used to be a line of the file is read as the value it had b
 whatever a file still says: a line left behind is harmless, and `ponos doctor` names it so it can be
 deleted. They are listed, with their values, in the *Breaking* entry of the
 [changelog](../CHANGELOG.md): among them the guards (`min_free_memory_mb` 2048,
-`max_load_per_core` 1.5, `min_free_disk_mb` 5120, `credit_reserve_percent` 5), the places per
+`max_load_per_core` 1.5, `min_free_disk_mb` 5120), the places per
 project (`max_concurrent_per_project` 2), the branch (`branch_prefix` `ticket/`; fetch, push, pull
 request and rebase all on), the conflicts (resolved by a session), the retention (`log_retention_days`
 14, `stale_worktree_days` 30, `tmp_retention_hours` 24), the models (`auto_model` on, the four levels

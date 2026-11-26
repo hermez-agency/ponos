@@ -5197,6 +5197,8 @@ export interface components {
             docker?: components["schemas"]["Docker"];
             /** @description The projects that decide their automatic validation for themselves. */
             own_validation?: components["schemas"]["OwnValidation"][];
+            /** @description The subscription's two windows, as last read — empty `windows` when nobody knows. */
+            usage?: components["schemas"]["Usage"];
         };
         SetupBoard: {
             /** @enum {string} */
@@ -5978,6 +5980,21 @@ export interface components {
             target: string;
             log: string[];
             log_path: string;
+        };
+        /** @description What the subscription said last, beside the line that stops the runner. */
+        Usage: {
+            windows: components["schemas"]["UsageWindow"][];
+            /** @description When it was read, in seconds since the epoch. */
+            read_at: number;
+            /** @description When it was last read at all — 0 if never; what to say when `windows` is empty. */
+            last_read: number;
+        };
+        UsageWindow: {
+            /** @enum {string} */
+            name: "five_hour" | "seven_day";
+            percent: number;
+            /** @description When it rolls over, in seconds since the epoch — 0 when it is not said. */
+            resets_at: number;
         };
         Validation: {
             /** @description Whether the project has its own switches; false, the file's apply. */

@@ -250,6 +250,9 @@ def every_setting_the_file_holds_is_one_the_console_can_reach() -> None:
     # What the file keeps: the keys of schema.py, and the secrets that live elsewhere.
     expected = {f"runner.{name}" for name in schema.RunnerTable.model_fields}
     expected.discard("runner.force_validated")
+    # Said the other way round on the page: "stop at 95 %" for a reserve of 5.
+    expected.discard("runner.credit_reserve_percent")
+    expected.add("runner.credit_stop_percent")
     # The one list, drawn as a switch a type: see `settings._forced_changes`.
     expected |= {f"runner.force_validated_{kind}" for kind in C.VALIDATED}
     expected |= {f"web.{name}" for name in schema.WebTable.model_fields}
@@ -344,3 +347,53 @@ def a_setting_that_needs_more_than_saving_says_so_and_only_when_it_moved() -> No
     assert (
         web_settings.save(C.load(path), {"settings": {"runner.max_concurrent": 3}})["saved"] == []
     )
+
+
+@case
+def the_limit_is_said_as_where_to_stop_and_kept_as_what_is_held_back(state_home: Path) -> None:
+    """« Stop at 95 % » is `credit_reserve_percent = 5`: the page's words, the file's key."""
+
+    def drawn(config: C.Config) -> dict[str, Any]:
+        fields: dict[str, dict[str, Any]] = {
+            field["name"]: field
+            for section in web_settings.describe(config)["sections"]
+            for field in section["fields"]
+        }
+        return fields["runner.credit_stop_percent"]
+
+    path, config = _saved()
+    shown = drawn(config)
+    assert shown["fallback"] == 95 and shown["stated"] is False, "95 % by default"
+
+    web_settings.save(config, {"settings": {"runner.credit_stop_percent": 80}})
+    assert "credit_reserve_percent = 20" in path.read_text()
+    config = C.load(path)
+    assert config.runner.credit_reserve_percent == 20
+    shown = drawn(config)
+    assert shown["value"] == 80 and shown["stated"] is True
+
+    # Clearing the box removes the line: the default comes back.
+    web_settings.save(config, {"settings": {"runner.credit_stop_percent": None}})
+    assert "credit_reserve_percent" not in path.read_text()
+    assert C.load(path).runner.credit_reserve_percent == 5
+
+    # Out of bounds is refused, with its bound, and nothing is written.
+    for value, said in ((49, "50 at the least"), (101, "100 at the most")):
+        try:
+            web_settings.save(config, {"settings": {"runner.credit_stop_percent": value}})
+        except ValueError as error:
+            assert said in str(error), error
+            continue
+        raise AssertionError(f"{value} should have been refused")
+    assert "credit_reserve_percent" not in path.read_text()
+
+    # And what the file says is what the runner holds back, with no restart: the
+    # configuration is read again at each pass, and `_reserve` reads this one.
+
+
+@case
+def a_reserve_the_file_writes_out_of_bounds_is_held_to_them_by_the_loader() -> None:
+    """The page refuses it; a hand-edited file is clamped rather than obeyed — 50 is the most."""
+    for written, held in ((70, 50), (-3, 0), (12, 12)):
+        _, config = _saved(f"\n[runner]\ncredit_reserve_percent = {written}\n")
+        assert config.runner.credit_reserve_percent == held, written

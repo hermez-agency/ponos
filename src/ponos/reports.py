@@ -1282,16 +1282,27 @@ class Reports(Base):
             return 0.0
         reading = credits.used()
         if reading is None:
-            # Once per run, not once per free place: the cache is not going to
-            # appear halfway through a pass, and a warning repeated every ten
-            # seconds is a warning nobody reads.
+            # Said once per run, not once per free place — a warning repeated
+            # every ten seconds is a warning nobody reads — and to the phone
+            # once for the whole outage, by the note: the runner carries on, so
+            # nothing else would tell you the reserve is not holding.
+            seen = credits.last_read()
+            since = f"last read {credits.moment(seen)}" if seen else "never read"
             if not self._usage_warned:
                 self._usage_warned = True
                 self.say(
-                    "  ! how much of the subscription is spent could not be read — "
-                    "carrying on without the reserve"
+                    f"  ! subscription usage unknown — {since} — carrying on without the reserve"
+                )
+            if credits.hold_once(time.time() + credits.LONGEST_WAIT, what="usage-unknown"):
+                self._announce(
+                    self.voice.say("usage-unknown"),
+                    self.voice.say(
+                        "usage-unknown-detail",
+                        since=credits.moment(seen) if seen else self.voice.say("usage-never"),
+                    ),
                 )
             return 0.0
+        credits.release(what="usage-unknown")
         used, resets_at = reading
         reserve = self.config.runner.credit_reserve_percent
         if used < 100 - reserve:

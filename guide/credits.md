@@ -96,10 +96,16 @@ wrote its own lists keeps them: nothing rewrites `config.toml`.
 Waiting for a spent window is the cure; not spending it all is the treatment.
 `runner.credit_reserve_percent` is the share of each window the runner refuses to touch —
 5 by default, so it starts nothing past 95 % and there is still a subscription left for
-the terminal *you* open.
+the terminal *you* open. Settings › Credits says it the way you think it — « Stop at 95 % »,
+from 50 to 100, saved as `100` minus that — and shows both windows, with their reset hour and
+the hour of the reading, beside it. A change counts at the next free place, without restarting the runner.
 
 It reads the same two figures Claude Code's own `/usage` shows — the session window and
-the week — and takes the more constraining of them: 20 % of the week and 97 % of the
+the week — by asking the endpoint `/usage` asks, with the sign-in the CLI already keeps
+(`~/.claude/.credentials.json`, or `CLAUDE_CONFIG_DIR`; read, never written), at most every
+three minutes. When that fails it falls back on Claude Code's own cache, but only while it is
+under fifteen minutes old — an interactive session refreshes it, the runner's headless ones
+never do. It takes the more constraining of them: 20 % of the week and 97 % of the
 session is 97 % spent. Past the line:
 
 - **nothing new is started**: not a ticket, not a publication, not an answer in a thread;
@@ -118,10 +124,12 @@ session is 97 % spent. Past the line:
 The reading is taken again at every free place: the sessions in flight are what fills the
 window. `0`
 spends the lot, which is what the runner did before this setting existed; `50` is the most
-it will accept. If the usage cannot be read at all — no Claude Code store, a payload whose
-shape changed — the runner says so once and behaves exactly as it does at `0`: a runner
-that stopped working because it could not find a JSON key would be a far worse failure
-than the one this guards against.
+it will accept. If there is no reading under fifteen minutes old — the endpoint does not
+answer, the sign-in expired, a payload whose shape changed — the usage is *unknown*, never
+0 %: `ponos status` and `ponos doctor` say « usage unknown — last read 19/11 15:44 », you
+are told once, and the runner carries on as it does at `0`, because a runner that stopped
+working over a failed lookup would be a far worse failure than the one this guards against.
+The line applies again at the first fresh reading.
 
 ### Spending limits
 

@@ -49,6 +49,7 @@ from .config import (
     IDEAS_SCHEDULES,
     IDEAS_SCOPES,
     MERGE_METHODS,
+    MOST_RESERVED,
     PROVIDERS,
     SECRETS,
     UPDATE_CHANNELS,
@@ -213,6 +214,11 @@ class RunnerTable(Table):
     log_max_mb: AtLeast1 = Runner.log_max_mb
     wait_for_credits: bool = Runner.wait_for_credits
     network_retries: AtLeast0 = Runner.network_retries
+    # What the runner keeps back, between nothing and `MOST_RESERVED`: the
+    # console says it the other way round — "stop at 95 %" — see `web/settings`.
+    credit_reserve_percent: Annotated[
+        Integer, AfterValidator(lambda value: min(MOST_RESERVED, max(0, value)))
+    ] = Runner.credit_reserve_percent
 
     model: Text = Runner.model
     # Kept as the file wrote it: `voice` reads it down to a language it
