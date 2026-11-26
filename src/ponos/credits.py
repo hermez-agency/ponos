@@ -11,9 +11,9 @@ So the three facts a run needs are here.
 
 **What an exhausted quota looks like**, read off what the CLI said, because that
 is the only place it is ever said. **How much of the window is already spent**,
-read off the very cache `/usage` draws — which is what lets a runner stop
-*before* the wall rather than against it, and leave you enough of your own
-subscription to open a terminal with. And **the moment it comes back**, written
+read off the endpoint `/usage` asks, with the sign-in the CLI already keeps —
+which is what lets a runner stop *before* the wall rather than against it, and
+leave you enough of your own subscription to open a terminal with. And **the moment it comes back**, written
 into the state directory: a run is a process the timer starts, not a loop, so
 what this one learned only reaches the next one by being on disk. The runs in
 between find the note and do nothing at all — no session started, no ticket
@@ -32,11 +32,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from . import db
+from . import db, http
 
 # How long to wait when the refusal does not say when it lifts. Short on
 # purpose: the cost of waking up too early is one session that dies in a second
@@ -174,8 +176,19 @@ def when(until: float) -> str:
     return datetime.fromtimestamp(until).astimezone().strftime("%H:%M")
 
 
+def moment(at: float) -> str:
+    """A reading's date and hour, as a clock reads it: `19/11 15:44`."""
+    return datetime.fromtimestamp(at).astimezone().strftime("%d/%m %H:%M")
+
+
+def _config_dir() -> Path:
+    """Claude Code's own directory, which `CLAUDE_CONFIG_DIR` moves as a whole."""
+    directory = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
+    return Path(directory).expanduser() if directory else Path.home() / ".claude"
+
+
 def _store() -> Path:
-    """Where Claude Code leaves what `/usage` shows.
+    """Where Claude Code leaves what `/usage` last showed.
 
     The CLI's own store, not ours — read, never written, and never a reason to
     fail: a shape that changed under us has to read as "nobody knows", not as a
@@ -194,16 +207,52 @@ def _store() -> Path:
 # a quota its sessions are not even spending.
 _WINDOWS = ("five_hour", "seven_day")
 
+# What `/usage` asks, and the header that lets a subscription's OAuth token in.
+USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+USAGE_BETA = "oauth-2025-04-20"
+
+# How old a reading may be and still be one. Past this the figure is *unknown*,
+# never 0 %: Claude Code only refreshes its cache inside an interactive session
+# that shows the usage, and the headless sessions of this runner never do — the
+# cache sat at its 19 November values for a week while the limit it was meant to
+# enforce read every window as already rolled over. A quarter of an hour is a
+# few missed reads of `FETCH_EVERY`, and short of the time a window takes to
+# fill from the reserve to the wall.
+STALE_AFTER = 15 * 60
+
+# How often the endpoint is asked, and how soon after a failure. A free place
+# asks every few seconds; the subscription does not move that fast.
+FETCH_EVERY = 3 * 60
+RETRY_AFTER = 60
+
+
+@dataclass(frozen=True)
+class Window:
+    """One metered window: how much of it is spent, and when it rolls over (0.0: not said)."""
+
+    name: str
+    percent: float
+    resets_at: float
+
+
+@dataclass(frozen=True)
+class Reading:
+    """What the subscription said, and when it said it."""
+
+    windows: tuple[Window, ...]
+    read_at: float
+
+    def worst(self) -> tuple[float, float]:
+        """The most constraining window, as `used` answers it."""
+        return max((window.percent, window.resets_at) for window in self.windows)
+
 
 def _window(raw: object) -> tuple[float, float] | None:
-    """One window of the cache, as a percentage and the moment it rolls over.
+    """One window of a reading, as a percentage and the moment it rolls over.
 
-    Nothing spent when its moment has *passed*, which is the whole reason a
-    stale cache is safe to read. Claude Code wrote it during some earlier
-    session; a window that has rolled over since is empty now, whatever the
-    figure beside it says, and one that has not can only have filled further. A
-    reading is therefore never an overestimate, which is the only direction that
-    would matter: it delays a stop, it never invents one.
+    Nothing spent when its moment has *passed*: the reading is fresh (see
+    `STALE_AFTER`), so a window that rolled over since is empty now, whatever
+    the figure beside it says.
 
     `None` is the other answer entirely — this window says nothing usable — and
     it is what lets a payload whose shape changed read as "nobody knows" rather
@@ -226,6 +275,115 @@ def _window(raw: object) -> tuple[float, float] | None:
     return float(percent), moment
 
 
+def _parse(windows: object, read_at: float) -> Reading | None:
+    if not isinstance(windows, dict):
+        return None
+    found = []
+    for name in _WINDOWS:
+        reading = _window(windows.get(name))
+        if reading is not None:
+            found.append(Window(name, *reading))
+    # Not one window said anything a percentage could be read off. That is the
+    # shape having changed, not a subscription nobody has touched.
+    return Reading(tuple(found), read_at) if found else None
+
+
+def _cached() -> tuple[Reading | None, float]:
+    """Claude Code's cache: the reading in it if it is fresh, and when it was taken (0.0: never)."""
+    try:
+        cache = json.loads(_store().read_text(encoding="utf-8"))["cachedUsageUtilization"]
+        windows = cache["utilization"]
+        fetched = cache.get("fetchedAtMs")
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None, 0.0
+    if not isinstance(fetched, (int, float)) or isinstance(fetched, bool):
+        return None, 0.0
+    taken = fetched / 1000
+    if time.time() - taken > STALE_AFTER:
+        return None, taken
+    return _parse(windows, taken), taken
+
+
+def _token() -> str:
+    """The subscription's OAuth token, as the CLI keeps it. Read only — refreshing it is the CLI's."""
+    try:
+        oauth = json.loads((_config_dir() / ".credentials.json").read_text(encoding="utf-8"))[
+            "claudeAiOauth"
+        ]
+        token = oauth["accessToken"]
+        expires = oauth.get("expiresAt")
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return ""
+    if isinstance(expires, (int, float)) and expires / 1000 <= time.time():
+        return ""
+    return token if isinstance(token, str) else ""
+
+
+def _fetch() -> Reading | None:
+    """Ask the subscription itself, as `/usage` does. `None` on any failure: the caller says "unknown"."""
+    token = _token()
+    if not token:
+        return None
+    try:
+        answer = http.send(
+            "anthropic-usage",
+            "GET",
+            USAGE_URL,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "anthropic-beta": USAGE_BETA,
+                "Accept": "application/json",
+            },
+            timeout=10,
+            attempts=1,
+            limit=1_000_000,
+        )
+        if answer.status != 200:
+            return None
+        return _parse(json.loads(answer.body), time.time())
+    except (http.Unanswered, ValueError):
+        return None
+
+
+_lock = threading.Lock()
+_fetched: Reading | None = None
+_next_fetch = 0.0
+
+
+def forget() -> None:
+    """Drop what was read and the pause after it: the next `read` asks again."""
+    global _fetched, _next_fetch
+    with _lock:
+        _fetched, _next_fetch = None, 0.0
+
+
+def read() -> Reading | None:
+    """A reading no older than `STALE_AFTER`, or `None` when nobody knows.
+
+    The endpoint first, at most every `FETCH_EVERY`; Claude Code's own cache is
+    the fallback, and only while it is fresh — an interactive session that
+    showed `/usage` a minute ago is as good a source as our own request.
+    """
+    global _fetched, _next_fetch
+    now = time.time()
+    with _lock:
+        if now >= _next_fetch:
+            got = _fetch()
+            _next_fetch = now + (FETCH_EVERY if got else RETRY_AFTER)
+            if got:
+                _fetched = got
+        mine = _fetched if _fetched and now - _fetched.read_at <= STALE_AFTER else None
+    cached, _ = _cached()
+    return max((r for r in (mine, cached) if r), key=lambda r: r.read_at, default=None)
+
+
+def last_read() -> float:
+    """When the subscription was last read at all, however long ago — 0.0 when it never was."""
+    with _lock:
+        mine = _fetched.read_at if _fetched else 0.0
+    return max(mine, _cached()[1])
+
+
 def used() -> tuple[float, float] | None:
     """How much of the subscription is spent, and when that lets up.
 
@@ -233,25 +391,12 @@ def used() -> tuple[float, float] | None:
     the **most constraining** of the two windows, because being at 20 % of the
     week and 97 % of the session means there is nothing to start either way. The
     moment is the one belonging to that window, so the wait it justifies ends
-    exactly when the thing that caused it does; 0.0 when the cache names none.
+    exactly when the thing that caused it does; 0.0 when the reading names none.
 
-    `None` is "nobody knows": no store, no cache in it, a shape that changed, a
-    file being written as we read it. Every caller treats that as permission to
-    carry on — a runner that stopped working because it could not find a JSON
-    key would be a far worse failure than the one this guards against.
+    `None` is "nobody knows": no sign-in, an endpoint that did not answer, a
+    cache older than `STALE_AFTER`, a shape that changed. The runner carries on
+    on it — one that stopped working because a lookup failed would be a far
+    worse failure than the one this guards against — but says so, loudly.
     """
-    try:
-        payload = json.loads(_store().read_text(encoding="utf-8"))
-        windows = payload["cachedUsageUtilization"]["utilization"]
-    except (OSError, ValueError, TypeError, KeyError):
-        return None
-    if not isinstance(windows, dict):
-        return None
-    readings = [
-        reading
-        for reading in (_window(windows.get(name)) for name in _WINDOWS)
-        if reading is not None
-    ]
-    # Not one window said anything a percentage could be read off. That is the
-    # shape having changed, not a subscription nobody has touched.
-    return max(readings) if readings else None
+    reading = read()
+    return reading.worst() if reading else None

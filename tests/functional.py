@@ -1190,6 +1190,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
     with tempfile.TemporaryDirectory(prefix="ponos-functional-") as directory:
         root = Path(directory)
         _binaries(root / "bin")
+        _usage_read(root / "claude")
         logs = {
             name: root / "logs" / f"{name.lower()}.jsonl"
             for name in ("FAKE_GIT_LOG", "FAKE_GH_LOG", "FAKE_CLAUDE_LOG")
@@ -1203,6 +1204,7 @@ def bench(**overrides: object) -> Iterator[Bench]:
             "FAKE_GH_STATE": str(root / "logs" / "github.jsonl"),
             "XDG_STATE_HOME": str(root / "state"),
             "XDG_CONFIG_HOME": str(root / "config"),
+            "CLAUDE_CONFIG_DIR": str(root / "claude"),
             "PATH": f"{root / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}",
             "FAKE_CLAUDE_FAIL": "",
             "FAKE_CLAUDE_KIND": "",
@@ -1252,6 +1254,24 @@ def bench(**overrides: object) -> Iterator[Bench]:
             finally:
                 github_checks.RERUN_SETTLE_SECONDS = settle
                 db.close()
+
+
+def _usage_read(directory: Path) -> None:
+    """A subscription read a moment ago and barely touched, as Claude Code caches it.
+
+    A machine signed in to Claude knows how much of it is spent; one that does
+    not says so on the phone (`Reports._reserve`), which is right on a real
+    machine and noise in every scenario about something else. Written afresh
+    by each bench, so a long suite never outlives `credits.STALE_AFTER`.
+    """
+    credits.forget()
+    directory.mkdir(parents=True, exist_ok=True)
+    resets = (datetime.now(UTC) + timedelta(hours=4)).isoformat()
+    windows = {name: {"utilization": 1, "resets_at": resets} for name in ("five_hour", "seven_day")}
+    usage = {"utilization": windows, "fetchedAtMs": round(time.time() * 1000)}
+    (directory / ".claude.json").write_text(
+        json.dumps({"cachedUsageUtilization": usage}), encoding="utf-8"
+    )
 
 
 @contextmanager

@@ -1741,6 +1741,23 @@ class OwnValidation(Shape):
     name: str
 
 
+class UsageWindow(Shape):
+    name: Literal["five_hour", "seven_day"]
+    percent: float
+    resets_at: float
+    """When it rolls over, in seconds since the epoch — 0 when it is not said."""
+
+
+class Usage(Shape):
+    """What the subscription said last, beside the line that stops the runner."""
+
+    windows: list[UsageWindow]
+    read_at: float
+    """When it was read, in seconds since the epoch."""
+    last_read: float
+    """When it was last read at all — 0 if never; what to say when `windows` is empty."""
+
+
 class Settings(Shape):
     path: str
     usable: bool
@@ -1753,6 +1770,8 @@ class Settings(Shape):
     """Whether Docker answers here, which the local CI needs."""
     own_validation: list[OwnValidation] = omitted()
     """The projects that decide their automatic validation for themselves."""
+    usage: Usage = omitted()
+    """The subscription's two windows, as last read — empty `windows` when nobody knows."""
 
 
 class Saved(Shape):

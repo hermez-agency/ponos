@@ -722,19 +722,32 @@ def _status_credits(configuration: config_module.Config) -> None:
     if until:
         warn(f"out of credit — nothing is run until {credits.when(until)}")
     reserved = credits.held(what="reserve")
-    reading = credits.used()
+    reading = credits.read()
     if reserved:
         warn(
             f"{configuration.runner.credit_reserve_percent}% of the subscription is "
             f"held in reserve — nothing new is started until {credits.when(reserved)}"
         )
-    elif reading is None:
-        warn("how much of the subscription is spent could not be read — the reserve is idle")
-    else:
-        ok(
-            f"{reading[0]:.0f}% of the subscription spent, "
-            f"{configuration.runner.credit_reserve_percent}% held in reserve"
+    if reading is None:
+        seen = credits.last_read()
+        warn(
+            "subscription usage unknown — "
+            + (f"last read {credits.moment(seen)}" if seen else "never read")
+            + " — the reserve cannot hold"
         )
+        return
+    for window in reading.windows:
+        label = "session (5 h)" if window.name == "five_hour" else "week"
+        resets = f", resets {_moment(window.resets_at)}" if window.resets_at else ""
+        (
+            warn
+            if reserved and window.percent >= 100 - configuration.runner.credit_reserve_percent
+            else ok
+        )(f"{window.percent:.0f}% of the {label} spent{resets}")
+    ok(
+        f"read {credits.moment(reading.read_at)}, "
+        f"{configuration.runner.credit_reserve_percent}% held in reserve"
+    )
 
 
 def _status_budget(configuration: config_module.Config) -> None:

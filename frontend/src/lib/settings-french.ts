@@ -386,6 +386,16 @@ export const SETTINGS_FRENCH: Record<string, string> = {
     "Patienter quand la limite de l'abonnement est atteinte",
   "On: the ticket waits, ticked Waiting for credit, and starts again when the usage window resets. Off: every ticket fails until then.":
     "Activé : le ticket patiente, coché En attente de crédit, et repart quand la fenêtre d'usage se renouvelle. Désactivé : chaque ticket échoue jusque-là.",
+  "Stop at": "S'arrêter à",
+  "Usage unknown — last read {{when}}": "Consommation inconnue — dernière lecture le {{when}}",
+  "Usage unknown — never read": "Consommation inconnue — jamais lue",
+  "Session (5 h)": "Session (5 h)",
+  "Week": "Semaine",
+  "resets {{when}}": "remise à zéro le {{when}}",
+  "Read {{when}}": "Lu le {{when}}",
+  "Ponos starts no new session past this share of the subscription — the session of 5 hours as much as the week. Sessions already running finish.":
+    "Ponos ne lance plus de nouvelle session au-delà de ce seuil de l'abonnement, sur la session de 5 h comme sur la semaine. Les sessions en cours se terminent.",
+  "% of the subscription": "% de l'abonnement",
   "Tries after a network or API cut": "Essais après une coupure réseau ou API",
   "A session cut by the network is put back in line after 5, 15 then 45 minutes, this many times at most, then the ticket stops on the real cause. 0: it stops at once.":
     "Une session coupée par le réseau est remise en file après 5, 15 puis 45 minutes, ce nombre de fois au plus, puis le ticket s'arrête sur la vraie cause. 0 : il s'arrête tout de suite.",

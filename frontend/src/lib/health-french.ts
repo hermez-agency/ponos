@@ -60,6 +60,14 @@ export const HEALTH_FRENCH: Record<string, string> = {
   "Tickets statuses": "Statuts des tickets",
   "Claude Code version": "Version de Claude Code",
   "Claude connection": "Connexion à Claude",
+  "Subscription usage": "Consommation de l'abonnement",
+  "Usage unknown — last read {{when}}: the reserve cannot hold.":
+    "Consommation inconnue — dernière lecture {{when}} : la réserve ne tient pas.",
+  "The usage endpoint did not answer, or the CLI's sign-in is missing or expired.":
+    "Le service de consommation n'a pas répondu, ou la connexion du CLI manque ou a expiré.",
+  "Run a session of Claude Code once so that it refreshes its sign-in.":
+    "Lance une fois une session de Claude Code pour qu'il renouvelle sa connexion.",
+  "{{spent}} — read {{when}}.": "{{spent}} — lu {{when}}.",
   "GitHub rights on {{repository}}": "Droits GitHub sur {{repository}}",
   "Local copy of {{project}}": "Copie locale de {{project}}",
   "Remote of {{project}}": "Remote de {{project}}",

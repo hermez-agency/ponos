@@ -34,6 +34,7 @@ self_review = true               # a second session reads the diff before the pu
 unblock = false                  # try once to unblock a ticket that waits on its own
 wait_for_credits = true          # no new session while the account is out of credit
 network_retries = 3              # tries after a network or API cut (5, 15, 45 min), 0 = fail at once
+credit_reserve_percent = 5       # share of the subscription left alone: nothing new starts past 100 minus this (0 to 50)
 auto_update = true
 update_channel = "release"       # "release" (tags) or "main" (every commit)
 # Ideas found on a schedule: the Planned page writes these, no need to by hand.

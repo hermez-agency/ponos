@@ -623,17 +623,24 @@ def a_ticket_waiting_on_the_network_starts_once_the_api_answers(state_home: Path
 # -- stopping short of the wall ------------------------------------------------
 
 
+def _cache(payload: object, age: float = 0) -> str:
+    fetched = round((time.time() - age) * 1000)
+    return json.dumps({"cachedUsageUtilization": {"utilization": payload, "fetchedAtMs": fetched}})
+
+
 @contextmanager
-def _usage(payload: object) -> Iterator[None]:
+def _usage(payload: object, *, age: float = 0) -> Iterator[None]:
     """Claude Code's own store, replaced by what it would have cached.
 
     `payload` is what goes under `cachedUsageUtilization.utilization`; `None`
-    writes no store at all, which is the reading nobody can take.
+    writes no store at all, which is the reading nobody can take. `age` is how
+    many seconds ago Claude Code cached it — only an interactive session does.
     """
+    credits.forget()
     directory = Path(tempfile.mkdtemp())
     if payload is not None:
         (directory / ".claude.json").write_text(
-            json.dumps({"cachedUsageUtilization": {"utilization": payload}}),
+            _cache(payload, age),
             encoding="utf-8",
         )
     previous = os.environ.get("CLAUDE_CONFIG_DIR")
@@ -780,7 +787,7 @@ def a_reserve_nobody_can_measure_changes_nothing_at_all(state_home: Path) -> Non
         runner.tick()
 
     assert started == ["p1"], "the ticket ran, as it always did"
-    warnings = [line for line in said if "could not be read" in line]
+    warnings = [line for line in said if "usage unknown" in line]
     assert len(warnings) == 1, f"said once per run, not once per look: {warnings}"
 
 
@@ -808,7 +815,7 @@ def the_reserve_is_read_again_at_every_free_place_not_once_a_pass(state_home: Pa
             # changes underneath the pass rather than before it.
             store = Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".claude.json"
             store.write_text(
-                json.dumps({"cachedUsageUtilization": {"utilization": _windows(98)}}),
+                _cache(_windows(98)),
                 encoding="utf-8",
             )
             finished.set()
@@ -963,7 +970,7 @@ def what_the_reserve_says_out_loud_is_said_once_and_once_on_the_way_back() -> No
         assert runner.under_reserve() > 0.0
         # The window rolls over, and the run that finds it says so — once.
         (Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".claude.json").write_text(
-            json.dumps({"cachedUsageUtilization": {"utilization": _windows(4)}}),
+            _cache(_windows(4)),
             encoding="utf-8",
         )
         for _ in range(3):
@@ -1099,3 +1106,118 @@ def _ticked(page: store.Page) -> store.Page:
     """The same page, ticked as waiting for credit — where a pass left it."""
     page.properties["Waiting for credit"] = {"type": "checkbox", "checkbox": True}
     return page
+
+
+# -- a reading that is not fresh is not a reading ------------------------------
+
+
+@case
+def a_cache_older_than_a_quarter_of_an_hour_is_unknown_not_zero() -> None:
+    """The bug: a cache from 19 November, its windows long rolled over, read 0 %."""
+    with _usage(_windows(99, hours=-24 * 7), age=7 * 24 * 3600):
+        assert credits.used() is None
+        assert credits.last_read() > 0, "the date of the last reading is still told"
+    # Even one whose windows are still ahead: nobody refreshed it, so it lies low.
+    with _usage(_windows(97), age=credits.STALE_AFTER + 60):
+        assert credits.used() is None
+    with _usage(_windows(97), age=credits.STALE_AFTER - 60):
+        assert credits.used() == (97, credits.used()[1])  # type: ignore[index]
+
+
+def _answering(percent: float, weekly: float = 0.0, status: int = 200) -> list[Any]:
+    """The usage endpoint, answering what `/usage` shows, to a sign-in the CLI keeps."""
+    import httpx
+
+    from ponos import http
+
+    directory = Path(os.environ["CLAUDE_CONFIG_DIR"])
+    (directory / ".credentials.json").write_text(
+        json.dumps(
+            {"claudeAiOauth": {"accessToken": "tok", "expiresAt": (time.time() + 3600) * 1000}}
+        ),
+        encoding="utf-8",
+    )
+    asked: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(request)
+        if status != 200:
+            return httpx.Response(status, json={"error": "no"})
+        return httpx.Response(200, json=_windows(percent, weekly))
+
+    http.transport = httpx.MockTransport(answer)
+    http.forget()
+    credits.forget()
+    return asked
+
+
+@contextmanager
+def _endpoint(percent: float, weekly: float = 0.0, status: int = 200) -> Iterator[list[Any]]:
+    from ponos import http
+
+    with _usage(None):
+        asked = _answering(percent, weekly, status)
+        try:
+            yield asked
+        finally:
+            http.transport = None
+            http.forget()
+            credits.forget()
+
+
+@case
+def the_subscription_is_asked_itself_and_not_more_than_every_few_minutes() -> None:
+    with _endpoint(42, weekly=16) as asked:
+        reading = credits.read()
+        assert reading is not None
+        assert [(w.name, w.percent) for w in reading.windows] == [
+            ("five_hour", 42),
+            ("seven_day", 16),
+        ]
+        assert asked[0].headers["authorization"] == "Bearer tok"
+        assert asked[0].headers["anthropic-beta"] == credits.USAGE_BETA
+        credits.used()
+        credits.used()
+        assert len(asked) == 1, "one request serves the reads that follow"
+
+
+@case
+def a_fresh_reading_at_96_percent_stops_the_runner_and_one_at_50_does_not(
+    state_home: Path,
+) -> None:
+    with _endpoint(96) as asked:
+        runner = _reserving([])
+        until = runner.under_reserve()
+        assert until > time.time(), "nothing starts until the window rolls over"
+        assert asked
+    with _endpoint(50):
+        assert _reserving([]).under_reserve() == 0.0
+
+
+@case
+def a_failed_read_is_unknown_said_once_and_does_not_stop_the_runner(state_home: Path) -> None:
+    for status in (500, 401):
+        credits.release(what="usage-unknown")
+        with _endpoint(99, status=status):
+            runner, told = _reserving([]), list[str]()
+            runner._announce = lambda title, body, into=told: into.append(title)  # type: ignore[method-assign, misc]  # a double: no notification
+            assert credits.used() is None
+            for _ in range(3):
+                assert runner.under_reserve() == 0.0
+            assert len(told) == 1, told
+    # And a stale cache beside it does not turn the failure into 0 %.
+    with _endpoint(99, status=500):
+        (Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".claude.json").write_text(
+            _cache(_windows(5), age=7 * 24 * 3600), encoding="utf-8"
+        )
+        assert credits.used() is None
+
+
+@case
+def an_expired_sign_in_is_not_sent_and_reads_as_unknown() -> None:
+    with _endpoint(10) as asked:
+        (Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".credentials.json").write_text(
+            json.dumps({"claudeAiOauth": {"accessToken": "tok", "expiresAt": 1000}}),
+            encoding="utf-8",
+        )
+        assert credits.used() is None and not asked

@@ -1317,6 +1317,15 @@ _SAID: dict[str, dict[str, str]] = {
         "en": "nothing was started for it: today's spending limit is reached, it resumes at {when}",
         "fr": "rien n'a été lancé pour lui : le plafond de dépense du jour est atteint, il reprend à {when}",
     },
+    "usage-unknown": {
+        "en": "Ponos cannot see the subscription's usage",
+        "fr": "Ponos ne voit plus la consommation de l'abonnement",
+    },
+    "usage-unknown-detail": {
+        "en": "Usage unknown (last read {since}): the reserve cannot hold, the runner carries on.",
+        "fr": "Consommation inconnue (dernière lecture {since}) : la réserve ne tient pas, le runner continue.",
+    },
+    "usage-never": {"en": "never", "fr": "jamais"},
     "reserve-reached": {
         "en": "Ponos is leaving you the rest",
         "fr": "Ponos te laisse le reste",

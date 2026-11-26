@@ -264,7 +264,52 @@ const extra = (section: SettingSection) =>
     <OwnValidation />
   ) : section.key === "local_ci" ? (
     <DockerState />
+  ) : section.key === "credits" ? (
+    <UsageNow />
   ) : null
+
+/* Above the credits' fields: where the subscription stands against the line,
+ * both windows with the hour they roll over, and when it was read. Unknown is
+ * said as unknown — never as 0 %. */
+function UsageNow() {
+  const t = useT()
+  useSettingsRevision()
+  const usage = currentSettings()?.usage
+  if (!usage) return null
+  const clock = (seconds: number) =>
+    new Date(seconds * 1000).toLocaleString(undefined, {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  if (!usage.windows.length)
+    return (
+      <p className="pt-1 pb-2 text-[13px] font-semibold" data-slot="usage-now">
+        {usage.last_read
+          ? t("Usage unknown — last read {{when}}", { when: clock(usage.last_read) })
+          : t("Usage unknown — never read")}
+      </p>
+    )
+  return (
+    <div className="pt-1 pb-2 text-[13px] leading-relaxed" data-slot="usage-now">
+      {usage.windows.map((window) => (
+        <p key={window.name}>
+          <span className="font-semibold">
+            {window.name === "five_hour" ? t("Session (5 h)") : t("Week")} {Math.round(window.percent)} %
+          </span>
+          {window.resets_at ? (
+            <span className="text-muted-foreground">
+              {" — "}
+              {t("resets {{when}}", { when: clock(window.resets_at) })}
+            </span>
+          ) : null}
+        </p>
+      ))}
+      <p className="text-muted-foreground text-xs">{t("Read {{when}}", { when: clock(usage.read_at) })}</p>
+    </div>
+  )
+}
 
 /* Above the local CI's switch: whether this machine has what it needs. */
 function DockerState() {

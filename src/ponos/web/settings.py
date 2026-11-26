@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import config as config_module
-from .. import local_ci, voice
+from .. import credits, local_ci, voice
 from ..config import (
     DIGESTS,
     EVENTS,
@@ -502,6 +502,17 @@ SECTIONS: tuple[Section, ...] = (
             ),
             Field(
                 "runner",
+                "credit_stop_percent",
+                "int",
+                "Stop at",
+                "Ponos starts no new session past this share of the subscription — the session "
+                "of 5 hours as much as the week. Sessions already running finish.",
+                minimum=50,
+                maximum=100,
+                unit="% of the subscription",
+            ),
+            Field(
+                "runner",
                 "network_retries",
                 "int",
                 "Tries after a network or API cut",
@@ -942,6 +953,11 @@ def _table(raw: dict[str, Any], table: str) -> dict[str, Any]:
 # two read and write the list from them.
 FORCED = "force_validated_"
 
+# "Stop at 95 %" is one key of the file said the other way round: it keeps the
+# share held back, `credit_reserve_percent`, which is what the runner has always
+# read. The page says what you think, the file what it always said.
+STOP = "credit_stop_percent"
+
 
 def _forced(raw: dict[str, Any], kind: str) -> bool | None:
     """Is this type in the file's list; None if the file has none."""
@@ -972,6 +988,8 @@ def _fallback(config: Config, entry: Field) -> object:
     Read off the loaded configuration rather than written down again, so the
     placeholder cannot drift from the default it claims to show.
     """
+    if entry.key == STOP:
+        return 100 - config.runner.credit_reserve_percent
     if entry.name == "claude.provider":
         # What the sessions run on today, which a file that names none still has.
         from .. import provider
@@ -1065,6 +1083,9 @@ def describe(config: Config) -> dict[str, Any]:
             stated = _table(raw, entry.table).get(entry.key)
             if entry.key.startswith(FORCED):
                 stated = _forced(raw, entry.key.removeprefix(FORCED))
+            if entry.key == STOP:
+                kept = _table(raw, "runner").get("credit_reserve_percent")
+                stated = 100 - kept if isinstance(kept, int) else None
             if entry.kind == "secret":
                 # Never the file's: what the vault holds is what was stated.
                 stated = stored.get(config_module.SECRETS[(entry.table, entry.key)])
@@ -1112,7 +1133,16 @@ def describe(config: Config) -> dict[str, Any]:
     # the runner without a board any more.
     problem = ""
 
+    reading = credits.read()
     return {
+        "usage": {
+            "windows": [
+                {"name": w.name, "percent": w.percent, "resets_at": w.resets_at}
+                for w in (reading.windows if reading else ())
+            ],
+            "read_at": reading.read_at if reading else 0.0,
+            "last_read": credits.last_read(),
+        },
         "path": str(config.path),
         "usable": not problem,
         "problem": problem,
@@ -1271,6 +1301,15 @@ def save(config: Config, payload: dict[str, Any]) -> dict[str, Any]:
         if given is True and (why := _unavailable(entry, local_ci.docker())):
             raise ValueError(f"{name}: {why}")
         touched.append(entry)
+        if entry.key == STOP:
+            changes.append(
+                (
+                    "runner",
+                    "credit_reserve_percent",
+                    None if given is None else 100 - int(str(given)),
+                )
+            )
+            continue
         if entry.key.startswith(FORCED):
             forced[entry.key.removeprefix(FORCED)] = given
             continue

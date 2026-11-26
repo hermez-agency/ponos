@@ -6,7 +6,7 @@ import re
 import subprocess
 
 from .. import config as config_module
-from .. import models, provider, session
+from .. import credits, models, provider, session
 from .check import ERROR, INFO, OK, PROBE_TIMEOUT, WARN, Check, _check, _installing
 
 # A floor, not a measurement: Claude Code older than this is reported as too
@@ -42,6 +42,33 @@ def _claude(config: config_module.Config) -> list[Check]:
         found.append(_claude_version(binary))
     found.extend(_provider(config, installed=bool(binary)))
     return found
+
+
+def _usage() -> Check:
+    """Whether the subscription's usage can be read, which the reserve depends on — see credits.py."""
+    reading = credits.read()
+    if reading is None:
+        seen = credits.last_read()
+        return _check(
+            "claude.usage",
+            WARN,
+            "Subscription usage",
+            "Usage unknown — last read {{when}}: the reserve cannot hold.",
+            params={"when": credits.moment(seen) if seen else "never"},
+            cause="The usage endpoint did not answer, or the CLI's sign-in is missing or expired.",
+            steps=["Run a session of Claude Code once so that it refreshes its sign-in."],
+        )
+    spent = ", ".join(
+        f"{'session' if window.name == 'five_hour' else 'week'} {window.percent:.0f}%"
+        for window in reading.windows
+    )
+    return _check(
+        "claude.usage",
+        OK,
+        "Subscription usage",
+        "{{spent}} — read {{when}}.",
+        params={"spent": spent, "when": credits.moment(reading.read_at)},
+    )
 
 
 def _claude_version(binary: str) -> Check:
@@ -132,6 +159,8 @@ def _provider(config: config_module.Config, *, installed: bool) -> list[Check]:
                     params={"who": login.said},
                 )
             )
+            if config.runner.wait_for_credits:
+                found.append(_usage())
         else:
             found.append(
                 _check(

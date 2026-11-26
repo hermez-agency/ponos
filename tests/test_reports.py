@@ -506,7 +506,7 @@ def a_usage_nobody_could_read_is_said_once_and_stops_nothing(state_home: Path) -
         assert runner._reserve() == 0.0 and runner._reserve() == 0.0
     finally:
         credits.used = original
-    assert sum("could not be read" in line for line in said) == 1, said
+    assert sum("usage unknown" in line for line in said) == 1, said
 
 
 @case
