@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>Write the ticket. It comes back done.</strong><br>
-  <em>Écris le ticket. Il revient fait.</em>
+  <em>Écris le ticket. Il revient fait.</em><br>
+  <sub><a href="https://hermez.dev">A Hermez product</a></sub>
 </p>
 
 <p align="center">
@@ -237,7 +238,7 @@ releases — is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Author
 
-Ponos is a Hermez product.
+A Hermez product — [hermez.dev](https://hermez.dev).
 
 ---
 
