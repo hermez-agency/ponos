@@ -88,3 +88,27 @@ def comments_follow_their_ticket_and_leave_with_it(state_home: Path) -> None:
         pass
     else:
         raise AssertionError("no comment on a ticket that is not there")
+
+
+@case
+def a_ticket_cannot_come_after_itself_even_through_others(state_home: Path) -> None:
+    first = tickets.create("A")
+    second = tickets.create("B", after=[first.id])
+    third = tickets.create("C", after=[second.id])
+    for wanted in ([third.id], [second.id], [first.id]):
+        try:
+            tickets.update(first.id, after=wanted)
+        except ValueError as error:
+            said = str(error)
+        else:
+            raise AssertionError(f"{wanted} closes a loop")
+    assert said == f"{first.public_id} cannot wait for itself", said
+    try:
+        tickets.update(first.id, after=[third.id])
+    except ValueError as error:
+        loop = f"{first.public_id} → {third.public_id} → {second.public_id} → {first.public_id}"
+        assert loop in str(error), error
+    assert tickets.get(first.id).after == []  # type: ignore[union-attr]
+    # What is no loop is kept: two tickets waiting for the same one.
+    assert tickets.update(third.id, after=[second.id, first.id]) is not None
+    assert sorted(tickets.get(third.id).after) == sorted([first.id, second.id])  # type: ignore[union-attr]

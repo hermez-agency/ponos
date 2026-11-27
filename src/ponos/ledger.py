@@ -23,10 +23,11 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from . import ids, projectless, store, ticket_page, tickets, vault
+from . import dependencies, ids, projectless, store, ticket_page, tickets, vault
 from . import voice as voice_module
 from .config import STATUS, TYPES, BoardNames
 from .pages import Pages
+from .schedules import scheduled_for
 from .store import Comment, Page, Picture
 from .workspace import Workspace
 
@@ -63,6 +64,23 @@ _NULLABLE = ("status", "select", "url", "date", "number")
 
 def _bare(page: object) -> str:
     return ids.bare(page)
+
+
+def waits(record: tickets.Record, now: datetime | None = None) -> bool:
+    """Whether a ticket has a moment still ahead of it, or a ticket it comes after unfinished.
+
+    Read off the rows themselves, without a board: a ticket named that is not
+    there any more holds nothing back, as in dependencies.py.
+    """
+    moment = scheduled_for(record.scheduled) if record.scheduled else None
+    if moment is not None and moment > (now or datetime.now().astimezone()):
+        return True
+    finished = {STATUS[key] for key in dependencies.FINISHED}
+    for key in record.after:
+        other = tickets.get(key)
+        if other is not None and other.status not in finished:
+            return True
+    return False
 
 
 class Ledger:
@@ -161,6 +179,8 @@ class Ledger:
             return
         row = self._row(values)
         self._write(lambda: tickets.update(record.id, **row))
+        if {"status", "scheduled", "after"} & set(row):
+            self._hold(record.id, row)
         self._nudge(row)
 
     def create_row(self, database_id: str, title: str, values: dict[str, Any] | None = None) -> str:
@@ -169,8 +189,33 @@ class Ledger:
         row = self._row(values or {})
         after = row.pop("after", None)
         made = self._write(lambda: tickets.create(vault.mask(title.strip()), after=after, **row))
+        if made:
+            self._hold(made.id, row)
         self._nudge(row)
         return made.id if made else ""
+
+    def _hold(self, ticket: str, row: dict[str, Any]) -> None:
+        """A ready ticket whose moment has not come, put in the waiting column instead.
+
+        Here, where every writer writes — the console, the MCP, the CLI, an `On`
+        prompt, the runner putting a ticket back in line for later — so that a
+        ready ticket is one the runner may take: one with a date ahead of it,
+        or tickets it comes after that are not finished (see dependencies.py),
+        waits, and `Board.release` hands it back once they are. `row` is told
+        the status it ends in, for `_nudge`.
+        """
+        record = tickets.get(ticket)
+        if record is None:
+            return
+        if record.status == STATUS["ready"] and waits(record):
+            self._write(lambda: tickets.update(ticket, status=STATUS["waiting"]))
+            row["status"] = STATUS["waiting"]
+        elif record.status == STATUS["waiting"] and "status" not in row and not waits(record):
+            # Its date taken away (« Launch now »), its last dependency removed:
+            # ready now rather than at the daemon's next look. A ticket somebody
+            # moved to waiting themselves is the daemon's to let go of.
+            self._write(lambda: tickets.update(ticket, status=STATUS["ready"]))
+            row["status"] = STATUS["ready"]
 
     def _nudge(self, row: dict[str, Any]) -> None:
         """A ticket just made ready or validated: the daemon is told now, not at its next look.

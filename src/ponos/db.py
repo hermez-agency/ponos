@@ -1379,6 +1379,34 @@ def _projects_can_be_shelved(connection: sqlite3.Connection) -> None:
     )
 
 
+def _tickets_wait(connection: sqlite3.Connection) -> None:
+    # « En attente » : un ticket prêt dont le moment n'est pas venu — une date
+    # encore devant lui, ou un ticket « Après » ni terminé ni validé — n'est
+    # plus retenu dans Prêt mais posé dans sa propre colonne (config.STATUS),
+    # d'où `Board.release` le rend à Prêt le moment venu.
+    from datetime import datetime
+
+    from .schedules import scheduled_for
+
+    now = datetime.now().astimezone()
+    finished = {"done", "validated"}
+    statuses = dict(connection.execute("SELECT id, status FROM tickets"))
+    after: dict[str, list[str]] = {}
+    for ticket, earlier in connection.execute("SELECT ticket, after FROM ticket_after"):
+        after.setdefault(ticket, []).append(earlier)
+    for ticket, scheduled in connection.execute(
+        "SELECT id, scheduled FROM tickets WHERE status = 'ready'"
+    ).fetchall():
+        moment = scheduled_for(scheduled) if scheduled else None
+        dated = moment is not None and moment > now
+        held = any(
+            earlier in statuses and statuses[earlier] not in finished
+            for earlier in after.get(ticket, [])
+        )
+        if dated or held:
+            connection.execute("UPDATE tickets SET status = 'waiting' WHERE id = ?", (ticket,))
+
+
 # Appended to, never edited or renamed: a file remembers each of these by name,
 # and the version of a file is how many of them it has been through. Statements go through `execute` one at a time — `executescript`
 # commits whatever transaction is open before it starts, which would apply half
@@ -1448,6 +1476,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _runs_branch_off,
     _tickets_have_a_public_id,
     _projects_can_be_shelved,
+    _tickets_wait,
 )
 
 # Any way a read or a write of the database can fail. A note the runner keeps

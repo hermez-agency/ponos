@@ -286,6 +286,8 @@ class NewTicket(Payload):
     validation: str = ""
     scheduled: str = ""
     """Held back until then: ISO 8601, with its offset; empty runs it as soon as it may."""
+    after: list[str] | str = []
+    """The tickets it waits for — `PON-36` or an id; a ready ticket with unfinished ones waits."""
 
 
 class On(Payload):
@@ -295,6 +297,11 @@ class On(Payload):
 class Scheduled(Payload):
     scheduled: str = ""
     """ISO 8601, with its offset; empty removes the date."""
+
+
+class After(Payload):
+    after: list[str] | str = []
+    """The tickets it waits for, all of them — `PON-36` or an id; empty waits for none."""
 
 
 class Move(Payload):
@@ -1378,6 +1385,7 @@ def create_ticket(
         payload.validation,
         by_hand=True,
         scheduled=payload.scheduled,
+        after=payload.after,
     )
     _done(request, str(created.get("id", "")), "created", "ready" if payload.ready else "draft")
     return answer(created)
@@ -1390,6 +1398,16 @@ def set_ticket_scheduled(
     """Hold a ticket back until a moment, move it, or remove it (« Launch now ») with ""."""
     done = _api(request).set_scheduled(ticket_id, payload.scheduled)
     _done(request, ticket_id, "scheduled", done["scheduled"] or "now")
+    return answer(done)
+
+
+@router.post("/api/tickets/{ticket_id:ticket}/after", response_model=answers.TicketAfter)
+def set_ticket_after(
+    request: Request, ticket_id: str, payload: After = Body(default_factory=After)
+) -> Response:
+    """Say which tickets it waits for — all of them; a loop is refused, saying it."""
+    done = _api(request).set_after(ticket_id, payload.after)
+    _done(request, ticket_id, "after", ", ".join(done["named"]) or "none")
     return answer(done)
 
 

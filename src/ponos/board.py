@@ -20,6 +20,7 @@ reads next is true.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from concurrent.futures import Future
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -201,7 +202,7 @@ class Board(Base):
         return sorted(eligible, key=rank), sorted(waiting, key=lambda pair: pair[1])
 
     def _after(self, tickets: list[Ticket]) -> list[Ticket]:
-        """The tickets whose « Après » are all done; the others held in ready.
+        """The tickets whose « Après » are all done or validated; the others held in ready.
 
         Those held are kept on `self._waiting_on`, with what they wait for, so
         that a pass leaves their comments alone — they are work about to happen
@@ -220,20 +221,9 @@ class Board(Base):
         if not column:
             self._waiting_on = {}
             return tickets
-        status, done = settings.prop("status"), settings.state("done")
-        pages: dict[str, store.Page | None] = {}
-
-        def lookup(key: str) -> store.Page | None:
-            if key not in pages:
-                try:
-                    page = self.client.page(key)
-                    gone = page.raw.get("in_trash") or page.raw.get("archived")
-                    pages[key] = None if gone else page
-                except store.Missing:
-                    pages[key] = None
-                except store.StoreError:
-                    pages[key] = store.Page(key, "", "")
-            return pages[key]
+        status = settings.prop("status")
+        done = [settings.state(key) for key in dependencies.FINISHED]
+        lookup = self._lookup()
 
         free: list[Ticket] = []
         waiting: dict[str, tuple[Ticket, str]] = {}
@@ -249,6 +239,93 @@ class Board(Base):
         self._waiting_on = waiting
         return free
 
+    def _lookup(self) -> Callable[[str], store.Page | None]:
+        """A ticket named under « Après », asked of the board once per reading.
+
+        One that is gone holds nothing back (None); one the board cannot give
+        back right now is a page with no status, which holds its ticket for
+        this reading only.
+        """
+        pages: dict[str, store.Page | None] = {}
+
+        def lookup(key: str) -> store.Page | None:
+            if key not in pages:
+                try:
+                    page = self.client.page(key)
+                    gone = page.raw.get("in_trash") or page.raw.get("archived")
+                    pages[key] = None if gone else page
+                except store.Missing:
+                    pages[key] = None
+                except store.StoreError:
+                    pages[key] = store.Page(key, "", "")
+            return pages[key]
+
+        return lookup
+
+    def release(self) -> list[dict[str, Any]]:
+        """The waiting tickets whose moment has come, moved to ready — or to blocked.
+
+        A waiting ticket (see `config.STATUS`) waits for its date, for the
+        tickets it comes after, or both. Once the date is past and every one of
+        those is done or validated, it goes to ready, and the daemon is told by
+        the write itself (`ledger._nudge`). A ticket it comes after that was
+        cancelled will never finish: that is no longer a wait but a decision —
+        drop that dependency, or give this one up too — so the ticket is
+        blocked, saying which one, and asked like any other block.
+
+        Read off the waiting column alone, and cheap enough to be asked every
+        few seconds: the column is short, and the tickets named are rows of
+        `ponos.db`. Returns what is to go into the history: the blocks.
+        """
+        settings = self.config.board
+        status = settings.prop("status")
+        waiting = settings.state("waiting")
+        kind = self.client.schema(self.database).get(status, "status")
+        pages = self.client.query(self.database, {"property": status, kind: {"equals": waiting}})
+        if not pages:
+            return []
+        now = datetime.now().astimezone()
+        column = settings.prop("after")
+        done = [settings.state(key) for key in dependencies.FINISHED]
+        cancelled = settings.state("cancelled") if self.cancelled_column() else ""
+        lookup = self._lookup()
+        results: list[dict[str, Any]] = []
+        for page in pages:
+            ticket = Ticket(page)
+            unmet = dependencies.unmet(page, column, status, done, lookup) if column else []
+            lost = dependencies.given_up(unmet, status, cancelled)
+            if lost and self.dry_run:
+                self.say(
+                    f"  (dry run) {ticket.title} — would be blocked: an awaited ticket was cancelled"
+                )
+                continue
+            if lost:
+                named = dependencies.said(lost)
+                reason = self.voice.say(
+                    "after-cancelled" if len(lost) == 1 else "after-cancelled-many", tickets=named
+                )
+                results.append(
+                    self._fail(
+                        ticket,
+                        reason,
+                        code="ticket.after-cancelled",
+                        blocked=True,
+                        question=Question(
+                            ask=self.voice.say("after-cancelled-ask", tickets=named),
+                        ),
+                    )
+                )
+                continue
+            moment = self._moment(ticket)
+            if unmet or (moment is not None and moment > now):
+                continue
+            if self.dry_run:
+                self.say(f"  (dry run) {ticket.title} — would be made ready")
+                continue
+            if self._claim(ticket, **{status: settings.state("ready")}):
+                self.say(f"  ↺ {ticket.title} — its wait is over: ready")
+        return results
+
     def ready(self) -> list[Ticket]:
         return self.queue()[0]
 
@@ -260,10 +337,11 @@ class Board(Base):
     def _woken_filter(self) -> dict[str, Any]:
         """Every status but the ones that already speak for a ticket.
 
-        Ready is on its way, running is in flight, in review is waiting on a
-        merge, validated is about to be carried out, and done is done: a comment
-        on a ticket that came back with its pull request is a conversation about
-        the work, not a request to do it again. Cancelled is given up on, and a
+        Ready is on its way, and so is waiting, only later; running is in
+        flight, in review is waiting on a merge, validated is about to be
+        carried out, and done is done: a comment on a ticket that came back
+        with its pull request is a conversation about the work, not a request
+        to do it again. Cancelled is given up on, and a
         word under it is not the runner's to take as an order — only on a board
         that offers it, since a filter on an option the board does not know is
         refused. The same for paused, which you stopped on purpose: a word under
@@ -275,7 +353,7 @@ class Board(Base):
         kind = self.client.schema(self.database).get(status_property, "status")
         settled = {
             self.config.board.state(key)
-            for key in ("done", "review", "validated", "ready", "running")
+            for key in ("done", "review", "validated", "ready", "running", "waiting")
         }
         if self.cancelled_column():
             settled.add(self.config.board.state("cancelled"))

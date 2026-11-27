@@ -544,6 +544,20 @@ _CAUSES = (
         "kind-hesitant",
     ),
     _cause(
+        "ticket.after-cancelled",
+        "question",
+        "user",
+        "answer",
+        "ask",
+        ("Awaited ticket cancelled", "Ticket attendu abandonné"),
+        (
+            "A ticket it waits for was cancelled and will never finish: remove that "
+            "dependency, or cancel this one too.",
+            "Un ticket qu'il attend a été abandonné et ne finira jamais : retirez cette "
+            "dépendance, ou abandonnez celui-ci aussi.",
+        ),
+    ),
+    _cause(
         "project.which-repo",
         "question",
         "user",

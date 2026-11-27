@@ -193,6 +193,14 @@ export const api = {
         body: { scheduled },
       })
     ),
+  /** The tickets it waits for, all of them — `PON-36` or an id; empty for none. A loop is refused. */
+  setAfter: (ticket: string, after: string[]) =>
+    answer(
+      client.POST("/api/tickets/{ticket_id}/after", {
+        params: { path: { ticket_id: ticket } },
+        body: { after },
+      })
+    ),
   /** The ticket's own Force validated: empty to inherit, `forced`, or `free`. */
   setValidation: (ticket: string, validation: string) =>
     answer(
@@ -397,10 +405,12 @@ export const api = {
     validation?: string
     /** Held back until then: ISO 8601 with its offset; empty starts it as soon as a place is free. */
     scheduled?: string
+    /** The tickets it waits for — `PON-36` or an id; made ready with unfinished ones, it waits. */
+    after?: string[]
   }) =>
     answer(
       client.POST("/api/tickets", {
-        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, validation: "", scheduled: "", ...ticket },
+        body: { priority: "", type: "", model: "", subtype: "", on: "", goal: "", plan: false, attempts: 1, validation: "", scheduled: "", after: [], ...ticket },
       })
     ),
   /** `from` is the status the card showed: the board saying anything else by

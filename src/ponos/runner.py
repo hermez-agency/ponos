@@ -129,6 +129,8 @@ class Runner(
             # Both before the queue, and both recorded as they happen: see
             # `delivered` and `born`.
             delivered += self.delivered() + self.born()
+            # The waiting tickets whose moment has come, ready before the queue is read.
+            delivered += state.record_all(self.release())
             tickets, waiting = self.queue()
             # Every ticket the queue wants, and not only the ones that will fit
             # in this pass: a ticket queued for the next run — or held until
@@ -354,4 +356,6 @@ class Runner(
                         "carried out at the next free place."
                     )
                 if (done or empty) and (remaining is None or remaining > 0):
+                    # What the session just finished may be the last thing one waited for.
+                    results += state.record_all(self.release())
                     queued = self._again(hand)

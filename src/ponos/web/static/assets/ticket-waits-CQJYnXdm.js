@@ -1,0 +1,1 @@
+export{r as TicketWaits}from"./ticket-waits-C2Ym3j8K.js";

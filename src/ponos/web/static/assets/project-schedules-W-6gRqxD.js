@@ -1,0 +1,1 @@
+import{r as e}from"./react-CFebUx29.js";import{Q as t,dn as n}from"./views-Cxg1-BqO.js";import{h as r}from"./console-DrXIPbPk.js";var i=e();function a({project:e}){return(0,i.jsx)(t,{resource:r,resourceAction:n.list,filter:{project:e.id},defaultData:{project_id:e.id}},e.id)}export{a as ProjectSchedules};

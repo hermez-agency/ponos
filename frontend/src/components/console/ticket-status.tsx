@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils"
 import { PriorityBadge } from "./priority"
 import { TicketEstimate } from "./ticket-estimate"
 import { TicketProjectChoice } from "./ticket-project"
-import { LaunchNow, ModelField, PriorityField, ProjectField, ScheduledField } from "./ticket-settings"
+import { AfterField, LaunchNow, ModelField, PriorityField, ProjectField, ScheduledField } from "./ticket-settings"
+import { AwaitedLink, TicketWaits } from "./ticket-waits"
 import { TicketTime } from "./ticket-time"
 import { TicketValidation } from "./ticket-validation"
 import {
@@ -66,6 +67,7 @@ import {
 /** The banner's tint: the column's colour, as on the board. A column without
  * one is plain. A colour and not ten classes: see `Unfolded`, on the budget. */
 const BAND: Record<string, string> = {
+  waiting: "var(--tr-green)",
   ready: "var(--tr-green)",
   running: "var(--primary)",
   blocked: "var(--tr-amber)",
@@ -91,6 +93,8 @@ function useAwaited(ticket: TicketDetail): string {
   switch (ticket.column) {
     case "draft":
       return t("A draft: the runner does not touch it until it is made ready.")
+    case "waiting":
+      return t("Waiting for its moment: it is made ready by itself once its date has come and the tickets it waits for are finished.")
     case "ready":
       return t("Waiting for a free place: a session starts on it by itself.")
     case "running": {
@@ -166,14 +170,16 @@ export function TicketStatus({ ticket }: { ticket: TicketDetail }) {
       {block ? <TicketProjectChoice ticket={ticket} /> : null}
       {/* Why a ready ticket is still waiting, when the wait is out of the ordinary. */}
       <TicketHeld ticket={ticket} />
+      {/* And what a waiting one waits for: its date, the tickets it comes after. */}
+      <TicketWaits ticket={ticket} />
       {/* A date still to come: when, unless the line above says it already, and « Launch now »
           where the date is all that holds the ticket back — ready, or validated. */}
       {upcoming(ticket.scheduled, Date.now()) && !["done", "cancelled"].includes(ticket.column) ? (
         <div className="flex flex-wrap items-center gap-1.5" data-slot="ticket-scheduled-line">
-          {ticket.column === "ready" && ticket.held?.reason === "date" ? null : (
+          {(ticket.column === "ready" && ticket.held?.reason === "date") || ticket.column === "waiting" ? null : (
             <Chip>⏱ {t("Scheduled for {{at}}", { at: when(ticket.scheduled) })}</Chip>
           )}
-          {canAct() && ["ready", "validated"].includes(ticket.column) ? <LaunchNow ticket={ticket} /> : null}
+          {canAct() && ["waiting", "ready", "validated"].includes(ticket.column) ? <LaunchNow ticket={ticket} /> : null}
         </div>
       ) : null}
       {/* What the last pass said, that its card no longer draws: only while it
@@ -358,6 +364,20 @@ export function TicketFacts({
               </ScheduledField>
             ) : (
               <span>{when(ticket.scheduled)}</span>
+            )}
+          </Fact>
+        ) : null}
+        {/* The tickets it waits for (« Après »): changed here, in the rail; said as links elsewhere. */}
+        {ticket.after?.length || (unfolded && canAct() && !["done", "cancelled"].includes(ticket.column)) ? (
+          <Fact name={t("Waits for")} stacked={unfolded}>
+            {unfolded ? (
+              <AfterField ticket={ticket} />
+            ) : (
+              <span className="flex flex-wrap gap-x-2">
+                {(ticket.after ?? []).map((one) => (
+                  <AwaitedLink key={one.id} awaited={one} />
+                ))}
+              </span>
             )}
           </Fact>
         ) : null}

@@ -949,6 +949,24 @@ _SAID: dict[str, dict[str, str]] = {
             "aucune session n'est lancée pour elle. Ticket de réparation : {repair}."
         ),
     },
+    "after-cancelled": {
+        "en": "{tickets} was cancelled",
+        "fr": "{tickets} a été abandonné",
+    },
+    "after-cancelled-many": {
+        "en": "{tickets} were cancelled",
+        "fr": "{tickets} ont été abandonnés",
+    },
+    "after-cancelled-ask": {
+        "en": (
+            "This ticket waits for {tickets}, which will never be finished: remove that "
+            "dependency so that it can start, or give this ticket up too?"
+        ),
+        "fr": (
+            "Ce ticket attend {tickets}, qui ne sera jamais fini : retirer cette dépendance "
+            "pour qu'il puisse commencer, ou l'abandonner lui aussi ?"
+        ),
+    },
     "base-green-again": {
         "en": "`{base}` is green again — the pull request is replayed.",
         "fr": "`{base}` est de nouveau verte — la pull request est rejouée.",

@@ -123,7 +123,10 @@ is answered like any other, and only what its first session may do changes. The 
 `Scheduled` is what turns the board into a calendar. A ticket without one starts within
 seconds of reaching the ready column, so a date on it can only mean *not yet*: the runner
 leaves it alone until the moment comes, then treats it like any other. Write the release
-post on Monday, run the monthly report on the first — the ticket sits ready and waits.
+post on Monday, run the monthly report on the first — the ticket sits in **Waiting** with
+« Starts on … » on its card, and the daemon moves it to *Ready* within ten seconds of the
+moment (see [The statuses](tickets.md#the-statuses)). A ticket made ready with a date still
+ahead goes there instead of *Ready*, and so does a ready ticket given one.
 
 The same date is honoured in *Validated*, which is where it pays off for work that is
 already **finished**: the post is written, you have read it and said yes, and it still goes
@@ -146,8 +149,8 @@ You set it, move it or take it away wherever a ticket is written:
 - **in the console** — *New ticket* has a *Scheduled for* field, with shortcuts (*in 1 h*,
   *tonight*, *tomorrow morning*, *the day after tomorrow*, *next Monday*) and a date and hour
   picker, both in **your browser's timezone**; a ticket's view has the same setting among its
-  facts until the ticket is done or cancelled. A dated card says when (*waiting: scheduled
-  for …* on a ready one), and the view of a ready or validated ticket held back by its date
+  facts until the ticket is done or cancelled. A dated card says when (*Starts on …* on a
+  waiting one), and the view of a waiting or validated ticket held back by its date
   has **Launch now**, which removes the date — the ticket then takes its turn like any other
   (*Run now*, on the card, starts it in a free place at once). The *Other › Scheduled* filter
   of the board keeps the tickets whose date is still to come;

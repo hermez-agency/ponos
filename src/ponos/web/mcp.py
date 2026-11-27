@@ -69,6 +69,7 @@ from .. import goals as goals_module
 from .. import kinds as kinds_module
 from .. import priority as priority_module
 from .. import schedules as schedules_module
+from .. import tickets as tickets_module
 from . import accounts, live
 from .creation import github_url, is_site
 from .oauth import READ, WRITE, Grant
@@ -133,13 +134,17 @@ lisez avec list_solutions ce qui la débloquerait, et appliquez-en une avec \
 apply_solution, qui sert aussi à décider d'une tâche en review.
 - Une tâche créée ici reste en « draft » : la personne la passe en « ready » depuis \
 la console, ou vous le demande, et le démon la lance dès qu'une place se libère. \
-create_task accepte aussi un modèle (model) et un prompt « on », que Ponos exécute \
-à chaque changement de statut de la tâche : de quoi préparer des tâches enchaînées.
+create_task accepte aussi un modèle (model), une date (scheduled), les tâches à attendre \
+(after) et un prompt « on », que Ponos exécute à chaque changement de statut de la tâche.
+- Pour enchaîner des tâches, préférer une dépendance (after, « SEN-36 ») à un brouillon et un \
+« on » qui le passe en ready : lancée, la tâche attend en « waiting » (en attente), visible \
+avec ce qu'elle attend, et passe seule en ready quand toutes sont done ou validated ; si l'une \
+est abandonnée, elle passe en blocked. Une date à venir la met aussi en waiting jusqu'à son \
+heure. Une boucle (A attend B qui attend A) est refusée.
 - Une tâche existante se corrige avec update_task (titre, mission, « on », priorité, modèle, \
-validation, projet, type, sous-type, date) : un champ absent ne change pas, un champ vide \
-l'efface. Pour enchaîner deux tâches après coup, update_task de la première avec un « on » \
-(« quand elle passe à done, passe la tâche PON-12 en ready avec ponos move ») : il se \
-déclenche au prochain changement de statut. Une tâche en cours garde son titre, sa mission, \
+validation, projet, type, sous-type, date, dépendances) : un champ absent ne change pas, un \
+champ vide l'efface. Pour enchaîner deux tâches après coup, update_task de la seconde avec \
+after. Une tâche en cours garde son titre, sa mission, \
 son type et son projet. comment_task ajoute un commentaire (sur une tâche bloquée, c'est une \
 réponse : préférer answer_question). move_task change le statut (draft, paused, review, \
 cancelled…) ; pour lancer, launch_task.
@@ -317,7 +322,9 @@ TOOLS: list[dict[str, Any]] = [
         "scope": READ,
         "description": "Liste les tâches de Ponos, les plus récemment modifiées d'abord, avec "
         "pour chacune son identifiant, son titre, son projet, son objectif, son statut, son type, "
-        "sa priorité, sa pull request et son coût. Statuts : draft (brouillon, jamais lancé), ready (en file, "
+        "sa priorité, sa pull request et son coût. Statuts : draft (brouillon, jamais lancé), waiting "
+        "(en attente de sa date ou des tâches qu'elle attend — after —, passe seule en ready), "
+        "ready (en file, "
         "le démon la lance dès qu'une place se libère), running (session en cours), "
         "blocked (« vous attend » : une session pose une question), review (travail "
         "livré, attend une relecture), validated (relu, en cours de fusion ou de publication), "
@@ -542,7 +549,8 @@ TOOLS: list[dict[str, Any]] = [
         "list_goals). Un modèle donné (champ model, tel que list_tasks le renvoie, ex. « opus ») est celui "
         "de la tâche ; un prompt « on » est exécuté par Ponos à chaque changement de statut de la "
         "tâche (ex. « quand elle passe à done, crée une tâche qui applique les recommandations du "
-        "Résultat »), ce qui permet de préparer des tâches enchaînées. Renvoie l'identifiant de la "
+        "Résultat »). Pour enchaîner des tâches, after (les tâches à attendre) est préférable : "
+        "lancée, la tâche attend en waiting et part seule. Renvoie l'identifiant de la "
         "tâche créée.",
         "inputSchema": _schema(
             {
@@ -603,6 +611,15 @@ TOOLS: list[dict[str, Any]] = [
                     "ou « demain 9h », « lundi 9h », « +2h », « +2d » (heure de la machine de Ponos). "
                     "Une date passée est refusée. Vide : dès qu'une place se libère.",
                 },
+                "after": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Les tâches à attendre (identifiant public « SEN-36 » ou "
+                    "identifiant) : une fois lancée, la tâche reste en attente (waiting) tant "
+                    "qu'elles ne sont pas terminées ou validées, puis passe seule en ready ; si "
+                    "l'une est abandonnée, elle passe en blocked. À préférer à un brouillon "
+                    "et un prompt « on » pour enchaîner des tâches. Une boucle est refusée.",
+                },
             },
             ("title",),
         ),
@@ -613,14 +630,16 @@ TOOLS: list[dict[str, Any]] = [
         "scope": WRITE,
         "description": "Modifie une tâche existante (identifiant public, long ou court) : seuls "
         "les champs donnés changent, un champ absent n'est pas touché et un champ vide l'efface "
-        "(project, on, model, scheduled, type, subtype, validation « inherit »). Champs : title, "
+        "(project, on, model, scheduled, after, type, subtype, validation « inherit »). Champs : "
+        "title, "
         "description (la mission, le brief en Markdown, remplacé en entier), on (le prompt "
-        "exécuté à chaque changement de statut : c'est ainsi qu'on enchaîne deux tâches après "
-        "coup, sans attendre qu'elles soient créées avec), priority, model, validation, project, "
-        "type, subtype, scheduled. Mêmes règles que la console : tout est vérifié avant la "
+        "exécuté à chaque changement de statut), priority, model, validation, project, type, "
+        "subtype, scheduled, after (les tâches à attendre : c'est ainsi qu'on enchaîne des "
+        "tâches). Mêmes règles que la console : tout est vérifié avant la "
         "moindre écriture, et une tâche en cours (running) garde son titre, sa mission, son type, "
         "son sous-type et son projet — la refuser avec move_task vers paused d'abord, ou ne "
-        "changer que le reste. Une tâche terminée ne change plus de validation ni de date. "
+        "changer que le reste. Une tâche terminée ne change plus de validation, de date ni de "
+        "dépendances. "
         "Renvoie les champs changés. Pour le statut, voir move_task ; pour l'objectif, "
         "set_task_goal.",
         "inputSchema": _schema(
@@ -676,6 +695,14 @@ TOOLS: list[dict[str, Any]] = [
                     "description": "Retenir la tâche jusqu'à ce moment : ISO 8601 avec fuseau, "
                     "ou « demain 9h », « lundi 9h », « +2h », « +2d ». Une date passée est "
                     "refusée. Vide : dès qu'une place se libère.",
+                },
+                "after": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Toutes les tâches à attendre, qui remplacent les "
+                    "précédentes (identifiant public « SEN-36 » ou identifiant). Liste vide : "
+                    "n'en attendre aucune. Une tâche prête qui en reçoit une non finie passe "
+                    "en attente (waiting). Une boucle (A attend B qui attend A) est refusée.",
                 },
             },
             ("task",),
@@ -1317,6 +1344,11 @@ def _task(card: dict[str, Any]) -> dict[str, Any]:
         "pull_request": card["pull_request"],
         "cost_usd": card["cost"],
         "scheduled": card["scheduled"],
+        # What it waits for, each with where it stands: see dependencies.py.
+        "after": [
+            {"id": one["public_id"] or one["id"], "title": one["title"], "status": one["column"]}
+            for one in card.get("after") or []
+        ],
         "created": card["created"],
         "edited": card["edited"],
     }
@@ -1792,6 +1824,7 @@ def create_task(
     on: str = "",
     validation: str = "",
     scheduled: str = "",
+    after: list[str] | None = None,
 ) -> dict[str, Any]:
     if not title.strip():
         raise ToolError("Une tâche a besoin d'un titre.")
@@ -1809,6 +1842,7 @@ def create_task(
         on=on,
         validation=validation,
         scheduled=scheduled,
+        after=after,
     )
     # The moment as it was written, offset included: "demain 9h" said back as a date.
     page = api.runner.client.page(created["id"]) if scheduled.strip() else None
@@ -1819,6 +1853,10 @@ def create_task(
         "goal": served["name"] if served else "",
         "status": "draft",
         "scheduled": str(store.read(page, api.config.board.prop("due")) or "") if page else "",
+        "after": [
+            (found.public_id or found.id) if (found := tickets_module.get(key)) else key
+            for key in (tickets_module.get(created["id"]) or tickets_module.Record("")).after
+        ],
     }
 
 
@@ -2000,6 +2038,7 @@ def answer_question(api: Api, task: str, answer: str, ready: bool = False) -> di
 # Draft and paused are launched; blocked is too when nobody stopped it on a
 # question — a ticket set aside by hand, as the console's bar launches it.
 _NOT_LAUNCHED = {
+    "waiting": "en attente de sa date ou des tâches qu'elle attend : elle passera seule en ready",
     "ready": "déjà en ready : le démon la lancera dès qu'une place se libère",
     "running": "une session y travaille déjà",
     "blocked": "elle attend une réponse à sa question : answer_question ou apply_solution",

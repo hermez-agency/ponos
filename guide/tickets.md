@@ -372,7 +372,7 @@ never by importing Ponos's code or writing into `ponos.db`. The prompt of the se
 ponos move <ticket> <status> [--from <status>] [--at <when>]
 ponos comment <ticket> "text"
 ponos on <ticket> "prompt"            # the « On » prompt; empty clears it
-ponos edit <ticket> [--title …] [--body …|-] [--on …] [--priority …] [--model …] [--validation …] [--project …] [--type …] [--subtype …] [--at …]
+ponos edit <ticket> [--title …] [--body …|-] [--on …] [--priority …] [--model …] [--validation …] [--project …] [--type …] [--subtype …] [--at …] [--after PON-36,…]
 ponos schedule <ticket> <when>
 ```
 
@@ -380,13 +380,19 @@ ponos schedule <ticket> <when>
   is paused or cancelled has its session stopped first), the same journal, the same sync of
   the board. `<ticket>` is the public ID (`PON-142`, in any case), the full ID, the short one (the last
   eight characters) or the ticket's URL — see [The public id](#the-public-id-pon-142). `<status>` is a column of the board — `draft`, `ready`, `running`, `blocked`,
-  `paused`, `review`, `validated`, `done`, `cancelled` — or the word the board writes, in any
+  `paused`, `review`, `validated`, `done`, `cancelled`, `waiting` — or the word the board writes, in any
   case. `--from` refuses when the ticket is no longer in that status, like the `from` of the
   console: *« when this ticket is Done, move #next from Draft to Ready »* cannot fire twice, or
   pull a ticket somebody paused meanwhile. `--at` dates the ticket before it moves — *« when this
   one is Done, make #report ready for Monday 9:00 »* is `ponos move <id> ready --at "lundi 9h"` —
   and `ponos schedule` dates it, moves the date or removes it (`now`) without touching its
-  status. The forms a date takes are in [Scheduled](board.md#the-tickets-database).
+  status. The forms a date takes are in [Scheduled](board.md#the-tickets-database). A ticket
+  made ready with a date still ahead lands in *Waiting*, and `ponos move` says so.
+- **To chain tickets, prefer a dependency to a draft and an `On` prompt.** `ponos edit
+  <next> --after <this>` (or `after` in the MCP's `create_task` and `update_task`) makes the
+  next one wait in *Waiting*, visible on the board with what it waits for, and start by itself
+  once this one is done or validated — see [A ticket that comes after another](#a-ticket-that-comes-after-another).
+  An `On` that moves a draft to ready still works; it only says nothing on the board until it fires.
 - A refusal — unknown status or ticket, a transition the board does not take, a ticket that is
   not in the `--from` status — is written on the error output and ends with a non-zero code
   (`1`; `2` for a status that does not exist).
@@ -426,11 +432,12 @@ the board, because a status the database does not offer would only fail at the v
 a ticket. It also names a status the board offers that is none of these: a ticket there is
 read as a draft, and nobody will ever pick it up.
 
-The board has these nine:
+The board has these ten:
 
 | Status | In the console | What it means |
 | --- | --- | --- |
 | `draft` | **Draft** | still being written. The runner never writes nor picks one up; *New ticket*'s *Draft* button puts the ticket there, and a ticket with no status at all sits in the same column. |
+| `waiting` | **Waiting** | written and meant to run, but **its moment has not come**: a `Scheduled` date still ahead, or tickets it comes after not finished yet. Nothing is wrong and nobody has anything to do: the runner never takes it, and moves it to *Ready* by itself once its date has passed and every ticket it waits for is *Done* or *Validated* — see [A ticket that comes after another](#a-ticket-that-comes-after-another). |
 | `ready` | **Ready** | the description is precise enough for an agent to handle it alone. **The gesture that triggers work** — the other being a comment answering a ticket already handled once. |
 | `progress` | **In progress** | claimed by the runner. Stops the next run from taking it again. |
 | `review` | **In review** | branch pushed, pull request opened. Yours to review. |
@@ -597,21 +604,56 @@ column on the board the rule still plans those tickets; there is only no box to 
 A series made ready at once — the eight steps of a migration, the tickets that all need one
 pull request merged first — used to run side by side, and every ticket but the first paid a
 session to answer « what I need is not done yet ». So a ticket can name what it comes after:
-an **`Après`** relation, pointing at other tickets of the same board.
+an **`Après`** relation, pointing at other tickets of the same board. It is the way to chain
+tickets: rather than a draft and an `On` prompt that moves it to ready, which says nothing
+on the board until it fires, the next ticket waits in its own column, saying for what.
 
-- **It is not started while one of them is not *Done*.** It stays in *Ready* — nothing
-  happened to it, it is not blocked — and its card says **« waiting for: <ticket> »**
-  (*« attend : <ticket> »* in French), naming every one still to be done. The journal says
-  it once, when it changes.
-- **It starts on its own.** The first look after the last of them reaches *Done* takes it,
-  as if it had just been made ready: nothing to tick again, no comment to write. A ticket
-  whose pull request it waits for reaches *Done* when that pull request is merged — see
-  [Merging is the only gesture](#merging-is-the-only-gesture).
-- **A ticket that cannot be found holds nothing back** — deleted, or never shared with the
-  integration: it would never become *Done*. Nor does a ticket that names itself.
+- **Where it is said.** On the ticket's page, in its facts: **Waits for**, each ticket a link,
+  removed by its ×, one more added by its id (`PON-36`). In the API, `after` in
+  `POST /api/tickets` and `POST /api/tickets/<id>/after` (all of them, `[]` for none); in the
+  MCP, `after` in `create_task` and `update_task`; in the CLI, `ponos edit <ticket> --after
+  PON-36,PON-35` (`--after ""` for none), and `ponos show` says them with their status. The
+  public id, the full id or the short one, and the ticket's URL, are all taken.
+- **A loop is refused**, with the loop said: `circular dependency: PON-1 → PON-2 → PON-1`. A
+  ticket cannot wait, even through others, for itself.
+- **It waits in *Waiting*.** A ticket made ready — created ready, moved to ready, or a ready
+  ticket given one — while one of them is not finished goes to the **Waiting** column instead.
+  Its card says what it waits for: **« Waits for PON-36 (in progress) »** (*« Attend PON-36
+  (en cours) »*), each ticket a link, and **« Starts on … »** for a date still ahead. A ticket
+  waiting is never taken by the runner.
+- **It starts on its own.** The daemon looks at the waiting column every ten seconds: once
+  every ticket waited for is *Done* or *Validated* — validated is a review passed, whose merge
+  is the runner's — and its date, if any, has passed, the ticket goes to *Ready* and the next
+  free place takes it. Nothing to tick again, no comment to write. A waiting ticket whose
+  date or last dependency you take away (*Launch now*, the × of the last one) is ready at once.
+- **A ticket waited for that is cancelled blocks it.** It would never finish, so this is no
+  longer a wait but a decision: the ticket goes to *Blocked*, cause
+  `ticket.after-cancelled`, with « PON-36 was cancelled » and the question — remove that
+  dependency so that it can start, or give this one up too.
+- **A ticket that cannot be found holds nothing back** — deleted: it would never finish.
+  Nor does a ticket that names itself.
+- **A ticket somebody moves to ready anyway** is held there while one of them is unfinished, its
+  card saying **« waiting for: <ticket> »**: the older reading, kept as a net.
 - **`ponos run --ticket` still runs it**: naming a ticket is asking for it.
 
-A ticket with no « Après » runs as soon as it is ready, as before.
+A ticket with no « Après » and no date ahead runs as soon as it is ready, as before. When
+`ponos.db` was migrated to this column, every ready ticket whose date was still ahead, or that
+waited for an unfinished ticket, was moved to *Waiting*.
+
+<a id="what-is-not-blocked"></a>**What is not *Blocked*.** *Blocked* is a ticket that needs a
+person: a question, a missing access, a red CI nobody can repair, a conflict to decide. A
+wait that ends by itself is not one, and none of them blocks a ticket:
+
+- its date, and the tickets it comes after: *Waiting*, above;
+- a place: the ticket stays in *Ready*, its card saying the queue;
+- the subscription's credit, the reserve, the day's spending limit: the ticket stays where it
+  was (*Ready*, or *Validated*), the `Waiting for credit` box ticked and its card saying until
+  when — moving it to *Waiting* would take a validated ticket out of the column whose
+  gesture is « merge it »;
+- a session cut by the network: put back in line with a date a few minutes ahead — a ready
+  one lands in *Waiting*, a validated one stays there;
+- a red base branch, the account's GitHub billing: the pull request waits in *Validated*,
+  its card saying why (`merge.base-red`, `ci.billing`), replayed once it clears.
 
 ## Two attempts: a sibling ticket that tries again
 

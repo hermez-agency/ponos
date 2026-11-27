@@ -57,6 +57,10 @@ logger = logging.getLogger(__name__)
 # ready by whoever did not say so — a local read of one column, not a look.
 LOOK_SECONDS = 2.0
 
+# How often the waiting column is read for tickets whose moment has come — see
+# `Board.release`. A ticket held until 9:00 starts within that of 9:00.
+RELEASE_SECONDS = 10.0
+
 # How long a stopping daemon waits for the work that cannot be carried on —
 # a push, a merge, a reply — before it goes anyway. Under systemd's own 90 s.
 STOP_GRACE_SECONDS = 60.0
@@ -136,6 +140,7 @@ class Scheduler(adoption.Adoption):
             beside.start()
         look_at = 0.0
         counted_at = 0.0
+        released_at = 0.0
         try:
             while True:
                 freed = self._land()
@@ -155,6 +160,9 @@ class Scheduler(adoption.Adoption):
                     now = time.time()
                     asked = signals.wake.is_set()
                     signals.wake.clear()
+                    if now - released_at >= RELEASE_SECONDS:
+                        released_at = now
+                        self._release()
                     if now - counted_at >= LOOK_SECONDS:
                         counted_at = now
                         if self._ready_changed():
@@ -332,6 +340,20 @@ class Scheduler(adoption.Adoption):
         )
         if new:
             self.say(f"↺ {len(new)} ticket(s) ready — {len(fresh)} in the queue")
+
+    def _release(self) -> None:
+        """The waiting tickets whose moment has come, made ready — what blocked one, recorded."""
+        try:
+            blocked = self.release()
+        except store.StoreError as error:
+            self.say(f"  ! the waiting tickets could not be read: {voice_module.line(error)}")
+            return
+        except Exception:
+            logger.exception("the waiting tickets could not be released")
+            return
+        if blocked:
+            with self._lock:
+                self._said += blocked
 
     def _ready_changed(self) -> bool:
         """Whether the ready column of `ponos.db` holds other tickets than at the last count."""

@@ -15,6 +15,7 @@ import type { Board, Project, Ticket } from "@/lib/types"
 
 import { SchedulePicker } from "./schedule-picker"
 import { when } from "./ticket-bits"
+import { AwaitedLink } from "./ticket-waits"
 import { PROJECT_STOPS } from "./ticket-project"
 
 /* What a ticket's view lets you change about it, where its facts are listed.
@@ -332,3 +333,108 @@ export function LaunchNow({ ticket }: { ticket: Ticket }) {
     </Button>
   )
 }
+
+/** The tickets this one waits for (« Après »), each a link, taken away by its ×, and one more added by its id.
+ *
+ * Written at each gesture, as the priority is: one ticket added or removed is
+ * a whole decision. The server says a loop — this one waited for, even
+ * through others, by one it would wait for — and a reference that names
+ * nothing; the toast repeats it. A ready ticket given one that is not finished
+ * goes to the waiting column, and comes back by itself once it is. */
+export function AfterField({ ticket }: { ticket: Ticket }) {
+  const t = useT()
+  const [adding, setAdding] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const known = useBoardWith(boardTickets)
+  const after = ticket.after ?? []
+  const editable = canAct() && !settled(ticket.column)
+  const save = async (next: string[]) => {
+    setBusy(true)
+    try {
+      const done = await api.setAfter(ticket.id, next)
+      // Drawn now from what the board already knows; its next read says the rest.
+      patchTicket(ticket.id, {
+        after: done.after.map((id, index) => {
+          const found = known.find((one) => one.id === id)
+          return {
+            id,
+            public_id: found?.public_id ?? done.named[index] ?? "",
+            title: found?.title ?? "",
+            column: found?.column ?? "draft",
+          }
+        }),
+      })
+      setAdding("")
+    } catch (error) {
+      toast.error(t("The tickets it waits for could not be changed"), { description: why(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const add = () => {
+    const wanted = adding.trim()
+    if (wanted) void save([...after.map((one) => one.id), wanted])
+  }
+  return (
+    <div data-slot="ticket-after-field" className="flex min-w-0 flex-col gap-1.5">
+      {after.length ? (
+        <ul className="flex flex-wrap gap-x-3 gap-y-1">
+          {after.map((one) => (
+            <li key={one.id} className="flex items-center gap-1 text-sm">
+              <AwaitedLink awaited={one} />
+              {editable ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  aria-label={t("Stop waiting for {{ticket}}", { ticket: one.public_id || one.title })}
+                  title={t("Stop waiting for {{ticket}}", { ticket: one.public_id || one.title })}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer px-0.5"
+                  onClick={() => void save(after.filter((other) => other.id !== one.id).map((other) => other.id))}
+                >
+                  ×
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="text-muted-foreground text-sm">{t("No other ticket")}</span>
+      )}
+      {editable ? (
+        <form
+          className="flex items-center gap-1.5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            add()
+          }}
+        >
+          <Input
+            value={adding}
+            onChange={(event) => setAdding(event.target.value)}
+            placeholder="PON-36"
+            aria-label={t("A ticket to wait for")}
+            list={`after-${ticket.id}`}
+            disabled={busy}
+            className="h-7 w-32 text-xs"
+          />
+          <datalist id={`after-${ticket.id}`}>
+            {known
+              .filter((one) => one.public_id && one.id !== ticket.id && !after.some((other) => other.id === one.id))
+              .filter((one) => one.column !== "cancelled" && one.column !== "done")
+              .slice(0, 200)
+              .map((one) => (
+                <option key={one.id} value={one.public_id}>
+                  {one.title}
+                </option>
+              ))}
+          </datalist>
+          <Button type="submit" variant="outline" size="xs" disabled={busy || !adding.trim()}>
+            {t("Wait for it")}
+          </Button>
+        </form>
+      ) : null}
+    </div>
+  )
+}
+
+const boardTickets = (board: Board) => board.tickets

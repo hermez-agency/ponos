@@ -1707,7 +1707,7 @@ def a_project_rule_plans_its_high_tickets_first_once_even_on_a_board_without_the
 
 @case
 def a_ticket_after_another_is_not_claimed_until_that_one_is_done(machine: Bench) -> None:
-    """A « Après » B, B in progress: A stays ready; B done: A starts at the next pass.
+    """A « Après » B, B in progress: A waits; B done: A is made ready and starts at the next pass.
 
     The cause of block number one in October: a series made ready at once, and
     every ticket but the first paying a session to say « the one I need is not
@@ -1721,8 +1721,10 @@ def a_ticket_after_another_is_not_claimed_until_that_one_is_done(machine: Bench)
     second = machine.ticket("Migration 2", "Suis le dépôt déplacé.", project)
     machine.board.set(second, "Après", [first])
 
+    # Given a ticket it waits for while it was ready: it waits in its own column.
+    assert machine.status(second) == "waiting", machine.status(second)
     assert machine.run() == []
-    assert machine.status(second) == "ready", machine.status(second)
+    assert machine.status(second) == "waiting", machine.status(second)
     assert not machine.sessions(), "a session was paid for a ticket whose prerequisite is not done"
 
     machine.move(first, "done")
@@ -2042,7 +2044,7 @@ def a_project_can_send_the_fix_tickets_of_its_diagnostics_straight_to_ready(
 
     The first comes after the diagnostic alone, which closes in the same pass:
     it runs at once and waits in review. The second comes after the first too,
-    and stays ready.
+    and waits for it — in review is not finished.
     """
     repository, project = _diagnosed_repository(machine)
     project_settings.set_diagnostic(project, "Calcul", diagnostic.Access(ready=True))
@@ -2056,7 +2058,7 @@ def a_project_can_send_the_fix_tickets_of_its_diagnostics_straight_to_ready(
         str(machine.board.value(fix, "Name") or ""): machine.status(fix)
         for fix, _ in _other_tickets(machine, ticket)
     }
-    assert statuses == {"Additionner dans total": "review", "Tester le total": "ready"}, statuses
+    assert statuses == {"Additionner dans total": "review", "Tester le total": "waiting"}, statuses
     assert len(machine.pull_requests()) == 1, "the first fix did not run as code"
     db.close()
 

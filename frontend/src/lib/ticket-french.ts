@@ -16,6 +16,13 @@ export const TICKET_FRENCH: Record<string, string> = {
   "Waiting for a free place: a session starts on it by itself.":
     "En attente d'une place libre : une session démarre dessus toute seule.",
   "A session is working on it.": "Une session travaille dessus.",
+  "Waiting for its moment: it is made ready by itself once its date has come and the tickets it waits for are finished.":
+    "En attente de son moment : il passe tout seul en prêt une fois sa date venue et les tickets qu'il attend finis.",
+  "The tickets it waits for could not be changed": "Les tickets attendus n'ont pas pu être changés",
+  "Stop waiting for {{ticket}}": "Ne plus attendre {{ticket}}",
+  "No other ticket": "Aucun autre ticket",
+  "A ticket to wait for": "Un ticket à attendre",
+  "Wait for it": "L'attendre",
   "Paused: what was done is kept, and nothing runs until it is resumed.":
     "En pause : ce qui est fait est gardé, et rien ne tourne tant qu'il n'est pas repris.",
   "Stopped: it waits for you to run it again.": "Arrêté : il attend que vous le relanciez.",
@@ -69,6 +76,8 @@ export const TICKET_FRENCH: Record<string, string> = {
   "retouched its result": "a retouché son résultat",
   "asked for a change to its result": "a demandé une modification de son résultat",
   "scheduled it for {{at}}": "l'a programmé pour le {{at}}",
+  "made it wait for {{tickets}}": "lui a fait attendre {{tickets}}",
+  "let it wait for no other ticket": "ne lui fait plus attendre aucun ticket",
   "launched it now, without its date": "l'a lancé maintenant, sans sa date",
   "As soon as possible": "Dès que possible",
   "It waits until {{at}}, in your timezone.": "Il attend le {{at}}, dans votre fuseau horaire.",

@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import board_journal, disk, ids, store, timestamps
+from ..config import STATUS
 
 # How far behind the last read an incremental read starts. A minute would do
 # for the rounding alone; the second one is for a clock that is not the board's.
@@ -436,6 +437,10 @@ class Outbox:
             pass
 
 
+# The status a move to ready may land in instead — see `send`.
+_HELD = {STATUS["ready"]: STATUS["waiting"]}
+
+
 class Conflict(Exception):
     """The page no longer says what the console showed when the move was made."""
 
@@ -461,7 +466,9 @@ def send(client: store.Store, database: str, status: str, write: Write) -> store
     client.update(database, write.page, {status: write.status})
     confirmed = client.page(write.page)
     kept = str(store.read(confirmed, status) or "")
-    if kept != write.status:
+    # A ticket made ready whose moment has not come is kept waiting by the
+    # board itself (`ledger._hold`): that is the move taken, not refused.
+    if kept != write.status and kept != _HELD.get(write.status):
         raise store.StoreError(f"written, but the page still says {kept or 'no status'}")
     return confirmed
 

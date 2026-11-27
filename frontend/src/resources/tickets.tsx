@@ -699,12 +699,19 @@ const TicketCardBody = React.memo(function TicketCardBody({
 
       <TicketSync ticket={ticket} />
       <TicketHeld ticket={ticket} card />
+      {/* A waiting card says what it waits for: its date, the tickets it comes after —
+          behind a `lazy()`, the first load paying only for the cards that need it. */}
+      {ticket.column === "waiting" ? (
+        <React.Suspense fallback={null}>
+          <LazyTicketWaits ticket={ticket} />
+        </React.Suspense>
+      ) : null}
       {/* A blocked card says its cause on one line, its help in the tooltip. */}
       {ticket.column === "blocked" ? <CardCause block={ticket.block} /> : <TicketBlock block={ticket.block} />}
       {/* In review, the checks are said in the line along the bottom. */}
       {ticket.column !== "review" ? <TicketCi ci={ticket.ci} /> : null}
-      {/* A ready card says its date in why it waits. */}
-      {ticket.scheduled && ticket.column !== "ready" ? (
+      {/* A ready card says its date in why it waits, a waiting one in what it waits for. */}
+      {ticket.scheduled && ticket.column !== "ready" && ticket.column !== "waiting" ? (
         <p className="text-muted-foreground text-xs" data-slot="card-scheduled">
           ⏱ {when(ticket.scheduled)}
         </p>
@@ -1187,6 +1194,11 @@ function PhoneTabs({
  * those three took as much room as the ones with work in them. */
 const EMPTY_KEY = "ponos-board-empty-columns"
 
+/* The columns drawn even empty: where a ticket stops for a person, and the two
+ * where one is put aside — waiting for its moment, paused by hand. An empty
+ * one says that nothing is there, which is the thing looked for. */
+const ALWAYS_DRAWN = new Set(["waiting", "blocked", "paused"])
+
 function useEmptyColumnsShown() {
   const [shown, setShown] = React.useState(() => {
     try {
@@ -1307,7 +1319,7 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
   // search is not an empty column, and is not folded away.
   const empty = new Set(
     columns
-      .filter((column) => !all.some((row) => row.data?.column === column.key))
+      .filter((column) => !ALWAYS_DRAWN.has(column.key) && !all.some((row) => row.data?.column === column.key))
       .map((column) => column.key)
   )
   const totals = (key: string) =>
@@ -1364,7 +1376,7 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
   const [chosen, setChosen] = React.useState(() => chosenColumn)
   const shownColumn = openingColumn(
     drawnColumns.map((column) => column.key),
-    new Set(columns.filter((column) => !empty.has(column.key)).map((column) => column.key)),
+    new Set(columns.filter((column) => all.some((row) => row.data?.column === column.key)).map((column) => column.key)),
     chosen
   )
   const choose = (key: string) => {
@@ -1477,6 +1489,10 @@ function BoardColumns({ rows: all = [] }: ListComponentPropsInterface) {
 }
 
 /* The bar that acts on the cards picked, fetched with the first one (see `bulk-bar.tsx`). */
+const LazyTicketWaits = React.lazy(() =>
+  import("@/components/console/ticket-waits").then((module) => ({ default: module.TicketWaits }))
+)
+
 const LazyBulkBar = React.lazy(() =>
   import("@/components/console/bulk-bar").then((module) => ({ default: module.BulkBar }))
 )

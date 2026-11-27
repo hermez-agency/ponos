@@ -738,7 +738,11 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     # and the ceiling went to 514 kB, by ticket. Then react-data-form 0.6.0,
     # which validates a field while it is typed (the vault's « New entry »),
     # added 0.6 kB to `views` — the vault's own sentences going with its page —,
-    # and the ceiling went to 514 kB, by ticket (PON-710).
+    # and the ceiling went to 514 kB, by ticket (PON-710). The waiting column
+    # (PON-723) — its label and its dot, the two sentences of a waiting card,
+    # the write of a ticket's dependencies — added 0.2 kB more once what a
+    # waiting card draws went behind a `lazy()`, and the ceiling went to
+    # 515 kB, by ticket.
     # For a reader of French, that is with the dictionary the page then asks
     # for: the heavier of the two first loads is the one held to the budget.
     page = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -749,7 +753,7 @@ def the_console_is_downloaded_once_and_compressed() -> None:
     assert len(french) == 1, f"one French dictionary expected, the build left {french}"
     assert french[0] not in first, "the French dictionary is fetched by readers of English too"
     weight = sum(len(gzip.compress(path.read_bytes(), compresslevel=9)) for path in first + french)
-    assert weight < 514_000, f"the first load in French is {weight // 1000} kB compressed"
+    assert weight < 515_000, f"the first load in French is {weight // 1000} kB compressed"
 
 
 @case
