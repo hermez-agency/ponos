@@ -182,14 +182,78 @@ def create(title: str, *, id: str = "", after: list[str] | None = None, **values
             )
         except sqlite3.IntegrityError as error:
             raise ValueError(f"ticket {ticket} already exists") from error
-        for earlier in after or []:
+        wanted = sorted({_key(earlier) for earlier in after or []})
+        _refuse_cycle(connection, ticket, wanted)
+        for earlier in wanted:
             connection.execute(
                 "INSERT OR IGNORE INTO ticket_after (ticket, after) VALUES (?, ?)",
-                (ticket, _key(earlier)),
+                (ticket, earlier),
             )
     found = get(ticket)
     assert found is not None
     return found
+
+
+def cycle(connection: sqlite3.Connection, ticket: str, wanted: list[str]) -> list[str]:
+    """The loop `ticket` would close by coming after `wanted` — its ids, from it back to it — or [].
+
+    Followed through `ticket_after` as it stands, depth first: the first way
+    back to `ticket` found is the one said, which is enough to see what to undo.
+    """
+    ticket = _key(ticket)
+    came_from: dict[str, str] = {}
+    stack: list[str] = []
+    for item in wanted:
+        key = _key(item)
+        if key not in came_from:
+            came_from[key] = ticket
+            stack.append(key)
+    while stack:
+        node = stack.pop()
+        if node == ticket:
+            path = [ticket]
+            step = came_from[ticket]
+            while step != ticket:
+                path.append(step)
+                step = came_from[step]
+            path.append(ticket)
+            # Walked backwards: from the ticket, through what it would wait for.
+            return [path[0], *reversed(path[1:-1]), path[-1]]
+        for (following,) in connection.execute(
+            "SELECT after FROM ticket_after WHERE ticket = ?", (node,)
+        ):
+            if following not in came_from:
+                came_from[following] = node
+                stack.append(following)
+    return []
+
+
+def _refuse_cycle(connection: sqlite3.Connection, ticket: str, wanted: list[str]) -> None:
+    """`ValueError`, saying the loop by the tickets' public ids, when `wanted` would close one."""
+    loop = cycle(connection, ticket, wanted)
+    if not loop:
+        return
+    names = []
+    for key in loop:
+        row = connection.execute(
+            "SELECT prefix, number, title FROM tickets WHERE id = ?", (key,)
+        ).fetchone()
+        if row and row[1]:
+            names.append(f"{row[0]}-{row[1]}")
+        else:
+            names.append(str(row[2]) if row and row[2] else key[:8])
+    if len(loop) == 2:
+        raise ValueError(f"{names[0]} cannot wait for itself")
+    raise ValueError(
+        f"circular dependency: {' → '.join(names)} — "
+        f"{names[0]} would wait, through {', '.join(names[1:-1])}, for itself"
+    )
+
+
+def check_after(ticket: str, wanted: list[str]) -> None:
+    """`ValueError` when `ticket` coming after `wanted` would close a loop — before anything is written."""
+    with db.transaction(immediate=False) as connection:
+        _refuse_cycle(connection, _key(ticket), sorted({_key(item) for item in wanted}))
 
 
 def _check(values: dict[str, Any]) -> None:
@@ -281,6 +345,7 @@ def update(ticket: str, **values: Any) -> Record | None:
         if after is not None:
             wanted = sorted({_key(item) for item in after})
             if wanted != before.after:
+                _refuse_cycle(connection, ticket, wanted)
                 connection.execute("DELETE FROM ticket_after WHERE ticket = ?", (ticket,))
                 connection.executemany(
                     "INSERT INTO ticket_after (ticket, after) VALUES (?, ?)",

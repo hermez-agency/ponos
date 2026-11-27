@@ -528,3 +528,169 @@ def a_dry_run_explains_without_writing_down_the_reasons(state_home: Path) -> Non
     runner.explain([Ticket(_ready("a1"))], 1)
     assert state.held() == {}
     assert runner._explained == {"a1": "places"}
+
+
+# -- the waiting column -------------------------------------------------------
+
+
+def _status(page_id: str) -> str:
+    from ponos import tickets
+
+    record = tickets.get(page_id)
+    assert record is not None
+    return record.status
+
+
+@case
+def a_ticket_dated_three_days_ahead_waits_then_is_made_ready_and_taken() -> None:
+    from support import _board, _local_api, _Nudged
+
+    from ponos import tickets
+    from ponos.web import board as web_board
+
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        runner = api.runner
+        runner.dry_run = False
+        ahead = (datetime.now().astimezone() + timedelta(days=3)).replace(second=0, microsecond=0)
+        made = api.create_ticket("Relancer", scheduled=ahead.isoformat())["id"]
+        assert _status(made) == "waiting"
+        card = next(one for one in api.board()["tickets"] if one["id"] == made)
+        assert card["column"] == "waiting" and card["scheduled"], card
+        # Never taken while it waits, and still waiting at the daemon's look.
+        assert made not in [ticket.id for ticket in runner.queue()[0]]
+        assert runner.release() == [] and _status(made) == "waiting"
+        # Its hour comes: made ready by the look, and the runner's to take.
+        tickets.update(
+            made, scheduled=(datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+        )
+        assert _status(made) == "waiting", "the date moved under it is the daemon's to read"
+        assert runner.release() == []
+        assert _status(made) == "ready"
+        assert made in [ticket.id for ticket in runner.queue()[0]]
+
+
+@case
+def a_ticket_after_another_waits_until_it_is_finished_and_blocks_when_it_is_given_up() -> None:
+    from support import _board, _local_api, _Nudged
+
+    from ponos import blocks, tickets
+    from ponos.web import board as web_board
+
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        runner = api.runner
+        runner.dry_run = False
+        told: list[str] = []
+        runner._tell = lambda event, ticket, *rest, **options: told.append(event)  # type: ignore[method-assign]
+        first = api.create_ticket("A", ready=False)["id"]
+        a = tickets.get(first)
+        assert a is not None and a.public_id
+        second = api.create_ticket("B", after=[a.public_id])["id"]
+        assert _status(second) == "waiting"
+        card = next(one for one in api.board()["tickets"] if one["id"] == second)
+        assert card["after"] == [
+            {"id": first, "public_id": a.public_id, "title": "A", "column": "draft"}
+        ], card["after"]
+        # Running, then in review: still not finished.
+        for status in ("progress", "review"):
+            tickets.update(first, status=status)
+            assert runner.release() == [] and _status(second) == "waiting", status
+        assert second not in [ticket.id for ticket in runner.queue()[0]]
+        # Validated is finished: the review is passed, the merge is the runner's.
+        tickets.update(first, status="validated")
+        runner.release()
+        assert _status(second) == "ready"
+
+        # The other road: what it waits for is given up on — a decision, not a wait.
+        third = api.create_ticket("C", after=[first])["id"]
+        tickets.update(first, status="review")
+        api.set_after(third, [first])
+        tickets.update(third, status="waiting")
+        tickets.update(first, status="cancelled")
+        results = runner.release()
+        assert [entry["code"] for entry in results] == ["ticket.after-cancelled"], results
+        record = tickets.get(third)
+        assert record is not None and record.status == "blocked"
+        assert record.block == "ticket.after-cancelled"
+        said = " ".join(remark.text for remark in tickets.comments(third))
+        assert a.public_id in said, said
+        assert told == ["blocked"]
+        assert blocks.cause("ticket.after-cancelled").who == "user"
+
+
+@case
+def a_dependency_that_would_loop_is_refused_and_says_the_loop() -> None:
+    from support import _board, _local_api, _Nudged
+
+    from ponos import tickets
+    from ponos.web import board as web_board
+
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        first = api.create_ticket("A", ready=False)["id"]
+        second = api.create_ticket("B", ready=False, after=[first])["id"]
+        a, b = tickets.get(first), tickets.get(second)
+        assert a is not None and b is not None
+        for refused, wanted in ((first, [second]), (first, [first])):
+            try:
+                api.set_after(refused, wanted)
+            except ValueError as error:
+                said = str(error)
+            else:
+                raise AssertionError("a loop must be refused")
+            assert a.public_id in said, said
+        assert "circular dependency" in said or "itself" in said
+        try:
+            api.update_ticket(first, {"after": [b.public_id]})
+        except ValueError as error:
+            assert f"{a.public_id} → {b.public_id} → {a.public_id}" in str(error), error
+        else:
+            raise AssertionError("and through update_ticket, the road of the MCP and the CLI")
+        assert tickets.get(first) is not None and tickets.get(first).after == []  # type: ignore[union-attr]
+        # A reference that names nothing is refused too, rather than dropped.
+        try:
+            api.set_after(second, ["XYZ-999"])
+        except ValueError as error:
+            assert "XYZ-999" in str(error)
+        else:
+            raise AssertionError("an unknown ticket must be refused")
+
+
+@case
+def a_ready_ticket_given_a_date_or_an_unfinished_dependency_waits_and_comes_back_without() -> None:
+    from support import _board, _local_api, _Nudged
+
+    from ponos.web import board as web_board
+
+    with _board() as board:
+        api = _local_api(board)
+        api._schema_at = time.time()
+        api._reader = web_board.Reader(journal=lambda report: None)
+        api._outbox = web_board.Outbox(journal=lambda report: None)
+        api.watch = _Nudged()  # type: ignore[assignment]  # a fake: only counts its nudges
+        first = api.create_ticket("A", ready=False)["id"]
+        second = api.create_ticket("B")["id"]
+        assert _status(second) == "ready"
+        api.set_after(second, [first])
+        assert _status(second) == "waiting"
+        api.set_after(second, [])
+        assert _status(second) == "ready", "nothing left to wait for"
+        ahead = datetime.now().astimezone() + timedelta(days=1)
+        api.set_scheduled(second, ahead.isoformat())
+        assert _status(second) == "waiting"
+        # And a draft stays a draft: it is not meant to run yet at all.
+        api.set_after(first, [second])
+        assert _status(first) == "draft"

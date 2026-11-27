@@ -1466,6 +1466,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tickets/{ticket_id}/after": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Ticket After
+         * @description Say which tickets it waits for — all of them; a loop is refused, saying it.
+         */
+        post: operations["set_ticket_after_api_tickets__ticket_id__after_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tickets/{ticket_id}/on": {
         parameters: {
             query?: never;
@@ -2833,6 +2853,12 @@ export interface components {
             accounts: components["schemas"]["Account"][];
             invitations: components["schemas"]["Invitation"][];
         };
+        After: {
+            /** @default [] */
+            after: string[] | string;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description One AG-UI event of a turn of the workspace, for the page's `useChat`. */
         AguiEvent: {
             event: {
@@ -2860,9 +2886,18 @@ export interface components {
             who: string;
             email: string;
             /** @enum {string} */
-            action: "created" | "moved" | "told" | "decided" | "priority" | "scheduled" | "model" | "on" | "goal" | "launched" | "result" | "revise" | "forked";
+            action: "created" | "moved" | "told" | "decided" | "priority" | "scheduled" | "after" | "model" | "on" | "goal" | "launched" | "result" | "revise" | "forked";
             /** @description The column moved to, the choice made, the priority set, the date set ("now" when removed). */
             detail: string;
+        };
+        /** @description A ticket another one comes after (« Après »), and where it stands — see `dependencies.py`. */
+        Awaited: {
+            id: string;
+            /** @description `PON-36`, empty for a ticket numbered by nobody. */
+            public_id: string;
+            title: string;
+            /** @enum {string} */
+            column: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
         };
         /** @description The bell as the stream says it — a state, replayed to every tab that connects. */
         Bell: {
@@ -3360,7 +3395,7 @@ export interface components {
         };
         Column: {
             /** @enum {string} */
-            key: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            key: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             name: string;
         };
         /** @description A command started: what runs, as the stream's `started` says it again. */
@@ -3409,7 +3444,7 @@ export interface components {
              */
             sync?: "pending";
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            column: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             /** @description The lines written on the ticket, after the one that says who relayed them. */
             told: string[];
             /** @description The tickets it made, by their page ids. */
@@ -3455,7 +3490,7 @@ export interface components {
             title: string;
             url: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            column: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             status: string;
             progress: string;
             running: boolean;
@@ -4284,6 +4319,8 @@ export interface components {
             validation: string;
             /** @default  */
             scheduled: string;
+            /** @default [] */
+            after: string[] | string;
         } & {
             [key: string]: unknown;
         };
@@ -5022,7 +5059,7 @@ export interface components {
             /** @description Why no ticket was made, in the runner's words. */
             reason: string;
             /** @description Where that ticket is now, "" where there is none or it left the board. */
-            column: ("draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled") | "";
+            column: ("draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled") | "";
             /** @description Said from a ticket born before the runner kept its passes, rather than recorded. */
             inferred: boolean;
         };
@@ -5038,7 +5075,7 @@ export interface components {
             url: string;
             status: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            column: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             created: string;
             cost: number | null;
             /** @description In minutes, as on a card. */
@@ -5350,7 +5387,7 @@ export interface components {
              * @description The column the ticket goes to.
              * @enum {string}
              */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            column: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             /**
              * @description What it needs before it can be done: nothing, words, a note, a model, titles.
              * @enum {string}
@@ -5426,7 +5463,7 @@ export interface components {
         };
         StatusCount: {
             /** @enum {string} */
-            key: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            key: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             count: number;
         };
         StatusCounts: {
@@ -5580,7 +5617,7 @@ export interface components {
             url: string;
             status: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            column: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             project: string;
             /** @description The project's page id, empty for a ticket without one. */
             project_id?: string;
@@ -5607,6 +5644,11 @@ export interface components {
             cost: number | null;
             duration: number | null;
             scheduled: string;
+            /**
+             * @description The tickets it waits for, in their order, each with its column: finished when done or
+             *     validated. A ticket named that is not there any more is left out.
+             */
+            after?: components["schemas"]["Awaited"][];
             created: string;
             /**
              * @description The page's `last_edited_time`: when a done ticket closed, where the runner's history does
@@ -5649,6 +5691,13 @@ export interface components {
             /** @description The first lines of its result, in plain words — empty before one: see results.py. */
             excerpt?: string;
         };
+        TicketAfter: {
+            id: string;
+            /** @description The ids of the tickets it now waits for; empty for none. */
+            after: string[];
+            /** @description The same, said out loud: `PON-36`, or the title of a ticket numbered by nobody. */
+            named: string[];
+        };
         TicketChoices: {
             type?: components["schemas"]["Choice"][];
             model?: components["schemas"]["Choice"][];
@@ -5674,7 +5723,7 @@ export interface components {
             url: string;
             status: string;
             /** @enum {string} */
-            column: "draft" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
+            column: "draft" | "waiting" | "ready" | "running" | "blocked" | "paused" | "review" | "validated" | "done" | "cancelled";
             project: string;
             /** @description The project's page id, empty for a ticket without one. */
             project_id?: string;
@@ -5701,6 +5750,11 @@ export interface components {
             cost: number | null;
             duration: number | null;
             scheduled: string;
+            /**
+             * @description The tickets it waits for, in their order, each with its column: finished when done or
+             *     validated. A ticket named that is not there any more is left out.
+             */
+            after?: components["schemas"]["Awaited"][];
             created: string;
             /**
              * @description The page's `last_edited_time`: when a done ticket closed, where the runner's history does
@@ -9178,6 +9232,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketScheduled"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_ticket_after_api_tickets__ticket_id__after_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["After"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketAfter"];
                 };
             };
             /** @description Validation Error */

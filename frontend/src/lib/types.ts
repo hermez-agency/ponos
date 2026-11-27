@@ -13,6 +13,8 @@ import type { components } from "./api-types"
 type Schemas = components["schemas"]
 
 export type Ticket = Schemas["Ticket"]
+/** A ticket another one waits for (« Après »), and where it stands. */
+export type AwaitedTicket = Schemas["Awaited"]
 export type Subtype = Schemas["Subtype"]
 export type Ci = Schemas["Ci"]
 export type Block = Schemas["Block"]

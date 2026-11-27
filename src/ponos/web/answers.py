@@ -59,6 +59,7 @@ class Shape(BaseModel):
 
 ColumnKey = Literal[
     "draft",
+    "waiting",
     "ready",
     "running",
     "blocked",
@@ -199,6 +200,16 @@ class Estimated(Shape):
     """Null without enough tickets to compare with."""
 
 
+class Awaited(Shape):
+    """A ticket another one comes after (« Après »), and where it stands — see `dependencies.py`."""
+
+    id: str
+    public_id: str
+    """`PON-36`, empty for a ticket numbered by nobody."""
+    title: str
+    column: ColumnKey
+
+
 class Ticket(Shape):
     id: str
     short: str
@@ -234,6 +245,9 @@ class Ticket(Shape):
     cost: float | None
     duration: float | None
     scheduled: str
+    after: list[Awaited] = omitted()
+    """The tickets it waits for, in their order, each with its column: finished when done or
+    validated. A ticket named that is not there any more is left out."""
     created: str
     edited: str
     """The page's `last_edited_time`: when a done ticket closed, where the runner's history does
@@ -476,6 +490,14 @@ class TicketScheduled(Shape):
     id: str
     scheduled: str
     """The moment it is held back until, ISO 8601 with its offset; empty for « now »."""
+
+
+class TicketAfter(Shape):
+    id: str
+    after: list[str]
+    """The ids of the tickets it now waits for; empty for none."""
+    named: list[str]
+    """The same, said out loud: `PON-36`, or the title of a ticket numbered by nobody."""
 
 
 class Moved(Shape):
@@ -2759,6 +2781,7 @@ class AuditEntry(Shape):
         "decided",
         "priority",
         "scheduled",
+        "after",
         "model",
         "on",
         "goal",

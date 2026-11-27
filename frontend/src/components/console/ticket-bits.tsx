@@ -50,6 +50,7 @@ import { canAct } from "@/lib/role"
  * as they are. */
 export const LABEL: Record<string, string> = {
   draft: "Draft",
+  waiting: "Waiting",
   ready: "Ready",
   running: "In progress",
   blocked: "Blocked",
@@ -104,6 +105,7 @@ export const choiceWord = (value: string): string => (value ? t(BOARD_WORDS[valu
 
 /** The colour of a column, as text. */
 export const TONE: Record<string, string> = {
+  waiting: "text-tr-green",
   ready: "text-tr-green",
   running: "text-primary",
   blocked: "text-tr-amber",
@@ -114,8 +116,10 @@ export const TONE: Record<string, string> = {
 
 /** The same colour again, as a dot — over a column, beside a status. Done
  * has none, and is the plain grey dot; cancelled is that grey hollowed out,
- * the one end apart from the other. */
+ * the one end apart from the other. Waiting is ready's green hollowed out:
+ * the same ticket, its moment not come yet. */
 export const SEED: Record<string, string> = {
+  waiting: "ring-tr-green bg-transparent ring-[1.5px] ring-inset",
   ready: "bg-tr-green",
   running: "bg-primary",
   blocked: "bg-tr-amber",
@@ -885,9 +889,12 @@ function CardGestures({
           {t("Back to review")}
         </DropdownMenuItem>
       ) : null,
-      <DropdownMenuItem key="again" onSelect={() => setAsked(true)}>
-        {column === "done" ? t("Run again") : t("Make ready")}
-      </DropdownMenuItem>,
+      // A waiting ticket is made ready by itself once its moment comes.
+      column === "waiting" ? null : (
+        <DropdownMenuItem key="again" onSelect={() => setAsked(true)}>
+          {column === "done" ? t("Run again") : t("Make ready")}
+        </DropdownMenuItem>
+      ),
     ]
   items = items.filter(Boolean)
   const menu = [...items, items.length && giveUp ? <DropdownMenuSeparator key="apart" /> : null, giveUp].filter(Boolean)
@@ -1056,7 +1063,7 @@ export function TicketActions({
           {t("Reopen")}
         </Button>
       ) : null}
-      {ticket.column !== "ready" ? (
+      {ticket.column !== "ready" && ticket.column !== "waiting" ? (
         <>
           {/* A validated pull request waits for its merge, which the runner
               asks for again on each pass: what is left to you is to take the

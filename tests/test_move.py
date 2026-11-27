@@ -143,12 +143,14 @@ def ponos_move_at_makes_a_ticket_ready_for_later(state_home: Path) -> None:
         assert (code, err) == (0, ""), (code, out, err)
         assert "scheduled for" in out
         record = tickets.get(made.id)
-        assert record is not None and record.status == "ready" and "T09:00" in record.scheduled
+        # Made ready with a moment still ahead: it waits for it, in its own column.
+        assert record is not None and record.status == "waiting" and "T09:00" in record.scheduled
+        assert "→ waiting" in out
         code, _, err = _run(
             cli.command_move, ticket=made.id, status="paused", source=None, at="hier"
         )
     assert code == 1 and "unreadable" in err
-    assert _status(made.id) == "ready", "a date refused moves nothing"
+    assert _status(made.id) == "waiting", "a date refused moves nothing"
 
 
 @case

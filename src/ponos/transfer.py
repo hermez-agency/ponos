@@ -22,8 +22,8 @@ through `vault.masked` with Ponos's own secrets remembered, should one have
 found its way into a ticket's text.
 
 **An import never starts anything.** A ticket arrives in its status, except
-the three the runner acts on by itself — ready, in progress, validated — which
-arrive as drafts; its date and its « On » are kept, but the « On » starts from
+the four the runner acts on by itself — ready, in progress, validated, and
+waiting, which it makes ready once its moment comes — which arrive as drafts; its date and its « On » are kept, but the « On » starts from
 the status it arrives in (`watched`), so nothing runs for the move; a
 recurrence arrives switched off. Turning things back on is a person's gesture.
 
@@ -87,7 +87,7 @@ MERGE = "merge"
 REPLACE = "replace"
 
 # The statuses the runner acts on by itself, and what they arrive as.
-HELD = {"ready": "draft", "progress": "draft", "validated": "draft"}
+HELD = {"ready": "draft", "progress": "draft", "validated": "draft", "waiting": "draft"}
 
 # What an archive may weigh, read whole and once unpacked: an export of years
 # of tickets is a few megabytes, and a zip that unpacks to more is not ours.

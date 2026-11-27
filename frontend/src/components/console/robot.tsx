@@ -67,6 +67,7 @@ export function Robot({
  * their column, which says as much and costs nothing. */
 export const MOOD: Record<ColumnKey, RobotState> = {
   draft: "sleep",
+  waiting: "sleep",
   ready: "idle",
   running: "working",
   review: "waiting",

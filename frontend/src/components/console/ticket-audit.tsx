@@ -39,6 +39,10 @@ function said(t: ReturnType<typeof useT>, entry: AuditEntry): string {
       return entry.detail && entry.detail !== "now"
         ? t("scheduled it for {{at}}", { at: when(entry.detail) })
         : t("launched it now, without its date")
+    case "after":
+      return entry.detail && entry.detail !== "none"
+        ? t("made it wait for {{tickets}}", { tickets: entry.detail })
+        : t("let it wait for no other ticket")
     case "model":
       return entry.detail
         ? t("set its model to {{model}}", { model: entry.detail.replace(/^claude\//, "") })

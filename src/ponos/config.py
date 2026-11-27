@@ -1021,7 +1021,17 @@ _TYPE_ALIASES = {
 #
 # "draft" is a ticket still being written: the runner never reads nor writes it,
 # and never picks it up.
+#
+# "waiting" is a ticket written and meant to run, whose moment has not come:
+# a date not reached yet, or tickets it comes after (« Après ») not finished.
+# Nothing is wrong with it — that is "blocked"'s — and nobody has anything to
+# do: the runner never picks it up, and moves it to ready by itself once its
+# conditions are met (see `Board.release`). It is a column rather than the
+# card of a ready ticket saying "not yet", because a ready column full of
+# tickets that are not ready was the one place nobody could see what waits,
+# and for what.
 STATUS = {
+    "waiting": "waiting",
     "ready": "ready",
     "running": "progress",
     "review": "review",

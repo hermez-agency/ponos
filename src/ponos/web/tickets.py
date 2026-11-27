@@ -16,6 +16,7 @@ import logging
 import shutil
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -82,9 +83,11 @@ STOP_WAIT_SECONDS = 60
 # Blocked follows running: a ticket waiting on an answer is a ticket in
 # progress that stopped, so it is read next to it, and so is paused, which is
 # one that you stopped. Cancelled closes the row, beside done: the two ends a
-# ticket can come to. This is the one order — the console, the filters and the
-# MCP tools all take it from here.
+# ticket can come to. Waiting comes before ready, the way a ticket goes: its
+# moment comes, then a place. This is the one order — the console, the filters
+# and the MCP tools all take it from here.
 COLUMNS = (
+    "waiting",
     "ready",
     "running",
     "blocked",
@@ -309,6 +312,8 @@ class Tickets(Base):
         _estimates(tickets, settings)
         self._synced = board_module.describe(self.reader, tickets)
         self._hold(tickets, pages)
+        known = {ids.bare(page.id): page for page in pages}
+        _awaited(tickets, known.get, names, settings.prop("status"))
 
         # Whether this board has a validated column at all. The console offers
         # the gesture only where the runner would honour it: a button that
@@ -472,7 +477,7 @@ class Tickets(Base):
                     known[key],
                     settings.prop("after"),
                     settings.prop("status"),
-                    settings.state("done"),
+                    [settings.state(key) for key in dependencies.FINISHED],
                     known.get,
                 )
             )
@@ -560,6 +565,9 @@ class Tickets(Base):
             "cost": store.read(page, settings.prop("cost")),
             "duration": store.read(page, settings.prop("duration")),
             "scheduled": moment.isoformat(timespec="minutes") if moment else "",
+            # The tickets it comes after (« Après », see dependencies.py), as ids
+            # until `_awaited` says what each one is and where it stands.
+            "after": [{"id": key} for key in dependencies.named(page, settings.prop("after"))],
             "created": page.raw.get("created_time", ""),
             "edited": page.raw.get("last_edited_time", ""),
             # Why it stopped, from the board's « Blocage » column; `_causes`
@@ -603,6 +611,7 @@ class Tickets(Base):
             lambda status: names.get(status, "draft"),
         )
         _causes([card])
+        _awaited([card], self._page_or_none, names, settings.prop("status"))
         note = card["progress"]
         _notes([card])
         _checks([card], self.config.review.ci_retries)
@@ -697,6 +706,7 @@ class Tickets(Base):
         validation: str = "",
         by_hand: bool = False,
         scheduled: str = "",
+        after: list[str] | str | None = None,
     ) -> dict[str, Any]:
         """Write a new ticket on the board.
 
@@ -706,7 +716,10 @@ class Tickets(Base):
         who wrote the column (see models.py).
 
         `scheduled` holds it back until that moment — see later.py for what is
-        read, and why a moment already past is refused.
+        read, and why a moment already past is refused. `after` names the
+        tickets it waits for, by their public id (`PON-36`) or their own. A
+        ready ticket that has either goes to the waiting column instead
+        (`ledger._hold`), and comes back to ready by itself.
         """
         title = title.strip()
         if not title:
@@ -720,8 +733,11 @@ class Tickets(Base):
             raise ValueError(f"unknown sub-type “{subtype}”")
         word = self._validation_word(validation)
         moment = later.written(scheduled)
+        awaited = self._resolve_after(after)
         settings = self.config.board
         values: dict[str, Any] = {}
+        if awaited:
+            values[settings.prop("after")] = awaited
         # Written with the status, in the same write: a ready ticket must never
         # be seen by the daemon without the date that holds it back.
         if moment:
@@ -820,6 +836,67 @@ class Tickets(Base):
 
             daemon.nudge()
         return {"id": page_id.replace("-", ""), "scheduled": moment}
+
+    @staticmethod
+    def _resolve_after(given: list[str] | str | None, own: str = "") -> list[str]:
+        """The tickets named, as ids: `PON-36`, an id, a URL — a list, or one string with commas.
+
+        Refused with the reference that names nothing, rather than a ticket
+        that waits for nobody it was meant to.
+        """
+        if given is None:
+            return []
+        references = given.split(",") if isinstance(given, str) else list(given)
+        found: list[str] = []
+        for reference in references:
+            text = str(reference or "").strip()
+            if not text:
+                continue
+            record = tickets_module.resolve(text)
+            if record is None:
+                raise ValueError(f"no ticket “{text}” to wait for")
+            if own and record.id == ids.bare(own):
+                raise ValueError(f"{record.public_id or record.title} cannot wait for itself")
+            if record.id not in found:
+                found.append(record.id)
+        if own:
+            tickets_module.check_after(own, found)
+        return found
+
+    def set_after(self, page_id: str, after: list[str] | str) -> dict[str, Any]:
+        """Say which tickets this one waits for; an empty list waits for none.
+
+        Until the ticket is over, as its date. A loop — this ticket waited for,
+        even through others, by one it would wait for — is refused with the
+        loop said (`tickets.cycle`). A ready ticket given an unfinished one goes
+        to the waiting column; a waiting one left with none is made ready by
+        the daemon at its next look (`Board.release`).
+        """
+        record = tickets_module.get(page_id)
+        if record is None:
+            raise LookupError(f"no ticket with id {page_id}")
+        if record.status in ("done", "cancelled"):
+            raise ValueError("a finished ticket can no longer wait for anything")
+        wanted = self._resolve_after(after, own=page_id)
+        client = self.runner.client
+        client.update(self.runner.database, page_id, {self.config.board.prop("after"): wanted})
+        self.reader.hold(client.page(page_id))
+        self.watch.nudge()
+        from .. import daemon
+
+        daemon.nudge()
+        named = [
+            (found.public_id or found.title) if (found := tickets_module.get(key)) else key
+            for key in wanted
+        ]
+        return {"id": ids.bare(page_id), "after": wanted, "named": named}
+
+    def _page_or_none(self, page_id: str) -> store.Page | None:
+        """A page of the board, or None for one it does not have any more."""
+        try:
+            return self.runner.client.page(page_id)
+        except store.StoreError:
+            return None
 
     def set_on(self, page_id: str, prompt: str) -> dict[str, Any]:
         """Write the prompt a ticket runs at each change of its status; empty removes it.
@@ -950,6 +1027,7 @@ class Tickets(Base):
             "kind",
             "subtype",
             "scheduled",
+            "after",
         }
         if unknown:
             raise ValueError(f"unknown field: {', '.join(sorted(unknown))}")
@@ -968,9 +1046,11 @@ class Tickets(Base):
                     "its session runs — pause it first, or change the other fields"
                 )
         if record.status in ("done", "cancelled") and (
-            "validation" in fields or "scheduled" in fields
+            "validation" in fields or "scheduled" in fields or "after" in fields
         ):
-            raise ValueError("a finished ticket's validation and date can no longer change")
+            raise ValueError(
+                "a finished ticket's validation, date and dependencies can no longer change"
+            )
         if "title" in fields and not str(fields["title"]).strip():
             raise ValueError("a ticket needs a title")
         kind = str(fields["kind"]).strip() if "kind" in fields else record.kind
@@ -987,6 +1067,8 @@ class Tickets(Base):
             self._validation_word(fields["validation"])
         if "scheduled" in fields:
             later.written(fields["scheduled"])
+        if "after" in fields:
+            self._resolve_after(fields["after"], own=page_id)
 
         changed: list[str] = []
         client = self.runner.client
@@ -1029,6 +1111,9 @@ class Tickets(Base):
         if "scheduled" in fields:
             self.set_scheduled(page_id, str(fields["scheduled"]))
             changed.append("scheduled")
+        if "after" in fields:
+            self.set_after(page_id, fields["after"])
+            changed.append("after")
         return {"id": page_id.replace("-", ""), "title": record.title, "changed": changed}
 
     def delete_ticket(self, page_id: str) -> dict[str, Any]:
@@ -1301,6 +1386,37 @@ def _keys(settings: BoardNames) -> tuple[str, ...]:
     column.
     """
     return ("draft", *COLUMNS)
+
+
+def _awaited(
+    tickets: list[dict[str, Any]],
+    lookup: Callable[[str], store.Page | None],
+    names: dict[str, str],
+    status: str,
+) -> None:
+    """What each ticket a card comes after is, and where it stands: its id said out loud, its column.
+
+    The card says what a waiting ticket waits for — « Waits for PON-36 (in
+    progress) » — and its page lists them to add or take one away. A ticket
+    named that cannot be found any more holds nothing back (dependencies.py),
+    and is not listed.
+    """
+    for card in tickets:
+        found: list[dict[str, str]] = []
+        for entry in card.get("after") or []:
+            page = lookup(str(entry.get("id", "")))
+            if page is None:
+                continue
+            said = str(store.read(page, status) or "")
+            found.append(
+                {
+                    "id": ids.bare(page.id),
+                    "public_id": str(page.raw.get("public_id") or ""),
+                    "title": page.title,
+                    "column": names.get(said, "draft"),
+                }
+            )
+        card["after"] = found
 
 
 def _causes(tickets: list[dict[str, Any]]) -> None:

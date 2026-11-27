@@ -954,9 +954,10 @@ def command_move(args: argparse.Namespace) -> int:
         print(f"{RED}refused:{RESET} {error}", file=sys.stderr)
         return 1
     later_on = f", scheduled for {dated}" if dated else ""
-    print(
-        f"{record.title} #{_public(record.id)}: {current or 'no status'} → {moved['status']}{later_on}"
-    )
+    # What it is in now: a ticket made ready whose moment has not come waits.
+    landed = tickets.get(record.id)
+    now_in = landed.status if landed and moved.get("sync") == "pending" else moved["status"]
+    print(f"{record.title} #{_public(record.id)}: {current or 'no status'} → {now_in}{later_on}")
     return 0
 
 
@@ -1023,6 +1024,7 @@ def command_edit(args: argparse.Namespace) -> int:
             "kind",
             "subtype",
             "scheduled",
+            "after",
         )
         if getattr(args, name, None) is not None
     }
@@ -1156,6 +1158,14 @@ def command_show(args: argparse.Namespace) -> int:
         print(record.result.strip())
         return 0
     print(f"{BOLD}{record.title}{RESET}  {DIM}#{_public(record.id)} · {record.status}{RESET}")
+    if record.scheduled:
+        print(f"  {DIM}not before {record.scheduled}{RESET}")
+    if record.after:
+        awaited = [(tickets.get(key), key) for key in record.after]
+        said = ", ".join(
+            f"{_public(key)} ({found.status})" if found else _public(key) for found, key in awaited
+        )
+        print(f"  {DIM}after {said}{RESET}")
     for heading, text in (
         ("Mission", record.mission),
         ("Result", record.result),
@@ -2470,6 +2480,11 @@ def _add_reading_commands(subparsers: argparse._SubParsersAction[argparse.Argume
     editing.add_argument("--subtype", help="a code ticket's sub-type")
     editing.add_argument(
         "--at", dest="scheduled", help='hold it back until then: "demain 9h", "+2d"'
+    )
+    editing.add_argument(
+        "--after",
+        help="the tickets it waits for, all of them, separated by commas: PON-36,PON-35 "
+        "(empty: none) — a ready ticket waits until they are done or validated",
     )
     editing.set_defaults(function=command_edit)
 

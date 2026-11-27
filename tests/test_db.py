@@ -552,3 +552,47 @@ def the_tables_of_the_former_board_service_go_with_a_copy_taken_first() -> None:
         migrated.close()
     assert not list(location.parent.glob("notion-*.json"))
     assert [number for number, _ in db.backups(location)] == [len(before)], "copied first"
+
+
+@case
+def the_ready_tickets_whose_moment_has_not_come_are_moved_to_waiting() -> None:
+    """`_tickets_wait`: a date ahead, or a ticket « Après » neither done nor validated."""
+    location = Path(tempfile.mkdtemp()) / "ponos.db"
+    before = db.open_at(location, db.MIGRATIONS[:-1])
+    try:
+        rows = [
+            ("dated", "ready", "2999-01-01T09:00+00:00"),
+            ("past", "ready", "2020-01-01T09:00+00:00"),
+            ("plain", "ready", ""),
+            ("after", "ready", ""),
+            ("finished", "ready", ""),
+            ("drafted", "draft", "2999-01-01T09:00+00:00"),
+            ("first", "progress", ""),
+            ("second", "validated", ""),
+        ]
+        for key, status, scheduled in rows:
+            before.execute(
+                "INSERT INTO tickets (id, status, scheduled, created_at, edited_at) "
+                "VALUES (?, ?, ?, '2026-11-01', '2026-11-01')",
+                (key, status, scheduled),
+            )
+        before.execute("INSERT INTO ticket_after (ticket, after) VALUES ('after', 'first')")
+        before.execute("INSERT INTO ticket_after (ticket, after) VALUES ('finished', 'second')")
+        before.commit()
+    finally:
+        before.close()
+    after = db.open_at(location)
+    try:
+        found = dict(after.execute("SELECT id, status FROM tickets"))
+    finally:
+        after.close()
+    assert found == {
+        "dated": "waiting",
+        "past": "ready",
+        "plain": "ready",
+        "after": "waiting",
+        "finished": "ready",
+        "drafted": "draft",
+        "first": "progress",
+        "second": "validated",
+    }, found

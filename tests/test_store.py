@@ -814,13 +814,15 @@ def a_ticket_is_scheduled_at_creation_moved_and_launched_now() -> None:
 
         made = api.create_ticket("Relancer le client", scheduled=soon.isoformat())["id"]
         page = board.page(made)
-        assert store.read(page, settings.prop("status")) == settings.state("ready")
+        # Made ready with an hour ahead of it: it waits, in its own column.
+        assert store.read(page, settings.prop("status")) == settings.state("waiting")
         assert store.read(page, settings.prop("due")) == soon.isoformat(timespec="minutes")
         card = api.ticket(made)
         assert card["scheduled"] == soon.isoformat(timespec="minutes"), card["scheduled"]
+        assert card["column"] == "waiting", card["column"]
         eligible, waiting = api.runner.queue()
         assert made not in [ticket.id for ticket in eligible], "not before its hour"
-        assert [(ticket.id, moment) for ticket, moment in waiting] == [(made, soon)]
+        assert made not in [ticket.id for ticket, _ in waiting], "nor read in ready at all"
 
         later_on = soon + timedelta(days=1)
         assert api.set_scheduled(made, later_on.isoformat())["scheduled"] == later_on.isoformat(
@@ -852,6 +854,7 @@ def a_ticket_is_scheduled_at_creation_moved_and_launched_now() -> None:
         # « Launch now »: the date removed, and the ticket the runner's at once.
         assert api.set_scheduled(made, "") == {"id": made, "scheduled": ""}
         assert not store.read(board.page(made), settings.prop("due"))
+        assert store.read(board.page(made), settings.prop("status")) == settings.state("ready")
         eligible, waiting = api.runner.queue()
         assert made in [ticket.id for ticket in eligible] and not waiting
 

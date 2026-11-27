@@ -162,12 +162,12 @@ def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
     excluded = {
         condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
     }
-    assert excluded == {"review", "validated", "done", "ready", "progress"}
+    assert excluded == {"review", "validated", "done", "ready", "progress", "waiting"}
     assert all(condition["property"] == "statut" for condition in runner._woken_filter()["and"])
-    # Five names spoken, and everything else — failed, blocked, whatever the
+    # Six names spoken, and everything else — failed, blocked, whatever the
     # board adds later — left in, because that is where an answer is expected.
     # A ticket waiting for credit is not among them: it never left Ready.
-    assert len(runner._woken_filter()["and"]) == 5
+    assert len(runner._woken_filter()["and"]) == 6
     # A cancelled ticket is given up on: a comment under it wakes nothing — on
     # a board that offers the option, since the board refuses a filter on one it
     # does not know.
@@ -175,7 +175,7 @@ def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
     excluded = {
         condition["status"]["does_not_equal"] for condition in runner._woken_filter()["and"]
     }
-    assert excluded == {"review", "validated", "done", "ready", "progress", "cancelled"}
+    assert excluded == {"review", "validated", "done", "ready", "progress", "waiting", "cancelled"}
     # And so is a paused one, which you stopped on purpose: only moving it to
     # ready runs it again.
     offered.append("paused")
@@ -187,6 +187,7 @@ def waking_looks_everywhere_but_where_a_status_already_speaks() -> None:
         "validated",
         "done",
         "ready",
+        "waiting",
         "progress",
         "cancelled",
         "paused",

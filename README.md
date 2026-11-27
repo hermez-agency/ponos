@@ -186,8 +186,12 @@ Done          ◀───────────  once it is in
 ```
 
 A ticket made *Ready* starts the moment one of the daemon's places is free — `max_concurrent`
-of them, `max_concurrent_per_project` per repository —, by priority, after the tickets it
-waits for; « Run now » on its card takes a free place at once. The daemon, `ponos daemon`,
+of them, `max_concurrent_per_project` per repository —, by priority; « Run now » on its card
+takes a free place at once. One whose moment has not come — a date still ahead, tickets it
+comes after (« Après ») not finished — waits in **Waiting**, its card saying for what, and
+goes to *Ready* by itself once they are. To chain tickets, give the next one a dependency
+rather than leaving it a draft with an `On` prompt that makes it ready: see
+[A ticket that comes after another](guide/tickets.md#a-ticket-that-comes-after-another). The daemon, `ponos daemon`,
 runs for good (`ponos.service`), and a restart or an update never cuts a session short: the
 daemon that comes back takes it back. See [Installing](guide/installation.md).
 

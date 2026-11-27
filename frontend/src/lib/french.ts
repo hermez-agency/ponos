@@ -326,6 +326,10 @@ export const FRENCH: Record<string, string> = {
   // itself. A board that has is repeated in its own words.
   Ready: "Prêt",
   "In progress": "En cours",
+  // The column of a ticket whose moment has not come — see `ticket-waits.tsx`
+  // (« Waiting » itself is further down: the chat says it too).
+  "Starts {{at}}": "Commence le {{at}}",
+  "Waits for": "Attend",
   "In review": "En revue",
   Validated: "Validé",
   Blocked: "Bloqué",
